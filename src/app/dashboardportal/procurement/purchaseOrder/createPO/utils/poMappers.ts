@@ -422,3 +422,72 @@ export const getOptionLabelFromList = (
 	const target = String(value);
 	return options.find((opt) => opt.value === target)?.label;
 };
+
+/**
+ * Maps a price enquiry response (PO prefill data) to PO form values and line items.
+ * Used when creating a PO from a selected enquiry response via
+ * `/priceEnquiry/get_po_prefill_data`.
+ */
+export const mapEnquiryPrefillToFormValues = (
+	prefillData: {
+		supplier_id?: number;
+		supplier_branch_id?: number | null;
+		credit_days?: number | null;
+		delivery_days?: number | null;
+		terms_conditions?: string | null;
+		branch_id?: number;
+		expense_type_id?: number | null;
+		project_id?: number | null;
+		enquiry_id?: number;
+	},
+	defaultValues: Record<string, unknown>,
+): Record<string, unknown> => {
+	return {
+		...defaultValues,
+		branch: prefillData.branch_id != null ? String(prefillData.branch_id) : toStringValue(defaultValues.branch),
+		supplier: prefillData.supplier_id != null ? String(prefillData.supplier_id) : toStringValue(defaultValues.supplier),
+		supplier_branch: prefillData.supplier_branch_id != null ? String(prefillData.supplier_branch_id) : toStringValue(defaultValues.supplier_branch),
+		credit_term: prefillData.credit_days != null ? String(prefillData.credit_days) : toStringValue(defaultValues.credit_term),
+		delivery_timeline: prefillData.delivery_days != null ? String(prefillData.delivery_days) : toStringValue(defaultValues.delivery_timeline),
+		terms_conditions: prefillData.terms_conditions ?? toStringValue(defaultValues.terms_conditions),
+		expense_type: prefillData.expense_type_id != null ? String(prefillData.expense_type_id) : toStringValue(defaultValues.expense_type),
+		project: prefillData.project_id != null ? String(prefillData.project_id) : toStringValue(defaultValues.project),
+	};
+};
+
+/**
+ * Maps enquiry response line items to PO editable line items.
+ */
+export const mapEnquiryPrefillItems = (
+	items: Array<{
+		item_id?: number;
+		item_code?: string;
+		hsn_code?: string | null;
+		item_make_id?: number | null;
+		item_make_name?: string | null;
+		uom_id?: number;
+		uom_name?: string;
+		qty?: number;
+		rate?: number;
+		discount_mode?: number | null;
+		discount_value?: number | null;
+		discount_amount?: number | null;
+		indent_dtl_id?: number | null;
+	}>,
+): Array<Record<string, unknown>> => {
+	return items.map((item, idx) => ({
+		id: `enquiry-prefill-${idx}-${Date.now()}`,
+		item: item.item_id != null ? String(item.item_id) : "",
+		itemCode: item.item_code ?? "",
+		hsnCode: item.hsn_code ?? "",
+		item_make: item.item_make_id != null ? String(item.item_make_id) : "",
+		uom: item.uom_id != null ? String(item.uom_id) : "",
+		quantity: item.qty ?? 0,
+		rate: item.rate ?? 0,
+		discountMode: item.discount_mode ?? 0,
+		discountValue: item.discount_value ?? 0,
+		discountAmount: item.discount_amount ?? 0,
+		indentDtlId: item.indent_dtl_id != null ? String(item.indent_dtl_id) : "",
+		remarks: "",
+	}));
+};
