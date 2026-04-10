@@ -418,6 +418,23 @@ const apiRoutesPortalMasters = {
     PO_CLONE: `${API_URL}/procurementPO/clone_po`,
     PO_VALIDATE_ITEM: `${API_URL}/procurementPO/validate_item_for_po`,
 
+    // Price Enquiry
+    ENQUIRY_TABLE: `${API_URL}/priceEnquiry/get_enquiry_table`,
+    GET_ENQUIRY_SETUP: `${API_URL}/priceEnquiry/get_enquiry_setup`,
+    ENQUIRY_CREATE: `${API_URL}/priceEnquiry/create_enquiry`,
+    ENQUIRY_UPDATE: `${API_URL}/priceEnquiry/update_enquiry`,
+    GET_ENQUIRY_BY_ID: `${API_URL}/priceEnquiry/get_enquiry_by_id`,
+    GET_APPROVED_INDENT_ITEMS_FOR_ENQUIRY: `${API_URL}/priceEnquiry/get_approved_indent_items`,
+    ENQUIRY_ADD_RESPONSE: `${API_URL}/priceEnquiry/add_response`,
+    ENQUIRY_UPDATE_RESPONSE: `${API_URL}/priceEnquiry/update_response`,
+    ENQUIRY_GET_RESPONSE_BY_ID: `${API_URL}/priceEnquiry/get_response_by_id`,
+    ENQUIRY_GET_COMPARISON: `${API_URL}/priceEnquiry/get_responses_for_comparison`,
+    ENQUIRY_SELECT_RESPONSE: `${API_URL}/priceEnquiry/select_response`,
+    ENQUIRY_GET_PO_PREFILL: `${API_URL}/priceEnquiry/get_po_prefill_data`,
+    ENQUIRY_SEND_FOR_APPROVAL: `${API_URL}/priceEnquiry/send_for_approval`,
+    ENQUIRY_APPROVE: `${API_URL}/priceEnquiry/approve_enquiry`,
+    ENQUIRY_REJECT: `${API_URL}/priceEnquiry/reject_enquiry`,
+
     INWARD_TABLE: `${API_URL}/procurementInward/get_inward_table`,
     GET_INWARD_SETUP_1: `${API_URL}/procurementInward/get_inward_setup_1`,
     GET_INWARD_SETUP_2: `${API_URL}/procurementInward/get_inward_setup_2`,
@@ -624,6 +641,22 @@ const apiRoutesPortalMasters = {
 
     // Opening Balance
     ACC_OPENING_BILLS_IMPORT: `${API_URL}/accounting/opening_bills/import`,
+
+    // Price Enquiry endpoints
+    ENQUIRY_TABLE: `${API_URL}/procurementEnquiry/get_enquiry_table`,
+    GET_ENQUIRY_SETUP: `${API_URL}/procurementEnquiry/get_enquiry_setup`,
+    GET_ENQUIRY_BY_ID: `${API_URL}/procurementEnquiry/get_enquiry_by_id`,
+    ENQUIRY_APPROVED_INDENT_ITEMS: `${API_URL}/procurementEnquiry/get_approved_indent_items`,
+    ENQUIRY_CREATE: `${API_URL}/procurementEnquiry/create_enquiry`,
+    ENQUIRY_UPDATE: `${API_URL}/procurementEnquiry/update_enquiry`,
+    ENQUIRY_ADD_RESPONSE: `${API_URL}/procurementEnquiry/add_response`,
+    ENQUIRY_UPDATE_RESPONSE: `${API_URL}/procurementEnquiry/update_response`,
+    ENQUIRY_COMPARISON: `${API_URL}/procurementEnquiry/get_responses_for_comparison`,
+    ENQUIRY_SELECT_RESPONSE: `${API_URL}/procurementEnquiry/select_response`,
+    ENQUIRY_PO_PREFILL: `${API_URL}/procurementEnquiry/get_po_prefill_data`,
+    ENQUIRY_SEND_FOR_APPROVAL: `${API_URL}/procurementEnquiry/send_enquiry_for_approval`,
+    ENQUIRY_APPROVE: `${API_URL}/procurementEnquiry/approve_enquiry`,
+    ENQUIRY_REJECT: `${API_URL}/procurementEnquiry/reject_enquiry`,
 };
 
 export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters };

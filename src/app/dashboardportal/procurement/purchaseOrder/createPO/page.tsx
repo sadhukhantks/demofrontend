@@ -2,6 +2,8 @@
 
 import React, { Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { fetchWithCookie } from "@/utils/apiClient2";
+import { apiRoutesPortalMasters } from "@/utils/api";
 import TransactionWrapper, { type TransactionAction } from "@/components/ui/TransactionWrapper";
 import { Button } from "@/components/ui/button";
 import type { MuiFormMode } from "@/components/ui/muiform";
@@ -96,6 +98,8 @@ function POTransactionPageContent() {
   const requestedId = searchParams?.get("id") || "";
   const branchIdFromUrl = searchParams?.get("branch_id") || "";
   const menuIdFromUrl = searchParams?.get("menu_id") || "";
+  const fromEnquiry = searchParams?.get("from_enquiry") === "1";
+  const enquiryResponseId = searchParams?.get("response_id") || "";
 
   const mode: MuiFormMode = modeParam === "edit" ? "edit" : modeParam === "view" ? "view" : "create";
 
@@ -496,6 +500,90 @@ function POTransactionPageContent() {
     setupData,
     branchIdFromUrl,
     branchValue,
+  ]);
+
+  // ── Enquiry prefill: when coming from price enquiry comparison page ──
+  const enquiryPrefillAppliedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!fromEnquiry || !enquiryResponseId || mode !== "create") return;
+    if (enquiryPrefillAppliedRef.current) return;
+    if (!setupEnabled || setupLoading || !setupData) return;
+
+    enquiryPrefillAppliedRef.current = true;
+
+    let cancelled = false;
+    const fetchEnquiryPrefill = async () => {
+      setLoading(true);
+      try {
+        const url = `${apiRoutesPortalMasters.ENQUIRY_GET_PO_PREFILL}?response_id=${encodeURIComponent(enquiryResponseId)}`;
+        const { data: result, error } = await fetchWithCookie(url, "GET");
+        if (cancelled) return;
+        if (error) throw new Error(error);
+
+        const prefill = (result as Record<string, unknown>)?.data as Record<string, unknown> | undefined;
+        if (!prefill) throw new Error("No prefill data returned");
+
+        const defaultValues = buildDefaultFormValues();
+        const nextValues = {
+          ...defaultValues,
+          branch: prefill.branch_id != null ? String(prefill.branch_id) : defaultValues.branch,
+          supplier: prefill.supplier_id != null ? String(prefill.supplier_id) : "",
+          supplier_branch: prefill.supplier_branch_id != null ? String(prefill.supplier_branch_id) : "",
+          credit_term: prefill.credit_days != null ? Number(prefill.credit_days) : undefined,
+          delivery_timeline: prefill.delivery_days != null ? Number(prefill.delivery_days) : undefined,
+          terms_conditions: (prefill.terms_conditions ?? "") as string,
+          expense_type: prefill.expense_type_id != null ? String(prefill.expense_type_id) : "",
+          project: prefill.project_id != null ? String(prefill.project_id) : "",
+          price_enquiry_id: String(prefill.enquiry_id ?? ""),
+        };
+
+        if (nextValues.branch) {
+          setLockedBranchId(nextValues.branch);
+        }
+
+        setInitialValues(nextValues);
+        setFormValues(nextValues);
+        bumpFormKey();
+
+        const rawItems = Array.isArray(prefill.items) ? (prefill.items as Record<string, unknown>[]) : [];
+        const mappedLines = rawItems.map((item) => ({
+          id: `enq-${Math.random().toString(36).slice(2, 10)}`,
+          indentDtlId: item.indent_dtl_id != null ? String(item.indent_dtl_id) : undefined,
+          item: item.item_id != null ? String(item.item_id) : "",
+          itemCode: (item.item_code ?? "") as string,
+          hsnCode: (item.hsn_code ?? "") as string,
+          itemMake: item.item_make_id != null ? String(item.item_make_id) : "",
+          quantity: item.qty != null ? Number(item.qty) : 0,
+          rate: item.rate != null ? Number(item.rate) : 0,
+          uom: item.uom_id != null ? String(item.uom_id) : "",
+          discountMode: item.discount_mode != null ? Number(item.discount_mode) : DISCOUNT_MODE.NONE,
+          discountValue: item.discount_value != null ? Number(item.discount_value) : 0,
+          discountAmount: item.discount_amount != null ? Number(item.discount_amount) : 0,
+          amount: 0,
+          remarks: "",
+        }));
+
+        replaceItems(mappedLines as unknown as EditableLineItem[]);
+        setPageError(null);
+
+        toast({
+          title: "Enquiry data loaded",
+          description: "Purchase order has been pre-filled from the selected price enquiry response.",
+        });
+      } catch (err) {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : "Failed to load enquiry prefill data";
+        toast({ variant: "destructive", title: "Enquiry prefill error", description: message });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void fetchEnquiryPrefill();
+    return () => { cancelled = true; };
+  }, [
+    fromEnquiry, enquiryResponseId, mode, setupEnabled, setupLoading, setupData,
+    setInitialValues, setFormValues, bumpFormKey, replaceItems, coId, toast,
   ]);
 
   React.useEffect(() => {
