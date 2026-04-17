@@ -141,6 +141,12 @@ export type EditableLineItem = {
 	govtskgPackSheet?: number;
 	govtskgNetWeight?: number;
 	govtskgTotalWeight?: number;
+	/** Qty entered in bales (user-entered); quantity field stores the 100-pcs equivalent */
+	govtskgQtyBales?: string;
+	/** map_to_id for the bales UOM from uom_item_map_mst */
+	govtskgBalesUomId?: string;
+	/** Bales-to-billing-UOM conversion factor from uom_item_map_mst */
+	govtskgConversionFactor?: number;
 };
 
 export type MukamRecord = {

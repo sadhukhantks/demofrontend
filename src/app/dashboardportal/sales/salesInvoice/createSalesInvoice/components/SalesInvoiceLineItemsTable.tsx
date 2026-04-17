@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import type { TransactionLineColumn } from "@/components/ui/transaction";
 import type { EditableLineItem, Option, UomConversionEntry } from "../types/salesInvoiceTypes";
 import { computeConvertedRate } from "@/utils/uomConversion";
-import { DISCOUNT_TYPE, isRawJuteInvoice, isHessianInvoice } from "../utils/salesInvoiceConstants";
+import { DISCOUNT_TYPE, isRawJuteInvoice, isHessianInvoice, isGovtSkgInvoice } from "../utils/salesInvoiceConstants";
 
 const DISCOUNT_TYPE_OPTIONS: Option[] = [
 	{ label: "None", value: "" },
@@ -109,19 +109,52 @@ export const useInvoiceLineItemColumns = ({
 				header: "Quantity",
 				width: "0.8fr",
 				minWidth: "80px",
-				renderCell: ({ item }) =>
-					canEdit ? (
-						<Input
-							type="text"
-							value={item.quantity}
-							onChange={(e) => onFieldChange(item.id, "quantity", e.target.value)}
-							placeholder="0"
-							className="h-8 text-sm"
-						/>
-					) : (
-						<span className="block truncate text-sm">{item.quantity || "-"}</span>
-					),
-				getTooltip: ({ item }) => (item.quantity ? `Quantity: ${item.quantity}` : undefined),
+				renderCell: ({ item }) => {
+					const isGovtSkg = isGovtSkgInvoice(invoiceTypeId);
+					const displayValue = isGovtSkg ? (item.govtskgQtyBales ?? "") : item.quantity;
+					const fieldKey: keyof EditableLineItem = isGovtSkg ? "govtskgQtyBales" : "quantity";
+					const govtSkgAnnotation = isGovtSkg && item.quantity && Number(item.quantity)
+						? `= ${Number(item.quantity).toFixed(2)} per 100 pcs`
+						: null;
+					if (canEdit) {
+						return (
+							<div className="flex flex-col gap-0.5">
+								<Input
+									type="text"
+									value={displayValue}
+									onChange={(e) => onFieldChange(item.id, fieldKey, e.target.value)}
+									placeholder={isGovtSkg ? "Bales" : "0"}
+									className="h-8 text-sm"
+								/>
+								{govtSkgAnnotation ? (
+									<span className="text-[11px] text-muted-foreground leading-tight truncate">
+										{govtSkgAnnotation}
+									</span>
+								) : null}
+							</div>
+						);
+					}
+					return (
+						<div className="flex flex-col gap-0.5">
+							<span className="block truncate text-sm">{displayValue || "-"}</span>
+							{govtSkgAnnotation ? (
+								<span className="text-[11px] text-muted-foreground leading-tight truncate">
+									{govtSkgAnnotation}
+								</span>
+							) : null}
+						</div>
+					);
+				},
+				getTooltip: ({ item }) => {
+					const isGovtSkg = isGovtSkgInvoice(invoiceTypeId);
+					if (isGovtSkg) {
+						const parts: string[] = [];
+						if (item.govtskgQtyBales) parts.push(`Bales: ${item.govtskgQtyBales}`);
+						if (item.quantity) parts.push(`Qty: ${item.quantity} per 100 pcs`);
+						return parts.length ? parts.join("\n") : undefined;
+					}
+					return item.quantity ? `Quantity: ${item.quantity}` : undefined;
+				},
 			},
 			{
 				id: "uom",

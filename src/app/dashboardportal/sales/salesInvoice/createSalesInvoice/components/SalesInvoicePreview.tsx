@@ -65,6 +65,8 @@ export type InvoicePreviewItem = {
 	item?: string;
 	netWeight?: string | number;
 	quantity?: string | number;
+	/** Secondary qty line (e.g., "500 Bales") shown under primary quantity */
+	otherQtyDisplay?: string;
 	uom?: string;
 	rate?: string | number;
 	discountType?: string;
@@ -84,6 +86,7 @@ export type InvoicePreviewTotals = {
 	freightCharges?: number;
 	roundOff?: number;
 	netAmount?: number;
+	claimAmount?: number;
 };
 
 type InvoicePreviewProps = {
@@ -186,7 +189,7 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 	const previewRef = useRef<HTMLDivElement>(null);
 
 	const totalValue = totals
-		? (totals.grossAmount ?? 0) + (totals.totalIGST ?? 0) + (totals.totalCGST ?? 0) + (totals.totalSGST ?? 0) + (totals.freightCharges ?? 0)
+		? (totals.grossAmount ?? 0) - (totals.claimAmount ?? 0) + (totals.totalIGST ?? 0) + (totals.totalCGST ?? 0) + (totals.totalSGST ?? 0) + (totals.freightCharges ?? 0)
 		: 0;
 
 	const buildPrintableWindow = (titleSuffix: string) => {
@@ -219,6 +222,7 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:right;">
 						<div style="font-weight:600;">${item.quantity ?? "-"}</div>
 						<div style="font-size:10px;color:#555;">${item.uom || "-"}</div>
+						${item.otherQtyDisplay ? `<div style="font-size:10px;color:#666;">(${item.otherQtyDisplay})</div>` : ""}
 					</td>
 					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:right;">${formatAmount(item.rate)}</td>
 					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:right;">${formatAmount(item.netAmount)}</td>
@@ -231,7 +235,10 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:center;">${item.hsnCode || "-"}</td>
 					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;">${descriptionContent}</td>
 					${hasNetWeight ? `<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:right;">${item.netWeight !== undefined && item.netWeight !== "" ? formatAmount(item.netWeight) : "-"}</td>` : ""}
-					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:right;">${item.quantity ?? "-"}</td>
+					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:right;">
+						<div>${item.quantity ?? "-"}</div>
+						${item.otherQtyDisplay ? `<div style="font-size:10px;color:#666;">(${item.otherQtyDisplay})</div>` : ""}
+					</td>
 					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:center;">${item.uom || "-"}</td>
 					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:right;">${formatAmount(item.rate)}</td>
 					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:right;">${formatAmount(item.netAmount)}</td>
@@ -256,6 +263,7 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 					<td style="width:50%;border-left:1px solid #000;padding:0;vertical-align:top;">
 						<table style="width:100%;border-collapse:collapse;">
 							<tr>${cell("Total", { borderBottom: true })}${cell(formatAmount(totals.grossAmount), { right: true, borderBottom: true, borderLeft: true })}</tr>
+							${totals.claimAmount ? `<tr>${cell("Less: Claim Amount", { borderBottom: true })}${cell(`-${formatAmount(totals.claimAmount)}`, { right: true, borderBottom: true, borderLeft: true })}</tr>` : ""}
 							<tr>${cell(cgstLabel, { borderBottom: true })}${cell(formatAmount(totals.totalCGST), { right: true, borderBottom: true, borderLeft: true })}</tr>
 							<tr>${cell(sgstLabel, { borderBottom: true })}${cell(formatAmount(totals.totalSGST), { right: true, borderBottom: true, borderLeft: true })}</tr>
 							<tr>${cell(igstLabel, { borderBottom: true })}${cell(formatAmount(totals.totalIGST), { right: true, borderBottom: true, borderLeft: true })}</tr>
@@ -576,7 +584,12 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 												{item.remarks && item.remarks !== "-" && <div style={{ fontStyle: "italic", fontSize: "0.9em" }}>{item.remarks}</div>}
 											</Box>
 										{hasNetWeight && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, textAlign: "right" }}>{item.netWeight !== undefined && item.netWeight !== "" ? formatAmount(item.netWeight) : "-"}</Box>}
-										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, textAlign: "right" }}>{item.quantity ?? "-"}</Box>
+										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, textAlign: "right" }}>
+											<div>{item.quantity ?? "-"}</div>
+											{item.otherQtyDisplay && (
+												<div style={{ fontSize: 10, color: "#666" }}>({item.otherQtyDisplay})</div>
+											)}
+										</Box>
 										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, textAlign: "center" }}>{item.uom || "-"}</Box>
 										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, textAlign: "right" }}>{formatAmount(item.rate)}</Box>
 										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, textAlign: "right" }}>{formatAmount(item.netAmount)}</Box>
@@ -607,6 +620,7 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 						<Box>
 							{[
 								{ label: "Total", value: formatAmount(totals.grossAmount) },
+								...(totals.claimAmount ? [{ label: "Less: Claim Amount", value: `-${formatAmount(totals.claimAmount)}` }] : []),
 								{ label: cgstLabel, value: formatAmount(totals.totalCGST) },
 								{ label: sgstLabel, value: formatAmount(totals.totalSGST) },
 								{ label: igstLabel, value: formatAmount(totals.totalIGST) },

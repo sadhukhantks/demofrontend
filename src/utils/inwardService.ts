@@ -46,6 +46,8 @@ export type InwardDetails = {
 	updatedAt?: string;
 	inspection_check?: boolean | number | null;
 	active?: boolean | number | null;
+	statusId?: number | string | null;
+	status?: string | null;
 	lines: InwardLine[];
 };
 

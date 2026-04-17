@@ -636,12 +636,15 @@ function InvoiceTransactionPageContent() {
 
 	const freightCharges = Number(formValues.freight_charges) || 0;
 	const roundOff = Number(formValues.round_off) || 0;
+	const claimAmount = isRawJuteInvoice(invoiceTypeId)
+		? Number(formValues.jute_claim_amount) || 0
+		: 0;
 	const totals = React.useMemo(
 		() => {
-			const base = calculateInvoiceTotals(filledLineItems, freightCharges, roundOff);
+			const base = calculateInvoiceTotals(filledLineItems, freightCharges, roundOff, claimAmount);
 			return { ...base, netAmount: base.netAmount + additionalChargesTotal, additionalChargesTotal };
 		},
-		[filledLineItems, freightCharges, roundOff, additionalChargesTotal],
+		[filledLineItems, freightCharges, roundOff, claimAmount, additionalChargesTotal],
 	);
 
 	const detailsFetchKey = React.useMemo(
@@ -1067,6 +1070,9 @@ function InvoiceTransactionPageContent() {
 				if (line.discountType === 2) return "Amt";
 				return "";
 			})();
+			const otherQtyDisplay = line.govtskgQtyBales && Number(line.govtskgQtyBales)
+				? `${line.govtskgQtyBales} Bales`
+				: undefined;
 			return {
 				srNo: index + 1,
 				hsnCode: line.hsnCode,
@@ -1074,6 +1080,7 @@ function InvoiceTransactionPageContent() {
 				item: line.itemName || line.item || "-",
 				netWeight: line.govtskgNetWeight != null ? line.govtskgNetWeight : undefined,
 				quantity: line.quantity || "-",
+				otherQtyDisplay,
 				uom: uomLabel,
 				rate: line.rate,
 				discountType,
@@ -1087,6 +1094,7 @@ function InvoiceTransactionPageContent() {
 	const previewTotals = React.useMemo(
 		() => ({
 			grossAmount: totals.grossAmount,
+			claimAmount: totals.claimAmount,
 			totalIGST: totals.totalIGST,
 			totalCGST: totals.totalCGST,
 			totalSGST: totals.totalSGST,

@@ -28,6 +28,7 @@ export type DOPreviewItem = {
 	item?: string;
 	quantity?: string | number;
 	uom?: string;
+	qtyInBales?: string;
 };
 
 export type DOPreviewTotals = {
@@ -71,20 +72,27 @@ const DeliveryOrderPreview: React.FC<DOPreviewProps> = ({ header, items, remarks
 	const totalQtySummary = React.useMemo(() => {
 		if (!items.length) return "";
 		const uomCounts: Record<string, number> = {};
+		let balesTotal = 0;
 		for (const item of items) {
 			const qty = Number(item.quantity) || 0;
 			const uom = item.uom || "Units";
 			uomCounts[uom] = (uomCounts[uom] || 0) + qty;
+			const bales = Number(item.qtyInBales);
+			if (Number.isFinite(bales)) balesTotal += bales;
 		}
-		return Object.entries(uomCounts)
-			.map(([uom, qty]) => `${qty} ${uom}`)
-			.join(", ");
+		const parts = Object.entries(uomCounts).map(([uom, qty]) => `${qty} ${uom}`);
+		if (balesTotal > 0) {
+			const balesStr = Number.isInteger(balesTotal) ? String(balesTotal) : balesTotal.toFixed(2);
+			parts.push(`${balesStr} Bales`);
+		}
+		return parts.join(", ");
 	}, [items]);
 
-	/* Description lines — each item as "ITEM_CODE ITEM_NAME" */
+	/* Description lines — each item as "ITEM_CODE — ITEM_NAME [— X Bales]" */
 	const descriptionLines = React.useMemo(() => {
 		return items.map((item) => {
 			const parts = [item.itemCode, item.item].filter(Boolean);
+			if (item.qtyInBales) parts.push(`${item.qtyInBales} Bales`);
 			return parts.join(" — ") || "-";
 		});
 	}, [items]);

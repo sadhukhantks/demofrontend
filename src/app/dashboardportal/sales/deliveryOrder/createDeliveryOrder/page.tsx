@@ -63,7 +63,10 @@ import {
 	EMPTY_ITEM_GROUPS,
 	EMPTY_INVOICE_TYPES,
 	EMPTY_SETUP_PARAMS,
+	isGovtInvoice,
+	isBalesUomName,
 } from "./utils/deliveryOrderConstants";
+import { computeConvertedQty } from "@/utils/uomConversion";
 
 function DOPageLoading() {
 	return (
@@ -662,20 +665,28 @@ function DOTransactionPageContent() {
 		],
 	);
 
+	const showBalesInPreview = isGovtInvoice(formValues.invoice_type as string | undefined);
 	const previewItems = React.useMemo(() => {
 		return filledLineItems.map((line, index) => {
 			const itemOptions = getItemOptions(line.itemGroup);
 			const itemLabel = itemOptions.find((o) => o.value === line.item)?.label ?? line.itemName ?? "-";
 			const uomLabel = getUomLabel(line.itemGroup, line.item, line.uom, line.uomName);
+			const balesConv = showBalesInPreview
+				? computeConvertedQty(line.quantity, line.uom, getUomConversions(line.itemGroup, line.item))
+				: null;
+			const qtyInBales = balesConv && isBalesUomName(balesConv.otherUomName)
+				? balesConv.convertedQty
+				: undefined;
 			return {
 				srNo: index + 1,
 				itemCode: line.itemCode || "-",
 				item: itemLabel,
 				quantity: line.quantity || "-",
 				uom: uomLabel,
+				qtyInBales,
 			};
 		});
-	}, [filledLineItems, getItemOptions, getUomLabel]);
+	}, [filledLineItems, getItemOptions, getUomLabel, getUomConversions, showBalesInPreview]);
 
 	const previewTotals = React.useMemo(
 		() => ({

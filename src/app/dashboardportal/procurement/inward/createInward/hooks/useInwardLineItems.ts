@@ -128,7 +128,6 @@ export const useInwardLineItems = ({
 	 */
 	const handlePOItemsConfirm = React.useCallback(
 		(selectedItems: POLineItem[]): POItemsConfirmResult => {
-			let duplicateCount = 0;
 			let skippedNoPendingCount = 0;
 
 			const newLines: EditableLineItem[] = [];
@@ -164,23 +163,29 @@ export const useInwardLineItems = ({
 				});
 			});
 
-			let uniqueNewLines: EditableLineItem[] = [];
-			setLineItems((prev) => {
-				const existingPoDtlIds = new Set(
-					prev.filter((line) => line.poDtlId).map((line) => line.poDtlId)
-				);
-				uniqueNewLines = newLines.filter((line) => {
+			// Dedupe against current state BEFORE scheduling the update. React state
+			// updaters can run after this callback returns, so side effects inside
+			// setLineItems are not reliably visible when we build the result counts.
+			const existingPoDtlIds = new Set(
+				lineItems.filter((line) => line.poDtlId).map((line) => line.poDtlId)
+			);
+			let duplicateCount = 0;
+			const uniqueNewLines = newLines
+				.filter((line) => {
 					if (line.poDtlId && existingPoDtlIds.has(line.poDtlId)) {
 						duplicateCount += 1;
 						return false;
 					}
 					return true;
+				})
+				.map((l) => ({ ...l, rowError: computeRowError(l) }));
+
+			if (uniqueNewLines.length > 0) {
+				setLineItems((prev) => {
+					const filledPrev = prev.filter(lineHasAnyData);
+					return [...filledPrev, ...uniqueNewLines];
 				});
-				// Stamp row errors (e.g. future min-qty edits) and merge.
-				uniqueNewLines = uniqueNewLines.map((l) => ({ ...l, rowError: computeRowError(l) }));
-				const filledPrev = prev.filter(lineHasAnyData);
-				return [...filledPrev, ...uniqueNewLines];
-			});
+			}
 
 			return {
 				addedCount: uniqueNewLines.length,
@@ -188,7 +193,7 @@ export const useInwardLineItems = ({
 				skippedNoPendingCount,
 			};
 		},
-		[setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData]
+		[lineItems, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData]
 	);
 
 	// Compute filled line items (non-blank)

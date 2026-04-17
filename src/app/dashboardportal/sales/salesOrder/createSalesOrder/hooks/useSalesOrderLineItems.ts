@@ -313,10 +313,21 @@ export const useSalesOrderLineItems = ({
 			base.govtskgPackSheet = gd.packSheet != null ? String(gd.packSheet) : "";
 			base.govtskgNetWeight = gd.netWeight != null ? String(gd.netWeight) : "";
 			base.govtskgTotalWeight = gd.totalWeight != null ? String(gd.totalWeight) : "";
+			// Back-calculate bales from stored quantity when the UOM cache is already populated.
+			// (Deferred effect below handles the case where cache loads later.)
+			const qtyPer100 = Number(line.quantity) || 0;
+			if (qtyPer100 > 0 && groupId && itemId && uomId) {
+				const conv = getGovtSkgBalesConversion(groupId, itemId, uomId);
+				if (conv && conv.factor > 0) {
+					base.govtskgQtyBales = String(qtyPer100 * conv.factor);
+					base.govtskgConversionFactor = conv.factor;
+					base.govtskgBalesUomId = conv.balesUomId;
+				}
+			}
 		}
 
 		return base;
-	}, [resolveQtyRounding, resolveRateRounding]);
+	}, [resolveQtyRounding, resolveRateRounding, getGovtSkgBalesConversion]);
 
 	const handleLineFieldChange = React.useCallback(
 		(id: string, field: keyof EditableLineItem, rawValue: string | number) => {
@@ -655,8 +666,11 @@ export const useSalesOrderLineItems = ({
 		setLineItems((prev) => {
 			let changed = false;
 			const next = prev.map((line) => {
-				// Govt SKG: resolve missing bales conversion factor and recalculate
-				if (isGovtSkg && !line.govtskgConversionFactor && line.itemGroup && line.item && line.uom) {
+				// Govt SKG: resolve missing bales conversion factor OR back-fill bales
+				// (when quantity is loaded from a saved order but govtskgQtyBales is empty)
+				const needsFactor = !line.govtskgConversionFactor;
+				const needsBalesBackfill = !line.govtskgQtyBales && Number(line.quantity) > 0;
+				if (isGovtSkg && (needsFactor || needsBalesBackfill) && line.itemGroup && line.item && line.uom) {
 					const balesConv = getGovtSkgBalesConversion(line.itemGroup, line.item, line.uom, line.govtskgBalesUomId);
 					if (balesConv) {
 						changed = true;

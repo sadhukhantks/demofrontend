@@ -32,6 +32,7 @@ export const useSalesInvoiceLineItems = ({
 	itemGroupCache, itemGroupLoading, ensureItemGroupData, itemGroups, invoiceTypeId,
 }: Params) => {
 	const isHessian = invoiceTypeId === "2";
+	const isGovtSkg = invoiceTypeId === "3";
 	const {
 		items: lineItems, setItems: setLineItems, replaceItems, removeItems: removeLineItems,
 	} = useLineItems<EditableLineItem>({
@@ -43,6 +44,35 @@ export const useSalesInvoiceLineItems = ({
 
 	const doGroupInfoRef = React.useRef<Map<string, { code?: string; name?: string }>>(new Map());
 	const soGroupInfoRef = React.useRef<Map<string, { code?: string; name?: string }>>(new Map());
+
+	/**
+	 * Look up the bales conversion for a govt sacking item.
+	 * Finds the UOM mapping where mapToName contains "bale" (case-insensitive),
+	 * returns { factor, balesUomId } or undefined.
+	 * If a known balesUomId is provided, uses that for an exact match first.
+	 */
+	const getGovtSkgBalesConversion = React.useCallback(
+		(groupId: string, itemId: string, billingUomId: string, knownBalesUomId?: string): { factor: number; balesUomId: string } | undefined => {
+			const cache = itemGroupCache[groupId];
+			if (!cache) return undefined;
+			const conversions = cache.uomConversionsByItemId[itemId];
+			if (!conversions?.length) return undefined;
+			if (knownBalesUomId) {
+				for (const conv of conversions) {
+					if (conv.mapFromId === billingUomId && conv.mapToId === knownBalesUomId && conv.relationValue > 0) {
+						return { factor: conv.relationValue, balesUomId: conv.mapToId };
+					}
+				}
+			}
+			for (const conv of conversions) {
+				if (conv.mapFromId === billingUomId && conv.relationValue > 0 && conv.mapToName.toLowerCase().includes("bale")) {
+					return { factor: conv.relationValue, balesUomId: conv.mapToId };
+				}
+			}
+			return undefined;
+		},
+		[itemGroupCache],
+	);
 
 	const mapLineToEditable = React.useCallback((line: InvoiceLine): EditableLineItem => ({
 		id: line.id ? String(line.id) : generateLineId(),
@@ -146,6 +176,60 @@ export const useSalesInvoiceLineItems = ({
 				return;
 			}
 
+			// --- Govt SKG: user enters bales; auto-calc quantity (per-100-pcs) ---
+			if (isGovtSkg && field === "govtskgQtyBales") {
+				const sanitized = value.replace(/[^0-9.]/g, "");
+				setLineItems((prev) =>
+					prev.map((item) => {
+						if (item.id !== id) return item;
+						let convFactor = item.govtskgConversionFactor || 0;
+						let balesUomId = item.govtskgBalesUomId;
+						if (!convFactor && item.itemGroup && item.item && item.uom) {
+							const balesConv = getGovtSkgBalesConversion(item.itemGroup, item.item, item.uom, balesUomId);
+							convFactor = balesConv?.factor || 0;
+							balesUomId = balesConv?.balesUomId || balesUomId;
+						}
+						const bales = Number(sanitized) || 0;
+						const quantity = convFactor > 0 ? bales / convFactor : 0;
+						return recalcLine({
+							...item,
+							govtskgConversionFactor: convFactor || item.govtskgConversionFactor,
+							govtskgBalesUomId: balesUomId,
+							govtskgQtyBales: sanitized,
+							quantity: bales > 0 && convFactor > 0 ? String(quantity) : "",
+						});
+					}),
+				);
+				return;
+			}
+
+			// --- Govt SKG rate change: if bales entered, recompute quantity too ---
+			if (isGovtSkg && field === "rate") {
+				const sanitized = value.replace(/[^0-9.]/g, "");
+				setLineItems((prev) =>
+					prev.map((item) => {
+						if (item.id !== id) return item;
+						let convFactor = item.govtskgConversionFactor || 0;
+						let balesUomId = item.govtskgBalesUomId;
+						if (!convFactor && item.itemGroup && item.item && item.uom) {
+							const balesConv = getGovtSkgBalesConversion(item.itemGroup, item.item, item.uom, balesUomId);
+							convFactor = balesConv?.factor || 0;
+							balesUomId = balesConv?.balesUomId || balesUomId;
+						}
+						const bales = Number(item.govtskgQtyBales) || 0;
+						const quantity = bales > 0 && convFactor > 0 ? bales / convFactor : Number(item.quantity) || 0;
+						return recalcLine({
+							...item,
+							rate: sanitized,
+							govtskgConversionFactor: convFactor || item.govtskgConversionFactor,
+							govtskgBalesUomId: balesUomId,
+							quantity: bales > 0 && convFactor > 0 ? String(quantity) : item.quantity,
+						});
+					}),
+				);
+				return;
+			}
+
 			if (field === "quantity" || field === "rate") {
 				const sanitized = value.replace(/[^0-9.]/g, "");
 				const applied = isHessian && field === "rate"
@@ -199,7 +283,7 @@ export const useSalesInvoiceLineItems = ({
 				prev.map((item) => (item.id === id ? { ...item, [field]: value } as EditableLineItem : item)),
 			);
 		},
-		[mode, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, recalcLine, isHessian, partyState, shippingState],
+		[mode, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, recalcLine, isHessian, isGovtSkg, getGovtSkgBalesConversion, partyState, shippingState],
 	);
 
 	const replaceWithDeliveryOrderLines = React.useCallback(
@@ -304,6 +388,38 @@ export const useSalesInvoiceLineItems = ({
 	const clearImportedLines = React.useCallback(() => {
 		replaceItems([]);
 	}, [replaceItems]);
+
+	// --- Govt SKG: back-fill bales once UOM cache loads ---
+	// Items loaded from saved invoice or from DO/SO import don't have govtskgQtyBales
+	// until the setup_2 API returns conversion data. This patches lines once cache is available.
+	React.useEffect(() => {
+		if (!isGovtSkg) return;
+		setLineItems((prev) => {
+			let changed = false;
+			const next = prev.map((line) => {
+				const needsFactor = !line.govtskgConversionFactor;
+				const needsBalesBackfill = !line.govtskgQtyBales && Number(line.quantity) > 0;
+				if ((needsFactor || needsBalesBackfill) && line.itemGroup && line.item && line.uom) {
+					const balesConv = getGovtSkgBalesConversion(line.itemGroup, line.item, line.uom, line.govtskgBalesUomId);
+					if (balesConv) {
+						changed = true;
+						let bales = Number(line.govtskgQtyBales) || 0;
+						if (bales === 0 && Number(line.quantity) > 0) {
+							bales = Number(line.quantity) * balesConv.factor;
+						}
+						return {
+							...line,
+							govtskgConversionFactor: balesConv.factor,
+							govtskgBalesUomId: balesConv.balesUomId,
+							govtskgQtyBales: bales > 0 ? String(bales) : line.govtskgQtyBales,
+						};
+					}
+				}
+				return line;
+			});
+			return changed ? next : prev;
+		});
+	}, [isGovtSkg, itemGroupCache, setLineItems, getGovtSkgBalesConversion]);
 
 	const filledLineItems = React.useMemo(() => lineItems.filter(lineHasAnyData), [lineItems]);
 
