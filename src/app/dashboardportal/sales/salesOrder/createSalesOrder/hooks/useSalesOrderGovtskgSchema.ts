@@ -20,9 +20,9 @@ export const useSalesOrderGovtskgSchema = ({
 				{ value: "RAIL", label: "RAIL" },
 				{ value: "ROAD", label: "ROAD" },
 			] },
-			{ name: "govtskg_admin_office", label: "Administrative Office Address", type: "textarea", required: false, disabled, grid: { xs: 12 } },
 			{ name: "govtskg_rail_head", label: "Destination Rail Head", type: "text", required: false, disabled, grid: { xs: 12, md: 4 } },
 			{ name: "govtskg_loading_point", label: "Loading Point", type: "text", required: false, disabled, grid: { xs: 12, md: 4 } },
+			{ name: "govtskg_admin_office", label: "Destination", type: "text", required: false, disabled, grid: { xs: 12, md: 4 } },
 		];
 		return { fields } satisfies Schema;
 	}, [mode, headerFieldsDisabled]);

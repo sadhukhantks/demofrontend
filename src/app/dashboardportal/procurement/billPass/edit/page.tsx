@@ -29,6 +29,7 @@ import {
   type BillPassDetail,
   type BillPassSRLine,
   type BillPassDRCRLine,
+  type BillPassAdditionalCharge,
 } from "@/utils/billPassService";
 
 /**
@@ -71,6 +72,114 @@ function InfoField({ label, value }: { label: string; value: React.ReactNode }) 
       <Typography variant="body2" fontWeight={500}>
         {value || "-"}
       </Typography>
+    </Box>
+  );
+}
+
+/** Read-only Additional Charges table. Inherited from SR (proc_inward_additional). */
+function AdditionalChargesTable({ lines }: { lines: BillPassAdditionalCharge[] }) {
+  const headers = [
+    "Charge",
+    "Qty",
+    "Rate",
+    "Net Amount",
+    "Tax %",
+    "CGST",
+    "SGST",
+    "IGST",
+    "Tax Amt",
+    "Total",
+    "Remarks",
+  ];
+  const numericHeaders = new Set([
+    "Qty",
+    "Rate",
+    "Net Amount",
+    "Tax %",
+    "CGST",
+    "SGST",
+    "IGST",
+    "Tax Amt",
+    "Total",
+  ]);
+
+  return (
+    <Box sx={{ overflowX: "auto" }}>
+      <Paper variant="outlined">
+        <Box component="table" sx={{ width: "100%", borderCollapse: "collapse" }}>
+          <Box component="thead" sx={{ bgcolor: "primary.main" }}>
+            <Box component="tr">
+              {headers.map((h) => (
+                <Box
+                  key={h}
+                  component="th"
+                  sx={{
+                    p: 1,
+                    color: "white",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    textAlign: numericHeaders.has(h) ? "right" : "left",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {h}
+                </Box>
+              ))}
+            </Box>
+          </Box>
+          <Box component="tbody">
+            {lines.map((line, idx) => {
+              const total = line.net_amount + line.tax_amount;
+              return (
+                <Box
+                  key={line.proc_inward_additional_id}
+                  component="tr"
+                  sx={{ bgcolor: idx % 2 === 0 ? "grey.50" : "white" }}
+                >
+                  <Box component="td" sx={{ p: 1, fontSize: "0.75rem" }}>
+                    <Typography variant="caption" fontWeight={600}>
+                      {line.additional_charges_name || "-"}
+                    </Typography>
+                  </Box>
+                  <Box component="td" sx={{ p: 1, fontSize: "0.75rem", textAlign: "right" }}>
+                    {formatAmount(line.qty)}
+                  </Box>
+                  <Box component="td" sx={{ p: 1, fontSize: "0.75rem", textAlign: "right" }}>
+                    {formatAmount(line.rate)}
+                  </Box>
+                  <Box component="td" sx={{ p: 1, fontSize: "0.75rem", textAlign: "right" }}>
+                    {formatAmount(line.net_amount)}
+                  </Box>
+                  <Box component="td" sx={{ p: 1, fontSize: "0.75rem", textAlign: "right" }}>
+                    {formatAmount(line.tax_pct)}
+                  </Box>
+                  <Box component="td" sx={{ p: 1, fontSize: "0.75rem", textAlign: "right" }}>
+                    {formatAmount(line.cgst_amount)}
+                  </Box>
+                  <Box component="td" sx={{ p: 1, fontSize: "0.75rem", textAlign: "right" }}>
+                    {formatAmount(line.sgst_amount)}
+                  </Box>
+                  <Box component="td" sx={{ p: 1, fontSize: "0.75rem", textAlign: "right" }}>
+                    {formatAmount(line.igst_amount)}
+                  </Box>
+                  <Box component="td" sx={{ p: 1, fontSize: "0.75rem", textAlign: "right" }}>
+                    {formatAmount(line.tax_amount)}
+                  </Box>
+                  <Box
+                    component="td"
+                    sx={{ p: 1, fontSize: "0.75rem", textAlign: "right", fontWeight: 600 }}
+                  >
+                    {formatAmount(total)}
+                  </Box>
+                  <Box component="td" sx={{ p: 1, fontSize: "0.75rem" }}>
+                    {line.remarks || "-"}
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
+        </Box>
+      </Paper>
     </Box>
   );
 }
@@ -291,12 +400,13 @@ function BillPassEditPageContent() {
     return buildDrcrLinesByInwardDtl(detail.debit_notes, detail.credit_notes);
   }, [detail]);
 
-  // Calculate net payable with round-off
+  // Calculate net payable with round-off. Mirrors backend formula:
+  // sr_total - dr_total + cr_total + additional_total + round_off.
   const netPayable = React.useMemo(() => {
     if (!detail) return 0;
     const s = detail.summary;
     const roundOff = parseFloat(formData.round_off_value) || 0;
-    return s.sr_total - s.dr_total + s.cr_total + roundOff;
+    return s.sr_total - s.dr_total + s.cr_total + s.additional_total + roundOff;
   }, [detail, formData.round_off_value]);
 
   // ─── Render States ────────────────────────────────────────────────────────
@@ -556,6 +666,21 @@ function BillPassEditPageContent() {
         </CardContent>
       </Card>
 
+      {/* ── Additional Charges (read-only, inherited from SR) ────────────── */}
+      {detail.additional_charges.length > 0 && (
+        <Card sx={{ mb: 2 }}>
+          <CardContent>
+            <Typography variant="subtitle1" fontWeight={600} mb={1}>
+              Additional Charges
+            </Typography>
+            <Typography variant="caption" color="text.secondary" mb={2} display="block">
+              {summary.additional_count} charge(s) captured at SR stage &mdash; read-only here
+            </Typography>
+            <AdditionalChargesTable lines={detail.additional_charges} />
+          </CardContent>
+        </Card>
+      )}
+
       {/* ── Invoice Details + Summary ────────────────────────────────────── */}
       <Grid container spacing={2}>
         {/* Left: Editable Invoice Details */}
@@ -670,6 +795,25 @@ function BillPassEditPageContent() {
                     color="success.main"
                     prefix="+"
                   />
+                )}
+                {summary.additional_count > 0 && (
+                  <>
+                    <SummaryRow
+                      label={`Add: Additional Charges (${summary.additional_count})`}
+                      value={summary.additional_net}
+                      prefix="+"
+                    />
+                    {summary.additional_cgst > 0 && (
+                      <SummaryRow label="Add. CGST" value={summary.additional_cgst} indent />
+                    )}
+                    {summary.additional_sgst > 0 && (
+                      <SummaryRow label="Add. SGST" value={summary.additional_sgst} indent />
+                    )}
+                    {summary.additional_igst > 0 && (
+                      <SummaryRow label="Add. IGST" value={summary.additional_igst} indent />
+                    )}
+                    <SummaryRow label="Additional Total" value={summary.additional_total} bold />
+                  </>
                 )}
                 {parseFloat(formData.round_off_value) !== 0 && (
                   <SummaryRow label="Round Off" value={parseFloat(formData.round_off_value) || 0} />

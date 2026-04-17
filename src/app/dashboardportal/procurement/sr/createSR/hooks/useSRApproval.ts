@@ -21,6 +21,8 @@ type UseSRApprovalReturn = {
 	saving: boolean;
 	canEdit: boolean;
 	isDraft: boolean;
+	isDraftSaved: boolean;
+	isUnsaved: boolean;
 	isOpen: boolean;
 	handleSave: () => Promise<void>;
 	handleOpen: () => Promise<void>;
@@ -45,7 +47,9 @@ export const useSRApproval = ({
 	const [saving, setSaving] = React.useState(false);
 
 	const statusId = header?.sr_status ?? 0;
-	const isDraft = statusId === SR_STATUS_IDS.DRAFT || statusId === 0;
+	const isUnsaved = statusId === 0;
+	const isDraftSaved = statusId === SR_STATUS_IDS.DRAFT;
+	const isDraft = isUnsaved || isDraftSaved;
 	const isOpen = statusId === SR_STATUS_IDS.OPEN;
 	const isApproved = statusId === SR_STATUS_IDS.APPROVED;
 	const isRejected = statusId === SR_STATUS_IDS.REJECTED;
@@ -262,6 +266,8 @@ export const useSRApproval = ({
 		saving,
 		canEdit,
 		isDraft,
+		isDraftSaved,
+		isUnsaved,
 		isOpen,
 		handleSave,
 		handleOpen,

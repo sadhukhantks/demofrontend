@@ -76,6 +76,7 @@ export const usePOHeaderSchema = ({
         name: "credit_term",
         label: "Credit Term (days)",
         type: "custom",
+        hideLabel: true,
         disabled: headerFieldsDisabled,
         render: ({ value, onChange, disabled: fieldDisabled }) => (
           <TextField
@@ -111,6 +112,7 @@ export const usePOHeaderSchema = ({
         name: "delivery_timeline",
         label: "Delivery Timeline (days)",
         type: "custom",
+        hideLabel: true,
         required: true,
         disabled: headerFieldsDisabled,
         isEmpty: (value) => value === null || value === undefined || String(value).trim() === "",
@@ -148,6 +150,7 @@ export const usePOHeaderSchema = ({
         name: "expected_date",
         label: "Expected Date",
         type: "custom",
+        hideLabel: true,
         render: () => (
           <TextField
             label="Expected Date"
@@ -203,9 +206,9 @@ export const usePOHeaderSchema = ({
 export const usePOFooterSchema = ({ coConfig, billingState, shippingState, taxType }: UsePOFooterSchemaParams): Schema =>
   React.useMemo(() => {
     const fields: Field[] = [
-      { name: "footer_note", label: "Footer Note", type: "textarea", grid: { xs: 12 } },
-      { name: "internal_note", label: "Internal Note", type: "textarea", grid: { xs: 12 } },
-      { name: "terms_conditions", label: "Terms and Conditions", type: "textarea", grid: { xs: 12 } },
+      { name: "footer_note", label: "Footer Note", type: "textarea", minRows: 1, grid: { xs: 12 } },
+      { name: "internal_note", label: "Internal Note", type: "textarea", minRows: 1, grid: { xs: 12 } },
+      { name: "terms_conditions", label: "Terms and Conditions", type: "textarea", minRows: 1, grid: { xs: 12 } },
       { name: "advance_percentage", label: "Advance Percentage", type: "text", grid: { xs: 12, md: 4 } },
     ];
 

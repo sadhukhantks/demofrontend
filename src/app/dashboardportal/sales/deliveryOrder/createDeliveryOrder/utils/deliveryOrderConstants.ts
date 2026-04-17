@@ -53,3 +53,11 @@ export const isPercentageDiscountType = (type?: number | null): type is typeof D
 
 export const isAmountDiscountType = (type?: number | null): type is typeof DISCOUNT_TYPE.AMOUNT =>
 	type === DISCOUNT_TYPE.AMOUNT;
+
+export const GOVT_INVOICE_TYPE_ID = "3" as const;
+
+export const isGovtInvoice = (id?: string | number | null): boolean =>
+	id != null && String(id) === GOVT_INVOICE_TYPE_ID;
+
+export const isBalesUomName = (name?: string): boolean =>
+	!!name && /\bbales?\b/i.test(name);
