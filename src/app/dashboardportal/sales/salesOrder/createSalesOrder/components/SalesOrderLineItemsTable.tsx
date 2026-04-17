@@ -56,6 +56,10 @@ export const useSalesOrderLineItemColumns = ({
 					const label = options.find((o) => o.value === item.item)?.label ?? item.item ?? "-";
 					return <span className="block truncate text-sm">{label}</span>;
 				},
+				getTooltip: ({ item }) => {
+					const options = getItemOptions(item.itemGroup);
+					return options.find((o) => o.value === item.item)?.label ?? item.item ?? undefined;
+				},
 			},
 			{
 				id: "itemMake",

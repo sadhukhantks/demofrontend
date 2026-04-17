@@ -102,6 +102,22 @@ export type BillPassDRCRNote = {
   lines: BillPassDRCRLine[];
 };
 
+/** Additional charge row inherited from SR (proc_inward_additional). Read-only on Bill Pass. */
+export type BillPassAdditionalCharge = {
+  proc_inward_additional_id: number;
+  additional_charges_id: number;
+  additional_charges_name: string;
+  qty: number;
+  rate: number;
+  net_amount: number;
+  remarks: string;
+  tax_pct: number;
+  cgst_amount: number;
+  sgst_amount: number;
+  igst_amount: number;
+  tax_amount: number;
+};
+
 /** Bill Pass summary totals */
 export type BillPassSummary = {
   sr_taxable: number;
@@ -115,6 +131,13 @@ export type BillPassSummary = {
   dr_count: number;
   cr_total: number;
   cr_count: number;
+  additional_net: number;
+  additional_cgst: number;
+  additional_sgst: number;
+  additional_igst: number;
+  additional_tax: number;
+  additional_total: number;
+  additional_count: number;
   net_payable: number;
 };
 
@@ -142,6 +165,7 @@ export type BillPassDetail = {
   sr_lines: BillPassSRLine[];
   debit_notes: BillPassDRCRNote[];
   credit_notes: BillPassDRCRNote[];
+  additional_charges: BillPassAdditionalCharge[];
 };
 
 /** Bill Pass update payload */

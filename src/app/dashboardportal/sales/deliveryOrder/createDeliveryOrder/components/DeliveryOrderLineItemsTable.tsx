@@ -3,7 +3,8 @@ import { SearchableSelect } from "@/components/ui/transaction";
 import { Input } from "@/components/ui/input";
 import type { TransactionLineColumn } from "@/components/ui/transaction";
 import type { EditableLineItem, Option, UomConversionEntry } from "../types/deliveryOrderTypes";
-import { computeConvertedRate } from "@/utils/uomConversion";
+import { computeConvertedRate, computeConvertedQty } from "@/utils/uomConversion";
+import { isGovtInvoice, isBalesUomName } from "../utils/deliveryOrderConstants";
 
 type UseDOLineItemColumnsParams = {
 	canEdit: boolean;
@@ -82,19 +83,56 @@ export const useDOLineItemColumns = ({
 				header: "Qty",
 				width: "0.8fr",
 				minWidth: "80px",
-				renderCell: ({ item }) =>
-					canEdit ? (
-						<Input
-							type="text"
-							value={item.quantity}
-							onChange={(e) => handleLineFieldChange(item.id, "quantity", e.target.value)}
-							placeholder="0"
-							className="h-8 text-sm"
-						/>
-					) : (
-						<span className="block truncate text-sm">{item.quantity || "-"}</span>
-					),
-				getTooltip: ({ item }) => (item.quantity ? `Quantity: ${item.quantity}` : undefined),
+				renderCell: ({ item }) => {
+					const showBales = isGovtInvoice(invoiceTypeId);
+					const balesConv = showBales && getUomConversions
+						? computeConvertedQty(item.quantity, item.uom, getUomConversions(item.itemGroup, item.item))
+						: null;
+					const balesLine = balesConv && isBalesUomName(balesConv.otherUomName)
+						? `\u2248 ${balesConv.convertedQty} ${balesConv.otherUomName}`
+						: null;
+
+					if (canEdit) {
+						return (
+							<div className="flex flex-col gap-0.5">
+								<Input
+									type="text"
+									value={item.quantity}
+									onChange={(e) => handleLineFieldChange(item.id, "quantity", e.target.value)}
+									placeholder="0"
+									className="h-8 text-sm"
+								/>
+								{balesLine ? (
+									<span className="text-[11px] text-muted-foreground leading-tight truncate">
+										{balesLine}
+									</span>
+								) : null}
+							</div>
+						);
+					}
+
+					return (
+						<div className="flex flex-col gap-0.5">
+							<span className="block truncate text-sm">{item.quantity || "-"}</span>
+							{balesLine ? (
+								<span className="text-[11px] text-muted-foreground leading-tight truncate">
+									{balesLine}
+								</span>
+							) : null}
+						</div>
+					);
+				},
+				getTooltip: ({ item }) => {
+					if (!item.quantity) return undefined;
+					const showBales = isGovtInvoice(invoiceTypeId);
+					const balesConv = showBales && getUomConversions
+						? computeConvertedQty(item.quantity, item.uom, getUomConversions(item.itemGroup, item.item))
+						: null;
+					if (balesConv && isBalesUomName(balesConv.otherUomName)) {
+						return `Quantity: ${item.quantity} (\u2248 ${balesConv.convertedQty} ${balesConv.otherUomName})`;
+					}
+					return `Quantity: ${item.quantity}`;
+				},
 			},
 			{
 				id: "uom",
