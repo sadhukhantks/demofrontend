@@ -779,9 +779,12 @@ function SalesOrderTransactionPageContent() {
 	}, [soDetails, mode, resetBaseline]);
 
 	// Preview data
-	const previewHeader = React.useMemo(
-		() => ({
+	const previewHeader = React.useMemo(() => {
+		const isGovtSkgHeader = isGovtSkgOrder(invoiceTypeCode);
+		return {
 			salesNo: soDetails?.salesNo,
+			pcsoNo: isGovtSkgHeader ? ((formValues.govtskg_pcso_no as string) || undefined) : undefined,
+			pcsoDate: isGovtSkgHeader ? ((formValues.govtskg_pcso_date as string) || undefined) : undefined,
 			salesOrderDate: (formValues.date as string) || soDetails?.salesOrderDate,
 			branch: resolvedBranchOptions.find((o) => String(o.value) === branchValue)?.label ?? branchValue,
 			customerName: customerOptions.find((o) => String(o.value) === String(formValues.party))?.label ?? soDetails?.partyName,
@@ -790,13 +793,13 @@ function SalesOrderTransactionPageContent() {
 			status: statusChipProps?.label ?? soDetails?.status,
 			companyName,
 			companyLogo,
-		}),
-		[
-			soDetails, formValues.date, formValues.party, formValues.broker, formValues.transporter,
-			branchValue, resolvedBranchOptions, customerOptions, brokerOptions, transporterOptions,
-			statusChipProps?.label, companyName, companyLogo,
-		],
-	);
+		};
+	}, [
+		soDetails, formValues.date, formValues.party, formValues.broker, formValues.transporter,
+		formValues.govtskg_pcso_no, formValues.govtskg_pcso_date, invoiceTypeCode,
+		branchValue, resolvedBranchOptions, customerOptions, brokerOptions, transporterOptions,
+		statusChipProps?.label, companyName, companyLogo,
+	]);
 
 	const previewItems = React.useMemo(() => {
 		const isHessian = isHessianOrder(invoiceTypeCode);

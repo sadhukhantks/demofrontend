@@ -14,6 +14,8 @@ export type DOPreviewHeader = {
 	salesOrder?: string;
 	salesOrderNo?: string;
 	salesOrderDate?: string;
+	pcsoNo?: string;
+	pcsoDate?: string;
 	transporter?: string;
 	vehicleNo?: string;
 	driverName?: string;
@@ -160,6 +162,16 @@ const DeliveryOrderPreview: React.FC<DOPreviewProps> = ({ header, items, remarks
 						<td class="header-colon">:</td>
 						<td class="header-value">${h.salesOrderNo || h.salesOrder || "-"}</td>
 					</tr>` : ""}
+					${h.pcsoNo ? `<tr>
+						<td class="header-label">PCSO No.</td>
+						<td class="header-colon">:</td>
+						<td class="header-value">${h.pcsoNo}</td>
+					</tr>` : ""}
+					${h.pcsoDate ? `<tr>
+						<td class="header-label">PCSO Date</td>
+						<td class="header-colon">:</td>
+						<td class="header-value">${formatDate(h.pcsoDate)}</td>
+					</tr>` : ""}
 					${h.salesOrderDate ? `<tr>
 						<td class="header-label">Date</td>
 						<td class="header-colon">:</td>
@@ -296,6 +308,20 @@ const DeliveryOrderPreview: React.FC<DOPreviewProps> = ({ header, items, remarks
 									<Box component="td" sx={{ pr: 0.5, ...labelSx }}>Sale No.</Box>
 									<Box component="td" sx={{ pr: 0.5, ...valueSx }}>:</Box>
 									<Box component="td" sx={valueSx}>{header.salesOrderNo || header.salesOrder}</Box>
+								</Box>
+							) : null}
+							{header.pcsoNo ? (
+								<Box component="tr">
+									<Box component="td" sx={{ pr: 0.5, ...labelSx }}>PCSO No.</Box>
+									<Box component="td" sx={{ pr: 0.5, ...valueSx }}>:</Box>
+									<Box component="td" sx={valueSx}>{header.pcsoNo}</Box>
+								</Box>
+							) : null}
+							{header.pcsoDate ? (
+								<Box component="tr">
+									<Box component="td" sx={{ pr: 0.5, ...labelSx }}>PCSO Date</Box>
+									<Box component="td" sx={{ pr: 0.5, ...valueSx }}>:</Box>
+									<Box component="td" sx={valueSx}>{formatDate(header.pcsoDate)}</Box>
 								</Box>
 							) : null}
 							{header.salesOrderDate ? (

@@ -5,6 +5,8 @@ import { Paper, Typography, Divider, Table, TableHead, TableRow, TableCell, Tabl
 
 type PreviewHeader = {
 	salesNo?: string;
+	pcsoNo?: string;
+	pcsoDate?: string;
 	salesOrderDate?: string;
 	branch?: string;
 	customerName?: string;
@@ -176,6 +178,18 @@ export function SalesOrderPreview({ header, items, remarks, additionalCharges, f
 							<span style={{ fontSize: 14, fontWeight: 600 }}>{header.salesNo}</span>
 						</div>
 					)}
+					{header.pcsoNo && (
+						<div className="header-field">
+							<label style={{ fontSize: 11, color: "#888", display: "block" }}>PCSO No</label>
+							<span style={{ fontSize: 14, fontWeight: 600 }}>{header.pcsoNo}</span>
+						</div>
+					)}
+					{header.pcsoDate && (
+						<div className="header-field">
+							<label style={{ fontSize: 11, color: "#888", display: "block" }}>PCSO Date</label>
+							<span style={{ fontSize: 14 }}>{header.pcsoDate}</span>
+						</div>
+					)}
 					{header.salesOrderDate && (
 						<div className="header-field">
 							<label style={{ fontSize: 11, color: "#888", display: "block" }}>Order Date</label>
@@ -333,6 +347,18 @@ export function SalesOrderPreview({ header, items, remarks, additionalCharges, f
 					<div>
 						<Typography variant="caption" color="text.secondary">Sales Order No</Typography>
 						<Typography variant="body2" fontWeight={600}>{header.salesNo}</Typography>
+					</div>
+				)}
+				{header.pcsoNo && (
+					<div>
+						<Typography variant="caption" color="text.secondary">PCSO No</Typography>
+						<Typography variant="body2" fontWeight={600}>{header.pcsoNo}</Typography>
+					</div>
+				)}
+				{header.pcsoDate && (
+					<div>
+						<Typography variant="caption" color="text.secondary">PCSO Date</Typography>
+						<Typography variant="body2">{header.pcsoDate}</Typography>
 					</div>
 				)}
 				{header.salesOrderDate && (

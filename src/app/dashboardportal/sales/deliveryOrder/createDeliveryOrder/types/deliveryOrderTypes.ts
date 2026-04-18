@@ -51,6 +51,8 @@ export type ApprovedSalesOrderRecord = {
 	billingToId?: string;
 	shippingToId?: string;
 	transporterId?: string;
+	pcsoNo?: string;
+	pcsoDate?: string;
 };
 
 export type InvoiceTypeRecord = {
@@ -110,6 +112,12 @@ export type EditableLineItem = {
 	sgstAmount?: number;
 	sgstPercent?: number;
 	gstTotal?: number;
+	/** Govt SKG: qty entered in bales (user-entered); quantity field stores the 100-pcs equivalent */
+	govtskgQtyBales?: string;
+	/** Govt SKG: map_to_id for the bales UOM from uom_item_map_mst */
+	govtskgBalesUomId?: string;
+	/** Govt SKG: bales-to-billing-UOM conversion factor from uom_item_map_mst */
+	govtskgConversionFactor?: number;
 };
 
 export type DOSetupData = {
@@ -181,6 +189,8 @@ export type ApprovedSalesOrderRecordRaw = {
 	billing_to_id?: string | number;
 	shipping_to_id?: string | number;
 	transporter_id?: string | number;
+	pcso_no?: string | null;
+	pcso_date?: string | null;
 };
 
 export type InvoiceTypeRecordRaw = {
