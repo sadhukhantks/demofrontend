@@ -55,7 +55,9 @@ import {
 	EMPTY_SETUP_PARAMS,
 	isRawJuteInvoice,
 	isGovtSkgInvoice,
+	isGovtSkgFreightInvoice,
 } from "./utils/salesInvoiceConstants";
+import { GovtSackingFreightForm } from "./components/GovtSackingFreightForm";
 import { AdditionalChargesSection, type AdditionalChargeRow } from "../../salesOrder/createSalesOrder/components/AdditionalChargesSection";
 import { computeGovtskgTransportCharges, mergeTransportCharges } from "../../utils/govtskgTransportCharges";
 import { computeConvertedQtyBales } from "@/utils/uomConversion";
@@ -1099,6 +1101,7 @@ function InvoiceTransactionPageContent() {
 			transporterDocNo: (formValues.transporter_doc_no as string) || invoiceDetails?.transporterDocNo,
 			transporterDocDate: (formValues.transporter_doc_date as string) || invoiceDetails?.transporterDocDate,
 			loadingPoint: (formValues.govtskg_loading_point as string) || invoiceDetails?.govtskg?.loadingPoint,
+			modeOfTransport: (formValues.govtskg_mode_of_transport as string) || invoiceDetails?.govtskg?.modeOfTransport,
 			vehicleNo: (formValues.vehicle_no as string) || invoiceDetails?.vehicleNo,
 			ewayBillNo: (formValues.eway_bill_no as string) || invoiceDetails?.ewayBillNo,
 			ewayBillDate: (formValues.eway_bill_date as string) || invoiceDetails?.ewayBillDate,
@@ -1176,6 +1179,7 @@ function InvoiceTransactionPageContent() {
 			formValues.vehicle_no, formValues.transporter_doc_no, formValues.transporter_doc_date, formValues.transporter_gst_no, formValues.eway_bill_no, formValues.eway_bill_date,
 			formValues.invoice_type, formValues.type_of_sale, formValues.sales_order_id, formValues.sales_order_date,
 			formValues.bank_detail_id, formValues.govtskg_admin_office_address, formValues.govtskg_loading_point,
+			formValues.govtskg_mode_of_transport,
 			formValues.govtskg_pcso_no, formValues.govtskg_pcso_date,
 			formValues.irn, formValues.ack_no, formValues.ack_date, formValues.qr_code,
 			branchLabel, branchValue, customerLabel, customerBranchLabel, deliveryOrderLabel,
@@ -1321,6 +1325,32 @@ function InvoiceTransactionPageContent() {
 	}, [setupLoading, pageError, mode, setupData, customers.length]);
 
 	if (!mounted) return <InvoicePageLoading />;
+
+	const activeInvoiceTypeId = String(formValues.invoice_type ?? invoiceDetails?.invoiceType ?? "");
+	const isFreightType = isGovtSkgFreightInvoice(activeInvoiceTypeId);
+	if (isFreightType && coId && branchValue) {
+		const freightMode: "create" | "view" = mode === "view" ? "view" : "create";
+		return (
+			<TransactionWrapper
+				title={pageTitle}
+				subtitle={freightMode === "view" ? "Govt Sacking Freight invoice details" : "Create a new Govt Sacking Freight invoice"}
+				metadata={metadata}
+				statusChip={statusChipProps}
+				backAction={{ onClick: () => router.push("/dashboardportal/sales/salesInvoice") }}
+				loading={loading || setupLoading}
+				alerts={pageError ? <div role="alert" aria-live="assertive" className="text-red-600">{pageError}</div> : null}
+			>
+				<GovtSackingFreightForm
+					coId={coId}
+					branchId={branchValue}
+					mode={freightMode}
+					existingInvoice={invoiceDetails ?? undefined}
+					menuId={menuIdFromUrl}
+					setupData={setupData ?? null}
+				/>
+			</TransactionWrapper>
+		);
+	}
 
 	return (
 		<>

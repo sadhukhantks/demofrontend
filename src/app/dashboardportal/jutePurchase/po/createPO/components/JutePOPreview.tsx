@@ -24,6 +24,8 @@ type JutePOPreviewProps = {
   labelResolvers: JutePOLabelResolvers;
   totalWeight: number;
   totalAmount: number;
+  percentageSum?: number;
+  isLegacyPO?: boolean;
 };
 
 export function JutePOPreview({
@@ -36,6 +38,8 @@ export function JutePOPreview({
   labelResolvers,
   totalWeight,
   totalAmount,
+  percentageSum = 0,
+  isLegacyPO = false,
 }: JutePOPreviewProps) {
   const printRef = React.useRef<HTMLDivElement>(null);
 
@@ -161,10 +165,11 @@ export function JutePOPreview({
                 <th className="border p-2 text-left">Quality</th>
                 <th className="border p-2 text-left">Crop Year</th>
                 <th className="border p-2 text-left">Marka</th>
+                {!isLegacyPO && <th className="border p-2 text-right">%</th>}
                 <th className="border p-2 text-right">Qty</th>
                 <th className="border p-2 text-right">Rate</th>
                 <th className="border p-2 text-right">Moisture %</th>
-                <th className="border p-2 text-right">Weight (Kg)</th>
+                <th className="border p-2 text-right">Weight (Qtl)</th>
                 <th className="border p-2 text-right">Amount</th>
               </tr>
             </thead>
@@ -175,6 +180,9 @@ export function JutePOPreview({
                   <td className="border p-2">{labelResolvers.quality(line.itemId, line.quality)}</td>
                   <td className="border p-2">{line.cropYear}</td>
                   <td className="border p-2">{line.marka || "-"}</td>
+                  {!isLegacyPO && (
+                    <td className="border p-2 text-right">{line.percentage || "-"}</td>
+                  )}
                   <td className="border p-2 text-right">{line.quantity}</td>
                   <td className="border p-2 text-right">{formatAmount(parseFloat(line.rate) || 0)}</td>
                   <td className="border p-2 text-right">{line.allowableMoisture || "-"}</td>
@@ -187,6 +195,11 @@ export function JutePOPreview({
 
           {/* Totals */}
           <div className="mt-4 text-right">
+            {!isLegacyPO && (
+              <p className="text-sm">
+                <span className="font-semibold">Total %:</span> {percentageSum.toFixed(2)} / 100.00
+              </p>
+            )}
             <p className="text-sm">
               <span className="font-semibold">Total Weight:</span> {formatWeight(totalWeight)} Qtl
             </p>

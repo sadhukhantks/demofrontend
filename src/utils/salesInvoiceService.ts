@@ -156,9 +156,22 @@ export type InvoiceDetails = {
     administrativeOfficeAddress?: string;
     destinationRailHead?: string;
     loadingPoint?: string;
+    modeOfTransport?: string;
     packSheet?: number;
     netWeight?: number;
     totalWeight?: number;
+  } | null;
+  freight?: {
+    salesInvoiceFreightId?: number;
+    sourceInvoiceId: number;
+    iwBillNo?: string | null;
+    iwBillDate?: string | null;
+    source?: {
+      invoice_id: number;
+      invoice_no: number | string | null;
+      invoice_date: string | null;
+      pcso_no: string | null;
+    };
   } | null;
   transporterBranchId?: number;
   transporterGstNo?: string;
@@ -338,6 +351,16 @@ export type CreateInvoiceRequest = {
     net_weight?: number;
     total_weight?: number;
   };
+  freight?: {
+    source_invoice_id: number;
+    iw_bill_no: string;
+    iw_bill_date: string;
+    container_no: string;
+    vehicle_no: string;
+    freight_amount: number;
+    bales_qty: number;
+  };
+  co_id?: number;
   additional_charges?: Array<{
     additional_charges_id: string;
     qty: number;
@@ -566,5 +589,51 @@ export async function getTransporterBranches(transporterId: number, coId: number
   );
   if (error) throw new Error(error);
   if (!data) throw new Error("Empty response from transporter branches API");
+  return data;
+}
+
+export type GovtSackingSourceListResponse = {
+  data: import("@/app/dashboardportal/sales/salesInvoice/createSalesInvoice/types/salesInvoiceTypes").GovtSackingSourceRow[];
+  total: number;
+};
+
+export type GovtSackingSourceDetailResponse = {
+  data: import("@/app/dashboardportal/sales/salesInvoice/createSalesInvoice/types/salesInvoiceTypes").GovtSackingSourceDetail;
+};
+
+export async function fetchGovtSackingSourceList(params: {
+  coId: string;
+  branchId: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}): Promise<GovtSackingSourceListResponse> {
+  const query = new URLSearchParams({
+    co_id: params.coId,
+    branch_id: params.branchId,
+  });
+  if (params.search) query.set("search", params.search);
+  if (params.page != null) query.set("page", String(params.page));
+  if (params.limit != null) query.set("limit", String(params.limit));
+  const { data, error } = await fetchWithCookie<GovtSackingSourceListResponse>(
+    `${apiRoutesPortalMasters.SALES_INVOICE_GOVT_SACKING_SOURCE_LIST}?${query.toString()}`,
+    "GET"
+  );
+  if (error) throw new Error(error);
+  if (!data) throw new Error("Empty Govt Sacking source list response.");
+  return data;
+}
+
+export async function fetchGovtSackingSource(
+  invoiceId: string | number,
+  coId: string | number,
+): Promise<GovtSackingSourceDetailResponse> {
+  const query = new URLSearchParams({ co_id: String(coId) });
+  const { data, error } = await fetchWithCookie<GovtSackingSourceDetailResponse>(
+    `${apiRoutesPortalMasters.SALES_INVOICE_GOVT_SACKING_SOURCE}/${invoiceId}?${query.toString()}`,
+    "GET"
+  );
+  if (error) throw new Error(error);
+  if (!data) throw new Error("Empty Govt Sacking source detail response.");
   return data;
 }

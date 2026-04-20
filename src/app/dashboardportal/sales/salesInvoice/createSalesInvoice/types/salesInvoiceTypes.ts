@@ -6,6 +6,92 @@ export type Option = {
 	value: string;
 };
 
+export type GovtSackingSourceRow = {
+	invoice_id: number;
+	invoice_no: number | string | null;
+	invoice_date: string;
+	party_id: number;
+	party_name: string;
+	sales_order_no: number | string | null;
+	delivery_order_no: number | string | null;
+	pcso_no: string | null;
+	status_id: number;
+};
+
+export type GovtSackingSourceLine = {
+	item_id: number;
+	item_name: string;
+	hsn_code: string | null;
+	quantity: number;
+	uom_id: number;
+	uom_name: string | null;
+	pack_sheet: number | null;
+	net_weight: number | null;
+	total_weight: number | null;
+};
+
+export type GovtSackingSourceHeader = {
+	invoice_id: number;
+	invoice_no: number | string | null;
+	invoice_date: string;
+	invoice_type: number;
+	party_id: number;
+	party_name: string;
+	billing_to_id: number | null;
+	shipping_to_id: number | null;
+	billing_state_code: number | string | null;
+	shipping_state_code: number | string | null;
+	intra_inter_state: number | string | null;
+	branch_id: number;
+	co_id: number;
+	sales_order_id: number | null;
+	sales_order_no: number | string | null;
+	sales_delivery_order_id: number | null;
+	delivery_order_no: number | string | null;
+	transporter_id: number | null;
+	transporter_name: string | null;
+	transporter_address: string | null;
+	transporter_state_code: string | null;
+	transporter_state_name: string | null;
+	transporter_branch_id: number | null;
+	transporter_doc_no: string | null;
+	transporter_doc_date: string | null;
+	buyer_order_no: string | null;
+	buyer_order_date: string | null;
+	vehicle_no: string | null;
+	container_no: string | null;
+	pcso_no: string | null;
+	pcso_date: string | null;
+	administrative_office_address: string | null;
+	destination_rail_head: string | null;
+	loading_point: string | null;
+	mode_of_transport: string | null;
+	billing_party_name?: string | null;
+	billing_address?: string | null;
+	billing_address_additional?: string | null;
+	billing_zip_code?: string | null;
+	billing_state_name?: string | null;
+	billing_gst_no?: string | null;
+	shipping_party_name?: string | null;
+	shipping_address?: string | null;
+	shipping_address_additional?: string | null;
+	shipping_zip_code?: string | null;
+	shipping_state_name?: string | null;
+	shipping_gst_no?: string | null;
+	transporter_gst_no?: string | null;
+	eway_bill_no?: string | null;
+	eway_bill_date?: string | null;
+	sales_order_no_formatted?: string | null;
+	sales_order_date?: string | null;
+	co_prefix?: string | null;
+	branch_prefix?: string | null;
+};
+
+export type GovtSackingSourceDetail = {
+	header: GovtSackingSourceHeader;
+	lines: GovtSackingSourceLine[];
+};
+
 export type CustomerBranchRecord = {
 	id: string;
 	name?: string;
