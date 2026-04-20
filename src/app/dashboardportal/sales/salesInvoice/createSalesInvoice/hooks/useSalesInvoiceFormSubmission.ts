@@ -1,5 +1,5 @@
 import React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
 import { createInvoice, updateInvoice, type SaveInvoiceRequest } from "@/utils/salesInvoiceService";
 import type { EditableLineItem } from "../types/salesInvoiceTypes";
@@ -59,6 +59,7 @@ export const useSalesInvoiceFormSubmission = ({
 }: Params) => {
 	const [saving, setSaving] = React.useState(false);
 	const router = useRouter();
+	const searchParams = useSearchParams();
 
 	const handleFormSubmit = React.useCallback(
 		async (values: Record<string, unknown>) => {
@@ -144,7 +145,7 @@ export const useSalesInvoiceFormSubmission = ({
 				date: String(values.date ?? formValues.date ?? ""),
 				party: String(values.party ?? formValues.party ?? ""),
 				party_branch: String(values.party_branch ?? formValues.party_branch ?? "") || undefined,
-				delivery_order: String(values.delivery_order ?? formValues.delivery_order ?? "") || undefined,
+				sales_delivery_order_id: Number(values.delivery_order ?? formValues.delivery_order) || undefined,
 				billing_to: String(values.billing_to ?? formValues.billing_to ?? "") || undefined,
 				shipping_to: String(values.shipping_to ?? formValues.shipping_to ?? "") || undefined,
 				transporter: String(values.transporter ?? formValues.transporter ?? "") || undefined,
@@ -178,6 +179,15 @@ export const useSalesInvoiceFormSubmission = ({
 				sales_order_id: Number(values.sales_order_id ?? formValues.sales_order_id) || undefined,
 				billing_state_code: Number(values.billing_state_code ?? formValues.billing_state_code) || undefined,
 				bank_detail_id: Number(values.bank_detail_id ?? formValues.bank_detail_id) || undefined,
+				transporter_branch_id: Number(values.transporter_branch_id ?? formValues.transporter_branch_id) || undefined,
+				transporter_doc_no: String(values.transporter_doc_no ?? formValues.transporter_doc_no ?? "") || undefined,
+				transporter_doc_date: String(values.transporter_doc_date ?? formValues.transporter_doc_date ?? "") || undefined,
+				buyer_order_no: String(values.buyer_order_no ?? formValues.buyer_order_no ?? "") || undefined,
+				buyer_order_date: String(values.buyer_order_date ?? formValues.buyer_order_date ?? "") || undefined,
+				irn: String(values.irn ?? formValues.irn ?? "") || undefined,
+				ack_no: String(values.ack_no ?? formValues.ack_no ?? "") || undefined,
+				ack_date: String(values.ack_date ?? formValues.ack_date ?? "") || undefined,
+				qr_code: String(values.qr_code ?? formValues.qr_code ?? "") || undefined,
 				items: itemsPayload,
 			};
 
@@ -234,7 +244,18 @@ export const useSalesInvoiceFormSubmission = ({
 				const invoiceId = result?.invoice_id ?? requestedId;
 				toast({ title: result?.message ?? (mode === "edit" ? "Sales invoice updated" : "Sales invoice created") });
 				if (invoiceId) {
-					router.replace(`/dashboardportal/sales/salesInvoice/createSalesInvoice?mode=view&id=${encodeURIComponent(String(invoiceId))}`);
+					// Preserve branch_id and menu_id so the post-save refetch runs with the same
+					// context as an index-entry (permissions, menu resolution). Without these,
+					// some type-specific preview fields (govtskg, e-invoice) were dropping out.
+					const branchIdFromUrl = searchParams?.get("branch_id")
+						?? (payload.branch ? String(payload.branch) : "");
+					const menuIdFromUrl = searchParams?.get("menu_id") ?? "";
+					const params = new URLSearchParams();
+					params.set("mode", "view");
+					params.set("id", String(invoiceId));
+					if (branchIdFromUrl) params.set("branch_id", String(branchIdFromUrl));
+					if (menuIdFromUrl) params.set("menu_id", String(menuIdFromUrl));
+					router.replace(`/dashboardportal/sales/salesInvoice/createSalesInvoice?${params.toString()}`);
 				}
 			} catch (error) {
 				toast({ variant: "destructive", title: "Unable to save sales invoice", description: error instanceof Error ? error.message : "Please try again." });
@@ -242,7 +263,7 @@ export const useSalesInvoiceFormSubmission = ({
 				setSaving(false);
 			}
 		},
-		[mode, pageError, setupError, filledLineItems, isLineItemsReady, requestedId, router, formValues],
+		[mode, pageError, setupError, filledLineItems, isLineItemsReady, requestedId, router, searchParams, formValues, additionalCharges, approvalPermissions],
 	);
 
 	return { saving, handleFormSubmit };

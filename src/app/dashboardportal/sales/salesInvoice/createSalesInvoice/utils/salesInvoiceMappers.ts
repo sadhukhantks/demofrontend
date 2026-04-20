@@ -372,11 +372,11 @@ const normalizeDate = (raw?: string): string => {
 
 export const mapInvoiceDetailsToFormValues = (
 	details: {
-		branch?: unknown;
+		branchId?: unknown;
 		invoiceDate?: string;
 		party?: unknown;
 		partyBranch?: unknown;
-		deliveryOrder?: unknown;
+		salesDeliveryOrderId?: unknown;
 		billingTo?: unknown;
 		shippingTo?: unknown;
 		transporter?: unknown;
@@ -451,11 +451,11 @@ export const mapInvoiceDetailsToFormValues = (
 	defaultValues: Record<string, unknown>,
 ): Record<string, unknown> => ({
 	...defaultValues,
-	branch: toStringValue(details.branch ?? defaultValues.branch),
+	branch: toStringValue(details.branchId ?? defaultValues.branch),
 	date: normalizeDate(details.invoiceDate) || toStringValue(defaultValues.date),
 	party: toStringValue(details.party ?? defaultValues.party),
 	party_branch: toStringValue(details.partyBranch ?? defaultValues.party_branch),
-	delivery_order: toStringValue(details.deliveryOrder ?? defaultValues.delivery_order),
+	delivery_order: toStringValue(details.salesDeliveryOrderId ?? defaultValues.delivery_order),
 	billing_to: toStringValue(details.billingTo ?? defaultValues.billing_to),
 	shipping_to: toStringValue(details.shippingTo ?? defaultValues.shipping_to),
 	transporter: toStringValue(details.transporter ?? defaultValues.transporter),

@@ -254,16 +254,16 @@ describe("calculateInvoiceTotals", () => {
 // calculateLineTax
 // ---------------------------------------------------------------------------
 describe("calculateLineTax", () => {
-	it("should return IGST when party and shipping states differ", () => {
-		const result = calculateLineTax(1000, 18, "West Bengal", "Maharashtra");
+	it("should return IGST when company branch and shipping branch state ids differ", () => {
+		const result = calculateLineTax(1000, 18, 19, 27);
 		expect(result.igstAmount).toBe(180);
 		expect(result.igstPercent).toBe(18);
 		expect(result.cgstAmount).toBe(0);
 		expect(result.sgstAmount).toBe(0);
 	});
 
-	it("should split CGST/SGST when party and shipping states match", () => {
-		const result = calculateLineTax(1000, 18, "West Bengal", "West Bengal");
+	it("should split CGST/SGST when company branch and shipping branch state ids match", () => {
+		const result = calculateLineTax(1000, 18, 19, 19);
 		expect(result.igstAmount).toBe(0);
 		expect(result.cgstAmount).toBe(90);
 		expect(result.cgstPercent).toBe(9);
@@ -272,11 +272,11 @@ describe("calculateLineTax", () => {
 	});
 
 	it("should return zeros when tax percentage is 0", () => {
-		const result = calculateLineTax(1000, 0, "West Bengal", "West Bengal");
+		const result = calculateLineTax(1000, 0, 19, 19);
 		expect(result.gstTotal).toBe(0);
 	});
 
-	it("should return zeros when states are undefined", () => {
+	it("should return zeros when state ids are undefined", () => {
 		const result = calculateLineTax(1000, 18, undefined, undefined);
 		expect(result.gstTotal).toBe(0);
 	});

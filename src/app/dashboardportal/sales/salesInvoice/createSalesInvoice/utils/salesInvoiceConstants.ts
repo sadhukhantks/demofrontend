@@ -55,6 +55,7 @@ export const HESSIAN_INVOICE_TYPE_ID = "2";
 export const GOVT_SKG_INVOICE_TYPE_ID = "3";
 export const JUTE_YARN_INVOICE_TYPE_ID = "4";
 export const RAW_JUTE_INVOICE_TYPE_ID = "5";
+export const GOVT_SKG_FREIGHT_INVOICE_TYPE_ID = "7";
 
 const _id = (invoiceTypeId?: string | number | null): string =>
 	invoiceTypeId == null || invoiceTypeId === "" ? "" : String(invoiceTypeId);
@@ -70,6 +71,9 @@ export const isJuteYarnInvoice = (invoiceTypeId?: string | number | null): boole
 
 export const isRawJuteInvoice = (invoiceTypeId?: string | number | null): boolean =>
 	_id(invoiceTypeId) === RAW_JUTE_INVOICE_TYPE_ID;
+
+export const isGovtSkgFreightInvoice = (invoiceTypeId?: string | number | null): boolean =>
+	_id(invoiceTypeId) === GOVT_SKG_FREIGHT_INVOICE_TYPE_ID;
 
 /** Returns true for types that have a type-specific header section (Govt SKG, Raw Jute). */
 export const hasTypeSpecificHeader = (invoiceTypeId?: string | number | null): boolean =>

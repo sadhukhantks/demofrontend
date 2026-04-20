@@ -71,6 +71,9 @@ function SRTransactionPageContent() {
 	const [pageError, setPageError] = React.useState<string | null>(null);
 	const [warehouseOptions, setWarehouseOptions] = React.useState<WarehouseOption[]>([]);
 	const [additionalChargeOptions, setAdditionalChargeOptions] = React.useState<AdditionalChargeOption[]>([]);
+	// Tracks whether there are unsaved edits to the form — used to gate the Approve button
+	// so users can't approve with in-flight changes that would be lost.
+	const [isDirty, setIsDirty] = React.useState(false);
 
 	// Form state hook
 	const { srDate, setSRDate, srRemarks, setSRRemarks, resetFormState } = useSRFormState();
@@ -91,6 +94,39 @@ function SRTransactionPageContent() {
 		totalChargesAmount,
 		chargesTotals,
 	} = useSRAdditionalCharges({ mode, header });
+
+	// Dirty-tracking wrappers around user-driven change handlers. fetchSRData calls
+	// the raw setters (setSRDate via resetFormState, setLineItems, replaceCharges)
+	// directly so a fresh server load does NOT mark the form dirty.
+	const handleSRDateChange = React.useCallback((value: string) => {
+		setSRDate(value);
+		setIsDirty(true);
+	}, [setSRDate]);
+
+	const handleSRRemarksChange = React.useCallback((value: string) => {
+		setSRRemarks(value);
+		setIsDirty(true);
+	}, [setSRRemarks]);
+
+	const handleLineItemChangeDirty = React.useCallback<typeof handleLineItemChange>((...args) => {
+		handleLineItemChange(...args);
+		setIsDirty(true);
+	}, [handleLineItemChange]);
+
+	const handleAddCharge = React.useCallback(() => {
+		addCharge();
+		setIsDirty(true);
+	}, [addCharge]);
+
+	const handleRemoveCharge = React.useCallback((id: string) => {
+		removeCharge(id);
+		setIsDirty(true);
+	}, [removeCharge]);
+
+	const handleUpdateCharge = React.useCallback<typeof updateCharge>((...args) => {
+		updateCharge(...args);
+		setIsDirty(true);
+	}, [updateCharge]);
 
 	// Fetch SR data
 	const fetchSRData = React.useCallback(async () => {
@@ -204,6 +240,9 @@ function SRTransactionPageContent() {
 					});
 				}
 			}
+
+			// Form state now mirrors the server — clear any pending dirty flag from a prior edit.
+			setIsDirty(false);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Failed to load SR data";
 			setPageError(message);
@@ -241,7 +280,7 @@ function SRTransactionPageContent() {
 	// Column definitions
 	const columns = useSRLineItemColumns({
 		canEdit: canEdit && !isViewMode,
-		onLineItemChange: handleLineItemChange,
+		onLineItemChange: handleLineItemChangeDirty,
 		warehouseOptions,
 	});
 
@@ -286,7 +325,7 @@ function SRTransactionPageContent() {
 			});
 		}
 
-		// Approve / Reject — only available in Open status
+		// Reject — available whenever the SR is Open (unsaved edits are discarded anyway on reject).
 		if (isOpen) {
 			actions.push({
 				label: "Reject",
@@ -295,6 +334,11 @@ function SRTransactionPageContent() {
 				loading: saving,
 				variant: "destructive" as const,
 			});
+		}
+
+		// Approve — hidden while the form has unsaved edits, since SR_APPROVE does not
+		// persist in-flight field changes and would approve stale values.
+		if (isOpen && !isDirty) {
 			actions.push({
 				label: "Approve",
 				onClick: handleApprove,
@@ -305,7 +349,7 @@ function SRTransactionPageContent() {
 		}
 
 		return actions;
-	}, [canEdit, isViewMode, isDraftSaved, isOpen, saving, handleSave, handleOpen, handleApprove, handleReject]);
+	}, [canEdit, isViewMode, isDraftSaved, isOpen, isDirty, saving, handleSave, handleOpen, handleApprove, handleReject]);
 
 	// Error state
 	if (pageError && !loading) {
@@ -361,9 +405,9 @@ function SRTransactionPageContent() {
 						charges={additionalCharges}
 						options={additionalChargeOptions}
 						canEdit={canEdit && !isViewMode}
-						onAddCharge={addCharge}
-						onRemoveCharge={removeCharge}
-						onChargeChange={updateCharge}
+						onAddCharge={handleAddCharge}
+						onRemoveCharge={handleRemoveCharge}
+						onChargeChange={handleUpdateCharge}
 					/>
 					<SRTotalsDisplay totals={totals} chargesTotals={chargesTotals} />
 				</Box>
@@ -384,9 +428,9 @@ function SRTransactionPageContent() {
 				<SRHeaderForm
 					header={header}
 					srDate={srDate}
-					onSRDateChange={setSRDate}
+					onSRDateChange={handleSRDateChange}
 					srRemarks={srRemarks}
-					onSRRemarksChange={setSRRemarks}
+					onSRRemarksChange={handleSRRemarksChange}
 					canEdit={canEdit && !isViewMode}
 				/>
 			</Paper>

@@ -3,16 +3,16 @@ import { isAmountDiscountType, isPercentageDiscountType } from "./salesInvoiceCo
 export const calculateLineTax = (
 	amount: number,
 	taxPercentage: number,
-	partyState: string | undefined,
-	shippingState: string | undefined,
+	companyBranchStateId: number | undefined,
+	shippingBranchStateId: number | undefined,
 ) => {
-	if (!taxPercentage || !partyState || !shippingState) {
+	if (!taxPercentage || !companyBranchStateId || !shippingBranchStateId) {
 		return { igstAmount: 0, igstPercent: 0, cgstAmount: 0, cgstPercent: 0, sgstAmount: 0, sgstPercent: 0, gstTotal: 0 };
 	}
 
 	const taxAmount = (amount * taxPercentage) / 100;
 
-	if (partyState === shippingState) {
+	if (companyBranchStateId === shippingBranchStateId) {
 		const half = taxAmount / 2;
 		return {
 			igstAmount: 0,

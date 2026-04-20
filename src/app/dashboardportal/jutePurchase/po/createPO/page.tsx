@@ -40,7 +40,7 @@ import {
   UNIT_OPTIONS,
 } from "./utils/jutePOConstants";
 import { createBlankLine, lineHasAnyData, lineIsComplete } from "./utils/jutePOFactories";
-import { calculateTotals, validateVehicleWeight } from "./utils/jutePOCalculations";
+import { calculateTotals, validateVehicleWeight, validatePercentageSum } from "./utils/jutePOCalculations";
 import {
   mapJutePOSetupResponse,
   mapJutePODetailsResponse,
@@ -48,6 +48,7 @@ import {
   mapFormToCreatePayload,
   mapFormToUpdatePayload,
   extractFormValuesFromDetails,
+  detectLegacyPO,
 } from "./utils/jutePOMappers";
 
 // Hooks
@@ -91,6 +92,7 @@ function JutePOCreatePageContent() {
   // Setup data state
   const [setupData, setSetupData] = React.useState<JutePOSetupData | null>(null);
   const [details, setDetails] = React.useState<JutePODetails | null>(null);
+  const [isLegacyPO, setIsLegacyPO] = React.useState(false);
 
   // Cascading dropdown state - parties only (suppliers come from setupData)
   const [parties, setParties] = React.useState<Option[]>([]);
@@ -169,6 +171,7 @@ function JutePOCreatePageContent() {
     ),
     vehicleQty: parseInt(formValues.vehicleQty, 10) || 1,
     getQualityOptions: (itemId: string) => qualitiesByItem[itemId] ?? [],
+    isLegacyPO,
   });
 
   // Select options hook
@@ -308,6 +311,8 @@ function JutePOCreatePageContent() {
               vehicleQty: mappedDetails.vehicle_qty ?? 1,
               juteUnit: mappedDetails.jute_unit ?? "LOOSE",
             };
+            const legacy = detectLegacyPO(mappedDetails.line_items as unknown[]);
+            setIsLegacyPO(legacy);
             const mappedLines = mapLineItemsFromAPI(mappedDetails.line_items, calcParams);
             replaceLineItems(mappedLines);
 
@@ -443,7 +448,14 @@ function JutePOCreatePageContent() {
     getQualityOptions,
     labelResolvers,
     handleLineFieldChange: handleLineFieldChangeWithQualityFetch,
+    isLegacyPO,
   });
+
+  // Percentage sum across non-blank line items (for UI display + validation)
+  const percentageSum = React.useMemo(
+    () => lineItems.reduce((acc, li) => (li.itemId ? acc + (Number(li.percentage) || 0) : acc), 0),
+    [lineItems]
+  );
 
   // ========== Form Handlers ==========
 
@@ -463,15 +475,24 @@ function JutePOCreatePageContent() {
           return;
         }
 
-        // Check for invalid line items (qty or rate <= 0)
+        // Check for invalid line items. In non-legacy mode, the driver is percentage; in legacy mode it is quantity.
         const invalidLines = linesWithData.filter((line) => {
-          const qty = Number(line.quantity);
           const rate = Number(line.rate);
-          return !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(rate) || rate <= 0;
+          if (!Number.isFinite(rate) || rate <= 0) return true;
+          if (isLegacyPO) {
+            const qty = Number(line.quantity);
+            return !Number.isFinite(qty) || qty <= 0;
+          }
+          const pct = Number(line.percentage);
+          return !Number.isFinite(pct) || pct <= 0;
         });
 
         if (invalidLines.length > 0) {
-          setPageError("Line items must have Quantity and Rate greater than 0");
+          setPageError(
+            isLegacyPO
+              ? "Line items must have Quantity and Rate greater than 0"
+              : "Line items must have Percentage and Rate greater than 0"
+          );
           setSaving(false);
           return;
         }
@@ -483,23 +504,38 @@ function JutePOCreatePageContent() {
           return;
         }
 
-        // Validate vehicle weight tolerance (±5%)
-        const vehicleCapacityQtl = parseFloat(
-          (setupData?.vehicle_types ?? []).find(
-            (v) => String(v.vehicle_type_id) === (values as JutePOFormValues).vehicleType
-          )?.capacity_weight?.toString() ?? "0"
-        );
-        const vehicleQty = parseInt((values as JutePOFormValues).vehicleQty, 10) || 1;
-        const weightValidation = validateVehicleWeight(totalWeight, vehicleCapacityQtl, vehicleQty);
-        
-        if (!weightValidation.isValid) {
-          setPageError(weightValidation.message);
-          setSaving(false);
-          return;
+        // Validate vehicle weight tolerance (±5%) — legacy mode only.
+        // In percentage mode, the sum check below is tight-by-construction.
+        if (isLegacyPO) {
+          const vehicleCapacityQtl = parseFloat(
+            (setupData?.vehicle_types ?? []).find(
+              (v) => String(v.vehicle_type_id) === (values as JutePOFormValues).vehicleType
+            )?.capacity_weight?.toString() ?? "0"
+          );
+          const vehicleQty = parseInt((values as JutePOFormValues).vehicleQty, 10) || 1;
+          const weightValidation = validateVehicleWeight(totalWeight, vehicleCapacityQtl, vehicleQty);
+
+          if (!weightValidation.isValid) {
+            setPageError(weightValidation.message);
+            setSaving(false);
+            return;
+          }
+        } else {
+          const pctValidation = validatePercentageSum(validLines);
+          if (!pctValidation.valid) {
+            setPageError(pctValidation.message);
+            setSaving(false);
+            return;
+          }
         }
 
         if (mode === "create") {
-          const payload = mapFormToCreatePayload(values as unknown as JutePOFormValues, validLines, Number(coId));
+          const payload = mapFormToCreatePayload(
+            values as unknown as JutePOFormValues,
+            validLines,
+            Number(coId),
+            isLegacyPO,
+          );
           const response = await fetchWithCookie(
             `${apiRoutesPortalMasters.JUTE_PO_CREATE}?co_id=${coId}`,
             "POST",
@@ -515,7 +551,11 @@ function JutePOCreatePageContent() {
             setPageError(response?.error ?? "Failed to create Jute PO");
           }
         } else if (mode === "edit" && jutePOId) {
-          const payload = mapFormToUpdatePayload(values as unknown as JutePOFormValues, validLines);
+          const payload = mapFormToUpdatePayload(
+            values as unknown as JutePOFormValues,
+            validLines,
+            isLegacyPO,
+          );
           const response = await fetchWithCookie(
             `${apiRoutesPortalMasters.JUTE_PO_UPDATE}/${jutePOId}?co_id=${coId}`,
             "PUT",
@@ -536,7 +576,7 @@ function JutePOCreatePageContent() {
         setSaving(false);
       }
     },
-    [coId, mode, jutePOId, lineItems, router, bumpFormKey, setupData, totalWeight]
+    [coId, mode, jutePOId, lineItems, router, bumpFormKey, setupData, totalWeight, isLegacyPO]
   );
 
   const handleSave = React.useCallback(async () => {
@@ -594,6 +634,11 @@ function JutePOCreatePageContent() {
                 This PO is in <strong>{approvalInfo?.statusLabel || "Approved"}</strong> status and cannot be edited.
               </div>
             )}
+            {isLegacyPO && mode !== "create" && (
+              <div className="text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 text-sm">
+                This PO was created before percentage-based entry; quantities remain editable.
+              </div>
+            )}
           </>
         }
         primaryActions={primaryActions}
@@ -633,6 +678,8 @@ function JutePOCreatePageContent() {
                 )?.capacity_weight?.toString() ?? "0"
               )}
               vehicleQty={parseInt(formValues.vehicleQty, 10) || 1}
+              percentageSum={percentageSum}
+              isLegacyPO={isLegacyPO}
             />
           </>
         }
@@ -667,6 +714,8 @@ function JutePOCreatePageContent() {
         labelResolvers={labelResolvers}
         totalWeight={totalWeight}
         totalAmount={totalAmount}
+        percentageSum={percentageSum}
+        isLegacyPO={isLegacyPO}
       />
     </>
   );
