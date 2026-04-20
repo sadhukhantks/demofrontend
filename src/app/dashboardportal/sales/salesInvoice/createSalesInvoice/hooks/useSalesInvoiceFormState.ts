@@ -67,7 +67,7 @@ export function useSalesInvoiceFormState({ mode, buildDefaultFormValues, branchI
 	}, []);
 
 	const handleTransporterChange = React.useCallback(
-		(transporterId: number) => {
+		async (transporterId: number) => {
 			setFormValues((prev) => ({
 				...prev,
 				transporter: transporterId,
@@ -75,8 +75,16 @@ export function useSalesInvoiceFormState({ mode, buildDefaultFormValues, branchI
 				transporter_gst_no: undefined,
 			}));
 
-			if (selectOptionsRef?.current?.fetchTransporterBranches) {
-				selectOptionsRef.current.fetchTransporterBranches(transporterId);
+			const fetchFn = selectOptionsRef?.current?.fetchTransporterBranches;
+			if (!fetchFn) return;
+			const branches = await fetchFn(transporterId);
+			if (branches.length === 1) {
+				const only = branches[0];
+				setFormValues((prev) => ({
+					...prev,
+					transporter_branch_id: only.id,
+					transporter_gst_no: only.gst_no || undefined,
+				}));
 			}
 		},
 		[],

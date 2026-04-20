@@ -3,7 +3,7 @@ import { SearchableSelect } from "@/components/ui/transaction";
 import { Input } from "@/components/ui/input";
 import type { TransactionLineColumn } from "@/components/ui/transaction";
 import type { EditableLineItem, Option, UomConversionEntry } from "../types/salesInvoiceTypes";
-import { computeConvertedRate } from "@/utils/uomConversion";
+import { computeConvertedRate, computeConvertedQtyBales } from "@/utils/uomConversion";
 import { DISCOUNT_TYPE, isRawJuteInvoice, isHessianInvoice, isGovtSkgInvoice } from "../utils/salesInvoiceConstants";
 
 const DISCOUNT_TYPE_OPTIONS: Option[] = [
@@ -111,7 +111,13 @@ export const useInvoiceLineItemColumns = ({
 				minWidth: "80px",
 				renderCell: ({ item }) => {
 					const isGovtSkg = isGovtSkgInvoice(invoiceTypeId);
-					const displayValue = isGovtSkg ? (item.govtskgQtyBales ?? "") : item.quantity;
+					// Compute bales on-the-fly when govtskgQtyBales is missing (e.g., view mode before back-fill)
+					let balesValue = item.govtskgQtyBales ?? "";
+					if (isGovtSkg && !balesValue && item.quantity && getUomConversions) {
+						const conv = computeConvertedQtyBales(item.quantity, item.uom, getUomConversions(item.itemGroup, item.item));
+						if (conv) balesValue = conv.convertedQty;
+					}
+					const displayValue = isGovtSkg ? balesValue : item.quantity;
 					const fieldKey: keyof EditableLineItem = isGovtSkg ? "govtskgQtyBales" : "quantity";
 					const govtSkgAnnotation = isGovtSkg && item.quantity && Number(item.quantity)
 						? `= ${Number(item.quantity).toFixed(2)} per 100 pcs`

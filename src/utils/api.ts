@@ -528,6 +528,8 @@ const apiRoutesPortalMasters = {
     SALES_INVOICE_REJECT: `${API_URL}/salesInvoice/reject_sales_invoice`,
     SALES_INVOICE_REOPEN: `${API_URL}/salesInvoice/reopen_sales_invoice`,
     SALES_INVOICE_TRANSPORTER_BRANCHES: `${API_URL}/salesInvoice/get_transporter_branches`,
+    SALES_INVOICE_GOVT_SACKING_SOURCE_LIST: `${API_URL}/salesInvoice/govt_sacking_source_list`,
+    SALES_INVOICE_GOVT_SACKING_SOURCE: `${API_URL}/salesInvoice/govt_sacking_source`,
 
     // HRMS Employee endpoints
     HRMS_EMPLOYEE_LIST: `${API_URL}/hrms/employee_list`,

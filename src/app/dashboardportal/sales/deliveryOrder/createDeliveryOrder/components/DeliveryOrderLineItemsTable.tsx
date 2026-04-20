@@ -3,7 +3,7 @@ import { SearchableSelect } from "@/components/ui/transaction";
 import { Input } from "@/components/ui/input";
 import type { TransactionLineColumn } from "@/components/ui/transaction";
 import type { EditableLineItem, Option, UomConversionEntry } from "../types/deliveryOrderTypes";
-import { computeConvertedRate, computeConvertedQty } from "@/utils/uomConversion";
+import { computeConvertedRate, computeConvertedQty, computeConvertedQtyBales } from "@/utils/uomConversion";
 import { isGovtInvoice, isBalesUomName } from "../utils/deliveryOrderConstants";
 
 type UseDOLineItemColumnsParams = {
@@ -84,27 +84,40 @@ export const useDOLineItemColumns = ({
 				width: "0.8fr",
 				minWidth: "80px",
 				renderCell: ({ item }) => {
-					const showBales = isGovtInvoice(invoiceTypeId);
-					const balesConv = showBales && getUomConversions
+					const isGovtSkg = isGovtInvoice(invoiceTypeId);
+					// Compute bales on-the-fly when govtskgQtyBales is missing (e.g., view mode before back-fill runs)
+					let balesValue = item.govtskgQtyBales ?? "";
+					if (isGovtSkg && !balesValue && item.quantity && getUomConversions) {
+						const conv = computeConvertedQtyBales(item.quantity, item.uom, getUomConversions(item.itemGroup, item.item));
+						if (conv) balesValue = conv.convertedQty;
+					}
+					const displayValue = isGovtSkg ? balesValue : item.quantity;
+					const fieldKey: keyof EditableLineItem = isGovtSkg ? "govtskgQtyBales" : "quantity";
+					const govtSkgAnnotation = isGovtSkg && item.quantity && Number(item.quantity)
+						? `= ${Number(item.quantity).toFixed(2)} per 100 pcs`
+						: null;
+					// Legacy annotation for non-govt lines where UOM conversion exists (rare path)
+					const legacyBalesConv = !isGovtSkg && getUomConversions
 						? computeConvertedQty(item.quantity, item.uom, getUomConversions(item.itemGroup, item.item))
 						: null;
-					const balesLine = balesConv && isBalesUomName(balesConv.otherUomName)
-						? `\u2248 ${balesConv.convertedQty} ${balesConv.otherUomName}`
+					const legacyBalesLine = legacyBalesConv && isBalesUomName(legacyBalesConv.otherUomName)
+						? `\u2248 ${legacyBalesConv.convertedQty} ${legacyBalesConv.otherUomName}`
 						: null;
+					const annotation = govtSkgAnnotation || legacyBalesLine;
 
 					if (canEdit) {
 						return (
 							<div className="flex flex-col gap-0.5">
 								<Input
 									type="text"
-									value={item.quantity}
-									onChange={(e) => handleLineFieldChange(item.id, "quantity", e.target.value)}
-									placeholder="0"
+									value={displayValue}
+									onChange={(e) => handleLineFieldChange(item.id, fieldKey, e.target.value)}
+									placeholder={isGovtSkg ? "Bales" : "0"}
 									className="h-8 text-sm"
 								/>
-								{balesLine ? (
+								{annotation ? (
 									<span className="text-[11px] text-muted-foreground leading-tight truncate">
-										{balesLine}
+										{annotation}
 									</span>
 								) : null}
 							</div>
@@ -113,19 +126,25 @@ export const useDOLineItemColumns = ({
 
 					return (
 						<div className="flex flex-col gap-0.5">
-							<span className="block truncate text-sm">{item.quantity || "-"}</span>
-							{balesLine ? (
+							<span className="block truncate text-sm">{displayValue || "-"}</span>
+							{annotation ? (
 								<span className="text-[11px] text-muted-foreground leading-tight truncate">
-									{balesLine}
+									{annotation}
 								</span>
 							) : null}
 						</div>
 					);
 				},
 				getTooltip: ({ item }) => {
+					const isGovtSkg = isGovtInvoice(invoiceTypeId);
+					if (isGovtSkg) {
+						const parts: string[] = [];
+						if (item.govtskgQtyBales) parts.push(`Bales: ${item.govtskgQtyBales}`);
+						if (item.quantity) parts.push(`Qty: ${item.quantity} per 100 pcs`);
+						return parts.length ? parts.join("\n") : undefined;
+					}
 					if (!item.quantity) return undefined;
-					const showBales = isGovtInvoice(invoiceTypeId);
-					const balesConv = showBales && getUomConversions
+					const balesConv = getUomConversions
 						? computeConvertedQty(item.quantity, item.uom, getUomConversions(item.itemGroup, item.item))
 						: null;
 					if (balesConv && isBalesUomName(balesConv.otherUomName)) {

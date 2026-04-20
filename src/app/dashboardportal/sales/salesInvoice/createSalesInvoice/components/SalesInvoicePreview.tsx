@@ -3,7 +3,11 @@
 import React, { useRef } from "react";
 import { Box, Stack, Typography } from "@mui/material";
 import { Button } from "@/components/ui/button";
-import { isRawJuteInvoice } from "../utils/salesInvoiceConstants";
+import { isRawJuteInvoice, isGovtSkgInvoice, isGovtSkgFreightInvoice } from "../utils/salesInvoiceConstants";
+import { cell, formatAmount, formatDate, formatDateTime, numberToWordsIndian, qrImageSrc } from "../utils/invoicePrintFormatters";
+
+const isGovtSkgLayoutType = (invoiceType?: string | number | null): boolean =>
+	isGovtSkgInvoice(invoiceType) || isGovtSkgFreightInvoice(invoiceType);
 
 export type InvoicePreviewHeader = {
 	invoiceNo?: string;
@@ -16,6 +20,10 @@ export type InvoicePreviewHeader = {
 	deliveryOrderDate?: string;
 	salesOrderNo?: string;
 	salesOrderDate?: string;
+	/** Govt sacking PCSO number (shown only for invoice_type = govt sacking) */
+	pcsoNo?: string;
+	/** Govt sacking PCSO date */
+	pcsoDate?: string;
 	branch?: string;
 	customer?: string;
 	customerBranch?: string;
@@ -33,6 +41,13 @@ export type InvoicePreviewHeader = {
 	shippingToGstin?: string;
 	deliveryOrder?: string;
 	transporter?: string;
+	transporterGstNo?: string;
+	transporterDocNo?: string;
+	transporterDocDate?: string;
+	/** Mode of Transport (CONCOR / RAIL / ROAD) — sourced from govtskg block for Govt Sacking layout types */
+	modeOfTransport?: string;
+	/** Govt sacking loading point (shown only for invoice_type = govt sacking) */
+	loadingPoint?: string;
 	vehicleNo?: string;
 	ewayBillNo?: string;
 	ewayBillDate?: string;
@@ -54,6 +69,12 @@ export type InvoicePreviewHeader = {
 	bankName?: string;
 	bankAccNo?: string;
 	bankIfscCode?: string;
+	destination?: string;
+	irn?: string;
+	ackNo?: string;
+	ackDate?: string;
+	/** Base64 image or string payload for QR / barcode rendered at the top of the invoice */
+	qrCode?: string;
 };
 
 export type InvoicePreviewItem = {
@@ -87,105 +108,29 @@ export type InvoicePreviewTotals = {
 	roundOff?: number;
 	netAmount?: number;
 	claimAmount?: number;
+	additionalChargesTotal?: number;
+};
+
+export type InvoicePreviewAdditionalCharge = {
+	chargeName: string;
+	hsnCode?: string;
+	qty?: number | string;
+	rate?: number | string;
+	netAmount: number;
 };
 
 type InvoicePreviewProps = {
 	header: InvoicePreviewHeader;
 	items: InvoicePreviewItem[];
 	totals?: InvoicePreviewTotals;
+	additionalCharges?: InvoicePreviewAdditionalCharge[];
 	remarks?: string;
 	termsConditions?: string;
 	onPrint?: () => void;
 	onDownload?: () => void;
 };
 
-const formatDate = (dateStr?: string) => {
-	if (!dateStr) return "-";
-	try {
-		const date = new Date(dateStr);
-		if (Number.isNaN(date.getTime())) return dateStr;
-		return date.toLocaleDateString("en-GB", { year: "numeric", month: "2-digit", day: "2-digit" });
-	} catch {
-		return dateStr;
-	}
-};
-
-const formatDateTime = (dateStr?: string) => {
-	if (!dateStr) return "-";
-	try {
-		const date = new Date(dateStr);
-		if (Number.isNaN(date.getTime())) return dateStr;
-		return date.toLocaleString("en-GB", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
-	} catch {
-		return dateStr;
-	}
-};
-
-const formatAmount = (value?: number | string) => {
-	if (value === null || value === undefined || value === "") return "-";
-	const num = Number(value);
-	if (Number.isNaN(num)) return String(value);
-	return num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-};
-
-const ONES = [
-	"", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE",
-	"TEN", "ELEVEN", "TWELVE", "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN",
-	"SEVENTEEN", "EIGHTEEN", "NINETEEN",
-];
-const TENS = ["", "", "TWENTY", "THIRTY", "FORTY", "FIFTY", "SIXTY", "SEVENTY", "EIGHTY", "NINETY"];
-
-const twoDigitsToWords = (n: number): string => {
-	if (n < 20) return ONES[n];
-	return TENS[Math.floor(n / 10)] + (n % 10 ? " " + ONES[n % 10] : "");
-};
-
-const threeDigitsToWords = (n: number): string => {
-	if (n === 0) return "";
-	let s = "";
-	if (n >= 100) {
-		s += ONES[Math.floor(n / 100)] + " HUNDRED";
-		n %= 100;
-		if (n > 0) s += " ";
-	}
-	if (n > 0) s += twoDigitsToWords(n);
-	return s;
-};
-
-const numberToWordsIndian = (amount: number): string => {
-	if (!amount || amount === 0) return "ZERO";
-	const rupees = Math.floor(amount);
-	const paiseRaw = Math.round((amount - rupees) * 100);
-	const parts: string[] = [];
-	let rem = rupees;
-	const crore = Math.floor(rem / 10000000); rem %= 10000000;
-	const lakh = Math.floor(rem / 100000); rem %= 100000;
-	const thousand = Math.floor(rem / 1000); rem %= 1000;
-	if (crore > 0) parts.push(threeDigitsToWords(crore) + " CRORE");
-	if (lakh > 0) parts.push(threeDigitsToWords(lakh) + " LAC");
-	if (thousand > 0) parts.push(threeDigitsToWords(thousand) + " THOUSAND");
-	if (rem > 0) parts.push(threeDigitsToWords(rem));
-	let result = "RUPEES " + parts.join(" ");
-	if (paiseRaw > 0) result += " AND " + twoDigitsToWords(paiseRaw) + " PAISE";
-	result += " ONLY";
-	return result;
-};
-
-/* ───────────────────────────────────────────── */
-/*  Tally-style cell helper for print HTML       */
-/* ───────────────────────────────────────────── */
-const cell = (content: string, opts?: { bold?: boolean; right?: boolean; borderBottom?: boolean; borderLeft?: boolean; colSpan?: number; width?: string }) => {
-	const s: string[] = ["padding:3px 8px", "font-size:11px", "vertical-align:top"];
-	if (opts?.bold) s.push("font-weight:700");
-	if (opts?.right) s.push("text-align:right");
-	if (opts?.borderBottom) s.push("border-bottom:1px solid #000");
-	if (opts?.borderLeft) s.push("border-left:1px solid #000");
-	if (opts?.width) s.push(`width:${opts.width}`);
-	const attrs = [`style="${s.join(";")}"`, opts?.colSpan ? `colspan="${opts.colSpan}"` : ""].filter(Boolean).join(" ");
-	return `<td ${attrs}>${content}</td>`;
-};
-
-const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, totals, remarks, termsConditions, onPrint, onDownload }) => {
+const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, totals, additionalCharges, remarks, termsConditions, onPrint, onDownload }) => {
 	const previewRef = useRef<HTMLDivElement>(null);
 
 	const totalValue = totals
@@ -207,9 +152,9 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 			? items
 					.map(
 						(item) => {
-							const itemCodeDisplay = item.itemCode || "";
+							const itemCodeDisplay = item.itemCode ? ` (${item.itemCode})` : "";
 							const itemNameDisplay = item.item || "-";
-							const descriptionContent = `${itemCodeDisplay}<br/><strong>${itemNameDisplay}</strong>${item.remarks && item.remarks !== "-" ? `<br/><em>${item.remarks}</em>` : ""}`;
+							const descriptionContent = `<strong>${itemNameDisplay}</strong>${itemCodeDisplay}${item.remarks && item.remarks !== "-" ? `<br/><em>${item.remarks}</em>` : ""}`;
 
 							if (isRawJute) {
 								// For Raw Jute: Show Qty with UOM below in a single cell
@@ -249,6 +194,47 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 					.join("")
 			: `<tr><td colspan="${isRawJute ? hasNetWeight ? 7 : 6 : hasNetWeight ? 8 : 7}" style="border:1px solid #000;padding:10px;text-align:center;font-size:11px;">No line items.</td></tr>`;
 
+		const blankMiddleCells = (() => {
+			const tdEmpty = '<td style="border:1px solid #000;padding:4px 6px;font-size:11px;"></td>';
+			const middleCount = isRawJute
+				? (hasNetWeight ? 2 : 1) + 1
+				: (hasNetWeight ? 2 : 1) + 2;
+			return tdEmpty.repeat(middleCount);
+		})();
+
+		const isGovtSkg = isGovtSkgLayoutType(h.invoiceType);
+
+		const additionalChargeRowsHtml = additionalCharges && additionalCharges.length
+			? additionalCharges.map((charge) => {
+				if (isGovtSkg) {
+					const qtyCell = charge.qty !== undefined && charge.qty !== "" ? formatAmount(charge.qty) : "";
+					const rateCell = charge.rate !== undefined && charge.rate !== "" ? formatAmount(charge.rate) : "";
+					const netWeightCell = hasNetWeight
+						? '<td style="border:1px solid #000;padding:4px 6px;font-size:11px;"></td>'
+						: "";
+					return `
+				<tr>
+					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:center;"></td>
+					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:center;">${charge.hsnCode || ""}</td>
+					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;font-style:italic;">${charge.chargeName}</td>
+					${netWeightCell}
+					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:right;">${qtyCell}</td>
+					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:center;"></td>
+					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:right;">${rateCell}</td>
+					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:right;">${formatAmount(charge.netAmount)}</td>
+				</tr>`;
+				}
+				return `
+				<tr>
+					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:center;"></td>
+					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:center;">${charge.hsnCode || ""}</td>
+					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;font-style:italic;">${charge.chargeName}</td>
+					${blankMiddleCells}
+					<td style="border:1px solid #000;padding:4px 6px;font-size:11px;text-align:right;">${formatAmount(charge.netAmount)}</td>
+				</tr>`;
+			}).join("")
+			: "";
+
 		const cgstLabel = totals?.cgstPercent ? `CGST@${totals.cgstPercent}%` : "CGST";
 		const sgstLabel = totals?.sgstPercent ? `SGST@${totals.sgstPercent}%` : "SGST";
 		const igstLabel = totals?.igstPercent ? `IGST@${totals.igstPercent}%` : "IGST";
@@ -279,16 +265,77 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 
 		const amountInWords = totals?.netAmount ? numberToWordsIndian(totals.netAmount) : "";
 
-		/* Doc info rows — Invoice No, Sale No, Del Ord No, Vehicle, Transporter etc. */
+		/* HSN/SAC tax summary — aggregate taxable value by HSN code and distribute tax
+		   proportionally using the same per-tax-type percentages carried on totals.
+		   Rendered only for Govt Sacking layout types (3 and 7) to match the standard
+		   reference format and avoid changing prints for unrelated types. */
+		const hsnSummaryHtml = (() => {
+			if (!isGovtSkg || !totals) return "";
+			const map = new Map<string, number>();
+			items.forEach((it) => {
+				const hsn = (it.hsnCode || "").toString().trim();
+				if (!hsn) return;
+				map.set(hsn, (map.get(hsn) || 0) + (Number(it.netAmount) || 0));
+			});
+			(additionalCharges || []).forEach((ch) => {
+				const hsn = (ch.hsnCode || "").toString().trim();
+				if (!hsn) return;
+				map.set(hsn, (map.get(hsn) || 0) + (Number(ch.netAmount) || 0));
+			});
+			if (map.size === 0) return "";
+			const cgstPct = totals.cgstPercent ?? 0;
+			const sgstPct = totals.sgstPercent ?? 0;
+			const igstPct = totals.igstPercent ?? 0;
+			const rows = Array.from(map.entries()).map(([hsn, taxable]) => {
+				const cgstAmt = +(taxable * (cgstPct / 100)).toFixed(2);
+				const sgstAmt = +(taxable * (sgstPct / 100)).toFixed(2);
+				const igstAmt = +(taxable * (igstPct / 100)).toFixed(2);
+				const totalTax = +(cgstAmt + sgstAmt + igstAmt).toFixed(2);
+				return { hsn, taxable, cgstAmt, sgstAmt, igstAmt, totalTax };
+			});
+			const totalTaxable = rows.reduce((s, r) => s + r.taxable, 0);
+			const totalCgst = rows.reduce((s, r) => s + r.cgstAmt, 0);
+			const totalSgst = rows.reduce((s, r) => s + r.sgstAmt, 0);
+			const totalIgst = rows.reduce((s, r) => s + r.igstAmt, 0);
+			const totalTaxAll = +(totalCgst + totalSgst + totalIgst).toFixed(2);
+			const showCgstSgst = cgstPct > 0 || sgstPct > 0;
+			const showIgst = igstPct > 0;
+			const th = (label: string, colSpan?: number) => `<th style="border:1px solid #000;padding:3px 6px;font-size:10px;background:#f0f0f0;${colSpan ? "" : ""}" ${colSpan ? `colspan="${colSpan}"` : ""}>${label}</th>`;
+			const td = (v: string, right = false) => `<td style="border:1px solid #000;padding:3px 6px;font-size:11px;${right ? "text-align:right;" : ""}">${v}</td>`;
+			const header1 = `<tr>${th("HSN/SAC", 1)}${th("Taxable Value", 1)}${showCgstSgst ? th("CGST", 2) : ""}${showCgstSgst ? th("SGST", 2) : ""}${showIgst ? th("IGST", 2) : ""}${th("Total Tax Amount", 1)}</tr>`;
+			const header2 = `<tr>${th("")}${th("")}${showCgstSgst ? `${th("Rate")}${th("Amount")}` : ""}${showCgstSgst ? `${th("Rate")}${th("Amount")}` : ""}${showIgst ? `${th("Rate")}${th("Amount")}` : ""}${th("")}</tr>`;
+			const bodyRows = rows.map((r) => {
+				return `<tr>${td(r.hsn)}${td(formatAmount(r.taxable), true)}${showCgstSgst ? `${td(`${cgstPct}%`, true)}${td(formatAmount(r.cgstAmt), true)}` : ""}${showCgstSgst ? `${td(`${sgstPct}%`, true)}${td(formatAmount(r.sgstAmt), true)}` : ""}${showIgst ? `${td(`${igstPct}%`, true)}${td(formatAmount(r.igstAmt), true)}` : ""}${td(formatAmount(r.totalTax), true)}</tr>`;
+			}).join("");
+			const totalRow = `<tr>${td("<strong>Total</strong>")}${td(`<strong>${formatAmount(totalTaxable)}</strong>`, true)}${showCgstSgst ? `${td("")}${td(`<strong>${formatAmount(totalCgst)}</strong>`, true)}` : ""}${showCgstSgst ? `${td("")}${td(`<strong>${formatAmount(totalSgst)}</strong>`, true)}` : ""}${showIgst ? `${td("")}${td(`<strong>${formatAmount(totalIgst)}</strong>`, true)}` : ""}${td(`<strong>${formatAmount(totalTaxAll)}</strong>`, true)}</tr>`;
+			const taxInWords = totalTaxAll > 0 ? numberToWordsIndian(totalTaxAll) : "";
+			return `
+	<table style="width:100%;border-collapse:collapse;border-top:1px solid #000;">
+		<thead>${header1}${header2}</thead>
+		<tbody>${bodyRows}${totalRow}</tbody>
+	</table>
+	${taxInWords ? `<div style="padding:4px 10px;font-size:11px;border-bottom:1px solid #000;"><strong>Tax Amount (In Words):</strong> ${taxInWords}</div>` : ""}`;
+		})();
+
+		/* Doc info rows — Invoice No, Sale No, Del Ord No, PCSO etc. (vehicle/transporter moved to Transaction Type cell) */
 		const docInfoRows = [
 			h.invoiceNo ? `<tr><td style="padding:3px 6px;font-size:11px;white-space:nowrap;font-weight:600;">Invoice No.</td><td style="padding:3px 6px;font-size:11px;">${h.invoiceNo}</td><td style="padding:3px 6px;font-size:11px;white-space:nowrap;">Date</td><td style="padding:3px 6px;font-size:11px;font-weight:600;">${formatDate(h.invoiceDate)}</td></tr>` : "",
 			h.saleNo ? `<tr><td style="padding:3px 6px;font-size:11px;white-space:nowrap;">Sale No.</td><td style="padding:3px 6px;font-size:11px;">${h.saleNo}</td><td style="padding:3px 6px;font-size:11px;white-space:nowrap;">Date</td><td style="padding:3px 6px;font-size:11px;">${formatDate(h.saleDate)}</td></tr>` : "",
 			h.deliveryOrderNo ? `<tr><td style="padding:3px 6px;font-size:11px;white-space:nowrap;">Del Ord No.</td><td style="padding:3px 6px;font-size:11px;">${h.deliveryOrderNo}</td><td style="padding:3px 6px;font-size:11px;white-space:nowrap;">Date</td><td style="padding:3px 6px;font-size:11px;">${formatDate(h.deliveryOrderDate)}</td></tr>` : "",
 			h.salesOrderNo ? `<tr><td style="padding:3px 6px;font-size:11px;white-space:nowrap;">Sales Ord No.</td><td style="padding:3px 6px;font-size:11px;">${h.salesOrderNo}</td><td style="padding:3px 6px;font-size:11px;white-space:nowrap;">Date</td><td style="padding:3px 6px;font-size:11px;">${formatDate(h.salesOrderDate)}</td></tr>` : "",
-			h.vehicleNo ? `<tr><td colspan="4" style="padding:3px 6px;font-size:11px;">Vechicle No. ${h.vehicleNo}</td></tr>` : "",
-			h.transporter ? `<tr><td colspan="4" style="padding:3px 6px;font-size:11px;">TRANSPORTER NAME:: ${h.transporter}</td></tr>` : "",
-			h.ewayBillNo ? `<tr><td colspan="4" style="padding:3px 6px;font-size:11px;">E-Way Bill No.: ${h.ewayBillNo}${h.ewayBillDate ? " | Date: " + formatDate(h.ewayBillDate) : ""}</td></tr>` : "",
-			h.challanNo ? `<tr><td colspan="4" style="padding:3px 6px;font-size:11px;">Challan No.: ${h.challanNo}${h.challanDate ? " | Date: " + formatDate(h.challanDate) : ""}</td></tr>` : "",
+			isGovtSkgLayoutType(h.invoiceType) && h.pcsoNo ? `<tr><td style="padding:3px 6px;font-size:11px;white-space:nowrap;">PCSO No.</td><td style="padding:3px 6px;font-size:11px;">${h.pcsoNo}</td><td style="padding:3px 6px;font-size:11px;white-space:nowrap;">Date</td><td style="padding:3px 6px;font-size:11px;">${formatDate(h.pcsoDate)}</td></tr>` : "",
+		].filter(Boolean).join("");
+
+		/* Transport info (rendered inside the Transaction Type cell) */
+		const transportInfoHtml = [
+			h.vehicleNo ? `<div style="font-size:11px;">Vehicle No.: <strong>${h.vehicleNo}</strong></div>` : "",
+			h.transporter ? `<div style="font-size:11px;">Transporter: <strong>${h.transporter}</strong></div>` : "",
+			h.transporterGstNo ? `<div style="font-size:11px;">Transporter GSTIN: <strong>${h.transporterGstNo}</strong></div>` : "",
+			h.transporterDocNo ? `<div style="font-size:11px;">Transporter Doc No.: <strong>${h.transporterDocNo}</strong>${h.transporterDocDate ? ` | Date: <strong>${formatDate(h.transporterDocDate)}</strong>` : ""}</div>` : "",
+			isGovtSkgLayoutType(h.invoiceType) && h.modeOfTransport ? `<div style="font-size:11px;">Mode of Transport: <strong>${h.modeOfTransport}</strong></div>` : "",
+			isGovtSkgLayoutType(h.invoiceType) && h.loadingPoint ? `<div style="font-size:11px;">Loading Point: <strong>${h.loadingPoint}</strong></div>` : "",
+			h.ewayBillNo ? `<div style="font-size:11px;">E-Way Bill No.: ${h.ewayBillNo}${h.ewayBillDate ? " | Date: " + formatDate(h.ewayBillDate) : ""}</div>` : "",
+			h.challanNo ? `<div style="font-size:11px;">Challan No.: ${h.challanNo}${h.challanDate ? " | Date: " + formatDate(h.challanDate) : ""}</div>` : "",
 		].filter(Boolean).join("");
 
 		const netWeightTh = hasNetWeight ? `<th style="border:1px solid #000;padding:4px 6px;font-size:10px;background:#f0f0f0;">Net wt.</th>` : "";
@@ -297,6 +344,16 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 			? `<th style="border:1px solid #000;padding:4px 6px;font-size:10px;text-align:center;">Quantity<br/>(with UOM)</th>`
 			: `<th style="border:1px solid #000;padding:4px 6px;font-size:10px;text-align:center;">Quantity</th>
 				<th style="border:1px solid #000;padding:4px 6px;font-size:10px;text-align:center;">UOM</th>`;
+
+		const qrSrc = qrImageSrc(h.qrCode);
+		const eInvoiceLeft = [
+			h.irn ? `<div style="font-size:10px;word-break:break-all;"><strong>IRN:</strong> ${h.irn}</div>` : "",
+			h.ackNo ? `<div style="font-size:10px;"><strong>Ack No:</strong> ${h.ackNo}</div>` : "",
+			h.ackDate ? `<div style="font-size:10px;"><strong>Ack Date:</strong> ${formatDate(h.ackDate)}</div>` : "",
+		].filter(Boolean).join("");
+		const eInvoiceRight = qrSrc
+			? `<img src="${qrSrc}" style="max-height:70px;max-width:70px;object-fit:contain;" alt="e-Invoice QR" />`
+			: (h.qrCode ? `<div style="font-size:9px;max-width:120px;word-break:break-all;">${h.qrCode}</div>` : "");
 
 		const html = `<!DOCTYPE html>
 <html>
@@ -312,8 +369,17 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 <body>
 <div style="border:1.5px solid #000;">
 
-	<!-- Title -->
-	<div style="text-align:center;font-size:14px;font-weight:700;border-bottom:1px solid #000;padding:5px 0;letter-spacing:1px;">TAX INVOICE</div>
+	<!-- Title: IRN/Ack (left) + TAX INVOICE + Status (center) + QR (right) -->
+	<table style="width:100%;border-collapse:collapse;border-bottom:1px solid #000;">
+		<tr>
+			<td style="width:33%;padding:4px 8px;vertical-align:middle;">${eInvoiceLeft}</td>
+			<td style="width:34%;padding:5px 0;text-align:center;vertical-align:middle;">
+				<div style="font-size:14px;font-weight:700;letter-spacing:1px;">TAX INVOICE</div>
+				${h.status ? `<div style="font-size:10px;color:#555;">${h.status}</div>` : ""}
+			</td>
+			<td style="width:33%;padding:4px 8px;vertical-align:middle;text-align:right;">${eInvoiceRight}</td>
+		</tr>
+	</table>
 
 	<!-- Row 1: Company info (left) + Document numbers (right) -->
 	<table style="width:100%;border-collapse:collapse;border-bottom:1px solid #000;">
@@ -346,7 +412,8 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 				${h.branchGstNo ? `<div style="font-size:11px;">GSTIN No : ${h.branchGstNo}</div>` : (h.companyGstin ? `<div style="font-size:11px;">GSTIN No : ${h.companyGstin}</div>` : "")}
 			</td>
 			<td style="width:50%;padding:8px 10px;vertical-align:top;">
-				${h.transactionType || h.invoiceType ? `<div style="font-size:11px;">Transaction Type: <strong>${h.transactionType || h.invoiceType}</strong></div>` : ""}
+				${h.transactionType || h.invoiceType ? `<div style="font-size:11px;margin-bottom:3px;">Transaction Type: <strong>${h.transactionType || h.invoiceType}</strong></div>` : ""}
+				${transportInfoHtml}
 			</td>
 		</tr>
 	</table>
@@ -369,6 +436,7 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 				${h.shippingToState ? `<div style="font-size:11px;">State : ${h.shippingToState}</div>` : ""}
 				${h.shippingToStateCode ? `<div style="font-size:11px;">State Code : ${h.shippingToStateCode}</div>` : ""}
 				${h.shippingToGstin ? `<div style="font-size:11px;">GSTIN No : ${h.shippingToGstin}</div>` : ""}
+				${h.destination ? `<div style="font-size:11px;margin-top:3px;"><strong>Destination:</strong> ${h.destination}</div>` : ""}
 			</td>
 		</tr>
 	</table>
@@ -379,14 +447,14 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 			<tr style="background-color:#f0f0f0;">
 				<th style="border:1px solid #000;padding:4px 6px;font-size:10px;text-align:center;">S.No</th>
 				<th style="border:1px solid #000;padding:4px 6px;font-size:10px;text-align:center;">HSN CODE</th>
-				<th style="border:1px solid #000;padding:4px 6px;font-size:10px;text-align:center;">Description &amp; Specification of Goods</th>
+				<th style="border:1px solid #000;padding:4px 6px;font-size:10px;text-align:center;width:32%;">Description &amp; Specification of Goods</th>
 				${netWeightTh}
 				${quantityHeaderHtml}
 				<th style="border:1px solid #000;padding:4px 6px;font-size:10px;text-align:center;">Rate</th>
 				<th style="border:1px solid #000;padding:4px 6px;font-size:10px;text-align:center;">Value (Rs.)</th>
 			</tr>
 		</thead>
-		<tbody>${itemRowsHtml}</tbody>
+		<tbody>${itemRowsHtml}${additionalChargeRowsHtml}</tbody>
 	</table>
 
 	<!-- Totals -->
@@ -396,6 +464,9 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 	${amountInWords ? `
 	<div style="border-top:1px solid #000;padding:4px 10px;font-size:11px;font-weight:600;">Invoice Value (In Words)</div>
 	<div style="padding:4px 10px;font-size:11px;border-bottom:1px solid #000;">Rupees in words: ${amountInWords}</div>` : ""}
+
+	<!-- HSN/SAC tax summary (Govt Sacking layout only) -->
+	${hsnSummaryHtml}
 
 	<!-- Wheather tax is payable on reverse charge -->
 	<div style="padding:3px 10px;font-size:10px;border-bottom:1px solid #000;">Whether tax is payable on Reverse Charges Basis No.</div>
@@ -429,6 +500,9 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 		</tr>
 	</table>
 
+	<!-- Computer Generated footer -->
+	<div style="text-align:center;padding:4px 10px;font-size:10px;border-top:1px solid #000;color:#555;">This is a Computer Generated Invoice</div>
+
 </div>
 </body>
 </html>`;
@@ -459,6 +533,53 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 	const cgstLabel = totals?.cgstPercent ? `CGST@${totals.cgstPercent}%` : "CGST";
 	const sgstLabel = totals?.sgstPercent ? `SGST@${totals.sgstPercent}%` : "SGST";
 	const igstLabel = totals?.igstPercent ? `IGST@${totals.igstPercent}%` : "IGST";
+	const isGovtSkgLayout = isGovtSkgLayoutType(header.invoiceType);
+
+	/* HSN/SAC tax summary groups — shown in the in-page React preview for Govt Sacking
+	   layout types. Mirrors the print-HTML aggregation above. */
+	const hsnSummary = (() => {
+		if (!isGovtSkgLayout || !totals) return null;
+		const map = new Map<string, number>();
+		items.forEach((it) => {
+			const hsn = (it.hsnCode || "").toString().trim();
+			if (!hsn) return;
+			map.set(hsn, (map.get(hsn) || 0) + (Number(it.netAmount) || 0));
+		});
+		(additionalCharges || []).forEach((ch) => {
+			const hsn = (ch.hsnCode || "").toString().trim();
+			if (!hsn) return;
+			map.set(hsn, (map.get(hsn) || 0) + (Number(ch.netAmount) || 0));
+		});
+		if (map.size === 0) return null;
+		const cgstPct = totals.cgstPercent ?? 0;
+		const sgstPct = totals.sgstPercent ?? 0;
+		const igstPct = totals.igstPercent ?? 0;
+		const rows = Array.from(map.entries()).map(([hsn, taxable]) => {
+			const cgstAmt = +(taxable * (cgstPct / 100)).toFixed(2);
+			const sgstAmt = +(taxable * (sgstPct / 100)).toFixed(2);
+			const igstAmt = +(taxable * (igstPct / 100)).toFixed(2);
+			return { hsn, taxable, cgstAmt, sgstAmt, igstAmt, totalTax: +(cgstAmt + sgstAmt + igstAmt).toFixed(2) };
+		});
+		const totalTaxable = rows.reduce((s, r) => s + r.taxable, 0);
+		const totalCgst = rows.reduce((s, r) => s + r.cgstAmt, 0);
+		const totalSgst = rows.reduce((s, r) => s + r.sgstAmt, 0);
+		const totalIgst = rows.reduce((s, r) => s + r.igstAmt, 0);
+		const totalTaxAll = +(totalCgst + totalSgst + totalIgst).toFixed(2);
+		return {
+			rows,
+			totalTaxable,
+			totalCgst,
+			totalSgst,
+			totalIgst,
+			totalTaxAll,
+			cgstPct,
+			sgstPct,
+			igstPct,
+			showCgstSgst: cgstPct > 0 || sgstPct > 0,
+			showIgst: igstPct > 0,
+			taxInWords: totalTaxAll > 0 ? numberToWordsIndian(totalTaxAll) : "",
+		};
+	})();
 
 	/* ──────────────────────────────────────── */
 	/*  React in-page preview (mirrors print)  */
@@ -468,9 +589,49 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 			<Box ref={previewRef} sx={{ border: "2px solid", borderColor: "divider", borderRadius: 0, p: 0, backgroundColor: "#fff" }}>
 
 				{/* Title */}
-				<Box sx={{ textAlign: "center", py: 0.75, borderBottom: "1px solid", borderColor: "divider" }}>
-					<Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: 1, fontSize: "0.95rem" }}>TAX INVOICE</Typography>
-					{header.status ? <Typography variant="caption" color="text.secondary">{header.status}</Typography> : null}
+				<Box sx={{ borderBottom: "1px solid", borderColor: "divider", px: 1.5, py: 0.75, display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 1 }}>
+					{/* Left: e-invoice details (IRN, Ack No, Ack Date) */}
+					<Box sx={{ textAlign: "left" }}>
+						{header.irn && (
+							<Typography variant="caption" display="block" sx={{ fontSize: "0.68rem", wordBreak: "break-all" }}>
+								<strong>IRN:</strong> {header.irn}
+							</Typography>
+						)}
+						{header.ackNo && (
+							<Typography variant="caption" display="block" sx={{ fontSize: "0.68rem" }}>
+								<strong>Ack No:</strong> {header.ackNo}
+							</Typography>
+						)}
+						{header.ackDate && (
+							<Typography variant="caption" display="block" sx={{ fontSize: "0.68rem" }}>
+								<strong>Ack Date:</strong> {formatDate(header.ackDate)}
+							</Typography>
+						)}
+					</Box>
+
+					{/* Center: TAX INVOICE + Status */}
+					<Box sx={{ textAlign: "center" }}>
+						<Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: 1, fontSize: "0.95rem" }}>TAX INVOICE</Typography>
+						{header.status ? <Typography variant="caption" color="text.secondary">{header.status}</Typography> : null}
+					</Box>
+
+					{/* Right: QR / barcode */}
+					<Box sx={{ textAlign: "right", display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+						{(() => {
+							const src = qrImageSrc(header.qrCode);
+							if (src) {
+								return <img src={src} alt="e-Invoice QR" style={{ maxHeight: 70, maxWidth: 70, objectFit: "contain" }} />;
+							}
+							if (header.qrCode) {
+								return (
+									<Typography variant="caption" sx={{ fontSize: "0.6rem", maxWidth: 120, wordBreak: "break-all" }}>
+										{header.qrCode}
+									</Typography>
+								);
+							}
+							return null;
+						})()}
+					</Box>
 				</Box>
 
 				{/* Row 1: Company info + Document numbers */}
@@ -517,10 +678,14 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 								<Typography variant="caption">{formatDate(header.salesOrderDate)}</Typography>
 							</Box>
 						)}
-						{header.vehicleNo && <Typography variant="caption" display="block">Vehicle No.: {header.vehicleNo}</Typography>}
-						{header.transporter && <Typography variant="caption" display="block">Transporter: {header.transporter}</Typography>}
-						{header.ewayBillNo && <Typography variant="caption" display="block">E-Way Bill: {header.ewayBillNo}{header.ewayBillDate ? ` | Date: ${formatDate(header.ewayBillDate)}` : ""}</Typography>}
-						{header.challanNo && <Typography variant="caption" display="block">Challan No.: {header.challanNo}{header.challanDate ? ` | Date: ${formatDate(header.challanDate)}` : ""}</Typography>}
+						{isGovtSkgLayoutType(header.invoiceType) && header.pcsoNo && (
+							<Box sx={{ display: "flex", gap: 1, mb: 0.25 }}>
+								<Typography variant="caption" sx={{ minWidth: 75 }}>PCSO No.</Typography>
+								<Typography variant="caption" sx={{ flex: 1 }}>{header.pcsoNo}</Typography>
+								<Typography variant="caption" sx={{ minWidth: 30 }}>Date</Typography>
+								<Typography variant="caption">{formatDate(header.pcsoDate)}</Typography>
+							</Box>
+						)}
 					</Box>
 				</Box>
 
@@ -535,8 +700,25 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 					</Box>
 					<Box sx={{ p: 1.5 }}>
 						{(header.transactionType || header.invoiceType) && (
-							<Typography variant="caption" display="block">Transaction Type: <strong>{header.transactionType || header.invoiceType}</strong></Typography>
+							<Typography variant="caption" display="block" sx={{ mb: 0.25 }}>Transaction Type: <strong>{header.transactionType || header.invoiceType}</strong></Typography>
 						)}
+						{header.vehicleNo && <Typography variant="caption" display="block">Vehicle No.: <strong>{header.vehicleNo}</strong></Typography>}
+						{header.transporter && <Typography variant="caption" display="block">Transporter: <strong>{header.transporter}</strong></Typography>}
+						{header.transporterGstNo && <Typography variant="caption" display="block">Transporter GSTIN: <strong>{header.transporterGstNo}</strong></Typography>}
+						{header.transporterDocNo && (
+							<Typography variant="caption" display="block">
+								Transporter Doc No.: <strong>{header.transporterDocNo}</strong>
+								{header.transporterDocDate ? <> | Date: <strong>{formatDate(header.transporterDocDate)}</strong></> : null}
+							</Typography>
+						)}
+						{isGovtSkgLayoutType(header.invoiceType) && header.modeOfTransport && (
+							<Typography variant="caption" display="block">Mode of Transport: <strong>{header.modeOfTransport}</strong></Typography>
+						)}
+						{isGovtSkgLayoutType(header.invoiceType) && header.loadingPoint && (
+							<Typography variant="caption" display="block">Loading Point: <strong>{header.loadingPoint}</strong></Typography>
+						)}
+						{header.ewayBillNo && <Typography variant="caption" display="block">E-Way Bill No.: {header.ewayBillNo}{header.ewayBillDate ? ` | Date: ${formatDate(header.ewayBillDate)}` : ""}</Typography>}
+						{header.challanNo && <Typography variant="caption" display="block">Challan No.: {header.challanNo}{header.challanDate ? ` | Date: ${formatDate(header.challanDate)}` : ""}</Typography>}
 					</Box>
 				</Box>
 
@@ -557,6 +739,11 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 						{header.shippingToState && <Typography variant="caption" display="block">State : {header.shippingToState}</Typography>}
 						{header.shippingToStateCode && <Typography variant="caption" display="block">State Code : {header.shippingToStateCode}</Typography>}
 						{header.shippingToGstin && <Typography variant="caption" display="block">GSTIN No : {header.shippingToGstin}</Typography>}
+						{header.destination && (
+							<Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+								<strong>Destination:</strong> {header.destination}
+							</Typography>
+						)}
 					</Box>
 				</Box>
 
@@ -566,7 +753,7 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 						<Box component="thead" sx={{ backgroundColor: "rgba(12,60,96,0.07)" }}>
 							<Box component="tr">
 								{["S.No", "HSN Code", "Description & Specification of Goods", ...(hasNetWeight ? ["Net wt."] : []), "Quantity", "UOM", "Rate", "Value (Rs.)"].map((col) => (
-									<Box key={col} component="th" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 10, textAlign: col === "Description & Specification of Goods" ? "left" : "center", whiteSpace: "nowrap" }}>
+									<Box key={col} component="th" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 10, textAlign: col === "Description & Specification of Goods" ? "left" : "center", whiteSpace: "nowrap", width: col === "Description & Specification of Goods" ? "32%" : undefined }}>
 										{col}
 									</Box>
 								))}
@@ -579,8 +766,10 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, textAlign: "center" }}>{item.srNo}</Box>
 										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, textAlign: "center" }}>{item.hsnCode || "-"}</Box>
 										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11 }}>
-												<div>{item.itemCode || ""}</div>
-												<div style={{ fontWeight: "bold" }}>{item.item || "-"}</div>
+												<div>
+													<strong>{item.item || "-"}</strong>
+													{item.itemCode ? ` (${item.itemCode})` : ""}
+												</div>
 												{item.remarks && item.remarks !== "-" && <div style={{ fontStyle: "italic", fontSize: "0.9em" }}>{item.remarks}</div>}
 											</Box>
 										{hasNetWeight && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, textAlign: "right" }}>{item.netWeight !== undefined && item.netWeight !== "" ? formatAmount(item.netWeight) : "-"}</Box>}
@@ -602,6 +791,37 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 									</Box>
 								</Box>
 							)}
+							{additionalCharges && additionalCharges.length > 0 && additionalCharges.map((charge, idx) => {
+								const isGovtSkgPreview = isGovtSkgLayoutType(header.invoiceType);
+								if (isGovtSkgPreview) {
+									const qtyDisplay = charge.qty !== undefined && charge.qty !== "" ? formatAmount(charge.qty) : "";
+									const rateDisplay = charge.rate !== undefined && charge.rate !== "" ? formatAmount(charge.rate) : "";
+									return (
+										<Box component="tr" key={`addl-charge-${idx}`}>
+											<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, textAlign: "center" }} />
+											<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, textAlign: "center" }}>{charge.hsnCode || ""}</Box>
+											<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, fontStyle: "italic" }}>{charge.chargeName}</Box>
+											{hasNetWeight && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11 }} />}
+											<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, textAlign: "right" }}>{qtyDisplay}</Box>
+											<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, textAlign: "center" }} />
+											<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, textAlign: "right" }}>{rateDisplay}</Box>
+											<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, textAlign: "right" }}>{formatAmount(charge.netAmount)}</Box>
+										</Box>
+									);
+								}
+								const middleCount = hasNetWeight ? 4 : 3;
+								return (
+									<Box component="tr" key={`addl-charge-${idx}`}>
+										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, textAlign: "center" }} />
+										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, textAlign: "center" }}>{charge.hsnCode || ""}</Box>
+										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, fontStyle: "italic" }}>{charge.chargeName}</Box>
+										{Array.from({ length: middleCount }).map((_, i) => (
+											<Box key={`addl-blank-${idx}-${i}`} component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11 }} />
+										))}
+										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "4px 6px", fontSize: 11, textAlign: "right" }}>{formatAmount(charge.netAmount)}</Box>
+									</Box>
+								);
+							})}
 						</Box>
 					</Box>
 				</Box>
@@ -650,6 +870,71 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 					</>
 				)}
 
+				{/* HSN/SAC tax summary (Govt Sacking layout only) */}
+				{hsnSummary && (
+					<>
+						<Box sx={{ overflowX: "auto", borderTop: "1px solid", borderColor: "divider" }}>
+							<Box component="table" sx={{ width: "100%", borderCollapse: "collapse" }}>
+								<Box component="thead" sx={{ backgroundColor: "rgba(12,60,96,0.07)" }}>
+									<Box component="tr">
+										<Box component="th" rowSpan={2} sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>HSN/SAC</Box>
+										<Box component="th" rowSpan={2} sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>Taxable Value</Box>
+										{hsnSummary.showCgstSgst && (
+											<Box component="th" colSpan={2} sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>CGST</Box>
+										)}
+										{hsnSummary.showCgstSgst && (
+											<Box component="th" colSpan={2} sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>SGST</Box>
+										)}
+										{hsnSummary.showIgst && (
+											<Box component="th" colSpan={2} sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>IGST</Box>
+										)}
+										<Box component="th" rowSpan={2} sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>Total Tax Amount</Box>
+									</Box>
+									<Box component="tr">
+										{hsnSummary.showCgstSgst && <Box component="th" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>Rate</Box>}
+										{hsnSummary.showCgstSgst && <Box component="th" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>Amount</Box>}
+										{hsnSummary.showCgstSgst && <Box component="th" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>Rate</Box>}
+										{hsnSummary.showCgstSgst && <Box component="th" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>Amount</Box>}
+										{hsnSummary.showIgst && <Box component="th" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>Rate</Box>}
+										{hsnSummary.showIgst && <Box component="th" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>Amount</Box>}
+									</Box>
+								</Box>
+								<Box component="tbody">
+									{hsnSummary.rows.map((r) => (
+										<Box component="tr" key={`hsn-row-${r.hsn}`}>
+											<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11 }}>{r.hsn}</Box>
+											<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right" }}>{formatAmount(r.taxable)}</Box>
+											{hsnSummary.showCgstSgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right" }}>{hsnSummary.cgstPct}%</Box>}
+											{hsnSummary.showCgstSgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right" }}>{formatAmount(r.cgstAmt)}</Box>}
+											{hsnSummary.showCgstSgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right" }}>{hsnSummary.sgstPct}%</Box>}
+											{hsnSummary.showCgstSgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right" }}>{formatAmount(r.sgstAmt)}</Box>}
+											{hsnSummary.showIgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right" }}>{hsnSummary.igstPct}%</Box>}
+											{hsnSummary.showIgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right" }}>{formatAmount(r.igstAmt)}</Box>}
+											<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right" }}>{formatAmount(r.totalTax)}</Box>
+										</Box>
+									))}
+									<Box component="tr" sx={{ fontWeight: 700 }}>
+										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, fontWeight: 700 }}>Total</Box>
+										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right", fontWeight: 700 }}>{formatAmount(hsnSummary.totalTaxable)}</Box>
+										{hsnSummary.showCgstSgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11 }} />}
+										{hsnSummary.showCgstSgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right", fontWeight: 700 }}>{formatAmount(hsnSummary.totalCgst)}</Box>}
+										{hsnSummary.showCgstSgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11 }} />}
+										{hsnSummary.showCgstSgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right", fontWeight: 700 }}>{formatAmount(hsnSummary.totalSgst)}</Box>}
+										{hsnSummary.showIgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11 }} />}
+										{hsnSummary.showIgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right", fontWeight: 700 }}>{formatAmount(hsnSummary.totalIgst)}</Box>}
+										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right", fontWeight: 700 }}>{formatAmount(hsnSummary.totalTaxAll)}</Box>
+									</Box>
+								</Box>
+							</Box>
+						</Box>
+						{hsnSummary.taxInWords && (
+							<Box sx={{ px: 1.5, py: 0.5, borderBottom: "1px solid", borderColor: "divider" }}>
+								<Typography variant="caption"><strong>Tax Amount (In Words):</strong> {hsnSummary.taxInWords}</Typography>
+							</Box>
+						)}
+					</>
+				)}
+
 				{/* Reverse charge note */}
 				<Box sx={{ px: 1.5, py: 0.25, borderBottom: "1px solid", borderColor: "divider" }}>
 					<Typography variant="caption" sx={{ fontSize: "0.65rem" }}>Whether tax is payable on Reverse Charges Basis No.</Typography>
@@ -693,6 +978,11 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 							)}
 						</Box>
 					</Box>
+				</Box>
+
+				{/* Computer Generated footer */}
+				<Box sx={{ textAlign: "center", py: 0.5, borderTop: "1px solid", borderColor: "divider" }}>
+					<Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>This is a Computer Generated Invoice</Typography>
 				</Box>
 
 			</Box>

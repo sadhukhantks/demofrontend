@@ -18,8 +18,8 @@ export const lineIsComplete = (line: EditableLineItem) => {
 
 type Params = {
 	mode: MuiFormMode;
-	partyState?: string;
-	shippingState?: string;
+	companyBranchStateId?: number;
+	shippingBranchStateId?: number;
 	itemGroupCache: Partial<Record<string, ItemGroupCacheEntry>>;
 	itemGroupLoading: Partial<Record<string, boolean>>;
 	ensureItemGroupData: (groupId: string) => void;
@@ -28,7 +28,7 @@ type Params = {
 };
 
 export const useSalesInvoiceLineItems = ({
-	mode, partyState, shippingState,
+	mode, companyBranchStateId, shippingBranchStateId,
 	itemGroupCache, itemGroupLoading, ensureItemGroupData, itemGroups, invoiceTypeId,
 }: Params) => {
 	const isHessian = invoiceTypeId === "2";
@@ -74,47 +74,64 @@ export const useSalesInvoiceLineItems = ({
 		[itemGroupCache],
 	);
 
-	const mapLineToEditable = React.useCallback((line: InvoiceLine): EditableLineItem => ({
-		id: line.id ? String(line.id) : generateLineId(),
-		deliveryOrderDtlId: line.deliveryOrderDtlId,
-		salesOrderDtlId: line.salesOrderDtlId,
-		hsnCode: line.hsnCode,
-		itemGroup: line.itemGroup ? String(line.itemGroup) : "",
-		item: line.item ?? "",
-		itemCode: line.itemCode,
-		itemName: line.itemName,
-		fullItemCode: line.fullItemCode ?? line.itemCode,
-		itemMake: line.itemMake ?? "",
-		quantity: line.quantity != null ? String(line.quantity) : "",
-		rate: line.rate != null ? String(line.rate) : "",
-		uom: line.uom ?? "",
-		discountType: line.discountType,
-		discountedRate: line.discountedRate,
-		discountAmount: line.discountAmount,
-		netAmount: line.netAmount,
-		totalAmount: line.totalAmount,
-		remarks: line.remarks ?? "",
-		taxPercentage: line.gst?.taxPercentage ?? line.taxPercentage,
-		igstAmount: line.gst?.igstAmount,
-		igstPercent: line.gst?.igstPercent,
-		cgstAmount: line.gst?.cgstAmount,
-		cgstPercent: line.gst?.cgstPercent,
-		sgstAmount: line.gst?.sgstAmount,
-		sgstPercent: line.gst?.sgstPercent,
-		gstTotal: line.gst?.taxAmount ?? line.gst?.gstTotal,
-		juteClaimAmountDtl: line.juteDtl?.claimAmountDtl,
-		juteClaimDesc: line.juteDtl?.claimDesc ?? "",
-		juteClaimRate: line.juteDtl?.claimRate,
-		juteUnitConversion: line.juteDtl?.unitConversion ?? "",
-		juteQtyUnitConversion: line.juteDtl?.qtyUnitConversion,
-		hessianQtyBales: line.hessianDtl?.qtyBales,
-		hessianRatePerBale: line.hessianDtl?.ratePerBale,
-		hessianBillingRateMt: line.hessianDtl?.billingRateMt,
-		hessianBillingRateBale: line.hessianDtl?.billingRateBale,
-		govtskgPackSheet: line.govtskgDtl?.packSheet,
-		govtskgNetWeight: line.govtskgDtl?.netWeight,
-		govtskgTotalWeight: line.govtskgDtl?.totalWeight,
-	}), []);
+	const mapLineToEditable = React.useCallback((line: InvoiceLine): EditableLineItem => {
+		const groupId = line.itemGroup ? String(line.itemGroup) : "";
+		const itemId = line.item ?? "";
+		const uomId = line.uom ?? "";
+		const base: EditableLineItem = {
+			id: line.id ? String(line.id) : generateLineId(),
+			deliveryOrderDtlId: line.deliveryOrderDtlId,
+			salesOrderDtlId: line.salesOrderDtlId,
+			hsnCode: line.hsnCode,
+			itemGroup: groupId,
+			item: itemId,
+			itemCode: line.itemCode,
+			itemName: line.itemName,
+			fullItemCode: line.fullItemCode ?? line.itemCode,
+			itemMake: line.itemMake ?? "",
+			quantity: line.quantity != null ? String(line.quantity) : "",
+			rate: line.rate != null ? String(line.rate) : "",
+			uom: uomId,
+			discountType: line.discountType,
+			discountedRate: line.discountedRate,
+			discountAmount: line.discountAmount,
+			netAmount: line.netAmount,
+			totalAmount: line.totalAmount,
+			remarks: line.remarks ?? "",
+			taxPercentage: line.gst?.taxPercentage ?? line.taxPercentage,
+			igstAmount: line.gst?.igstAmount,
+			igstPercent: line.gst?.igstPercent,
+			cgstAmount: line.gst?.cgstAmount,
+			cgstPercent: line.gst?.cgstPercent,
+			sgstAmount: line.gst?.sgstAmount,
+			sgstPercent: line.gst?.sgstPercent,
+			gstTotal: line.gst?.taxAmount ?? line.gst?.gstTotal,
+			juteClaimAmountDtl: line.juteDtl?.claimAmountDtl,
+			juteClaimDesc: line.juteDtl?.claimDesc ?? "",
+			juteClaimRate: line.juteDtl?.claimRate,
+			juteUnitConversion: line.juteDtl?.unitConversion ?? "",
+			juteQtyUnitConversion: line.juteDtl?.qtyUnitConversion,
+			hessianQtyBales: line.hessianDtl?.qtyBales,
+			hessianRatePerBale: line.hessianDtl?.ratePerBale,
+			hessianBillingRateMt: line.hessianDtl?.billingRateMt,
+			hessianBillingRateBale: line.hessianDtl?.billingRateBale,
+			govtskgPackSheet: line.govtskgDtl?.packSheet,
+			govtskgNetWeight: line.govtskgDtl?.netWeight,
+			govtskgTotalWeight: line.govtskgDtl?.totalWeight,
+		};
+		// Back-calc bales from stored quantity when the UOM cache is already populated.
+		// Deferred effect below handles the race where cache loads after line mapping.
+		const qtyPer100 = Number(line.quantity) || 0;
+		if (isGovtSkg && qtyPer100 > 0 && groupId && itemId && uomId) {
+			const conv = getGovtSkgBalesConversion(groupId, itemId, uomId);
+			if (conv && conv.factor > 0) {
+				base.govtskgQtyBales = String(qtyPer100 * conv.factor);
+				base.govtskgConversionFactor = conv.factor;
+				base.govtskgBalesUomId = conv.balesUomId;
+			}
+		}
+		return base;
+	}, [isGovtSkg, getGovtSkgBalesConversion]);
 
 	const recalcLine = React.useCallback((item: EditableLineItem): EditableLineItem => {
 		const qty = Number(item.quantity) || 0;
@@ -123,14 +140,14 @@ export const useSalesInvoiceLineItems = ({
 			? (item.discountedRate != null && rate > 0 ? ((rate - (item.discountedRate || rate)) / rate) * 100 : 0)
 			: (item.discountAmount != null && qty > 0 ? (item.discountAmount || 0) / qty : 0);
 		const { netAmount, discountAmount, discountedRate } = calculateLineAmount(qty, rate, item.discountType, discountValue);
-		const tax = calculateLineTax(netAmount, item.taxPercentage || 0, partyState, shippingState);
+		const tax = calculateLineTax(netAmount, item.taxPercentage || 0, companyBranchStateId, shippingBranchStateId);
 		return {
 			...item,
 			discountAmount, discountedRate, netAmount,
 			totalAmount: netAmount + tax.gstTotal,
 			...tax,
 		};
-	}, [partyState, shippingState]);
+	}, [companyBranchStateId, shippingBranchStateId]);
 
 	const handleLineFieldChange = React.useCallback(
 		(id: string, field: keyof EditableLineItem, rawValue: string | number) => {
@@ -269,7 +286,7 @@ export const useSalesInvoiceLineItems = ({
 						const qty = Number(item.quantity) || 0;
 						const netAmount = qty * discountedRate;
 						const discountAmount = (rate - discountedRate) * qty;
-						const tax = calculateLineTax(netAmount, item.taxPercentage || 0, partyState, shippingState);
+						const tax = calculateLineTax(netAmount, item.taxPercentage || 0, companyBranchStateId, shippingBranchStateId);
 						return {
 							...item, discountedRate, discountAmount, netAmount,
 							totalAmount: netAmount + tax.gstTotal, ...tax,
@@ -283,7 +300,7 @@ export const useSalesInvoiceLineItems = ({
 				prev.map((item) => (item.id === id ? { ...item, [field]: value } as EditableLineItem : item)),
 			);
 		},
-		[mode, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, recalcLine, isHessian, isGovtSkg, getGovtSkgBalesConversion, partyState, shippingState],
+		[mode, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, recalcLine, isHessian, isGovtSkg, getGovtSkgBalesConversion, companyBranchStateId, shippingBranchStateId],
 	);
 
 	const replaceWithDeliveryOrderLines = React.useCallback(
@@ -297,7 +314,7 @@ export const useSalesInvoiceLineItems = ({
 				const qty = item.quantity || 0;
 				const rate = item.rate || 0;
 				const netAmt = item.net_amount ?? qty * rate;
-				const tax = calculateLineTax(netAmt, item.tax_percentage || 0, partyState, shippingState);
+				const tax = calculateLineTax(netAmt, item.tax_percentage || 0, companyBranchStateId, shippingBranchStateId);
 				return {
 					id: generateLineId(),
 					deliveryOrderDtlId: item.delivery_order_dtl_id,
@@ -334,7 +351,7 @@ export const useSalesInvoiceLineItems = ({
 
 			replaceItems(newLines);
 		},
-		[ensureItemGroupData, itemGroupCache, replaceItems, partyState, shippingState],
+		[ensureItemGroupData, itemGroupCache, replaceItems, companyBranchStateId, shippingBranchStateId],
 	);
 
 	const replaceWithSalesOrderLines = React.useCallback(
@@ -348,7 +365,7 @@ export const useSalesInvoiceLineItems = ({
 				const qty = item.quantity || 0;
 				const rate = item.rate || 0;
 				const netAmt = item.net_amount ?? qty * rate;
-				const tax = calculateLineTax(netAmt, item.tax_percentage || 0, partyState, shippingState);
+				const tax = calculateLineTax(netAmt, item.tax_percentage || 0, companyBranchStateId, shippingBranchStateId);
 				return {
 					id: generateLineId(),
 					salesOrderDtlId: item.sales_order_dtl_id,
@@ -382,7 +399,7 @@ export const useSalesInvoiceLineItems = ({
 
 			replaceItems(newLines);
 		},
-		[ensureItemGroupData, itemGroupCache, replaceItems, partyState, shippingState],
+		[ensureItemGroupData, itemGroupCache, replaceItems, companyBranchStateId, shippingBranchStateId],
 	);
 
 	const clearImportedLines = React.useCallback(() => {

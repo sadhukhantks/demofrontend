@@ -8,7 +8,13 @@
 import * as React from "react";
 import type { JutePOLineItem, MuiFormMode, Option } from "../types/jutePOTypes";
 import { createBlankLine, lineHasAnyData } from "../utils/jutePOFactories";
-import { calculateWeight, calculateAmount, formatNumber } from "../utils/jutePOCalculations";
+import {
+  calculateWeight,
+  calculateAmount,
+  calculateWeightFromPercentage,
+  calculateQuantityFromWeight,
+  formatNumber,
+} from "../utils/jutePOCalculations";
 import { useLineItems } from "@/components/ui/transaction";
 
 export type UseJutePOLineItemsParams = {
@@ -17,6 +23,7 @@ export type UseJutePOLineItemsParams = {
   vehicleCapacity: number;
   vehicleQty: number;
   getQualityOptions: (itemId: string) => Option[];
+  isLegacyPO?: boolean;
 };
 
 type UseJutePOLineItemsReturn = {
@@ -33,6 +40,7 @@ export function useJutePOLineItems({
   juteUnit,
   vehicleCapacity,
   vehicleQty,
+  isLegacyPO = false,
 }: UseJutePOLineItemsParams): UseJutePOLineItemsReturn {
   const {
     items: lineItems,
@@ -47,27 +55,43 @@ export function useJutePOLineItems({
   });
 
   /**
-   * Recalculate weight and amount for a single line item.
+   * Recalculate weight, derived quantity and amount for a single line item.
+   * In non-legacy mode, percentage drives weight; quantity is derived (read-only).
+   * In legacy mode, quantity drives weight (original behavior).
    */
   const recalculateLineWeightAmount = React.useCallback(
     (line: JutePOLineItem): JutePOLineItem => {
-      const qty = Number(line.quantity);
       const rate = Number(line.rate);
 
+      if (!isLegacyPO) {
+        const pct = Number(line.percentage);
+        if (!Number.isFinite(pct) || pct <= 0) {
+          return { ...line, weight: "", quantity: "", amount: "" };
+        }
+        const weight = calculateWeightFromPercentage(pct, vehicleCapacity, vehicleQty);
+        const derivedQty = calculateQuantityFromWeight(weight, juteUnit);
+        const amount = calculateAmount(weight, rate);
+        return {
+          ...line,
+          weight: weight > 0 ? formatNumber(weight, 2) : "",
+          quantity: derivedQty > 0 ? formatNumber(derivedQty, 2) : "",
+          amount: Number.isFinite(amount) && amount > 0 ? formatNumber(amount, 2) : "",
+        };
+      }
+
+      const qty = Number(line.quantity);
       if (!Number.isFinite(qty) || qty <= 0) {
         return { ...line, weight: "", amount: "" };
       }
-
       const weight = calculateWeight(qty, vehicleCapacity, vehicleQty, juteUnit);
       const amount = calculateAmount(weight, rate);
-
       return {
         ...line,
         weight: formatNumber(weight, 2),
         amount: Number.isFinite(amount) && amount > 0 ? formatNumber(amount, 2) : "",
       };
     },
-    [juteUnit, vehicleCapacity, vehicleQty]
+    [juteUnit, vehicleCapacity, vehicleQty, isLegacyPO]
   );
 
   /**
@@ -77,6 +101,12 @@ export function useJutePOLineItems({
   const recalculateAllWeights = React.useCallback(() => {
     setLineItems((prev) => prev.map(recalculateLineWeightAmount));
   }, [recalculateLineWeightAmount, setLineItems]);
+
+  // Re-run calculations whenever header-level inputs change.
+  React.useEffect(() => {
+    setLineItems((prev) => prev.map(recalculateLineWeightAmount));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [juteUnit, vehicleCapacity, vehicleQty, isLegacyPO]);
 
   /**
    * Handle field change on a line item.
@@ -96,8 +126,13 @@ export function useJutePOLineItems({
         return;
       }
 
-      // Quantity or rate change: recalculate weight and amount
-      if (field === "quantity" || field === "rate") {
+      // In non-legacy mode, block direct edits to quantity (derived).
+      if (field === "quantity" && !isLegacyPO) {
+        return;
+      }
+
+      // Percentage, quantity (legacy), or rate change: recalculate weight and amount
+      if (field === "percentage" || field === "quantity" || field === "rate") {
         setLineItems((prev) =>
           prev.map((item) => {
             if (item.id !== id) return item;
@@ -113,7 +148,7 @@ export function useJutePOLineItems({
         prev.map((item) => (item.id === id ? { ...item, [field]: rawValue } : item))
       );
     },
-    [mode, setLineItems, recalculateLineWeightAmount]
+    [mode, setLineItems, recalculateLineWeightAmount, isLegacyPO]
   );
 
   return {

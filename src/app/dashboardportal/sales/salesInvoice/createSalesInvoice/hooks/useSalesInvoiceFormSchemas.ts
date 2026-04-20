@@ -97,7 +97,7 @@ export const useSalesInvoiceTypeSpecificHeaderSchema = ({
 					{ value: "RAIL", label: "RAIL" },
 					{ value: "ROAD", label: "ROAD" },
 				] },
-				{ name: "govtskg_admin_office_address", label: "Admin Office Address", type: "textarea", disabled: viewOnly, grid: { xs: 12, md: 6 } },
+				{ name: "govtskg_admin_office_address", label: "Destination", type: "text", disabled: viewOnly, grid: { xs: 12, md: 3 } },
 				{ name: "govtskg_destination_rail_head", label: "Destination Rail Head", type: "text", disabled: viewOnly, grid: { xs: 12, md: 3 } },
 				{ name: "govtskg_loading_point", label: "Loading Point", type: "text", disabled: viewOnly, grid: { xs: 12, md: 3 } },
 				{ name: "govtskg_pack_sheet", label: "Pack Sheet", type: "text", disabled: viewOnly, grid: { xs: 12, md: 2 } },

@@ -94,6 +94,7 @@ export type JutePOLineItem = {
   qualityName?: string; // Display name (from API or resolved)
   cropYear: string;
   marka: string;
+  percentage: string; // Share of total vehicle capacity (0-100)
   quantity: string;
   uom: string;
   rate: string;
@@ -188,6 +189,7 @@ export type JutePOLineItemDetails = {
   allowable_moisture?: number;
   weight: number;
   amount: number;
+  percentage?: number | null;
 };
 
 // =============================================================================
