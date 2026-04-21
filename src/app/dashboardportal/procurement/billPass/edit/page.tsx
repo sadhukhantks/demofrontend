@@ -18,7 +18,7 @@ import {
   CircularProgress,
   Snackbar,
 } from "@mui/material";
-import { ArrowLeft, Save, CheckCircle } from "lucide-react";
+import { ArrowLeft, Save, CheckCircle, Printer } from "lucide-react";
 
 import {
   fetchBillPassById,
@@ -31,6 +31,11 @@ import {
   type BillPassDRCRLine,
 } from "@/utils/billPassService";
 import AdditionalChargesTable from "@/components/billPass/AdditionalChargesTable";
+import { openStyledPrintWindow } from "@/utils/printUtils";
+import {
+  renderBillPassPreviewHtml,
+  BILL_PASS_PRINT_CSS,
+} from "./components/BillPassPreview";
 
 /**
  * @component BillPassEditPage
@@ -314,6 +319,23 @@ function BillPassEditPageContent() {
     );
   }, [detail, formData.round_off_value]);
 
+  const handlePrintPreview = () => {
+    if (!detail) return;
+    const html = renderBillPassPreviewHtml({
+      detail,
+      formData,
+      netPayable,
+    });
+    const title = `Bill Pass ${detail.bill_pass_no || "Draft"}`;
+    const printWindow = openStyledPrintWindow(html, title, BILL_PASS_PRINT_CSS);
+    if (!printWindow) return;
+    printWindow.focus();
+    // Defer print so the window's stylesheets (Google Fonts etc.) load first
+    setTimeout(() => {
+      printWindow.print();
+    }, 300);
+  };
+
   // ─── Render States ────────────────────────────────────────────────────────
 
   if (loading) {
@@ -365,27 +387,36 @@ function BillPassEditPageContent() {
             variant="outlined"
           />
         </Box>
-        {!isComplete && (
-          <Box display="flex" gap={1}>
-            <Button
-              variant="outlined"
-              startIcon={<Save size={16} />}
-              onClick={handleSave}
-              disabled={saving}
-            >
-              Save
-            </Button>
-            <Button
-              variant="contained"
-              color="success"
-              startIcon={<CheckCircle size={16} />}
-              onClick={handleComplete}
-              disabled={saving}
-            >
-              Complete Bill Pass
-            </Button>
-          </Box>
-        )}
+        <Box display="flex" gap={1}>
+          <Button
+            variant="outlined"
+            startIcon={<Printer size={16} />}
+            onClick={handlePrintPreview}
+          >
+            Print Preview
+          </Button>
+          {!isComplete && (
+            <>
+              <Button
+                variant="outlined"
+                startIcon={<Save size={16} />}
+                onClick={handleSave}
+                disabled={saving}
+              >
+                Save
+              </Button>
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={<CheckCircle size={16} />}
+                onClick={handleComplete}
+                disabled={saving}
+              >
+                Complete Bill Pass
+              </Button>
+            </>
+          )}
+        </Box>
       </Box>
 
       {/* ── Header Info (read-only) ──────────────────────────────────────── */}
