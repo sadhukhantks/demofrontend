@@ -114,14 +114,23 @@ export const useSalesInvoiceFormSubmission = ({
 						qty_untit_conversion: Number(item.juteQtyUnitConversion) || undefined,
 					},
 				} : {}),
-				...(hessian ? {
-					hessian_dtl: {
-						qty_bales: Number(item.hessianQtyBales) || undefined,
-						rate_per_bale: Number(item.hessianRatePerBale) || undefined,
-						billing_rate_mt: Number(item.hessianBillingRateMt) || undefined,
-						billing_rate_bale: Number(item.hessianBillingRateBale) || undefined,
-					},
-				} : {}),
+				...(hessian ? (() => {
+					// Rate columns are derived from line.rate + hessianConversionFactor.
+					// Submit coherent values so the persisted hessian_dtl reflects what the
+					// user saw at save time (no backend recompute needed here — BE mirrors
+					// the same formula as a safety net).
+					const rateMt = Number(item.rate) || 0;
+					const factor = item.hessianConversionFactor || 0;
+					const perBale = factor > 0 ? Number((rateMt / factor).toFixed(2)) : undefined;
+					return {
+						hessian_dtl: {
+							qty_bales: Number(item.hessianQtyBales) || undefined,
+							rate_per_bale: perBale,
+							billing_rate_mt: rateMt || undefined,
+							billing_rate_bale: perBale,
+						},
+					};
+				})() : {}),
 				...(govtSkg ? {
 					govtskg_dtl: {
 						pack_sheet: Number(item.govtskgPackSheet) || undefined,

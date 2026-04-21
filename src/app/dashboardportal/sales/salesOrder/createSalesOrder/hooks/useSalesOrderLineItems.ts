@@ -220,7 +220,7 @@ export const useSalesOrderLineItems = ({
 			const rawRateMt = Number(line.rawRateMt) || 0;
 			const brokPct = brokeragePercent ?? 0;
 
-			const h = computeHessianFields(qtyBales, rawRateMt, convFactor, brokPct);
+			const h = computeHessianFields(qtyBales, rawRateMt, convFactor, brokPct, 4);
 
 			// Main table values: quantity = MT, rate = billing rate MT
 			const updatedQuantity = String(h.qtyMt);
@@ -287,8 +287,13 @@ export const useSalesOrderLineItems = ({
 			const qtyMt = Number(line.quantity) || 0;
 			const qtyBales = h.qtyBales ?? 0;
 			const convFactor = qtyMt > 0 ? (qtyBales ?? 0) / qtyMt : 0;
-			// raw rate MT = ratePerBale * conversionFactor
-			const rawRateMt = (h.ratePerBale ?? 0) * (convFactor || 1);
+			// Reconstruct rawRateMt as `ratePerBale * conversionFactor`. Both factors come
+			// from rounded stored values, so the product accumulates float noise (e.g.
+			// 37386.67 * 2.9999... = 112160.00999...). Round back to 2 decimals to match
+			// the precision of every other rate display; any downstream recompute via
+			// computeHessianFields re-applies its own rounding.
+			const rawRateMtRaw = (h.ratePerBale ?? 0) * (convFactor || 1);
+			const rawRateMt = Math.round(rawRateMtRaw * 100) / 100;
 			base.qtyBales = qtyBales ? String(qtyBales) : "";
 			base.rawRateMt = rawRateMt ? String(rawRateMt) : "";
 			base.ratePerBale = h.ratePerBale ?? undefined;

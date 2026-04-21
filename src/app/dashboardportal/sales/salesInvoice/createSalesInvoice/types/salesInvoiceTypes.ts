@@ -223,6 +223,10 @@ export type EditableLineItem = {
 	hessianRatePerBale?: number;
 	hessianBillingRateMt?: number;
 	hessianBillingRateBale?: number;
+	/** Bales-per-MT conversion factor from uom_item_map_mst.relation_value */
+	hessianConversionFactor?: number;
+	/** Decimals to round qtyMt to (from uom_item_map_mst.rounding; falls back to 3) */
+	hessianQtyRounding?: number;
 	// Govt Sacking detail fields (invoice_type = 3)
 	govtskgPackSheet?: number;
 	govtskgNetWeight?: number;
