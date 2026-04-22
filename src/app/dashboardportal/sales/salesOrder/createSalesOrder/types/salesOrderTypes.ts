@@ -176,6 +176,11 @@ export type EditableLineItem = {
 	juteClaimDesc?: string;
 	juteUnitConversion?: string;
 	juteQtyUnitConversion?: string;
+	// --- Jute Yarn (jute_yarn): mirrors hessian brokerage/rate handling, no bales conversion ---
+	/** Raw rate before brokerage deduction (user-entered); rate field stores billing rate */
+	juteYarnRawRate?: string;
+	/** billing rate = juteYarnRawRate − (juteYarnRawRate × brokerage%) */
+	juteYarnBillingRate?: number;
 	// --- Govt SKG (invoice_type_id = 5) ---
 	govtskgPackSheet?: string;
 	govtskgNetWeight?: string;

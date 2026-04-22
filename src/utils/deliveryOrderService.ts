@@ -113,6 +113,8 @@ export type SalesOrderLine = {
   total_amount?: number;
   remarks?: string;
   tax_percentage?: number;
+  qty_bales?: number;
+  rate_per_bale?: number;
 };
 
 export type CreateDORequest = {

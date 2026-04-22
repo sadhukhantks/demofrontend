@@ -61,10 +61,11 @@ export const calculateLineAmount = (
 	discountType?: number,
 	discountValue?: number,
 ) => {
-	const discountAmount = calculateDiscountAmount(qty, rate, discountType, discountValue);
+	const discountAmountRaw = calculateDiscountAmount(qty, rate, discountType, discountValue);
+	const discountAmount = Number(discountAmountRaw.toFixed(2));
 	const baseAmount = qty * rate;
-	const netAmount = Math.max(0, baseAmount - discountAmount);
-	const discountedRate = qty > 0 ? netAmount / qty : rate;
+	const netAmount = Number(Math.max(0, baseAmount - discountAmount).toFixed(2));
+	const discountedRate = qty > 0 ? Number((netAmount / qty).toFixed(2)) : rate;
 	return { discountAmount, netAmount, discountedRate };
 };
 

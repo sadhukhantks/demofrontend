@@ -678,17 +678,19 @@ function DOTransactionPageContent() {
 		transporterLabel, companyName, companyLogo, statusLabel,
 	]);
 
-	const showBalesInPreview = isGovtInvoice(formValues.invoice_type as string | undefined);
+	const isHessianInvoice = String(formValues.invoice_type ?? "") === "2";
+	const showBalesInPreview = isGovtInvoice(formValues.invoice_type as string | undefined) || isHessianInvoice;
 	const previewItems = React.useMemo(() => {
 		return filledLineItems.map((line, index) => {
 			const itemOptions = getItemOptions(line.itemGroup);
 			const itemLabel = itemOptions.find((o) => o.value === line.item)?.label ?? line.itemName ?? "-";
 			const uomLabel = getUomLabel(line.itemGroup, line.item, line.uom, line.uomName);
-			// Prefer the user-entered bales (govtskgQtyBales); fall back to computing from quantity
+			// Prefer the user-entered bales (govtskgQtyBales / hessianQtyBales); fall back to computing from quantity
 			let qtyInBales: string | undefined;
 			if (showBalesInPreview) {
-				if (line.govtskgQtyBales && Number(line.govtskgQtyBales)) {
-					qtyInBales = line.govtskgQtyBales;
+				const storedBales = isHessianInvoice ? line.hessianQtyBales : line.govtskgQtyBales;
+				if (storedBales && Number(storedBales)) {
+					qtyInBales = storedBales;
 				} else {
 					const balesConv = computeConvertedQtyBales(line.quantity, line.uom, getUomConversions(line.itemGroup, line.item));
 					if (balesConv) qtyInBales = balesConv.convertedQty;
@@ -703,7 +705,7 @@ function DOTransactionPageContent() {
 				qtyInBales,
 			};
 		});
-	}, [filledLineItems, getItemOptions, getUomLabel, getUomConversions, showBalesInPreview]);
+	}, [filledLineItems, getItemOptions, getUomLabel, getUomConversions, showBalesInPreview, isHessianInvoice]);
 
 	const previewTotals = React.useMemo(
 		() => ({
