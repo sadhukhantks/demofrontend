@@ -1168,6 +1168,7 @@ function POTransactionPageContent() {
       backAction={{ onClick: () => router.push("/dashboardportal/procurement/purchaseOrder") }}
       primaryActions={primaryActions}
       secondaryActions={secondaryActions}
+      actionsAfterFooter
       loading={loading || setupLoading}
       alerts={pageError ? <div role="alert" aria-live="assertive" className="text-red-600">{pageError}</div> : undefined}
       preview={

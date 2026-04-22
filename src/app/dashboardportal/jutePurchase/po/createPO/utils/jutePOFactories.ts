@@ -35,6 +35,7 @@ export const createBlankLine = (): JutePOLineItem => ({
   quality: "",
   cropYear: "",
   marka: "",
+  percentage: "",
   quantity: "",
   uom: "",
   rate: "",
@@ -51,6 +52,7 @@ export const lineHasAnyData = (line: JutePOLineItem): boolean =>
     line.itemId ||
     line.quality ||
     line.quantity ||
+    line.percentage ||
     line.rate ||
     line.marka
   );

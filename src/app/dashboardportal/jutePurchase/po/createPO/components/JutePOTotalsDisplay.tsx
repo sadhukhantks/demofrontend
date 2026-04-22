@@ -15,6 +15,8 @@ type JutePOTotalsDisplayProps = {
   lineCount: number;
   vehicleCapacityQtl?: number;
   vehicleQty?: number;
+  percentageSum?: number;
+  isLegacyPO?: boolean;
 };
 
 export function JutePOTotalsDisplay({
@@ -23,8 +25,9 @@ export function JutePOTotalsDisplay({
   lineCount,
   vehicleCapacityQtl = 0,
   vehicleQty = 1,
+  percentageSum = 0,
+  isLegacyPO = false,
 }: JutePOTotalsDisplayProps) {
-  // Validate vehicle weight tolerance
   const weightValidation = React.useMemo(
     () => validateVehicleWeight(totalWeight, vehicleCapacityQtl, vehicleQty),
     [totalWeight, vehicleCapacityQtl, vehicleQty]
@@ -32,17 +35,41 @@ export function JutePOTotalsDisplay({
 
   const expectedWeight = vehicleCapacityQtl * vehicleQty;
   const hasVehicleCapacity = expectedWeight > 0;
+  const pctValid = Math.abs(percentageSum - 100) <= 0.01;
 
   return (
     <div className="flex flex-col gap-2 p-4 bg-gray-50 rounded-lg border">
       <h4 className="text-sm font-semibold text-gray-700 mb-2">Order Summary</h4>
-      
-      <div className="grid grid-cols-3 gap-4">
+
+      <div className={`grid ${isLegacyPO ? "grid-cols-3" : "grid-cols-4"} gap-4`}>
         {/* Line Count */}
         <div className="flex flex-col">
           <span className="text-xs text-gray-500">Line Items</span>
           <span className="text-lg font-medium text-gray-900">{lineCount}</span>
         </div>
+
+        {/* Percentage Sum (non-legacy only) */}
+        {!isLegacyPO && (
+          <div className="flex flex-col">
+            <span className="text-xs text-gray-500">Total %</span>
+            <span
+              className={`text-lg font-medium ${
+                percentageSum > 0
+                  ? pctValid
+                    ? "text-green-700"
+                    : "text-red-600"
+                  : "text-gray-900"
+              }`}
+            >
+              {percentageSum.toFixed(2)} / 100.00
+            </span>
+            {percentageSum > 0 && !pctValid && (
+              <span className="text-xs text-red-500">
+                Percentages must sum to exactly 100.
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Total Weight */}
         <div className="flex flex-col">
@@ -56,11 +83,16 @@ export function JutePOTotalsDisplay({
           }`}>
             {formatWeight(totalWeight)} Qtl
           </span>
-          {hasVehicleCapacity && totalWeight > 0 && (
+          {isLegacyPO && hasVehicleCapacity && totalWeight > 0 && (
             <span className={`text-xs ${weightValidation.isValid ? "text-green-600" : "text-red-500"}`}>
               {weightValidation.isValid
-                ? `✓ Within ±${VEHICLE_WEIGHT_TOLERANCE_PERCENT}% of ${formatWeight(expectedWeight)} Qtl`
-                : `✗ ${Math.abs(weightValidation.variancePercent).toFixed(1)}% ${weightValidation.variancePercent > 0 ? "over" : "under"} capacity`}
+                ? `Within ±${VEHICLE_WEIGHT_TOLERANCE_PERCENT}% of ${formatWeight(expectedWeight)} Qtl`
+                : `${Math.abs(weightValidation.variancePercent).toFixed(1)}% ${weightValidation.variancePercent > 0 ? "over" : "under"} capacity`}
+            </span>
+          )}
+          {!isLegacyPO && hasVehicleCapacity && (
+            <span className="text-xs text-gray-600">
+              of {formatWeight(expectedWeight)} Qtl capacity
             </span>
           )}
         </div>

@@ -443,6 +443,7 @@ const apiRoutesPortalMasters = {
     INWARD_CREATE: `${API_URL}/procurementInward/create_inward`,
     INWARD_UPDATE: `${API_URL}/procurementInward/update_inward`,
     GET_INWARD_BY_ID: `${API_URL}/procurementInward/get_inward_by_id`,
+    INWARD_CANCEL: `${API_URL}/procurementInward/cancel_inward`,
 
     // Material Inspection endpoints
     INSPECTION_PENDING_LIST: `${API_URL}/materialInspection/get_pending_inspection_list`,
@@ -544,6 +545,8 @@ const apiRoutesPortalMasters = {
     SALES_INVOICE_REJECT: `${API_URL}/salesInvoice/reject_sales_invoice`,
     SALES_INVOICE_REOPEN: `${API_URL}/salesInvoice/reopen_sales_invoice`,
     SALES_INVOICE_TRANSPORTER_BRANCHES: `${API_URL}/salesInvoice/get_transporter_branches`,
+    SALES_INVOICE_GOVT_SACKING_SOURCE_LIST: `${API_URL}/salesInvoice/govt_sacking_source_list`,
+    SALES_INVOICE_GOVT_SACKING_SOURCE: `${API_URL}/salesInvoice/govt_sacking_source`,
 
     // HRMS Employee endpoints
     HRMS_EMPLOYEE_LIST: `${API_URL}/hrms/employee_list`,

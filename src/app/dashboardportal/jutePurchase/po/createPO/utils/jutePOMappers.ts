@@ -19,7 +19,12 @@ import type {
   Option,
 } from "../types/jutePOTypes";
 import { buildDefaultFormValues, generateLineId } from "./jutePOFactories";
-import { calculateWeight, formatNumber } from "./jutePOCalculations";
+import {
+  calculateWeight,
+  calculateWeightFromPercentage,
+  calculateQuantityFromWeight,
+  formatNumber,
+} from "./jutePOCalculations";
 
 // =============================================================================
 // RECORD MAPPERS (API -> UI Types)
@@ -235,18 +240,32 @@ export const mapLineItemDetailsToLineItem = (
 ): JutePOLineItem => {
   const quantity = details.quantity ?? 0;
   const rate = details.rate ?? 0;
-  
-  // Calculate weight if params provided, otherwise use 0
+  const hasPercentage =
+    details.percentage !== null &&
+    details.percentage !== undefined &&
+    Number.isFinite(Number(details.percentage));
+  const percentageValue = hasPercentage ? Number(details.percentage) : 0;
+
   let weight = 0;
+  let derivedQty = quantity;
   if (calcParams) {
-    weight = calculateWeight(
-      quantity,
-      calcParams.vehicleCapacity,
-      calcParams.vehicleQty,
-      calcParams.juteUnit
-    );
+    if (hasPercentage) {
+      weight = calculateWeightFromPercentage(
+        percentageValue,
+        calcParams.vehicleCapacity,
+        calcParams.vehicleQty,
+      );
+      derivedQty = calculateQuantityFromWeight(weight, calcParams.juteUnit);
+    } else {
+      weight = calculateWeight(
+        quantity,
+        calcParams.vehicleCapacity,
+        calcParams.vehicleQty,
+        calcParams.juteUnit
+      );
+    }
   }
-  
+
   return {
     id: generateLineId(),
     itemId: String(details.item_grp_id ?? details.item_id),
@@ -255,7 +274,10 @@ export const mapLineItemDetailsToLineItem = (
     qualityName: details.quality_name || undefined,
     cropYear: details.crop_year ? `${details.crop_year}-${(details.crop_year % 100) + 1}` : "",
     marka: details.marka || "",
-    quantity: String(quantity),
+    percentage: hasPercentage ? formatNumber(percentageValue, 2) : "",
+    quantity: hasPercentage
+      ? derivedQty > 0 ? formatNumber(derivedQty, 2) : ""
+      : String(quantity),
     uom: details.uom || "",
     rate: String(rate),
     allowableMoisture: details.allowable_moisture
@@ -270,10 +292,49 @@ export const mapLineItemDetailsToLineItem = (
 // PAYLOAD MAPPERS (UI -> API)
 // =============================================================================
 
+type LineItemPayload = {
+  item_grp_id: number;
+  item_id: number | null;
+  crop_year: string | null;
+  marka: string | null;
+  quantity: number;
+  rate: number;
+  allowable_moisture: number | null;
+  jute_unit: string;
+  percentage?: number | null;
+};
+
+const buildLineItemPayloads = (
+  lineItems: JutePOLineItem[],
+  juteUnit: string,
+  isLegacyPO: boolean,
+): LineItemPayload[] =>
+  lineItems
+    .filter((li) => li.itemId && Number(li.quantity) > 0)
+    .map((li) => {
+      const base: LineItemPayload = {
+        item_grp_id: Number(li.itemId),
+        item_id: li.quality ? Number(li.quality) : null,
+        crop_year: li.cropYear || null,
+        marka: li.marka || null,
+        quantity: Number(li.quantity),
+        rate: Number(li.rate),
+        allowable_moisture: li.allowableMoisture
+          ? Number(li.allowableMoisture)
+          : null,
+        jute_unit: juteUnit,
+      };
+      if (!isLegacyPO) {
+        base.percentage = Number(li.percentage);
+      }
+      return base;
+    });
+
 export const mapFormValuesToCreatePayload = (
   formValues: JutePOFormValues,
   lineItems: JutePOLineItem[],
-  coId: number
+  coId: number,
+  isLegacyPO = false,
 ) => ({
   co_id: coId,
   branch_id: Number(formValues.branch),
@@ -289,32 +350,21 @@ export const mapFormValuesToCreatePayload = (
   delivery_timeline: formValues.deliveryTimeline ? Number(formValues.deliveryTimeline) : null,
   freight_charge: formValues.freightCharge ? Number(formValues.freightCharge) : null,
   remarks: formValues.remarks || null,
-  line_items: lineItems
-    .filter((li) => li.itemId && Number(li.quantity) > 0)
-    .map((li) => ({
-      item_grp_id: Number(li.itemId),
-      item_id: li.quality ? Number(li.quality) : null,
-      crop_year: li.cropYear || null,
-      marka: li.marka || null,
-      quantity: Number(li.quantity),
-      rate: Number(li.rate),
-      allowable_moisture: li.allowableMoisture
-        ? Number(li.allowableMoisture)
-        : null,
-      jute_unit: formValues.juteUnit,
-    })),
+  line_items: buildLineItemPayloads(lineItems, formValues.juteUnit, isLegacyPO),
 });
 
 // Alias functions for page.tsx compatibility
 export const mapFormToCreatePayload = (
   formValues: JutePOFormValues,
   lineItems: JutePOLineItem[],
-  coId: number
-) => mapFormValuesToCreatePayload(formValues, lineItems, coId);
+  coId: number,
+  isLegacyPO = false,
+) => mapFormValuesToCreatePayload(formValues, lineItems, coId, isLegacyPO);
 
 export const mapFormToUpdatePayload = (
   formValues: JutePOFormValues,
-  lineItems: JutePOLineItem[]
+  lineItems: JutePOLineItem[],
+  isLegacyPO = false,
 ) => ({
   branch_id: Number(formValues.branch),
   po_date: formValues.poDate,
@@ -329,20 +379,7 @@ export const mapFormToUpdatePayload = (
   delivery_timeline: formValues.deliveryTimeline ? Number(formValues.deliveryTimeline) : null,
   freight_charge: formValues.freightCharge ? Number(formValues.freightCharge) : null,
   remarks: formValues.remarks || null,
-  line_items: lineItems
-    .filter((li) => li.itemId && Number(li.quantity) > 0)
-    .map((li) => ({
-      item_grp_id: Number(li.itemId),
-      item_id: li.quality ? Number(li.quality) : null,
-      crop_year: li.cropYear || null,
-      marka: li.marka || null,
-      quantity: Number(li.quantity),
-      rate: Number(li.rate),
-      allowable_moisture: li.allowableMoisture
-        ? Number(li.allowableMoisture)
-        : null,
-      jute_unit: formValues.juteUnit,
-    })),
+  line_items: buildLineItemPayloads(lineItems, formValues.juteUnit, isLegacyPO),
 });
 
 // =============================================================================
@@ -401,5 +438,17 @@ export const mapLineItemsFromAPI = (
   return data.map((item) => {
     const li = item as JutePOLineItemDetails;
     return mapLineItemDetailsToLineItem(li, calcParams);
+  });
+};
+
+/**
+ * Determine whether a PO's line items came from a pre-percentage (legacy) PO.
+ * A PO is considered legacy if every line item has percentage null/undefined.
+ */
+export const detectLegacyPO = (data: unknown[]): boolean => {
+  if (!Array.isArray(data) || data.length === 0) return false;
+  return data.every((row) => {
+    const li = row as JutePOLineItemDetails;
+    return li.percentage === null || li.percentage === undefined;
   });
 };

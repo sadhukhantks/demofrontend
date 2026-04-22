@@ -12,6 +12,7 @@ export type InvoiceLine = {
   item?: string;
   itemName?: string;
   itemCode?: string;
+  fullItemCode?: string;
   itemMake?: string;
   quantity?: number | string;
   rate?: number | string;
@@ -61,15 +62,27 @@ export type InvoiceDetails = {
   invoiceDate: string;
   challanNo?: string;
   challanDate?: string;
-  branch: string;
-  deliveryOrder?: string;
+  branchId: string;
+  salesDeliveryOrderId?: number | string;
   deliveryOrderNo?: string;
   saleNo?: string;
   party: string;
   partyName?: string;
   partyBranch?: string;
   billingTo?: string;
+  billingAddress?: string;
+  billingGstNo?: string;
+  billingStateId?: number;
+  billingStateName?: string;
+  billingContactPerson?: string;
+  billingContactNo?: string;
   shippingTo?: string;
+  shippingAddress?: string;
+  shippingGstNo?: string;
+  shippingStateId?: number;
+  shippingStateName?: string;
+  shippingContactPerson?: string;
+  shippingContactNo?: string;
   transporter?: string;
   transporterName?: string;
   vehicleNo?: string;
@@ -143,9 +156,22 @@ export type InvoiceDetails = {
     administrativeOfficeAddress?: string;
     destinationRailHead?: string;
     loadingPoint?: string;
+    modeOfTransport?: string;
     packSheet?: number;
     netWeight?: number;
     totalWeight?: number;
+  } | null;
+  freight?: {
+    salesInvoiceFreightId?: number;
+    sourceInvoiceId: number;
+    iwBillNo?: string | null;
+    iwBillDate?: string | null;
+    source?: {
+      invoice_id: number;
+      invoice_no: number | string | null;
+      invoice_date: string | null;
+      pcso_no: string | null;
+    };
   } | null;
   transporterBranchId?: number;
   transporterGstNo?: string;
@@ -153,6 +179,7 @@ export type InvoiceDetails = {
   transporterDocDate?: string;
   buyerOrderNo?: string;
   buyerOrderDate?: string;
+  irn?: string;
   ackNo?: string;
   ackDate?: string;
   qrCode?: string;
@@ -197,6 +224,38 @@ export type DeliveryOrderLineForInvoice = {
   total_amount?: number;
   remarks?: string;
   tax_percentage?: number;
+  govtskg_pack_sheet?: string | null;
+  govtskg_net_weight?: number | null;
+  govtskg_total_weight?: number | null;
+};
+
+/** SO extension data returned inline by both DO-lines and SO-lines endpoints. */
+export type SoExtensionData = {
+  invoice_type?: number | null;
+  so_govtskg?: {
+    pcso_no?: string | null;
+    pcso_date?: string | null;
+    mode_of_transport?: string | null;
+    administrative_office_address?: string | null;
+    destination_rail_head?: string | null;
+    loading_point?: string | null;
+  };
+  so_additional_charges?: Array<{
+    sales_order_additional_id: number;
+    additional_charges_id: number;
+    additional_charges_name?: string;
+    qty?: number;
+    rate?: number;
+    net_amount?: number;
+    remarks?: string;
+    igst_amount?: number;
+    igst_percent?: number;
+    cgst_amount?: number;
+    cgst_percent?: number;
+    sgst_amount?: number;
+    sgst_percent?: number;
+    gst_total?: number;
+  }>;
 };
 
 export type SalesOrderLineForInvoice = {
@@ -229,7 +288,7 @@ export type CreateInvoiceRequest = {
   date: string;
   party: string;
   party_branch?: string;
-  delivery_order?: string;
+  sales_delivery_order_id?: number;
   billing_to?: string;
   shipping_to?: string;
   transporter?: string;
@@ -263,6 +322,15 @@ export type CreateInvoiceRequest = {
   sales_order_id?: number;
   billing_state_code?: number;
   bank_detail_id?: number;
+  transporter_branch_id?: number;
+  transporter_doc_no?: string;
+  transporter_doc_date?: string;
+  buyer_order_no?: string;
+  buyer_order_date?: string;
+  irn?: string;
+  ack_no?: string;
+  ack_date?: string;
+  qr_code?: string;
   jute?: {
     mr_no?: string;
     mr_id?: number;
@@ -278,10 +346,37 @@ export type CreateInvoiceRequest = {
     administrative_office_address?: string;
     destination_rail_head?: string;
     loading_point?: string;
+    mode_of_transport?: string;
     pack_sheet?: number;
     net_weight?: number;
     total_weight?: number;
   };
+  freight?: {
+    source_invoice_id: number;
+    iw_bill_no: string;
+    iw_bill_date: string;
+    container_no: string;
+    vehicle_no: string;
+    freight_amount: number;
+    bales_qty: number;
+  };
+  co_id?: number;
+  additional_charges?: Array<{
+    additional_charges_id: string;
+    qty: number;
+    rate: number;
+    net_amount: number;
+    remarks?: string;
+    gst?: {
+      igst_amount?: number;
+      igst_percent?: number;
+      cgst_amount?: number;
+      cgst_percent?: number;
+      sgst_amount?: number;
+      sgst_percent?: number;
+      gst_total?: number;
+    };
+  }>;
   items: Array<{
     item: string;
     item_make?: string;
@@ -367,9 +462,12 @@ export async function fetchInvoiceSetup2(itemGroupId: string): Promise<InvoiceSe
   return data;
 }
 
-export async function fetchDeliveryOrderLines(deliveryOrderId: string): Promise<{ data: DeliveryOrderLineForInvoice[] }> {
+type DOLinesResponse = { data: DeliveryOrderLineForInvoice[] } & SoExtensionData;
+type SOLinesResponse = { data: SalesOrderLineForInvoice[] } & SoExtensionData;
+
+export async function fetchDeliveryOrderLines(deliveryOrderId: string): Promise<DOLinesResponse> {
   const query = new URLSearchParams({ sales_delivery_order_id: deliveryOrderId });
-  const { data, error } = await fetchWithCookie<{ data: DeliveryOrderLineForInvoice[] }>(
+  const { data, error } = await fetchWithCookie<DOLinesResponse>(
     `${apiRoutesPortalMasters.SALES_INVOICE_DELIVERY_ORDER_LINES}?${query.toString()}`,
     "GET"
   );
@@ -378,9 +476,9 @@ export async function fetchDeliveryOrderLines(deliveryOrderId: string): Promise<
   return data;
 }
 
-export async function fetchSalesOrderLinesForInvoice(salesOrderId: string): Promise<{ data: SalesOrderLineForInvoice[] }> {
+export async function fetchSalesOrderLinesForInvoice(salesOrderId: string): Promise<SOLinesResponse> {
   const query = new URLSearchParams({ sales_order_id: salesOrderId });
-  const { data, error } = await fetchWithCookie<{ data: SalesOrderLineForInvoice[] }>(
+  const { data, error } = await fetchWithCookie<SOLinesResponse>(
     `${apiRoutesPortalMasters.SALES_INVOICE_SALES_ORDER_LINES}?${query.toString()}`,
     "GET"
   );
@@ -491,5 +589,51 @@ export async function getTransporterBranches(transporterId: number, coId: number
   );
   if (error) throw new Error(error);
   if (!data) throw new Error("Empty response from transporter branches API");
+  return data;
+}
+
+export type GovtSackingSourceListResponse = {
+  data: import("@/app/dashboardportal/sales/salesInvoice/createSalesInvoice/types/salesInvoiceTypes").GovtSackingSourceRow[];
+  total: number;
+};
+
+export type GovtSackingSourceDetailResponse = {
+  data: import("@/app/dashboardportal/sales/salesInvoice/createSalesInvoice/types/salesInvoiceTypes").GovtSackingSourceDetail;
+};
+
+export async function fetchGovtSackingSourceList(params: {
+  coId: string;
+  branchId: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}): Promise<GovtSackingSourceListResponse> {
+  const query = new URLSearchParams({
+    co_id: params.coId,
+    branch_id: params.branchId,
+  });
+  if (params.search) query.set("search", params.search);
+  if (params.page != null) query.set("page", String(params.page));
+  if (params.limit != null) query.set("limit", String(params.limit));
+  const { data, error } = await fetchWithCookie<GovtSackingSourceListResponse>(
+    `${apiRoutesPortalMasters.SALES_INVOICE_GOVT_SACKING_SOURCE_LIST}?${query.toString()}`,
+    "GET"
+  );
+  if (error) throw new Error(error);
+  if (!data) throw new Error("Empty Govt Sacking source list response.");
+  return data;
+}
+
+export async function fetchGovtSackingSource(
+  invoiceId: string | number,
+  coId: string | number,
+): Promise<GovtSackingSourceDetailResponse> {
+  const query = new URLSearchParams({ co_id: String(coId) });
+  const { data, error } = await fetchWithCookie<GovtSackingSourceDetailResponse>(
+    `${apiRoutesPortalMasters.SALES_INVOICE_GOVT_SACKING_SOURCE}/${invoiceId}?${query.toString()}`,
+    "GET"
+  );
+  if (error) throw new Error(error);
+  if (!data) throw new Error("Empty Govt Sacking source detail response.");
   return data;
 }

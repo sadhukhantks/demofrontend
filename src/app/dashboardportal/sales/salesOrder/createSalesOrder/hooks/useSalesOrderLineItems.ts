@@ -6,6 +6,7 @@ import type { SalesOrderLine } from "@/utils/salesOrderService";
 import type { EditableLineItem, ItemGroupCacheEntry, ItemGroupRecord } from "../types/salesOrderTypes";
 import { createBlankLine } from "../utils/salesOrderFactories";
 import { computeHessianFields } from "../utils/hessianCalculations";
+import { isGovtSkgOrder, isJuteYarnOrder } from "../utils/salesOrderConstants";
 
 export const lineHasAnyData = (line: EditableLineItem) =>
 	Boolean(line.itemGroup || line.item || line.itemMake || line.quantity || line.rate || line.uom || line.remarks);
@@ -58,7 +59,7 @@ export const useSalesOrderLineItems = ({
 		createBlankItem: createBlankLine,
 		hasData: lineHasAnyData,
 		getItemId: (item) => item.id,
-		maintainTrailingBlank: true,
+		maintainTrailingBlank: false,
 	});
 
 	// Store in refs to keep calculateLineTax stable across renders
@@ -99,6 +100,8 @@ export const useSalesOrderLineItems = ({
 	}, []);
 
 	const isHessian = invoiceTypeCode === "hessian";
+	const isGovtSkg = isGovtSkgOrder(invoiceTypeCode);
+	const isJuteYarn = isJuteYarnOrder(invoiceTypeCode);
 
 	/**
 	 * Resolve the effective qty rounding for a line item.
@@ -134,11 +137,14 @@ export const useSalesOrderLineItems = ({
 	);
 
 	/**
-	 * Look up the Bales-per-MT conversion factor for an item.
-	 * Returns the relation_value from uom_item_map_mst where the
-	 * selected UOM (rate UOM / default UOM) is the "from" side (MT)
-	 * and the "to" side is Bales.
-	 * Convention: relation_value = bales per MT, e.g. 5 => 1 MT = 5 Bales.
+	 * Look up the conversion factor for an item given its billing/default UOM.
+	 * Returns the relation_value from uom_item_map_mst.
+	 *
+	 * Checks both directions:
+	 * - If billing UOM is mapFrom: relation_value = other UOM per billing UOM
+	 *   (e.g. for hessian: MT→Bales, factor = bales per MT)
+	 *   (e.g. for govt skg: 100pcs→Bales, factor = bales per 100pcs)
+	 * - If billing UOM is mapTo: 1/relation_value gives the inverse
 	 */
 	const getConversionFactor = React.useCallback(
 		(groupId: string, itemId: string, selectedUomId: string): number | undefined => {
@@ -146,11 +152,50 @@ export const useSalesOrderLineItems = ({
 			if (!cache) return undefined;
 			const conversions = cache.uomConversionsByItemId[itemId];
 			if (!conversions?.length) return undefined;
-			// Find a conversion where the selected UOM is the mapFrom (i.e. MT)
-			// and relation_value gives bales per MT
+			// Prefer: billing UOM is the mapFrom side
 			for (const conv of conversions) {
 				if (conv.mapFromId === selectedUomId && conv.relationValue > 0) {
 					return conv.relationValue;
+				}
+			}
+			// Fallback: billing UOM is the mapTo side — invert the factor
+			for (const conv of conversions) {
+				if (conv.mapToId === selectedUomId && conv.relationValue > 0) {
+					return 1 / conv.relationValue;
+				}
+			}
+			return undefined;
+		},
+		[itemGroupCache],
+	);
+
+	/**
+	 * Look up the bales conversion for a govt sacking item.
+	 * Finds the UOM mapping where mapToName contains "bale" (case-insensitive),
+	 * returns { factor, balesUomId } or undefined.
+	 *
+	 * If a known balesUomId is provided, uses that for an exact match first.
+	 */
+	const getGovtSkgBalesConversion = React.useCallback(
+		(groupId: string, itemId: string, billingUomId: string, knownBalesUomId?: string): { factor: number; balesUomId: string } | undefined => {
+			const cache = itemGroupCache[groupId];
+			if (!cache) return undefined;
+			const conversions = cache.uomConversionsByItemId[itemId];
+			if (!conversions?.length) return undefined;
+
+			// If we already know the bales UOM ID, find that exact conversion
+			if (knownBalesUomId) {
+				for (const conv of conversions) {
+					if (conv.mapFromId === billingUomId && conv.mapToId === knownBalesUomId && conv.relationValue > 0) {
+						return { factor: conv.relationValue, balesUomId: conv.mapToId };
+					}
+				}
+			}
+
+			// Otherwise find by name: look for "bale" in the target UOM name
+			for (const conv of conversions) {
+				if (conv.mapFromId === billingUomId && conv.relationValue > 0 && conv.mapToName.toLowerCase().includes("bale")) {
+					return { factor: conv.relationValue, balesUomId: conv.mapToId };
 				}
 			}
 			return undefined;
@@ -164,14 +209,19 @@ export const useSalesOrderLineItems = ({
 	 */
 	const applyHessianToLine = React.useCallback(
 		(line: EditableLineItem): EditableLineItem => {
-			const convFactor = line.conversionFactor || 0;
+			// Lazily resolve conversion factor from cache if not already set
+			let convFactor = line.conversionFactor || 0;
+			if (!convFactor && line.itemGroup && line.item && line.uom) {
+				convFactor = getConversionFactor(line.itemGroup, line.item, line.uom) || 0;
+				if (convFactor) line = { ...line, conversionFactor: convFactor };
+			}
 			if (!convFactor) return line;
 
 			const qtyBales = Number(line.qtyBales) || 0;
 			const rawRateMt = Number(line.rawRateMt) || 0;
 			const brokPct = brokeragePercent ?? 0;
 
-			const h = computeHessianFields(qtyBales, rawRateMt, convFactor, brokPct);
+			const h = computeHessianFields(qtyBales, rawRateMt, convFactor, brokPct, line.qtyRounding ?? 3);
 
 			// Main table values: quantity = MT, rate = billing rate MT
 			const updatedQuantity = String(h.qtyMt);
@@ -197,10 +247,43 @@ export const useSalesOrderLineItems = ({
 				taxAmount: tax.total,
 			};
 		},
-		[brokeragePercent, calculateLineAmount, calculateLineTax],
+		[brokeragePercent, calculateLineAmount, calculateLineTax, getConversionFactor],
 	);
 
-	const mapLineToEditable = React.useCallback((line: SalesOrderLine): EditableLineItem => {
+	/**
+	 * Apply jute yarn brokerage/rate calc to a line item. Mirrors hessian logic but
+	 * without bales conversion: user enters juteYarnRawRate (pre-brokerage), system
+	 * computes billing rate = rawRate * (1 - brokeragePct/100) and stores it in
+	 * line.rate. Quantity, UOM, and amount otherwise behave like a regular line.
+	 */
+	const applyJuteYarnToLine = React.useCallback(
+		(line: EditableLineItem): EditableLineItem => {
+			const rawRate = Number(line.juteYarnRawRate) || 0;
+			const brokPct = brokeragePercent ?? 0;
+			const rateRounding = line.rateRounding ?? 2;
+			const billingRate = roundTo(rawRate - (rawRate * brokPct) / 100, rateRounding);
+
+			const rawQty = Number(line.quantity) || 0;
+			const qty = line.qtyRounding != null ? roundTo(rawQty, line.qtyRounding) : rawQty;
+			const { amount, discountAmount } = calculateLineAmount(qty, billingRate, line.discountType, Number(line.discountValue) || 0);
+			const tax = calculateLineTax(amount, line.taxPercentage || 0);
+
+			return {
+				...line,
+				rate: billingRate ? String(billingRate) : "",
+				juteYarnBillingRate: billingRate > 0 ? billingRate : undefined,
+				discountAmount,
+				amount,
+				igstAmount: tax.igst,
+				cgstAmount: tax.cgst,
+				sgstAmount: tax.sgst,
+				taxAmount: tax.total,
+			};
+		},
+		[brokeragePercent, calculateLineAmount, calculateLineTax, roundTo],
+	);
+
+	const mapLineToEditable = React.useCallback((line: SalesOrderLine, brokPctOverride?: number): EditableLineItem => {
 		const groupId = line.itemGroup ? String(line.itemGroup) : "";
 		const itemId = line.item ?? "";
 		const uomId = line.uom ?? line.qtyUom ?? "";
@@ -213,6 +296,7 @@ export const useSalesOrderLineItems = ({
 			hsnCode: line.hsnCode,
 			itemGroup: groupId,
 			item: itemId,
+			fullItemCode: line.fullItemCode ? String(line.fullItemCode) : (line.full_item_code ? String(line.full_item_code) : undefined),
 			itemMake: line.itemMake ?? "",
 			quantity: line.quantity != null ? String(line.quantity) : "",
 			rate: line.rate != null ? String(line.rate) : "",
@@ -220,7 +304,7 @@ export const useSalesOrderLineItems = ({
 			discountType: line.discountType ?? undefined,
 			discountValue: line.discountedRate != null ? String(line.discountedRate) : "",
 			discountAmount: line.discountAmount ?? undefined,
-			amount: line.totalAmount ?? undefined,
+			amount: line.netAmount ?? undefined,
 			remarks: line.remarks ?? "",
 			taxPercentage: line.gst?.igstPercent ? Number(line.gst.igstPercent) : (line.gst?.cgstPercent ? Number(line.gst.cgstPercent) * 2 : undefined),
 			igstAmount: line.gst?.igstAmount ?? undefined,
@@ -237,8 +321,19 @@ export const useSalesOrderLineItems = ({
 			const qtyMt = Number(line.quantity) || 0;
 			const qtyBales = h.qtyBales ?? 0;
 			const convFactor = qtyMt > 0 ? (qtyBales ?? 0) / qtyMt : 0;
-			// raw rate MT = ratePerBale * conversionFactor
-			const rawRateMt = (h.ratePerBale ?? 0) * (convFactor || 1);
+			// Reverse the forward formula `billingRateMt = rawRateMt * (1 - brokPct/100)`
+			// so rawRateMt = billingRateMt / (1 - brokPct/100). This recovers the exact
+			// user-entered rate (billingRateMt is stored at 2-decimal precision and the
+			// inverse is lossless for sensible brokerage values), whereas
+			// `ratePerBale * convFactor` compounds rounding from two rounded fields.
+			// Fall back to that product only when brokerage or billing data is missing.
+			const brokPct = brokPctOverride ?? brokeragePercent ?? 0;
+			const brokFactor = 1 - brokPct / 100;
+			const billingRateMt = h.billingRateMt ?? 0;
+			const rawRateMtRaw = billingRateMt > 0 && brokFactor > 0
+				? billingRateMt / brokFactor
+				: (h.ratePerBale ?? 0) * (convFactor || 1);
+			const rawRateMt = Math.round(rawRateMtRaw * 100) / 100;
 			base.qtyBales = qtyBales ? String(qtyBales) : "";
 			base.rawRateMt = rawRateMt ? String(rawRateMt) : "";
 			base.ratePerBale = h.ratePerBale ?? undefined;
@@ -257,16 +352,40 @@ export const useSalesOrderLineItems = ({
 			base.juteQtyUnitConversion = jd.qtyUnitConversion != null ? String(jd.qtyUnitConversion) : "";
 		}
 
+		// Restore jute yarn raw rate when applicable. Backend stores only the billing
+		// rate (line.rate); reverse the forward formula `billing = raw * (1 - brok%/100)`
+		// to recover what the user originally entered.
+		if (isJuteYarn) {
+			const storedRate = Number(line.rate) || 0;
+			const brokPct = brokPctOverride ?? brokeragePercent ?? 0;
+			const brokFactor = 1 - brokPct / 100;
+			const rawRate = storedRate > 0 && brokFactor > 0 ? storedRate / brokFactor : storedRate;
+			const rounded = Math.round(rawRate * 100) / 100;
+			base.juteYarnRawRate = rounded ? String(rounded) : "";
+			base.juteYarnBillingRate = storedRate > 0 ? storedRate : undefined;
+		}
+
 		// Restore govt SKG detail fields when present (invoice_type = 5)
 		const gd = line.govtskgDtl;
 		if (gd) {
 			base.govtskgPackSheet = gd.packSheet != null ? String(gd.packSheet) : "";
 			base.govtskgNetWeight = gd.netWeight != null ? String(gd.netWeight) : "";
 			base.govtskgTotalWeight = gd.totalWeight != null ? String(gd.totalWeight) : "";
+			// Back-calculate bales from stored quantity when the UOM cache is already populated.
+			// (Deferred effect below handles the case where cache loads later.)
+			const qtyPer100 = Number(line.quantity) || 0;
+			if (qtyPer100 > 0 && groupId && itemId && uomId) {
+				const conv = getGovtSkgBalesConversion(groupId, itemId, uomId);
+				if (conv && conv.factor > 0) {
+					base.govtskgQtyBales = String(qtyPer100 * conv.factor);
+					base.govtskgConversionFactor = conv.factor;
+					base.govtskgBalesUomId = conv.balesUomId;
+				}
+			}
 		}
 
 		return base;
-	}, [resolveQtyRounding, resolveRateRounding]);
+	}, [resolveQtyRounding, resolveRateRounding, getGovtSkgBalesConversion, brokeragePercent, isJuteYarn]);
 
 	const handleLineFieldChange = React.useCallback(
 		(id: string, field: keyof EditableLineItem, rawValue: string | number) => {
@@ -327,6 +446,22 @@ export const useSalesOrderLineItems = ({
 							updated.quantity = "";
 							updated.rate = "";
 						}
+						// In jute yarn mode, seed juteYarnRawRate from the default rate so the
+						// billing rate can be derived immediately once qty is entered. The stored
+						// `rate` stays empty until applyJuteYarnToLine runs (via qty or raw rate edits).
+						if (isJuteYarn && value) {
+							updated.juteYarnRawRate = roundedRate != null ? String(roundedRate) : "";
+							updated.juteYarnBillingRate = undefined;
+							updated.rate = "";
+						}
+						// In govt_skg mode, resolve the bales conversion factor
+						if (isGovtSkg && value && nextUom) {
+							const balesConv = getGovtSkgBalesConversion(item.itemGroup, value, nextUom);
+							updated.govtskgConversionFactor = balesConv?.factor;
+							updated.govtskgBalesUomId = balesConv?.balesUomId;
+							// Reset govt skg bales field — user must re-enter after item change
+							updated.govtskgQtyBales = "";
+						}
 						return updated;
 					});
 				});
@@ -341,6 +476,96 @@ export const useSalesOrderLineItems = ({
 						if (item.id !== id) return item;
 						const updated = { ...item, [field]: sanitized };
 						return applyHessianToLine(updated);
+					}),
+				);
+				return;
+			}
+
+			// --- Jute Yarn: raw rate or quantity edits route through applyJuteYarnToLine
+			// so billing rate, amount, and tax stay consistent with the brokerage formula. ---
+			if (isJuteYarn && (field === "juteYarnRawRate" || field === "quantity")) {
+				const sanitized = value.replace(/[^0-9.]/g, "");
+				setLineItems((prev) =>
+					prev.map((item) => {
+						if (item.id !== id) return item;
+						const updated = { ...item, [field]: sanitized };
+						return applyJuteYarnToLine(updated);
+					}),
+				);
+				return;
+			}
+
+			// --- Govt SKG bales field ---
+			if (isGovtSkg && field === "govtskgQtyBales") {
+				const sanitized = value.replace(/[^0-9.]/g, "");
+				setLineItems((prev) =>
+					prev.map((item) => {
+						if (item.id !== id) return item;
+						// Lazily resolve bales conversion from cache if not already set
+						let convFactor = item.govtskgConversionFactor || 0;
+						let balesUomId = item.govtskgBalesUomId;
+						if (!convFactor && item.itemGroup && item.item && item.uom) {
+							const balesConv = getGovtSkgBalesConversion(item.itemGroup, item.item, item.uom, balesUomId);
+							convFactor = balesConv?.factor || 0;
+							balesUomId = balesConv?.balesUomId || balesUomId;
+						}
+						const bales = Number(sanitized) || 0;
+						const quantity = convFactor > 0 ? bales / convFactor : 0;
+						const rate = Number(item.rate) || 0;
+						const amount = quantity * rate;
+						const tax = calculateLineTax(amount, item.taxPercentage || 0);
+						return {
+							...item,
+							govtskgConversionFactor: convFactor || item.govtskgConversionFactor,
+							govtskgBalesUomId: balesUomId,
+							govtskgQtyBales: sanitized,
+							quantity: String(quantity),
+							amount,
+							igstAmount: tax.igst,
+							cgstAmount: tax.cgst,
+							sgstAmount: tax.sgst,
+							taxAmount: tax.total,
+						};
+					}),
+				);
+				return;
+			}
+
+			// --- Govt SKG rate change: recalculate using bales-converted qty ---
+			if (isGovtSkg && field === "rate" && id) {
+				const sanitized = value.replace(/[^0-9.]/g, "");
+				setLineItems((prev) =>
+					prev.map((item) => {
+						if (item.id !== id) return item;
+						const updated = { ...item, rate: sanitized };
+						// If bales were entered, recalculate from bales
+						if (item.govtskgQtyBales && Number(item.govtskgQtyBales)) {
+							let convFactor = item.govtskgConversionFactor || 0;
+							let balesUomId = item.govtskgBalesUomId;
+							if (!convFactor && item.itemGroup && item.item && item.uom) {
+								const balesConv = getGovtSkgBalesConversion(item.itemGroup, item.item, item.uom, balesUomId);
+								convFactor = balesConv?.factor || 0;
+								balesUomId = balesConv?.balesUomId || balesUomId;
+							}
+							const bales = Number(item.govtskgQtyBales) || 0;
+							const quantity = convFactor > 0 ? bales / convFactor : 0;
+							const rate = Number(sanitized) || 0;
+							const amount = quantity * rate;
+							const tax = calculateLineTax(amount, item.taxPercentage || 0);
+							return {
+								...updated,
+								govtskgConversionFactor: convFactor || item.govtskgConversionFactor,
+								govtskgBalesUomId: balesUomId,
+								quantity: String(quantity),
+								amount,
+								igstAmount: tax.igst,
+								cgstAmount: tax.cgst,
+								sgstAmount: tax.sgst,
+								taxAmount: tax.total,
+							};
+						}
+						// No bales entered yet — just store rate, no amount calc
+						return updated;
 					}),
 				);
 				return;
@@ -452,7 +677,7 @@ export const useSalesOrderLineItems = ({
 				prev.map((item) => (item.id === id ? { ...item, [field]: value } as EditableLineItem : item)),
 			);
 		},
-		[mode, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, isHessian, getConversionFactor, applyHessianToLine, calculateLineTax, calculateLineAmount, resolveQtyRounding, resolveRateRounding, roundTo],
+		[mode, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, isHessian, isGovtSkg, isJuteYarn, getConversionFactor, getGovtSkgBalesConversion, applyHessianToLine, applyJuteYarnToLine, calculateLineTax, calculateLineAmount, resolveQtyRounding, resolveRateRounding, roundTo],
 	);
 
 	const handleQuotationItemsConfirm = React.useCallback(
@@ -512,22 +737,82 @@ export const useSalesOrderLineItems = ({
 		return Array.from(groups.values());
 	}, [itemGroupCache, itemGroups, lineItems]);
 
-	// --- Hessian brokerage reactivity ---
-	// When broker_commission_percent changes in the header, recalculate all hessian line items.
+	// --- Resolve conversion factors once cache loads ---
+	// Items added from dialog don't have conversion factors until the setup_2 API returns.
+	// This effect patches lines once the cache is available.
+	React.useEffect(() => {
+		if (!isGovtSkg && !isHessian) return;
+
+		setLineItems((prev) => {
+			let changed = false;
+			const next = prev.map((line) => {
+				// Govt SKG: resolve missing bales conversion factor OR back-fill bales
+				// (when quantity is loaded from a saved order but govtskgQtyBales is empty)
+				const needsFactor = !line.govtskgConversionFactor;
+				const needsBalesBackfill = !line.govtskgQtyBales && Number(line.quantity) > 0;
+				if (isGovtSkg && (needsFactor || needsBalesBackfill) && line.itemGroup && line.item && line.uom) {
+					const balesConv = getGovtSkgBalesConversion(line.itemGroup, line.item, line.uom, line.govtskgBalesUomId);
+					if (balesConv) {
+						changed = true;
+						let bales = Number(line.govtskgQtyBales) || 0;
+						// Reverse-calculate bales from stored quantity when loading an existing order
+						// (qty is saved in pricing units e.g. 100 pcs; bales = qty * conversionFactor)
+						if (bales === 0 && Number(line.quantity) > 0) {
+							bales = Number(line.quantity) * balesConv.factor;
+						}
+						const quantity = bales > 0 ? bales / balesConv.factor : 0;
+						const rate = Number(line.rate) || 0;
+						const amount = quantity * rate;
+						const tax = calculateLineTax(amount, line.taxPercentage || 0);
+						return {
+							...line,
+							govtskgConversionFactor: balesConv.factor,
+							govtskgBalesUomId: balesConv.balesUomId,
+							govtskgQtyBales: bales > 0 ? String(bales) : line.govtskgQtyBales,
+							quantity: bales > 0 ? String(quantity) : line.quantity,
+							amount: bales > 0 && rate > 0 ? amount : line.amount,
+							igstAmount: bales > 0 && rate > 0 ? tax.igst : line.igstAmount,
+							cgstAmount: bales > 0 && rate > 0 ? tax.cgst : line.cgstAmount,
+							sgstAmount: bales > 0 && rate > 0 ? tax.sgst : line.sgstAmount,
+							taxAmount: bales > 0 && rate > 0 ? tax.total : line.taxAmount,
+						};
+					}
+				}
+				// Hessian: resolve missing conversion factor and recalculate
+				if (isHessian && !line.conversionFactor && line.itemGroup && line.item && line.uom) {
+					const convFactor = getConversionFactor(line.itemGroup, line.item, line.uom);
+					if (convFactor) {
+						changed = true;
+						return applyHessianToLine({ ...line, conversionFactor: convFactor });
+					}
+				}
+				return line;
+			});
+			return changed ? next : prev;
+		});
+	}, [isGovtSkg, isHessian, itemGroupCache, setLineItems, getGovtSkgBalesConversion, getConversionFactor, calculateLineTax, applyHessianToLine]);
+
+	// --- Hessian / Jute Yarn brokerage reactivity ---
+	// When broker_commission_percent changes in the header, recalculate affected line items.
 	const prevBrokerageRef = React.useRef(brokeragePercent);
 	React.useEffect(() => {
-		if (!isHessian) return;
+		if (!isHessian && !isJuteYarn) return;
 		if (mode === "view") return;
 		if (prevBrokerageRef.current === brokeragePercent) return;
 		prevBrokerageRef.current = brokeragePercent;
 
 		setLineItems((prev) =>
 			prev.map((line) => {
-				if (!line.conversionFactor || !line.rawRateMt) return line;
-				return applyHessianToLine(line);
+				if (isHessian && line.conversionFactor && line.rawRateMt) {
+					return applyHessianToLine(line);
+				}
+				if (isJuteYarn && line.juteYarnRawRate) {
+					return applyJuteYarnToLine(line);
+				}
+				return line;
 			}),
 		);
-	}, [brokeragePercent, isHessian, mode, setLineItems, applyHessianToLine]);
+	}, [brokeragePercent, isHessian, isJuteYarn, mode, setLineItems, applyHessianToLine, applyJuteYarnToLine]);
 
 	return {
 		lineItems, setLineItems, replaceItems, removeLineItems,

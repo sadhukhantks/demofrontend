@@ -116,9 +116,9 @@ export const useSalesInvoiceSelectOptions = ({
 	);
 
 	const getItemLabel = React.useCallback(
-		(groupId: string, itemId: string, itemCode?: string): string => {
-			if (!groupId || !itemId) return itemCode || "-";
-			return itemGroupCache[groupId]?.itemLabelById[itemId] ?? itemCode ?? itemId;
+		(groupId: string, itemId: string, fallbackName?: string): string => {
+			if (!groupId || !itemId) return fallbackName || "-";
+			return itemGroupCache[groupId]?.itemLabelById[itemId] ?? fallbackName ?? itemId;
 		},
 		[itemGroupCache],
 	);
@@ -155,19 +155,22 @@ export const useSalesInvoiceSelectOptions = ({
 	);
 
 	const fetchTransporterBranches = React.useCallback(
-		async (transporterId: number) => {
+		async (transporterId: number): Promise<TransporterBranchRecord[]> => {
 			if (!transporterId || !coId) {
 				setTransporterBranchOptions([]);
-				return;
+				return [];
 			}
 
 			try {
 				setLoading(true);
 				const response = await getTransporterBranches(transporterId, coId);
-				setTransporterBranchOptions(response.data || []);
+				const branches = (response.data || []) as TransporterBranchRecord[];
+				setTransporterBranchOptions(branches);
+				return branches;
 			} catch (error) {
 				console.error("Failed to fetch transporter branches:", error);
 				setTransporterBranchOptions([]);
+				return [];
 			} finally {
 				setLoading(false);
 			}

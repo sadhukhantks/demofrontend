@@ -124,6 +124,41 @@ export const validateVehicleWeight = (
 };
 
 // =============================================================================
+// PERCENTAGE-BASED CALCULATIONS
+// =============================================================================
+
+export const calculateWeightFromPercentage = (
+  percentage: number,
+  vehicleCapacityQtl: number,
+  vehicleQty: number,
+): number => {
+  if (!percentage || !vehicleCapacityQtl || !vehicleQty) return 0;
+  return (percentage / 100) * vehicleCapacityQtl * vehicleQty;
+};
+
+export const calculateQuantityFromWeight = (
+  weightQtl: number,
+  juteUnit: "BALE" | "LOOSE" | string,
+): number => {
+  const perUnit = juteUnit === "BALE" ? WEIGHT_PER_BALE_QTL : WEIGHT_PER_LOOSE_QTL;
+  return perUnit > 0 ? weightQtl / perUnit : 0;
+};
+
+export const validatePercentageSum = (
+  lineItems: Array<{ percentage: string; itemId?: string }>,
+  epsilon = 0.01,
+): { valid: boolean; sum: number; message: string } => {
+  const relevant = lineItems.filter((li) => li.itemId);
+  const sum = relevant.reduce((acc, li) => acc + (Number(li.percentage) || 0), 0);
+  const valid = Math.abs(sum - 100) <= epsilon;
+  return {
+    valid,
+    sum,
+    message: valid ? "" : `Line item percentages must sum to 100 (got ${sum.toFixed(2)})`,
+  };
+};
+
+// =============================================================================
 // AMOUNT CALCULATION
 // =============================================================================
 
