@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import type { TransactionLineColumn } from "@/components/ui/transaction";
 import type { EditableLineItem, Option, UomConversionEntry } from "../types/salesOrderTypes";
 import { computeConvertedRate } from "@/utils/uomConversion";
-import { isHessianOrder, isGovtSkgOrder, isJuteOrder } from "../utils/salesOrderConstants";
+import { isHessianOrder, isGovtSkgOrder, isJuteOrder, isJuteYarnOrder } from "../utils/salesOrderConstants";
 
 type UseSalesOrderLineItemColumnsParams = {
 	canEdit: boolean;
@@ -107,7 +107,7 @@ export const useSalesOrderLineItemColumns = ({
 							: "quantity";
 					const qtyRounding = item.qtyRounding;
 					const mtAnnotation = isHessian && item.quantity && Number(item.quantity)
-						? `\u2248 ${Number(item.quantity).toFixed(qtyRounding ?? 4)} MT`
+						? `\u2248 ${Number(item.quantity).toFixed(qtyRounding ?? 3)} MT`
 						: null;
 					const govtSkgAnnotation = isGovtSkg && item.quantity && Number(item.quantity)
 						? `= ${Number(item.quantity).toFixed(qtyRounding ?? 2)} per 100 pcs`
@@ -191,6 +191,47 @@ export const useSalesOrderLineItemColumns = ({
 				minWidth: "80px",
 				renderCell: ({ item }) => {
 					const isHessian = isHessianOrder(invoiceTypeCode);
+					const isJuteYarn = isJuteYarnOrder(invoiceTypeCode);
+
+					if (isJuteYarn) {
+						const displayValue = item.juteYarnRawRate ?? item.rate ?? "";
+						const uomOptions = getUomOptions(item.itemGroup, item.item);
+						const uomLabel = uomOptions.find((o) => o.value === item.uom)?.label ?? "";
+						const annotations: { label: string }[] = [];
+						if (item.juteYarnBillingRate != null && item.juteYarnBillingRate > 0) {
+							annotations.push({ label: `Billing: ${item.juteYarnBillingRate.toFixed(2)}${uomLabel ? ` / ${uomLabel}` : ""}` });
+						}
+
+						if (canEdit) {
+							return (
+								<div className="flex flex-col gap-0.5">
+									<Input
+										type="text"
+										value={displayValue}
+										onChange={(e) => handleLineFieldChange(item.id, "juteYarnRawRate", e.target.value)}
+										placeholder={`Rate${uomLabel ? ` / ${uomLabel}` : ""}`}
+										className="h-8 text-sm"
+									/>
+									{annotations.map((a, i) => (
+										<span key={i} className="text-[11px] text-muted-foreground leading-tight truncate">
+											{a.label}
+										</span>
+									))}
+								</div>
+							);
+						}
+
+						return (
+							<div className="flex flex-col gap-0.5">
+								<span className="block truncate text-sm">{displayValue || "-"}</span>
+								{annotations.map((a, i) => (
+									<span key={i} className="text-[11px] text-muted-foreground leading-tight truncate">
+										{a.label}
+									</span>
+								))}
+							</div>
+						);
+					}
 
 					if (isHessian) {
 						// Hessian mode: input is rawRateMt (pre-brokerage rate per MT)
@@ -282,6 +323,9 @@ export const useSalesOrderLineItemColumns = ({
 						if (item.rawRateMt) parts.push(`Rate: ${item.rawRateMt} / MT`);
 						if (item.ratePerBale) parts.push(`\u2248 ${item.ratePerBale.toFixed(2)} / Bale`);
 						if (item.billingRateMt) parts.push(`Billing: ${item.billingRateMt.toFixed(2)} / MT`);
+					} else if (isJuteYarnOrder(invoiceTypeCode)) {
+						if (item.juteYarnRawRate) parts.push(`Rate: ${item.juteYarnRawRate}`);
+						if (item.juteYarnBillingRate) parts.push(`Billing: ${item.juteYarnBillingRate.toFixed(2)}`);
 					} else {
 						const conversion = getUomConversions
 							? computeConvertedRate(item.rate, item.uom, getUomConversions(item.itemGroup, item.item))

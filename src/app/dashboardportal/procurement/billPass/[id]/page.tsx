@@ -32,6 +32,7 @@ import {
   type BillPassDetail,
   type BillPassDRCRLine,
 } from "@/utils/billPassService";
+import AdditionalChargesTable from "@/components/billPass/AdditionalChargesTable";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -229,7 +230,13 @@ export default function BillPassViewPage() {
   const netPayable = React.useMemo(() => {
     if (!detail) return 0;
     const s = detail.summary;
-    return s.sr_total - s.dr_total + s.cr_total + (detail.round_off_value || 0);
+    return (
+      (s.sr_total ?? 0) -
+      (s.dr_total ?? 0) +
+      (s.cr_total ?? 0) +
+      (s.additional_total ?? 0) +
+      (detail.round_off_value || 0)
+    );
   }, [detail]);
 
   const handleBack = () => router.push("/dashboardportal/procurement/billPass");
@@ -294,8 +301,8 @@ export default function BillPassViewPage() {
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <SummaryCard
             title="SR TOTAL"
-            value={formatCurrency(summary.sr_total)}
-            subtitle={`${summary.sr_line_count} item(s)`}
+            value={formatCurrency(netPayable)}
+            subtitle={`${summary.sr_line_count} item(s) incl. charges`}
             color="info"
             icon={<Receipt size={18} />}
           />
@@ -528,6 +535,21 @@ export default function BillPassViewPage() {
         </CardContent>
       </Card>
 
+      {/* ── Additional Charges (read-only, inherited from SR) ────────────── */}
+      {(detail.additional_charges?.length ?? 0) > 0 && (
+        <Card sx={{ mb: 2 }}>
+          <CardContent>
+            <Typography variant="subtitle1" fontWeight={600} mb={1}>
+              Additional Charges
+            </Typography>
+            <Typography variant="caption" color="text.secondary" mb={2} display="block">
+              {summary.additional_count} charge(s) captured at SR stage
+            </Typography>
+            <AdditionalChargesTable lines={detail.additional_charges} />
+          </CardContent>
+        </Card>
+      )}
+
       {/* ── Payment Summary Footer ───────────────────────────────────────── */}
       <Card>
         <CardContent>
@@ -540,7 +562,7 @@ export default function BillPassViewPage() {
             {summary.sr_sgst > 0 && <SummaryRow label="SGST" value={summary.sr_sgst} indent />}
             {summary.sr_igst > 0 && <SummaryRow label="IGST" value={summary.sr_igst} indent />}
             <Divider sx={{ my: 1 }} />
-            <SummaryRow label="SR Total" value={summary.sr_total} bold />
+            <SummaryRow label="Line Items Subtotal" value={summary.sr_total} bold />
             {summary.dr_count > 0 && (
               <SummaryRow
                 label={`Less: Debit Notes (${summary.dr_count})`}
@@ -556,6 +578,25 @@ export default function BillPassViewPage() {
                 color="success.main"
                 prefix="+"
               />
+            )}
+            {summary.additional_count > 0 && (
+              <>
+                <SummaryRow
+                  label={`Add: Additional Charges (${summary.additional_count})`}
+                  value={summary.additional_net}
+                  prefix="+"
+                />
+                {summary.additional_cgst > 0 && (
+                  <SummaryRow label="Add. CGST" value={summary.additional_cgst} indent />
+                )}
+                {summary.additional_sgst > 0 && (
+                  <SummaryRow label="Add. SGST" value={summary.additional_sgst} indent />
+                )}
+                {summary.additional_igst > 0 && (
+                  <SummaryRow label="Add. IGST" value={summary.additional_igst} indent />
+                )}
+                <SummaryRow label="Additional Total" value={summary.additional_total} bold />
+              </>
             )}
             {(detail.round_off_value || 0) !== 0 && (
               <SummaryRow label="Round Off" value={detail.round_off_value} />

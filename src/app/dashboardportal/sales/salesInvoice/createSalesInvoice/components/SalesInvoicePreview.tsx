@@ -265,58 +265,6 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 
 		const amountInWords = totals?.netAmount ? numberToWordsIndian(totals.netAmount) : "";
 
-		/* HSN/SAC tax summary — aggregate taxable value by HSN code and distribute tax
-		   proportionally using the same per-tax-type percentages carried on totals.
-		   Rendered only for Govt Sacking layout types (3 and 7) to match the standard
-		   reference format and avoid changing prints for unrelated types. */
-		const hsnSummaryHtml = (() => {
-			if (!isGovtSkg || !totals) return "";
-			const map = new Map<string, number>();
-			items.forEach((it) => {
-				const hsn = (it.hsnCode || "").toString().trim();
-				if (!hsn) return;
-				map.set(hsn, (map.get(hsn) || 0) + (Number(it.netAmount) || 0));
-			});
-			(additionalCharges || []).forEach((ch) => {
-				const hsn = (ch.hsnCode || "").toString().trim();
-				if (!hsn) return;
-				map.set(hsn, (map.get(hsn) || 0) + (Number(ch.netAmount) || 0));
-			});
-			if (map.size === 0) return "";
-			const cgstPct = totals.cgstPercent ?? 0;
-			const sgstPct = totals.sgstPercent ?? 0;
-			const igstPct = totals.igstPercent ?? 0;
-			const rows = Array.from(map.entries()).map(([hsn, taxable]) => {
-				const cgstAmt = +(taxable * (cgstPct / 100)).toFixed(2);
-				const sgstAmt = +(taxable * (sgstPct / 100)).toFixed(2);
-				const igstAmt = +(taxable * (igstPct / 100)).toFixed(2);
-				const totalTax = +(cgstAmt + sgstAmt + igstAmt).toFixed(2);
-				return { hsn, taxable, cgstAmt, sgstAmt, igstAmt, totalTax };
-			});
-			const totalTaxable = rows.reduce((s, r) => s + r.taxable, 0);
-			const totalCgst = rows.reduce((s, r) => s + r.cgstAmt, 0);
-			const totalSgst = rows.reduce((s, r) => s + r.sgstAmt, 0);
-			const totalIgst = rows.reduce((s, r) => s + r.igstAmt, 0);
-			const totalTaxAll = +(totalCgst + totalSgst + totalIgst).toFixed(2);
-			const showCgstSgst = cgstPct > 0 || sgstPct > 0;
-			const showIgst = igstPct > 0;
-			const th = (label: string, colSpan?: number) => `<th style="border:1px solid #000;padding:3px 6px;font-size:10px;background:#f0f0f0;${colSpan ? "" : ""}" ${colSpan ? `colspan="${colSpan}"` : ""}>${label}</th>`;
-			const td = (v: string, right = false) => `<td style="border:1px solid #000;padding:3px 6px;font-size:11px;${right ? "text-align:right;" : ""}">${v}</td>`;
-			const header1 = `<tr>${th("HSN/SAC", 1)}${th("Taxable Value", 1)}${showCgstSgst ? th("CGST", 2) : ""}${showCgstSgst ? th("SGST", 2) : ""}${showIgst ? th("IGST", 2) : ""}${th("Total Tax Amount", 1)}</tr>`;
-			const header2 = `<tr>${th("")}${th("")}${showCgstSgst ? `${th("Rate")}${th("Amount")}` : ""}${showCgstSgst ? `${th("Rate")}${th("Amount")}` : ""}${showIgst ? `${th("Rate")}${th("Amount")}` : ""}${th("")}</tr>`;
-			const bodyRows = rows.map((r) => {
-				return `<tr>${td(r.hsn)}${td(formatAmount(r.taxable), true)}${showCgstSgst ? `${td(`${cgstPct}%`, true)}${td(formatAmount(r.cgstAmt), true)}` : ""}${showCgstSgst ? `${td(`${sgstPct}%`, true)}${td(formatAmount(r.sgstAmt), true)}` : ""}${showIgst ? `${td(`${igstPct}%`, true)}${td(formatAmount(r.igstAmt), true)}` : ""}${td(formatAmount(r.totalTax), true)}</tr>`;
-			}).join("");
-			const totalRow = `<tr>${td("<strong>Total</strong>")}${td(`<strong>${formatAmount(totalTaxable)}</strong>`, true)}${showCgstSgst ? `${td("")}${td(`<strong>${formatAmount(totalCgst)}</strong>`, true)}` : ""}${showCgstSgst ? `${td("")}${td(`<strong>${formatAmount(totalSgst)}</strong>`, true)}` : ""}${showIgst ? `${td("")}${td(`<strong>${formatAmount(totalIgst)}</strong>`, true)}` : ""}${td(`<strong>${formatAmount(totalTaxAll)}</strong>`, true)}</tr>`;
-			const taxInWords = totalTaxAll > 0 ? numberToWordsIndian(totalTaxAll) : "";
-			return `
-	<table style="width:100%;border-collapse:collapse;border-top:1px solid #000;">
-		<thead>${header1}${header2}</thead>
-		<tbody>${bodyRows}${totalRow}</tbody>
-	</table>
-	${taxInWords ? `<div style="padding:4px 10px;font-size:11px;border-bottom:1px solid #000;"><strong>Tax Amount (In Words):</strong> ${taxInWords}</div>` : ""}`;
-		})();
-
 		/* Doc info rows — Invoice No, Sale No, Del Ord No, PCSO etc. (vehicle/transporter moved to Transaction Type cell) */
 		const docInfoRows = [
 			h.invoiceNo ? `<tr><td style="padding:3px 6px;font-size:11px;white-space:nowrap;font-weight:600;">Invoice No.</td><td style="padding:3px 6px;font-size:11px;">${h.invoiceNo}</td><td style="padding:3px 6px;font-size:11px;white-space:nowrap;">Date</td><td style="padding:3px 6px;font-size:11px;font-weight:600;">${formatDate(h.invoiceDate)}</td></tr>` : "",
@@ -465,9 +413,6 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 	<div style="border-top:1px solid #000;padding:4px 10px;font-size:11px;font-weight:600;">Invoice Value (In Words)</div>
 	<div style="padding:4px 10px;font-size:11px;border-bottom:1px solid #000;">Rupees in words: ${amountInWords}</div>` : ""}
 
-	<!-- HSN/SAC tax summary (Govt Sacking layout only) -->
-	${hsnSummaryHtml}
-
 	<!-- Wheather tax is payable on reverse charge -->
 	<div style="padding:3px 10px;font-size:10px;border-bottom:1px solid #000;">Whether tax is payable on Reverse Charges Basis No.</div>
 
@@ -533,53 +478,6 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 	const cgstLabel = totals?.cgstPercent ? `CGST@${totals.cgstPercent}%` : "CGST";
 	const sgstLabel = totals?.sgstPercent ? `SGST@${totals.sgstPercent}%` : "SGST";
 	const igstLabel = totals?.igstPercent ? `IGST@${totals.igstPercent}%` : "IGST";
-	const isGovtSkgLayout = isGovtSkgLayoutType(header.invoiceType);
-
-	/* HSN/SAC tax summary groups — shown in the in-page React preview for Govt Sacking
-	   layout types. Mirrors the print-HTML aggregation above. */
-	const hsnSummary = (() => {
-		if (!isGovtSkgLayout || !totals) return null;
-		const map = new Map<string, number>();
-		items.forEach((it) => {
-			const hsn = (it.hsnCode || "").toString().trim();
-			if (!hsn) return;
-			map.set(hsn, (map.get(hsn) || 0) + (Number(it.netAmount) || 0));
-		});
-		(additionalCharges || []).forEach((ch) => {
-			const hsn = (ch.hsnCode || "").toString().trim();
-			if (!hsn) return;
-			map.set(hsn, (map.get(hsn) || 0) + (Number(ch.netAmount) || 0));
-		});
-		if (map.size === 0) return null;
-		const cgstPct = totals.cgstPercent ?? 0;
-		const sgstPct = totals.sgstPercent ?? 0;
-		const igstPct = totals.igstPercent ?? 0;
-		const rows = Array.from(map.entries()).map(([hsn, taxable]) => {
-			const cgstAmt = +(taxable * (cgstPct / 100)).toFixed(2);
-			const sgstAmt = +(taxable * (sgstPct / 100)).toFixed(2);
-			const igstAmt = +(taxable * (igstPct / 100)).toFixed(2);
-			return { hsn, taxable, cgstAmt, sgstAmt, igstAmt, totalTax: +(cgstAmt + sgstAmt + igstAmt).toFixed(2) };
-		});
-		const totalTaxable = rows.reduce((s, r) => s + r.taxable, 0);
-		const totalCgst = rows.reduce((s, r) => s + r.cgstAmt, 0);
-		const totalSgst = rows.reduce((s, r) => s + r.sgstAmt, 0);
-		const totalIgst = rows.reduce((s, r) => s + r.igstAmt, 0);
-		const totalTaxAll = +(totalCgst + totalSgst + totalIgst).toFixed(2);
-		return {
-			rows,
-			totalTaxable,
-			totalCgst,
-			totalSgst,
-			totalIgst,
-			totalTaxAll,
-			cgstPct,
-			sgstPct,
-			igstPct,
-			showCgstSgst: cgstPct > 0 || sgstPct > 0,
-			showIgst: igstPct > 0,
-			taxInWords: totalTaxAll > 0 ? numberToWordsIndian(totalTaxAll) : "",
-		};
-	})();
 
 	/* ──────────────────────────────────────── */
 	/*  React in-page preview (mirrors print)  */
@@ -867,71 +765,6 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 						<Box sx={{ px: 1.5, py: 0.5, borderBottom: "1px solid", borderColor: "divider" }}>
 							<Typography variant="caption">Rupees in words: {numberToWordsIndian(totals.netAmount)}</Typography>
 						</Box>
-					</>
-				)}
-
-				{/* HSN/SAC tax summary (Govt Sacking layout only) */}
-				{hsnSummary && (
-					<>
-						<Box sx={{ overflowX: "auto", borderTop: "1px solid", borderColor: "divider" }}>
-							<Box component="table" sx={{ width: "100%", borderCollapse: "collapse" }}>
-								<Box component="thead" sx={{ backgroundColor: "rgba(12,60,96,0.07)" }}>
-									<Box component="tr">
-										<Box component="th" rowSpan={2} sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>HSN/SAC</Box>
-										<Box component="th" rowSpan={2} sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>Taxable Value</Box>
-										{hsnSummary.showCgstSgst && (
-											<Box component="th" colSpan={2} sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>CGST</Box>
-										)}
-										{hsnSummary.showCgstSgst && (
-											<Box component="th" colSpan={2} sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>SGST</Box>
-										)}
-										{hsnSummary.showIgst && (
-											<Box component="th" colSpan={2} sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>IGST</Box>
-										)}
-										<Box component="th" rowSpan={2} sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>Total Tax Amount</Box>
-									</Box>
-									<Box component="tr">
-										{hsnSummary.showCgstSgst && <Box component="th" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>Rate</Box>}
-										{hsnSummary.showCgstSgst && <Box component="th" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>Amount</Box>}
-										{hsnSummary.showCgstSgst && <Box component="th" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>Rate</Box>}
-										{hsnSummary.showCgstSgst && <Box component="th" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>Amount</Box>}
-										{hsnSummary.showIgst && <Box component="th" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>Rate</Box>}
-										{hsnSummary.showIgst && <Box component="th" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 10 }}>Amount</Box>}
-									</Box>
-								</Box>
-								<Box component="tbody">
-									{hsnSummary.rows.map((r) => (
-										<Box component="tr" key={`hsn-row-${r.hsn}`}>
-											<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11 }}>{r.hsn}</Box>
-											<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right" }}>{formatAmount(r.taxable)}</Box>
-											{hsnSummary.showCgstSgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right" }}>{hsnSummary.cgstPct}%</Box>}
-											{hsnSummary.showCgstSgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right" }}>{formatAmount(r.cgstAmt)}</Box>}
-											{hsnSummary.showCgstSgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right" }}>{hsnSummary.sgstPct}%</Box>}
-											{hsnSummary.showCgstSgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right" }}>{formatAmount(r.sgstAmt)}</Box>}
-											{hsnSummary.showIgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right" }}>{hsnSummary.igstPct}%</Box>}
-											{hsnSummary.showIgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right" }}>{formatAmount(r.igstAmt)}</Box>}
-											<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right" }}>{formatAmount(r.totalTax)}</Box>
-										</Box>
-									))}
-									<Box component="tr" sx={{ fontWeight: 700 }}>
-										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, fontWeight: 700 }}>Total</Box>
-										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right", fontWeight: 700 }}>{formatAmount(hsnSummary.totalTaxable)}</Box>
-										{hsnSummary.showCgstSgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11 }} />}
-										{hsnSummary.showCgstSgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right", fontWeight: 700 }}>{formatAmount(hsnSummary.totalCgst)}</Box>}
-										{hsnSummary.showCgstSgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11 }} />}
-										{hsnSummary.showCgstSgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right", fontWeight: 700 }}>{formatAmount(hsnSummary.totalSgst)}</Box>}
-										{hsnSummary.showIgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11 }} />}
-										{hsnSummary.showIgst && <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right", fontWeight: 700 }}>{formatAmount(hsnSummary.totalIgst)}</Box>}
-										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: "3px 6px", fontSize: 11, textAlign: "right", fontWeight: 700 }}>{formatAmount(hsnSummary.totalTaxAll)}</Box>
-									</Box>
-								</Box>
-							</Box>
-						</Box>
-						{hsnSummary.taxInWords && (
-							<Box sx={{ px: 1.5, py: 0.5, borderBottom: "1px solid", borderColor: "divider" }}>
-								<Typography variant="caption"><strong>Tax Amount (In Words):</strong> {hsnSummary.taxInWords}</Typography>
-							</Box>
-						)}
 					</>
 				)}
 

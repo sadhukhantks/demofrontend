@@ -45,12 +45,12 @@ export const useDeliveryOrderLineItems = ({
 	const soGroupInfoRef = React.useRef<Map<string, { code?: string; name?: string }>>(new Map());
 
 	/**
-	 * Look up the bales conversion for a govt sacking item.
+	 * Look up the bales conversion for an item (used by both Govt-SKG and Hessian).
 	 * Finds the UOM mapping where mapToName contains "bale" (case-insensitive).
 	 * Returns { factor, balesUomId } or undefined.
 	 * If a known balesUomId is provided, uses that for an exact match first.
 	 */
-	const getGovtSkgBalesConversion = React.useCallback(
+	const getBalesConversion = React.useCallback(
 		(groupId: string, itemId: string, billingUomId: string, knownBalesUomId?: string): { factor: number; balesUomId: string } | undefined => {
 			const cache = itemGroupCache[groupId];
 			if (!cache) return undefined;
@@ -109,15 +109,24 @@ export const useDeliveryOrderLineItems = ({
 		// (Deferred effect below handles the case where cache loads after line mapping.)
 		const qtyPer100 = Number(line.quantity) || 0;
 		if (isGovtSkg && qtyPer100 > 0 && groupId && itemId && uomId) {
-			const conv = getGovtSkgBalesConversion(groupId, itemId, uomId);
+			const conv = getBalesConversion(groupId, itemId, uomId);
 			if (conv && conv.factor > 0) {
 				base.govtskgQtyBales = String(qtyPer100 * conv.factor);
 				base.govtskgConversionFactor = conv.factor;
 				base.govtskgBalesUomId = conv.balesUomId;
 			}
 		}
+		const qtyMt = Number(line.quantity) || 0;
+		if (isHessian && qtyMt > 0 && groupId && itemId && uomId) {
+			const conv = getBalesConversion(groupId, itemId, uomId);
+			if (conv && conv.factor > 0) {
+				base.hessianQtyBales = String(qtyMt * conv.factor);
+				base.hessianConversionFactor = conv.factor;
+				base.hessianBalesUomId = conv.balesUomId;
+			}
+		}
 		return base;
-	}, [isGovtSkg, getGovtSkgBalesConversion]);
+	}, [isGovtSkg, isHessian, getBalesConversion]);
 
 	const recalcLine = React.useCallback((item: EditableLineItem): EditableLineItem => {
 		const qty = Number(item.quantity) || 0;
@@ -188,7 +197,7 @@ export const useDeliveryOrderLineItems = ({
 						let convFactor = item.govtskgConversionFactor || 0;
 						let balesUomId = item.govtskgBalesUomId;
 						if (!convFactor && item.itemGroup && item.item && item.uom) {
-							const balesConv = getGovtSkgBalesConversion(item.itemGroup, item.item, item.uom, balesUomId);
+							const balesConv = getBalesConversion(item.itemGroup, item.item, item.uom, balesUomId);
 							convFactor = balesConv?.factor || 0;
 							balesUomId = balesConv?.balesUomId || balesUomId;
 						}
@@ -215,7 +224,7 @@ export const useDeliveryOrderLineItems = ({
 						let convFactor = item.govtskgConversionFactor || 0;
 						let balesUomId = item.govtskgBalesUomId;
 						if (!convFactor && item.itemGroup && item.item && item.uom) {
-							const balesConv = getGovtSkgBalesConversion(item.itemGroup, item.item, item.uom, balesUomId);
+							const balesConv = getBalesConversion(item.itemGroup, item.item, item.uom, balesUomId);
 							convFactor = balesConv?.factor || 0;
 							balesUomId = balesConv?.balesUomId || balesUomId;
 						}
@@ -227,6 +236,33 @@ export const useDeliveryOrderLineItems = ({
 							govtskgConversionFactor: convFactor || item.govtskgConversionFactor,
 							govtskgBalesUomId: balesUomId,
 							quantity: bales > 0 && convFactor > 0 ? String(quantity) : item.quantity,
+						});
+					}),
+				);
+				return;
+			}
+
+			// --- Hessian: user enters bales; auto-calc quantity (MT) ---
+			if (isHessian && field === "hessianQtyBales") {
+				const sanitized = value.replace(/[^0-9.]/g, "");
+				setLineItems((prev) =>
+					prev.map((item) => {
+						if (item.id !== id) return item;
+						let convFactor = item.hessianConversionFactor || 0;
+						let balesUomId = item.hessianBalesUomId;
+						if (!convFactor && item.itemGroup && item.item && item.uom) {
+							const balesConv = getBalesConversion(item.itemGroup, item.item, item.uom, balesUomId);
+							convFactor = balesConv?.factor || 0;
+							balesUomId = balesConv?.balesUomId || balesUomId;
+						}
+						const bales = Number(sanitized) || 0;
+						const quantity = convFactor > 0 ? bales / convFactor : 0;
+						return recalcLine({
+							...item,
+							hessianConversionFactor: convFactor || item.hessianConversionFactor,
+							hessianBalesUomId: balesUomId,
+							hessianQtyBales: sanitized,
+							quantity: bales > 0 && convFactor > 0 ? String(quantity) : "",
 						});
 					}),
 				);
@@ -291,7 +327,7 @@ export const useDeliveryOrderLineItems = ({
 				}),
 			);
 		},
-		[mode, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, recalcLine, isHessian, isGovtSkg, getGovtSkgBalesConversion, partyState, shippingState],
+		[mode, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, recalcLine, isHessian, isGovtSkg, getBalesConversion, partyState, shippingState],
 	);
 
 	const handleSalesOrderLinesConfirm = React.useCallback(
@@ -341,6 +377,7 @@ export const useDeliveryOrderLineItems = ({
 						totalAmount: (netAmt) + tax.gstTotal,
 						remarks: item.remarks || "",
 						taxPercentage: item.tax_percentage,
+						hessianQtyBales: item.qty_bales != null ? String(item.qty_bales) : undefined,
 						...tax,
 					};
 				});
@@ -369,7 +406,7 @@ export const useDeliveryOrderLineItems = ({
 				const needsFactor = !line.govtskgConversionFactor;
 				const needsBalesBackfill = !line.govtskgQtyBales && Number(line.quantity) > 0;
 				if ((needsFactor || needsBalesBackfill) && line.itemGroup && line.item && line.uom) {
-					const balesConv = getGovtSkgBalesConversion(line.itemGroup, line.item, line.uom, line.govtskgBalesUomId);
+					const balesConv = getBalesConversion(line.itemGroup, line.item, line.uom, line.govtskgBalesUomId);
 					if (balesConv) {
 						changed = true;
 						let bales = Number(line.govtskgQtyBales) || 0;
@@ -388,7 +425,40 @@ export const useDeliveryOrderLineItems = ({
 			});
 			return changed ? next : prev;
 		});
-	}, [isGovtSkg, itemGroupCache, setLineItems, getGovtSkgBalesConversion]);
+	}, [isGovtSkg, itemGroupCache, setLineItems, getBalesConversion]);
+
+	// --- Hessian: back-fill bales once UOM cache loads ---
+	// Lines pulled from an SO arrive with qty_bales (when present) but no factor/uom-id,
+	// and saved DO lines arrive with quantity (MT) only. Once the setup_2 API returns
+	// conversions for the item group, resolve the factor and derive bales from MT if missing.
+	React.useEffect(() => {
+		if (!isHessian) return;
+		setLineItems((prev) => {
+			let changed = false;
+			const next = prev.map((line) => {
+				const needsFactor = !line.hessianConversionFactor;
+				const needsBalesBackfill = !line.hessianQtyBales && Number(line.quantity) > 0;
+				if ((needsFactor || needsBalesBackfill) && line.itemGroup && line.item && line.uom) {
+					const balesConv = getBalesConversion(line.itemGroup, line.item, line.uom, line.hessianBalesUomId);
+					if (balesConv) {
+						changed = true;
+						let bales = Number(line.hessianQtyBales) || 0;
+						if (bales === 0 && Number(line.quantity) > 0) {
+							bales = Number(line.quantity) * balesConv.factor;
+						}
+						return {
+							...line,
+							hessianConversionFactor: balesConv.factor,
+							hessianBalesUomId: balesConv.balesUomId,
+							hessianQtyBales: bales > 0 ? String(bales) : line.hessianQtyBales,
+						};
+					}
+				}
+				return line;
+			});
+			return changed ? next : prev;
+		});
+	}, [isHessian, itemGroupCache, setLineItems, getBalesConversion]);
 
 	const filledLineItems = React.useMemo(() => lineItems.filter(lineHasAnyData), [lineItems]);
 

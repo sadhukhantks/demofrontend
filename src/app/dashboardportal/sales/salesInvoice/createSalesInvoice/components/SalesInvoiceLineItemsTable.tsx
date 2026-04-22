@@ -370,6 +370,8 @@ export const useInvoiceLineItemColumns = ({
 				},
 			] as TransactionLineColumn<EditableLineItem>[] : []),
 			// --- Hessian (type 2) line item columns ---
+			// Qty Bales is the only editable input: Qty (MT), Rate/MT, and Rate/Bale
+			// are derived from it and the Rate column via uom_item_map_mst.
 			...(isHessianInvoice(invoiceTypeId) ? [
 				{
 					id: "hessianQtyBales" as const,
@@ -394,54 +396,35 @@ export const useInvoiceLineItemColumns = ({
 					header: "Rate/Bale",
 					width: "0.7fr",
 					minWidth: "80px",
-					renderCell: ({ item }: { item: EditableLineItem }) =>
-						canEdit ? (
-							<Input
-								type="text"
-								value={item.hessianRatePerBale ?? ""}
-								onChange={(e) => onFieldChange(item.id, "hessianRatePerBale", e.target.value)}
-								placeholder="0"
-								className="h-8 text-sm"
-							/>
-						) : (
-							<span className="block truncate text-sm">{item.hessianRatePerBale ?? "-"}</span>
-						),
+					renderCell: ({ item }: { item: EditableLineItem }) => {
+						const rate = Number(item.rate) || 0;
+						const factor = item.hessianConversionFactor || 0;
+						const derived = factor > 0 && rate > 0 ? (rate / factor).toFixed(2) : (item.hessianRatePerBale ?? "-");
+						return <span className="block truncate text-sm text-muted-foreground">{derived}</span>;
+					},
 				},
 				{
 					id: "hessianBillingRateMt" as const,
 					header: "Rate/MT",
 					width: "0.7fr",
 					minWidth: "80px",
-					renderCell: ({ item }: { item: EditableLineItem }) =>
-						canEdit ? (
-							<Input
-								type="text"
-								value={item.hessianBillingRateMt ?? ""}
-								onChange={(e) => onFieldChange(item.id, "hessianBillingRateMt", e.target.value)}
-								placeholder="0"
-								className="h-8 text-sm"
-							/>
-						) : (
-							<span className="block truncate text-sm">{item.hessianBillingRateMt ?? "-"}</span>
-						),
+					renderCell: ({ item }: { item: EditableLineItem }) => {
+						const rate = Number(item.rate) || 0;
+						const display = rate > 0 ? rate.toFixed(2) : (item.hessianBillingRateMt ?? "-");
+						return <span className="block truncate text-sm text-muted-foreground">{display}</span>;
+					},
 				},
 				{
 					id: "hessianBillingRateBale" as const,
 					header: "Rate/Bale (Bill)",
 					width: "0.8fr",
 					minWidth: "90px",
-					renderCell: ({ item }: { item: EditableLineItem }) =>
-						canEdit ? (
-							<Input
-								type="text"
-								value={item.hessianBillingRateBale ?? ""}
-								onChange={(e) => onFieldChange(item.id, "hessianBillingRateBale", e.target.value)}
-								placeholder="0"
-								className="h-8 text-sm"
-							/>
-						) : (
-							<span className="block truncate text-sm">{item.hessianBillingRateBale ?? "-"}</span>
-						),
+					renderCell: ({ item }: { item: EditableLineItem }) => {
+						const rate = Number(item.rate) || 0;
+						const factor = item.hessianConversionFactor || 0;
+						const derived = factor > 0 && rate > 0 ? (rate / factor).toFixed(2) : (item.hessianBillingRateBale ?? "-");
+						return <span className="block truncate text-sm text-muted-foreground">{derived}</span>;
+					},
 				},
 			] as TransactionLineColumn<EditableLineItem>[] : []),
 		],

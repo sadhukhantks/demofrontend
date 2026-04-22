@@ -76,9 +76,10 @@ describe("computeHessianFields", () => {
 	});
 
 	// ── Rounding precision ──────────────────────────────────────────────
-	it("should round qtyMt to 4 decimal places and rates to 2", () => {
+	it("should round qtyMt to 4 decimal places when SO passes qtyRounding=4, rates to 2", () => {
 		// 7 bales, 10000 ₹/MT, convFactor=3, brokerage=3.5%
-		const result = computeHessianFields(7, 10000, 3, 3.5);
+		// Sales Order explicitly passes qtyRounding=4 for legacy parity.
+		const result = computeHessianFields(7, 10000, 3, 3.5, 4);
 
 		// qtyMt = 7/3 = 2.333333... → 2.3333
 		expect(result.qtyMt).toBe(2.3333);

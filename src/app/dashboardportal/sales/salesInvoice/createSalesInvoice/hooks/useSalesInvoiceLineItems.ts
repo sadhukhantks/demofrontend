@@ -74,6 +74,34 @@ export const useSalesInvoiceLineItems = ({
 		[itemGroupCache],
 	);
 
+	/**
+	 * Locate the Bales ↔ MT mapping for a hessian item.
+	 * Returns { factor, rounding } where `factor` is bales-per-MT.
+	 * `rounding` comes from uom_item_map_mst.rounding (null when not recorded).
+	 */
+	const getHessianMtConversion = React.useCallback(
+		(groupId: string, itemId: string): { factor: number; rounding: number | null } | undefined => {
+			const cache = itemGroupCache[groupId];
+			if (!cache) return undefined;
+			const conversions = cache.uomConversionsByItemId[itemId];
+			if (!conversions?.length) return undefined;
+			const isMt = (name?: string) => !!name && /\b(mt|metric\s*tonne|tonne)\b/i.test(name);
+			const isBale = (name?: string) => !!name && /\bbales?\b/i.test(name);
+			for (const conv of conversions) {
+				if (!(conv.relationValue > 0)) continue;
+				// mapping stores relationValue as "bales per MT" regardless of direction.
+				if (isBale(conv.mapFromName) && isMt(conv.mapToName)) {
+					return { factor: conv.relationValue, rounding: conv.rounding ?? null };
+				}
+				if (isMt(conv.mapFromName) && isBale(conv.mapToName)) {
+					return { factor: conv.relationValue, rounding: conv.rounding ?? null };
+				}
+			}
+			return undefined;
+		},
+		[itemGroupCache],
+	);
+
 	const mapLineToEditable = React.useCallback((line: InvoiceLine): EditableLineItem => {
 		const groupId = line.itemGroup ? String(line.itemGroup) : "";
 		const itemId = line.item ?? "";
@@ -130,8 +158,19 @@ export const useSalesInvoiceLineItems = ({
 				base.govtskgBalesUomId = conv.balesUomId;
 			}
 		}
+		// Hessian: resolve Bales↔MT conversion factor + rounding from the UOM map cache.
+		// Stored values (quantity/MT, rate/MT, hessian_dtl.*) are used as-is — no brokerage
+		// reconstruction on load. Factor is cached on the line so subsequent edits to
+		// hessianQtyBales can recompute quantity locally.
+		if (isHessian && groupId && itemId) {
+			const conv = getHessianMtConversion(groupId, itemId);
+			if (conv && conv.factor > 0) {
+				base.hessianConversionFactor = conv.factor;
+				base.hessianQtyRounding = conv.rounding ?? 3;
+			}
+		}
 		return base;
-	}, [isGovtSkg, getGovtSkgBalesConversion]);
+	}, [isGovtSkg, isHessian, getGovtSkgBalesConversion, getHessianMtConversion]);
 
 	const recalcLine = React.useCallback((item: EditableLineItem): EditableLineItem => {
 		const qty = Number(item.quantity) || 0;
@@ -181,11 +220,28 @@ export const useSalesInvoiceLineItems = ({
 						let nextUom = item.uom;
 						if (defaultUom && uomOptions.some((opt) => opt.value === defaultUom)) nextUom = defaultUom;
 						else if (uomOptions.length) nextUom = uomOptions[0].value;
-						const effectiveRate = isHessian && defaultRate != null ? Math.round(defaultRate) : defaultRate;
+						const effectiveRate = isHessian && defaultRate != null
+							? Number(defaultRate.toFixed(2))
+							: defaultRate;
+						let hessianConvFactor: number | undefined;
+						let hessianQtyRounding: number | undefined;
+						if (isHessian && item.itemGroup && value) {
+							const conv = getHessianMtConversion(item.itemGroup, value);
+							if (conv && conv.factor > 0) {
+								hessianConvFactor = conv.factor;
+								hessianQtyRounding = conv.rounding ?? 3;
+							}
+						}
 						const updated: EditableLineItem = {
 							...item, item: value, uom: nextUom,
 							rate: effectiveRate != null ? String(effectiveRate) : item.rate,
 							taxPercentage: defaultTax,
+							...(isHessian
+								? {
+									hessianConversionFactor: hessianConvFactor ?? item.hessianConversionFactor,
+									hessianQtyRounding: hessianQtyRounding ?? item.hessianQtyRounding,
+								}
+								: {}),
 						};
 						return recalcLine(updated);
 					});
@@ -247,10 +303,45 @@ export const useSalesInvoiceLineItems = ({
 				return;
 			}
 
+			// --- Hessian: user enters bales; auto-compute qty (MT) ---
+			if (isHessian && field === "hessianQtyBales") {
+				const sanitized = value.replace(/[^0-9.]/g, "");
+				setLineItems((prev) =>
+					prev.map((item) => {
+						if (item.id !== id) return item;
+						let convFactor = item.hessianConversionFactor ?? 0;
+						let qtyRounding = item.hessianQtyRounding;
+						if ((!convFactor || qtyRounding == null) && item.itemGroup && item.item) {
+							const conv = getHessianMtConversion(item.itemGroup, item.item);
+							if (conv && conv.factor > 0) {
+								convFactor = conv.factor;
+								qtyRounding = conv.rounding ?? 3;
+							}
+						}
+						const bales = Number(sanitized) || 0;
+						let nextQuantity = item.quantity;
+						if (bales > 0 && convFactor > 0) {
+							const effRounding = qtyRounding ?? 3;
+							nextQuantity = (bales / convFactor).toFixed(effRounding);
+						} else if (!bales) {
+							nextQuantity = "";
+						}
+						return recalcLine({
+							...item,
+							hessianQtyBales: sanitized === "" ? undefined : Number(sanitized),
+							hessianConversionFactor: convFactor || item.hessianConversionFactor,
+							hessianQtyRounding: qtyRounding ?? item.hessianQtyRounding,
+							quantity: nextQuantity,
+						});
+					}),
+				);
+				return;
+			}
+
 			if (field === "quantity" || field === "rate") {
 				const sanitized = value.replace(/[^0-9.]/g, "");
-				const applied = isHessian && field === "rate"
-					? String(Math.round(Number(sanitized) || 0))
+				const applied = isHessian && field === "rate" && sanitized !== ""
+					? String(Number(Number(sanitized).toFixed(2)))
 					: sanitized;
 				setLineItems((prev) =>
 					prev.map((item) => {
@@ -300,7 +391,7 @@ export const useSalesInvoiceLineItems = ({
 				prev.map((item) => (item.id === id ? { ...item, [field]: value } as EditableLineItem : item)),
 			);
 		},
-		[mode, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, recalcLine, isHessian, isGovtSkg, getGovtSkgBalesConversion, companyBranchStateId, shippingBranchStateId],
+		[mode, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, recalcLine, isHessian, isGovtSkg, getGovtSkgBalesConversion, getHessianMtConversion, companyBranchStateId, shippingBranchStateId],
 	);
 
 	const replaceWithDeliveryOrderLines = React.useCallback(
@@ -437,6 +528,32 @@ export const useSalesInvoiceLineItems = ({
 			return changed ? next : prev;
 		});
 	}, [isGovtSkg, itemGroupCache, setLineItems, getGovtSkgBalesConversion]);
+
+	// --- Hessian: back-fill conversion factor and qty rounding once UOM cache loads ---
+	// Lines from saved invoice / SO / DO import arrive before the per-item UOM map is cached.
+	// Once cache is available, populate hessianConversionFactor and hessianQtyRounding so
+	// subsequent edits to hessianQtyBales can recompute quantity locally.
+	React.useEffect(() => {
+		if (!isHessian) return;
+		setLineItems((prev) => {
+			let changed = false;
+			const next = prev.map((line) => {
+				if (line.hessianConversionFactor && line.hessianQtyRounding != null) return line;
+				if (!line.itemGroup || !line.item) return line;
+				const conv = getHessianMtConversion(line.itemGroup, line.item);
+				if (conv && conv.factor > 0) {
+					changed = true;
+					return {
+						...line,
+						hessianConversionFactor: conv.factor,
+						hessianQtyRounding: conv.rounding ?? 3,
+					};
+				}
+				return line;
+			});
+			return changed ? next : prev;
+		});
+	}, [isHessian, itemGroupCache, setLineItems, getHessianMtConversion]);
 
 	const filledLineItems = React.useMemo(() => lineItems.filter(lineHasAnyData), [lineItems]);
 
