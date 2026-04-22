@@ -2,13 +2,18 @@
 
 import React, { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import TransactionWrapper from "@/components/ui/TransactionWrapper";
+import TransactionWrapper, { type TransactionAction } from "@/components/ui/TransactionWrapper";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import type { MuiFormMode } from "@/components/ui/muiform";
 import {
 	useDeferredOptionCache,
 	useTransactionSetup,
 	useTransactionPreview,
+	buildApprovalTransactionActions,
+	useRejectDialog,
+	useUnsavedChanges,
+	AutoResizeTextarea,
 	ItemSelectionDialog,
 	type SelectedItem,
 } from "@/components/ui/transaction";
@@ -30,7 +35,6 @@ import { useCompanyLogo } from "@/hooks/useCompanyLogo";
 
 import { SalesInvoiceHeaderForm } from "./components/SalesInvoiceHeaderForm";
 import { SalesInvoiceFooterForm, SalesInvoiceTotalsDisplay } from "./components/SalesInvoiceFooter";
-import { SalesInvoiceApprovalBar } from "./components/SalesInvoiceApprovalBar";
 import SalesInvoicePreview from "./components/SalesInvoicePreview";
 import { useInvoiceLineItemColumns } from "./components/SalesInvoiceLineItemsTable";
 import { useSalesInvoiceFormState } from "./hooks/useSalesInvoiceFormState";
@@ -359,6 +363,44 @@ function InvoiceTransactionPageContent() {
 		ensureItemGroupData,
 		itemGroups,
 		invoiceTypeId: String(formValues.invoice_type ?? ""),
+	});
+
+	// Unsaved changes tracking for unified save/approval button display
+	const getComparableLineData = React.useCallback(
+		(item: EditableLineItem) => ({
+			itemGroup: item.itemGroup,
+			item: item.item,
+			itemMake: item.itemMake,
+			hsnCode: item.hsnCode,
+			quantity: item.quantity,
+			rate: item.rate,
+			uom: item.uom,
+			discountType: item.discountType,
+			remarks: item.remarks,
+			juteClaimAmountDtl: item.juteClaimAmountDtl,
+			juteClaimDesc: item.juteClaimDesc,
+			juteClaimRate: item.juteClaimRate,
+			hessianQtyBales: item.hessianQtyBales,
+			hessianRatePerBale: item.hessianRatePerBale,
+			hessianBillingRateMt: item.hessianBillingRateMt,
+			govtskgPackSheet: item.govtskgPackSheet,
+			govtskgNetWeight: item.govtskgNetWeight,
+			govtskgTotalWeight: item.govtskgTotalWeight,
+			govtskgQtyBales: item.govtskgQtyBales,
+		}),
+		[],
+	);
+
+	const comparableLineItems = React.useMemo(
+		() => lineItems.filter(lineHasAnyData),
+		[lineItems, lineHasAnyData],
+	);
+
+	const { hasUnsavedChanges, resetBaseline, setBaseline } = useUnsavedChanges({
+		formValues,
+		lineItems: comparableLineItems,
+		getComparableLineData,
+		enabled: mode !== "create",
 	});
 
 	const initialLineSeededRef = React.useRef(false);
@@ -756,6 +798,7 @@ function InvoiceTransactionPageContent() {
 				const normalizedLines = (details.lines ?? []).map((line) => mapLineToEditable(line));
 				replaceItems(normalizedLines);
 				linesLoadedFromInvoiceApiRef.current = true;
+				setBaseline(nextValues as Record<string, unknown>, normalizedLines.filter(lineHasAnyData));
 
 				// Load additional charges from invoice details
 				const rawCharges = (details as Record<string, unknown>).additionalCharges;
@@ -802,6 +845,7 @@ function InvoiceTransactionPageContent() {
 		replaceItems, mapLineToEditable,
 		setupEnabled, setupLoading, setupData,
 		branchIdFromUrl, branchValue,
+		setBaseline, lineHasAnyData,
 	]);
 
 	React.useEffect(() => {
@@ -930,6 +974,23 @@ function InvoiceTransactionPageContent() {
 		getMenuId,
 		setInvoiceDetails,
 	});
+
+	// Reject dialog hook (replaces the inline dialog inside ApprovalBar)
+	const {
+		rejectDialogOpen,
+		rejectReason,
+		setRejectReason,
+		openRejectDialog,
+		handleRejectConfirm,
+		handleRejectCancel,
+	} = useRejectDialog(handleReject);
+
+	// Reset baseline when invoiceDetails changes (initial load or post-approval refresh)
+	React.useEffect(() => {
+		if (!invoiceDetails || mode === "create") return;
+		const timer = setTimeout(() => resetBaseline(), 0);
+		return () => clearTimeout(timer);
+	}, [invoiceDetails, mode, resetBaseline]);
 
 	const canEdit = mode !== "view";
 
@@ -1293,11 +1354,79 @@ function InvoiceTransactionPageContent() {
 		additionalCharges,
 	});
 
-	const primaryActionLabel = mode === "create" ? "Create" : "Save";
-	const handleSaveClick = React.useCallback(() => {
-		if (!formRef.current?.submit) return;
-		void formRef.current.submit();
-	}, [formRef]);
+	// Unified primary actions — shows Create, Save, or Approval buttons in the same location
+	const primaryActions = React.useMemo<TransactionAction[] | undefined>(() => {
+		if (pageError || setupError) return undefined;
+
+		if (mode === "create") {
+			return [
+				{
+					label: "Create Invoice",
+					onClick: () => formRef.current?.submit(),
+					disabled: saving || !isLineItemsReady || setupLoading,
+					loading: saving,
+				},
+			];
+		}
+
+		if (!invoiceDetails) return undefined;
+
+		if (mode === "edit" && approvalPermissions.canSave && hasUnsavedChanges) {
+			return [
+				{
+					label: "Save Changes",
+					onClick: () => formRef.current?.submit(),
+					disabled: saving || !isLineItemsReady || setupLoading,
+					loading: saving,
+				},
+			];
+		}
+
+		const approvalActions = buildApprovalTransactionActions({
+			approvalInfo,
+			permissions: approvalPermissions,
+			handlers: {
+				onOpen: handleOpen,
+				onCancelDraft: handleCancelDraft,
+				onReopen: handleReopen,
+				onSendForApproval: handleSendForApproval,
+				onApprove: handleApprove,
+				onReject: openRejectDialog,
+				onViewApprovalLog: handleViewApprovalLog,
+			},
+			loading: approvalLoading,
+			disabled: saving || loading || setupLoading,
+		});
+
+		return approvalActions.length ? approvalActions : undefined;
+	}, [
+		mode, pageError, setupError, saving, isLineItemsReady, setupLoading,
+		formRef, invoiceDetails, approvalPermissions, hasUnsavedChanges,
+		approvalInfo, approvalLoading, loading,
+		handleOpen, handleCancelDraft, handleReopen, handleSendForApproval,
+		handleApprove, openRejectDialog, handleViewApprovalLog,
+	]);
+
+	const secondaryActions = React.useMemo<TransactionAction[] | undefined>(() => {
+		if (!requestedId || pageError) return undefined;
+		const actions: TransactionAction[] = [];
+		const qs = `?id=${encodeURIComponent(requestedId)}&branch_id=${encodeURIComponent(branchIdFromUrl)}&menu_id=${encodeURIComponent(menuIdFromUrl)}`;
+		if (mode === "view" && approvalPermissions.canSave) {
+			actions.push({
+				label: "Edit",
+				variant: "secondary",
+				onClick: () => router.replace(`${qs}&mode=edit`),
+			});
+		}
+		if (mode === "edit") {
+			actions.push({
+				label: "Cancel",
+				variant: "ghost",
+				onClick: () => router.replace(`${qs}&mode=view`),
+			});
+		}
+		return actions.length ? actions : undefined;
+	}, [mode, requestedId, router, pageError, approvalPermissions.canSave, branchIdFromUrl, menuIdFromUrl]);
 
 	const pageTitle = React.useMemo(() => {
 		if (mode === "create") return "Create Sales Invoice";
@@ -1360,6 +1489,9 @@ function InvoiceTransactionPageContent() {
 			metadata={metadata}
 			statusChip={statusChipProps}
 			backAction={{ onClick: () => router.push("/dashboardportal/sales/salesInvoice") }}
+			primaryActions={primaryActions}
+			secondaryActions={secondaryActions}
+			actionsAfterFooter
 			loading={loading || setupLoading || linesLoading}
 			alerts={pageError ? <div role="alert" aria-live="assertive" className="text-red-600">{pageError}</div> : customerListWarning}
 			preview={
@@ -1416,41 +1548,6 @@ function InvoiceTransactionPageContent() {
 						onRoundOffChange={(value) => setFormValues((prev) => ({ ...prev, round_off: value }))}
 						roundOffEditable={canSave}
 					/>
-					<SalesInvoiceApprovalBar
-						approvalInfo={approvalInfo}
-						permissions={approvalPermissions}
-						loading={approvalLoading}
-						onApprove={handleApprove}
-						onReject={handleReject}
-						onOpen={handleOpen}
-						onCancelDraft={handleCancelDraft}
-						onReopen={handleReopen}
-						onSendForApproval={handleSendForApproval}
-						onViewApprovalLog={handleViewApprovalLog}
-					/>
-					{canSave ? (
-						<div className="flex justify-end gap-2 pt-2">
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => router.replace(`?id=${requestedId}&mode=view&branch_id=${branchIdFromUrl}&menu_id=${menuIdFromUrl}`)}
-							>
-								Cancel
-							</Button>
-							<Button type="button" onClick={handleSaveClick} disabled={saving || setupLoading || !isLineItemsReady}>
-								{saving ? "Processing..." : primaryActionLabel}
-							</Button>
-						</div>
-					) : mode === "view" && approvalPermissions.canSave ? (
-						<div className="flex justify-end pt-2">
-							<Button
-								type="button"
-								onClick={() => router.replace(`?id=${requestedId}&mode=edit&branch_id=${branchIdFromUrl}&menu_id=${menuIdFromUrl}`)}
-							>
-								Edit
-							</Button>
-						</div>
-					) : null}
 				</div>
 			}
 		>
@@ -1480,6 +1577,35 @@ function InvoiceTransactionPageContent() {
 			excludeItemIds={excludeItemIds}
 			title="Select Items for Sales Invoice"
 		/>
+
+		<Dialog open={rejectDialogOpen} onOpenChange={(open) => { if (!open) handleRejectCancel(); }}>
+			<DialogContent className="sm:max-w-125">
+				<DialogHeader>
+					<DialogTitle>Reject Document</DialogTitle>
+					<DialogDescription>Please provide a reason for rejecting this document.</DialogDescription>
+				</DialogHeader>
+				<div className="space-y-4 py-4">
+					<div className="space-y-2">
+						<label htmlFor="reject-reason" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+							Rejection Reason *
+						</label>
+						<AutoResizeTextarea
+							id="reject-reason"
+							placeholder="Enter rejection reason..."
+							value={rejectReason}
+							onChange={(e) => setRejectReason(e.target.value)}
+							className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+							minHeight={80}
+							maxHeight={200}
+						/>
+					</div>
+				</div>
+				<DialogFooter>
+					<Button variant="outline" onClick={handleRejectCancel}>Cancel</Button>
+					<Button variant="destructive" onClick={handleRejectConfirm} disabled={!rejectReason.trim()}>Reject</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 		</>
 	);
 }

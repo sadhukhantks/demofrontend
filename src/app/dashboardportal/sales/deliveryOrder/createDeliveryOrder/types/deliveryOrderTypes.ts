@@ -118,6 +118,12 @@ export type EditableLineItem = {
 	govtskgBalesUomId?: string;
 	/** Govt SKG: bales-to-billing-UOM conversion factor from uom_item_map_mst */
 	govtskgConversionFactor?: number;
+	/** Hessian: qty entered in bales (user-entered); quantity field stores the MT equivalent */
+	hessianQtyBales?: string;
+	/** Hessian: map_to_id for the bales UOM from uom_item_map_mst */
+	hessianBalesUomId?: string;
+	/** Hessian: bales-per-MT conversion factor from uom_item_map_mst.relation_value */
+	hessianConversionFactor?: number;
 };
 
 export type DOSetupData = {
