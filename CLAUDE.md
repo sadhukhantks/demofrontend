@@ -238,6 +238,50 @@ pnpm storybook         # Storybook (port 6006)
 
 ---
 
+## Knowledge-Graph Index System
+
+The graph artifacts for **both repos** live in the backend repo's `graphify-out/` directory — single source of truth for all cross-repo retrieval. This frontend repo does not carry its own `graphify-out/`.
+
+### Artifacts to consult
+
+| Path | What it contains | Consult when |
+|------|------------------|--------------|
+| `c:\code\vowerp3be\graphify-out\bridge.json` | `matched` FE-const → BE-endpoint edges, `dead_routes`, `orphan_endpoints`, stats | Before adding any `fetchWithCookie` call or new entry to `api.ts` |
+| `c:\code\vowerp3be\graphify-out\index_fe.json` | Per-symbol summaries for pages, hooks, service fns, api route consts, domain components | Before scaffolding a new page / hook / service |
+| `c:\code\vowerp3be\graphify-out\index_be.json` | Per-symbol summaries for backend endpoints, query fns, models | When wiring a page to a backend feature and needing to confirm what the endpoint returns |
+| `c:\code\vowerp3be\graphify-out\GRAPH_REPORT.md` | God nodes, top communities, health metrics | First stop for cross-repo architecture questions |
+
+### How to use the graph when building UI
+
+1. **Adding a new page**: filter `index_fe.json` for `kind=page` entries under the same persona root (`dashboardctrldesk` / `dashboardadmin` / `dashboardportal`) and same module. Open the nearest sibling `page.tsx` in full; reuse its hook + service composition verbatim. Do not invent a new shape.
+2. **Adding a new hook**: filter `index_fe.json` for `kind=hook` whose `summary` describes a similar fetch. Reuse the service + state shape. Hooks live at `src/app/{persona}/{module}/{feature}/hooks/use*.ts` (~112 across the app).
+3. **Wiring to a backend endpoint**: open `bridge.json` and search for the URL path you plan to hit. If it appears under `matched`, the endpoint exists — grab the frontend constant name (already in `apiRoutes` / `apiRoutesconsole` / `apiRoutesPortalMasters`) and use it through `fetchWithCookie`. If the path appears under `dead_routes` (~20 exist today), the backend has no route at that URL; build the backend side first or you'll add another orphan constant. If the path isn't in `api.ts` at all, add a constant there before writing the hook.
+4. **Entry envelope**: each entry carries `file`, `line`, `summary`, `hash` (SHA256 of signature + docstring + first 30 LOC), `confidence` (`low` = deterministic / signature-based, `high` = LLM-enriched), and `last_indexed_at`. Treat `confidence=low` as "summary is a signature echo — read the source to verify." LLM enrichment is not wired yet, so expect mostly `low` today.
+5. **Staleness**: if a file's current content hashes differently from the indexed `hash`, or `last_indexed_at` predates your own recent edit, the summary is stale. Read the file rather than trusting the summary.
+
+### Regenerating (from the backend repo)
+
+```
+python tools/bridge_extractor.py       # rebuild bridge.json
+python tools/index_extractor_fe.py     # rebuild index_fe.json
+python tools/index_extractor_be.py     # rebuild index_be.json
+```
+
+Scripts are stdlib-only. Re-run after any edit to `src/utils/api.ts`, a page, a hook, a service, or a backend router file.
+
+### Known gaps
+
+- **~20 dead routes** — frontend constants with no backend match. Listed under `dead_routes` in `bridge.json`. Worth reviewing during cleanup passes; many are legacy.
+- **~24 orphan endpoints** — backend routes no frontend constant references. Many are called via dynamic URL construction inside hooks (string concatenation), so "orphan" does not always mean "unused." Verify before deleting.
+- **LLM-enriched summaries not yet wired** — current summaries are deterministic. Precision is fine for navigation; for behavior questions, always open the file.
+
+### Reference
+
+- `c:\code\vowerp3be\CLAUDE.md` — main architecture doc: persona rules, API response format (`{"data": [...]}`), SQL binding rules, naming conventions, test patterns. Read the Three-Persona section before any new UI page that hits a new endpoint.
+- `C:\Users\silve\.claude\plans\what-would-be-the-transient-eich.md` — full design of the knowledge-graph index system (four layers, node/edge schema, maturity ladder, evaluation benchmark).
+
+---
+
 ## Version Info
 - Next.js: 15 | React: 19 | TypeScript: 5.x (strict) | Node: 18+ | pnpm
 
