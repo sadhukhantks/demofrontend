@@ -8,6 +8,7 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { useRouter } from "next/navigation";
 import { useMenuId } from "@/hooks/useMenuId";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import {
 	compareUrl,
 	createResponseUrl,
@@ -66,12 +67,18 @@ const getStatusColor = (status: string): "success" | "error" | "warning" | "info
 export default function PriceEnquiryIndexPage() {
 	const router = useRouter();
 	const { getMenuId } = useMenuId({ transactionType: "priceEnquiry" });
+	const { selectedBranches } = useSidebarContext();
+	const [mounted, setMounted] = React.useState(false);
 	const [rows, setRows] = React.useState<EnquiryRow[]>([]);
 	const [totalRows, setTotalRows] = React.useState(0);
 	const [loading, setLoading] = React.useState(false);
 	const [paginationModel, setPaginationModel] = React.useState<GridPaginationModel>({ page: 0, pageSize: 10 });
 	const [searchValue, setSearchValue] = React.useState("");
 	const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+
+	React.useEffect(() => {
+		setMounted(true);
+	}, []);
 
 	const handleView = React.useCallback(
 		(row: EnquiryRow) => {
@@ -212,26 +219,23 @@ export default function PriceEnquiryIndexPage() {
 	], [router, getMenuId]);
 
 	const fetchEnquiries = React.useCallback(async () => {
+		if (selectedBranches.length === 0) {
+			setRows([]);
+			setTotalRows(0);
+			setErrorMessage(null);
+			setLoading(false);
+			return;
+		}
+
 		setLoading(true);
 		setErrorMessage(null);
 
 		try {
-			let co_id = "";
-			try {
-				const storedCompany = localStorage.getItem("sidebar_selectedCompany");
-				if (storedCompany) {
-					const parsed = JSON.parse(storedCompany);
-					co_id = parsed?.co_id ? String(parsed.co_id) : "";
-				}
-			} catch {
-				co_id = "";
-			}
-
 			const query = new URLSearchParams({
 				page: String(paginationModel.page + 1),
 				page_size: String(paginationModel.pageSize),
+				branch_ids: selectedBranches.join(","),
 			});
-			if (co_id) query.set("co_id", co_id);
 			const trimmedSearch = searchValue.trim();
 			if (trimmedSearch) query.set("search", trimmedSearch);
 
@@ -267,7 +271,7 @@ export default function PriceEnquiryIndexPage() {
 			});
 
 			setRows(mappedRows);
-			const total = Number(responseData?.total ?? mappedRows.length ?? 0);
+			const total = Number(responseData?.totalCount ?? responseData?.total ?? mappedRows.length ?? 0);
 			setTotalRows(Number.isNaN(total) ? mappedRows.length : total);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Failed to load price enquiries";
@@ -277,11 +281,12 @@ export default function PriceEnquiryIndexPage() {
 		} finally {
 			setLoading(false);
 		}
-	}, [paginationModel.page, paginationModel.pageSize, searchValue]);
+	}, [paginationModel.page, paginationModel.pageSize, searchValue, selectedBranches]);
 
 	React.useEffect(() => {
+		if (!mounted) return;
 		fetchEnquiries();
-	}, [fetchEnquiries]);
+	}, [fetchEnquiries, mounted]);
 
 	const handlePaginationModelChange = (model: GridPaginationModel) => {
 		setPaginationModel(model);
@@ -296,6 +301,8 @@ export default function PriceEnquiryIndexPage() {
 	const handleCreateEnquiry = React.useCallback(() => {
 		router.push(createUrl(getMenuId()));
 	}, [router, getMenuId]);
+
+	if (!mounted) return null;
 
 	return (
 		<IndexWrapper
