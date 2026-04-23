@@ -76,7 +76,15 @@ function SRTransactionPageContent() {
 	const [isDirty, setIsDirty] = React.useState(false);
 
 	// Form state hook
-	const { srDate, setSRDate, srRemarks, setSRRemarks, resetFormState } = useSRFormState();
+	const {
+		srDate,
+		setSRDate,
+		srRemarks,
+		setSRRemarks,
+		editableHeader,
+		setEditableHeaderField,
+		resetFormState,
+	} = useSRFormState();
 
 	// Line items hook
 	const { lineItems, setLineItems, handleLineItemChange } = useSRLineItems({ header });
@@ -107,6 +115,12 @@ function SRTransactionPageContent() {
 		setSRRemarks(value);
 		setIsDirty(true);
 	}, [setSRRemarks]);
+
+	// Dirty-tracked single-field updater for editable inward header fields.
+	const handleEditableHeaderFieldChange = React.useCallback<typeof setEditableHeaderField>((field, value) => {
+		setEditableHeaderField(field, value);
+		setIsDirty(true);
+	}, [setEditableHeaderField]);
 
 	const handleLineItemChangeDirty = React.useCallback<typeof handleLineItemChange>((...args) => {
 		handleLineItemChange(...args);
@@ -271,6 +285,7 @@ function SRTransactionPageContent() {
 		header,
 		srDate,
 		srRemarks,
+		editableHeader,
 		lineItems,
 		additionalCharges,
 		getChargesToSave,
@@ -431,6 +446,8 @@ function SRTransactionPageContent() {
 					onSRDateChange={handleSRDateChange}
 					srRemarks={srRemarks}
 					onSRRemarksChange={handleSRRemarksChange}
+					editableHeader={editableHeader}
+					onEditableHeaderFieldChange={handleEditableHeaderFieldChange}
 					canEdit={canEdit && !isViewMode}
 				/>
 			</Paper>

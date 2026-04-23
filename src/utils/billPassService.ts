@@ -150,6 +150,7 @@ export type BillPassDetail = {
   inward_date: string | null;
   supplier_id: number | null;
   supplier_name: string;
+  invoice_no: string;
   invoice_date: string | null;
   invoice_amount: number;
   invoice_recvd_date: string | null;
@@ -170,6 +171,7 @@ export type BillPassDetail = {
 
 /** Bill Pass update payload */
 export type BillPassUpdatePayload = {
+  invoice_no?: string | null;
   invoice_date?: string | null;
   invoice_amount?: number | null;
   invoice_recvd_date?: string | null;

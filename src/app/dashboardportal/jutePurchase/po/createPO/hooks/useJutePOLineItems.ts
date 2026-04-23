@@ -69,12 +69,12 @@ export function useJutePOLineItems({
           return { ...line, weight: "", quantity: "", amount: "" };
         }
         const weight = calculateWeightFromPercentage(pct, vehicleCapacity, vehicleQty);
-        const derivedQty = calculateQuantityFromWeight(weight, juteUnit);
+        const derivedQty = Math.round(calculateQuantityFromWeight(weight, juteUnit));
         const amount = calculateAmount(weight, rate);
         return {
           ...line,
           weight: weight > 0 ? formatNumber(weight, 2) : "",
-          quantity: derivedQty > 0 ? formatNumber(derivedQty, 2) : "",
+          quantity: derivedQty > 0 ? formatNumber(derivedQty, 0) : "",
           amount: Number.isFinite(amount) && amount > 0 ? formatNumber(amount, 2) : "",
         };
       }

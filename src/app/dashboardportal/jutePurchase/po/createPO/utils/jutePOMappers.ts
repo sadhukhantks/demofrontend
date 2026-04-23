@@ -255,7 +255,7 @@ export const mapLineItemDetailsToLineItem = (
         calcParams.vehicleCapacity,
         calcParams.vehicleQty,
       );
-      derivedQty = calculateQuantityFromWeight(weight, calcParams.juteUnit);
+      derivedQty = Math.round(calculateQuantityFromWeight(weight, calcParams.juteUnit));
     } else {
       weight = calculateWeight(
         quantity,
@@ -276,7 +276,7 @@ export const mapLineItemDetailsToLineItem = (
     marka: details.marka || "",
     percentage: hasPercentage ? formatNumber(percentageValue, 2) : "",
     quantity: hasPercentage
-      ? derivedQty > 0 ? formatNumber(derivedQty, 2) : ""
+      ? derivedQty > 0 ? formatNumber(derivedQty, 0) : ""
       : String(quantity),
     uom: details.uom || "",
     rate: String(rate),
@@ -317,7 +317,7 @@ const buildLineItemPayloads = (
         item_id: li.quality ? Number(li.quality) : null,
         crop_year: li.cropYear || null,
         marka: li.marka || null,
-        quantity: Number(li.quantity),
+        quantity: Math.round(Number(li.quantity)),
         rate: Number(li.rate),
         allowable_moisture: li.allowableMoisture
           ? Number(li.allowableMoisture)

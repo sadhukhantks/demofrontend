@@ -160,6 +160,7 @@ export type SRHeader = {
 	inspection_date: string;
 	challan_no: string;
 	challan_date: string;
+	invoice_no: string;
 	invoice_date: string;
 	invoice_amount: number;
 	invoice_recvd_date: string;
@@ -253,6 +254,7 @@ export type SRHeaderRaw = {
 	inspection_date?: string;
 	challan_no?: string;
 	challan_date?: string;
+	invoice_no?: string;
 	invoice_date?: string;
 	invoice_amount?: number;
 	invoice_recvd_date?: string;

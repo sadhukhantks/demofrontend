@@ -20,6 +20,7 @@ type DrcrNoteRow = {
 	adjustment_type_label: string;
 	inward_id: number;
 	inward_no: string;
+	sr_no: string;
 	inward_date: string;
 	supplier_name: string;
 	gross_amount: number;
@@ -148,9 +149,20 @@ export default function DrcrNoteIndexPage() {
 		},
 		{
 			field: "inward_no",
-			headerName: "GRN No",
+			headerName: "Inward No",
 			flex: 1,
 			minWidth: 140,
+		},
+		{
+			field: "sr_no",
+			headerName: "SR No",
+			flex: 1,
+			minWidth: 140,
+			renderCell: (params: GridRenderCellParams<DrcrNoteRow, string>) => (
+				<Typography component="span" variant="body2">
+					{params.value || "-"}
+				</Typography>
+			),
 		},
 		{
 			field: "supplier_name",
@@ -243,6 +255,7 @@ export default function DrcrNoteIndexPage() {
 				adjustment_type_label: row.adjustment_type_label ?? "",
 				inward_id: row.inward_id,
 				inward_no: row.inward_no ?? "",
+				sr_no: row.sr_no ?? "",
 				inward_date: row.inward_date ?? "",
 				supplier_name: row.supplier_name ?? "",
 				gross_amount: row.gross_amount ?? 0,
@@ -330,7 +343,7 @@ export default function DrcrNoteIndexPage() {
 			search={{
 				value: searchValue,
 				onChange: handleSearchChange,
-				placeholder: "Search by note number, GRN, or supplier",
+				placeholder: "Search by note number, inward, or supplier",
 				debounceDelayMs: 1000,
 			}}
 			onEdit={handleEdit}
