@@ -34,6 +34,7 @@ const mockHeader: SRHeader = {
 	inspection_date: "",
 	challan_no: "",
 	challan_date: "",
+	invoice_no: "",
 	invoice_date: "",
 	invoice_amount: 0,
 	invoice_recvd_date: "",

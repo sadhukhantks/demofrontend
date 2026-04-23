@@ -33,6 +33,13 @@ import {
   type BillPassDRCRLine,
 } from "@/utils/billPassService";
 import AdditionalChargesTable from "@/components/billPass/AdditionalChargesTable";
+import { openStyledPrintWindow } from "@/utils/printUtils";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import {
+  renderBillPassPreviewHtml,
+  BILL_PASS_PRINT_CSS,
+  type BillPassPreviewFormData,
+} from "../edit/components/BillPassPreview";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -193,6 +200,7 @@ export default function BillPassViewPage() {
   const router = useRouter();
   const params = useParams();
   const inwardId = params?.id as string;
+  const { selectedCompany } = useSidebarContext();
 
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -241,6 +249,31 @@ export default function BillPassViewPage() {
 
   const handleBack = () => router.push("/dashboardportal/procurement/billPass");
 
+  const handlePrintPreview = () => {
+    if (!detail) return;
+    const formData: BillPassPreviewFormData = {
+      invoice_date: detail.invoice_date?.slice(0, 10) ?? "",
+      invoice_amount: detail.invoice_amount != null ? String(detail.invoice_amount) : "",
+      invoice_recvd_date: detail.invoice_recvd_date?.slice(0, 10) ?? "",
+      invoice_due_date: detail.invoice_due_date?.slice(0, 10) ?? "",
+      round_off_value: detail.round_off_value != null ? String(detail.round_off_value) : "0",
+      sr_remarks: detail.sr_remarks ?? "",
+    };
+    const html = renderBillPassPreviewHtml({
+      detail,
+      formData,
+      netPayable,
+      companyName: selectedCompany?.co_name ?? null,
+    });
+    const title = `Bill Pass ${detail.bill_pass_no || "Draft"}`;
+    const printWindow = openStyledPrintWindow(html, title, BILL_PASS_PRINT_CSS);
+    if (!printWindow) return;
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 300);
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -274,9 +307,9 @@ export default function BillPassViewPage() {
   const { summary } = detail;
 
   return (
-    <Box p={2} className="print:p-0">
+    <Box p={2}>
       {/* ── Top Bar ──────────────────────────────────────────────────────── */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} className="print:hidden">
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
         <Box display="flex" alignItems="center" gap={2}>
           <Button variant="outlined" size="small" startIcon={<ArrowLeft size={16} />} onClick={handleBack}>
             Back
@@ -291,8 +324,8 @@ export default function BillPassViewPage() {
             variant="outlined"
           />
         </Box>
-        <Button variant="outlined" size="small" startIcon={<Printer size={16} />} onClick={() => window.print()}>
-          Print
+        <Button variant="outlined" size="small" startIcon={<Printer size={16} />} onClick={handlePrintPreview}>
+          Print Preview
         </Button>
       </Stack>
 
@@ -380,6 +413,9 @@ export default function BillPassViewPage() {
             </Grid>
             <Grid size={{ xs: 6, md: 3 }}>
               <InfoField label="Invoice Amount" value={formatCurrency(detail.invoice_amount)} />
+            </Grid>
+            <Grid size={{ xs: 6, md: 3 }}>
+              <InfoField label="Invoice No." value={detail.invoice_no} />
             </Grid>
             <Grid size={{ xs: 6, md: 3 }}>
               <InfoField label="Invoice Received" value={formatBillPassDate(detail.invoice_recvd_date)} />

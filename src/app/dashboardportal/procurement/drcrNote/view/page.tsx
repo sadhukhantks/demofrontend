@@ -38,6 +38,15 @@ type DrcrNoteLineItem = {
 	quantity: number;
 	rate: number;
 	amount: number;
+	rejection_reason: string;
+	hsn_code: string;
+	tax_pct: number;
+	cgst_amount: number;
+	sgst_amount: number;
+	igst_amount: number;
+	tax_amount: number;
+	taxable_amount: number;
+	line_total: number;
 };
 
 type DrcrNoteHeader = {
@@ -63,6 +72,23 @@ type DrcrNoteHeader = {
 	challan_date: string;
 	sr_no: string;
 	sr_date: string;
+	supplier_invoice_no: string;
+	supplier_invoice_date: string;
+	branch_gst: string;
+	branch_address1: string;
+	branch_address2: string;
+	branch_zipcode: string;
+	supplier_gst: string;
+	co_name: string;
+	co_address1: string;
+	co_address2: string;
+	co_zipcode: string;
+	total_taxable: number;
+	total_cgst: number;
+	total_sgst: number;
+	total_igst: number;
+	total_tax: number;
+	total_with_tax: number;
 };
 
 // Status IDs
@@ -207,6 +233,23 @@ function DrcrNoteViewPageContent() {
 				challan_date: result.header?.challan_date ?? "",
 				sr_no: result.header?.sr_no ?? "",
 				sr_date: result.header?.sr_date ?? "",
+				supplier_invoice_no: result.header?.supplier_invoice_no ?? "",
+				supplier_invoice_date: result.header?.supplier_invoice_date ?? "",
+				branch_gst: result.header?.branch_gst ?? "",
+				branch_address1: result.header?.branch_address1 ?? "",
+				branch_address2: result.header?.branch_address2 ?? "",
+				branch_zipcode: result.header?.branch_zipcode ?? "",
+				supplier_gst: result.header?.supplier_gst ?? "",
+				co_name: result.header?.co_name ?? "",
+				co_address1: result.header?.co_address1 ?? "",
+				co_address2: result.header?.co_address2 ?? "",
+				co_zipcode: result.header?.co_zipcode ?? "",
+				total_taxable: result.header?.total_taxable ?? 0,
+				total_cgst: result.header?.total_cgst ?? 0,
+				total_sgst: result.header?.total_sgst ?? 0,
+				total_igst: result.header?.total_igst ?? 0,
+				total_tax: result.header?.total_tax ?? 0,
+				total_with_tax: result.header?.total_with_tax ?? 0,
 			});
 
 			// Map line items
@@ -224,6 +267,15 @@ function DrcrNoteViewPageContent() {
 				quantity: item.quantity ?? 0,
 				rate: item.rate ?? 0,
 				amount: item.amount ?? (item.quantity ?? 0) * (item.rate ?? 0),
+				rejection_reason: item.rejection_reason ?? "",
+				hsn_code: item.hsn_code ?? "",
+				tax_pct: item.tax_pct ?? 0,
+				cgst_amount: item.cgst_amount ?? 0,
+				sgst_amount: item.sgst_amount ?? 0,
+				igst_amount: item.igst_amount ?? 0,
+				tax_amount: item.tax_amount ?? 0,
+				taxable_amount: item.taxable_amount ?? 0,
+				line_total: item.line_total ?? 0,
 			}));
 
 			setLineItems(items);
@@ -387,18 +439,25 @@ function DrcrNoteViewPageContent() {
 			minWidth: 80,
 		},
 		{
-			field: "debitnote_type_label",
+			field: "hsn_code",
+			headerName: "HSN",
+			minWidth: 90,
+		},
+		{
+			field: "rejection_reason",
 			headerName: "Reason",
-			flex: 1,
-			minWidth: 130,
-			renderCell: (params: GridRenderCellParams<DrcrNoteLineItem, string>) => (
-				<Chip
-					size="small"
-					variant="outlined"
-					color={params.row.debitnote_type === 1 ? "error" : "warning"}
-					label={params.value || "-"}
-				/>
-			),
+			flex: 1.2,
+			minWidth: 180,
+			renderCell: (params: GridRenderCellParams<DrcrNoteLineItem, string>) => {
+				const text = params.row.rejection_reason?.trim()
+					|| params.row.debitnote_type_label
+					|| "-";
+				return (
+					<Typography variant="body2" title={text}>
+						{text}
+					</Typography>
+				);
+			},
 		},
 		{
 			field: "quantity",
@@ -462,6 +521,13 @@ function DrcrNoteViewPageContent() {
 	const isApproved = header?.status_id === STATUS_APPROVED;
 	const canAction = !isViewMode && !isApproved && header?.status_id !== STATUS_REJECTED;
 
+	// Derive a single common GST rate across line items for clubbed labels (CGST@9%, IGST@18%, etc.)
+	const uniqueRates = Array.from(new Set(lineItems.map((l) => Number(l.tax_pct) || 0).filter((r) => r > 0)));
+	const commonRate = uniqueRates.length === 1 ? uniqueRates[0] : null;
+	const cgstLabel = commonRate ? `CGST@${commonRate / 2}%` : "CGST";
+	const sgstLabel = commonRate ? `SGST@${commonRate / 2}%` : "SGST";
+	const igstLabel = commonRate ? `IGST@${commonRate}%` : "IGST";
+
 	return (
 		<Box sx={{ p: 2 }}>
 			{/* Header */}
@@ -515,7 +581,7 @@ function DrcrNoteViewPageContent() {
 					</Box>
 					<Box>
 						<Typography variant="caption" color="text.secondary">
-							GRN Number
+							Inward No.
 						</Typography>
 						<Typography variant="body1" fontWeight={600} color="primary">
 							{header?.inward_no || "-"}
@@ -523,7 +589,7 @@ function DrcrNoteViewPageContent() {
 					</Box>
 					<Box>
 						<Typography variant="caption" color="text.secondary">
-							GRN Date
+							Inward Date
 						</Typography>
 						<Typography variant="body1">{formatDate(header?.inward_date)}</Typography>
 					</Box>
@@ -550,6 +616,18 @@ function DrcrNoteViewPageContent() {
 							SR Date
 						</Typography>
 						<Typography variant="body1">{formatDate(header?.sr_date)}</Typography>
+					</Box>
+					<Box>
+						<Typography variant="caption" color="text.secondary">
+							Supplier Invoice No.
+						</Typography>
+						<Typography variant="body1">{header?.supplier_invoice_no || "-"}</Typography>
+					</Box>
+					<Box>
+						<Typography variant="caption" color="text.secondary">
+							Supplier Invoice Date
+						</Typography>
+						<Typography variant="body1">{formatDate(header?.supplier_invoice_date)}</Typography>
 					</Box>
 					{header?.remarks && (
 						<Box sx={{ gridColumn: { md: "span 4" } }}>
@@ -584,25 +662,48 @@ function DrcrNoteViewPageContent() {
 				</Box>
 			</Paper>
 
-			{/* Totals */}
+			{/* Totals — clubbed GST summary */}
 			<Paper sx={{ p: 3, mb: 3, backgroundColor: isDebit ? "warning.50" : "info.50" }}>
-				<Stack direction="row" justifyContent="flex-end" spacing={4}>
-					<Box>
-						<Typography variant="caption" color="text.secondary">
-							Gross Amount
-						</Typography>
-						<Typography variant="h6" fontWeight={600}>
-							{formatCurrency(header?.gross_amount)}
-						</Typography>
-					</Box>
-					<Box>
-						<Typography variant="caption" color="text.secondary">
-							Net Amount
-						</Typography>
-						<Typography variant="h5" fontWeight={700} color={isDebit ? "warning.main" : "info.main"}>
-							{formatCurrency(header?.net_amount)}
-						</Typography>
-					</Box>
+				<Stack direction="row" justifyContent="flex-end">
+					<Stack spacing={0.75} sx={{ minWidth: 320 }}>
+						<Box sx={{ display: "flex", justifyContent: "space-between" }}>
+							<Typography variant="body2" color="text.secondary">Taxable Amount</Typography>
+							<Typography variant="body2">{formatCurrency(header?.total_taxable)}</Typography>
+						</Box>
+						{(header?.total_cgst ?? 0) > 0 && (
+							<Box sx={{ display: "flex", justifyContent: "space-between" }}>
+								<Typography variant="body2" color="text.secondary">{cgstLabel}</Typography>
+								<Typography variant="body2">{formatCurrency(header?.total_cgst)}</Typography>
+							</Box>
+						)}
+						{(header?.total_sgst ?? 0) > 0 && (
+							<Box sx={{ display: "flex", justifyContent: "space-between" }}>
+								<Typography variant="body2" color="text.secondary">{sgstLabel}</Typography>
+								<Typography variant="body2">{formatCurrency(header?.total_sgst)}</Typography>
+							</Box>
+						)}
+						{(header?.total_igst ?? 0) > 0 && (
+							<Box sx={{ display: "flex", justifyContent: "space-between" }}>
+								<Typography variant="body2" color="text.secondary">{igstLabel}</Typography>
+								<Typography variant="body2">{formatCurrency(header?.total_igst)}</Typography>
+							</Box>
+						)}
+						<Box sx={{ display: "flex", justifyContent: "space-between" }}>
+							<Typography variant="body2" color="text.secondary">Total Tax</Typography>
+							<Typography variant="body2">{formatCurrency(header?.total_tax)}</Typography>
+						</Box>
+						<Divider />
+						<Box sx={{ display: "flex", justifyContent: "space-between" }}>
+							<Typography variant="caption" color="text.secondary">Gross Amount</Typography>
+							<Typography variant="caption">{formatCurrency(header?.gross_amount)}</Typography>
+						</Box>
+						<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+							<Typography variant="subtitle1" fontWeight={700}>Net Amount</Typography>
+							<Typography variant="h6" fontWeight={700} color={isDebit ? "warning.main" : "info.main"}>
+								{formatCurrency(header?.total_with_tax || header?.net_amount)}
+							</Typography>
+						</Box>
+					</Stack>
 				</Stack>
 			</Paper>
 
@@ -687,22 +788,82 @@ function DrcrNoteViewPageContent() {
 						{header?.adjustment_type_label || "DRCR Note"}
 					</Typography>
 
-					<Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 1, mb: 2, fontSize: "12px" }}>
-						<Box sx={{ display: "flex", gap: 0.5 }}><Typography variant="caption" color="text.secondary">Note No.:</Typography><Typography variant="body2">{header?.note_no || "-"}</Typography></Box>
-						<Box sx={{ display: "flex", gap: 0.5 }}><Typography variant="caption" color="text.secondary">Note Date:</Typography><Typography variant="body2">{formatDate(header?.note_date)}</Typography></Box>
-						<Box sx={{ display: "flex", gap: 0.5 }}><Typography variant="caption" color="text.secondary">GRN No.:</Typography><Typography variant="body2">{header?.inward_no || "-"}</Typography></Box>
-						<Box sx={{ display: "flex", gap: 0.5 }}><Typography variant="caption" color="text.secondary">GRN Date:</Typography><Typography variant="body2">{formatDate(header?.inward_date)}</Typography></Box>
-						<Box sx={{ display: "flex", gap: 0.5 }}><Typography variant="caption" color="text.secondary">Branch:</Typography><Typography variant="body2">{header?.branch_name || "-"}</Typography></Box>
-						<Box sx={{ display: "flex", gap: 0.5 }}><Typography variant="caption" color="text.secondary">Supplier:</Typography><Typography variant="body2">{header?.supplier_name || "-"}</Typography></Box>
-						<Box sx={{ display: "flex", gap: 0.5 }}><Typography variant="caption" color="text.secondary">SR No.:</Typography><Typography variant="body2">{header?.sr_no || "-"}</Typography></Box>
-						<Box sx={{ display: "flex", gap: 0.5 }}><Typography variant="caption" color="text.secondary">SR Date:</Typography><Typography variant="body2">{formatDate(header?.sr_date)}</Typography></Box>
-					</Box>
+					{/* Top band — Company header (left) + Document meta (right) */}
+					<table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", marginBottom: "8px" }}>
+						<tbody>
+							<tr>
+								<td style={{ border: "1px solid #ddd", padding: "8px", verticalAlign: "top", width: "55%" }}>
+									<div style={{ fontWeight: 700, fontSize: "14px", marginBottom: "4px" }}>
+										{header?.co_name || "-"}
+									</div>
+									{header?.co_address1 && (
+										<div>{header.co_address1}</div>
+									)}
+									{(header?.co_address2 || header?.co_zipcode) && (
+										<div>{`${header?.co_address2 || ""} ${header?.co_zipcode || ""}`.trim()}</div>
+									)}
+									<div style={{ marginTop: "6px" }}>
+										<strong>Branch:</strong> {header?.branch_name || "-"}
+									</div>
+									<div>
+										<strong>Branch Address:</strong> {`${header?.branch_address1 || ""} ${header?.branch_address2 || ""} ${header?.branch_zipcode || ""}`.trim() || "-"}
+									</div>
+									<div>
+										<strong>GSTIN:</strong> {header?.branch_gst || "-"}
+									</div>
+								</td>
+								<td style={{ border: "1px solid #ddd", padding: "8px", verticalAlign: "top", width: "45%" }}>
+									<table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
+										<tbody>
+											<tr>
+												<td style={{ padding: "2px 4px", fontWeight: 600 }}>Note No.:</td>
+												<td style={{ padding: "2px 4px" }}>{header?.note_no || "-"}</td>
+											</tr>
+											<tr>
+												<td style={{ padding: "2px 4px", fontWeight: 600 }}>Note Date:</td>
+												<td style={{ padding: "2px 4px" }}>{formatDate(header?.note_date)}</td>
+											</tr>
+											<tr>
+												<td style={{ padding: "2px 4px", fontWeight: 600 }}>Inward No.:</td>
+												<td style={{ padding: "2px 4px" }}>{header?.inward_no || "-"}</td>
+											</tr>
+											<tr>
+												<td style={{ padding: "2px 4px", fontWeight: 600 }}>Inward Date:</td>
+												<td style={{ padding: "2px 4px" }}>{formatDate(header?.inward_date)}</td>
+											</tr>
+											<tr>
+												<td style={{ padding: "2px 4px", fontWeight: 600 }}>SR No.:</td>
+												<td style={{ padding: "2px 4px" }}>{header?.sr_no || "-"}</td>
+											</tr>
+											<tr>
+												<td style={{ padding: "2px 4px", fontWeight: 600 }}>SR Date:</td>
+												<td style={{ padding: "2px 4px" }}>{formatDate(header?.sr_date)}</td>
+											</tr>
+											<tr>
+												<td style={{ padding: "2px 4px", fontWeight: 600 }}>Supplier Invoice No.:</td>
+												<td style={{ padding: "2px 4px" }}>{header?.supplier_invoice_no || "-"}</td>
+											</tr>
+											<tr>
+												<td style={{ padding: "2px 4px", fontWeight: 600 }}>Supplier Invoice Date:</td>
+												<td style={{ padding: "2px 4px" }}>{formatDate(header?.supplier_invoice_date)}</td>
+											</tr>
+										</tbody>
+									</table>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+
+					{/* Second band — Supplier block */}
+					<div style={{ border: "1px solid #ddd", padding: "8px", fontSize: "12px", marginBottom: "8px" }}>
+						<div><strong>Supplier:</strong> {header?.supplier_name || "-"}</div>
+						<div><strong>GSTIN:</strong> {header?.supplier_gst || "-"}</div>
+					</div>
 
 					{header?.remarks && (
-						<Box sx={{ mb: 2, display: "flex", gap: 0.5 }}>
-							<Typography variant="caption" color="text.secondary">Remarks:</Typography>
-							<Typography variant="body2">{header.remarks}</Typography>
-						</Box>
+						<div style={{ fontSize: "12px", marginBottom: "8px" }}>
+							<strong>Remarks:</strong> {header.remarks}
+						</div>
 					)}
 
 					<Box component="table" sx={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
@@ -713,6 +874,7 @@ function DrcrNoteViewPageContent() {
 								<th style={{ border: "1px solid #ddd", padding: "8px" }}>Item Code</th>
 								<th style={{ border: "1px solid #ddd", padding: "8px" }}>Item</th>
 								<th style={{ border: "1px solid #ddd", padding: "8px" }}>UOM</th>
+								<th style={{ border: "1px solid #ddd", padding: "8px" }}>HSN</th>
 								<th style={{ border: "1px solid #ddd", padding: "8px" }}>Reason</th>
 								<th style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>Qty</th>
 								<th style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>Rate</th>
@@ -727,7 +889,8 @@ function DrcrNoteViewPageContent() {
 									<td style={{ border: "1px solid #ddd", padding: "8px", fontFamily: "monospace" }}>{item.full_item_code || item.item_code || "-"}</td>
 									<td style={{ border: "1px solid #ddd", padding: "8px" }}>{item.item_desc || "-"}</td>
 									<td style={{ border: "1px solid #ddd", padding: "8px" }}>{item.uom_name || "-"}</td>
-									<td style={{ border: "1px solid #ddd", padding: "8px" }}>{item.debitnote_type_label || "-"}</td>
+									<td style={{ border: "1px solid #ddd", padding: "8px" }}>{item.hsn_code || "-"}</td>
+									<td style={{ border: "1px solid #ddd", padding: "8px" }}>{item.rejection_reason || item.debitnote_type_label || "-"}</td>
 									<td style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>{item.quantity}</td>
 									<td style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>{formatCurrency(item.rate)}</td>
 									<td style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right", fontWeight: 600 }}>{formatCurrency(item.quantity * item.rate)}</td>
@@ -736,19 +899,49 @@ function DrcrNoteViewPageContent() {
 						</tbody>
 					</Box>
 
-					<Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
-						<Stack spacing={0.5} sx={{ minWidth: 250 }}>
-							<Box display="flex" justifyContent="space-between">
-								<Typography variant="body2">Gross Amount</Typography>
-								<Typography variant="body2">{formatCurrency(header?.gross_amount)}</Typography>
-							</Box>
-							<Divider />
-							<Box display="flex" justifyContent="space-between">
-								<Typography variant="body2" fontWeight={700}>Net Amount</Typography>
-								<Typography variant="body2" fontWeight={700}>{formatCurrency(header?.net_amount)}</Typography>
-							</Box>
-						</Stack>
-					</Box>
+					{/* Print footer — clubbed GST summary */}
+					<div style={{ marginTop: "12px", display: "flex", justifyContent: "flex-end" }}>
+						<table style={{ borderCollapse: "collapse", fontSize: "12px", minWidth: "320px" }}>
+							<tbody>
+								<tr>
+									<td style={{ padding: "2px 6px" }}>Taxable Amount</td>
+									<td style={{ padding: "2px 6px", textAlign: "right" }}>{formatCurrency(header?.total_taxable)}</td>
+								</tr>
+								{(header?.total_cgst ?? 0) > 0 && (
+									<tr>
+										<td style={{ padding: "2px 6px" }}>{cgstLabel}</td>
+										<td style={{ padding: "2px 6px", textAlign: "right" }}>{formatCurrency(header?.total_cgst)}</td>
+									</tr>
+								)}
+								{(header?.total_sgst ?? 0) > 0 && (
+									<tr>
+										<td style={{ padding: "2px 6px" }}>{sgstLabel}</td>
+										<td style={{ padding: "2px 6px", textAlign: "right" }}>{formatCurrency(header?.total_sgst)}</td>
+									</tr>
+								)}
+								{(header?.total_igst ?? 0) > 0 && (
+									<tr>
+										<td style={{ padding: "2px 6px" }}>{igstLabel}</td>
+										<td style={{ padding: "2px 6px", textAlign: "right" }}>{formatCurrency(header?.total_igst)}</td>
+									</tr>
+								)}
+								<tr style={{ borderBottom: "1px solid #ddd" }}>
+									<td style={{ padding: "2px 6px" }}>Total Tax</td>
+									<td style={{ padding: "2px 6px", textAlign: "right" }}>{formatCurrency(header?.total_tax)}</td>
+								</tr>
+								<tr>
+									<td style={{ padding: "2px 6px" }}>Gross Amount</td>
+									<td style={{ padding: "2px 6px", textAlign: "right" }}>{formatCurrency(header?.gross_amount)}</td>
+								</tr>
+								<tr>
+									<td style={{ padding: "2px 6px", fontWeight: 700, fontSize: "14px" }}>Net Amount</td>
+									<td style={{ padding: "2px 6px", textAlign: "right", fontWeight: 700, fontSize: "14px" }}>
+										{formatCurrency(header?.total_with_tax || header?.net_amount)}
+									</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
 				</Box>
 			</Paper>
 		</Box>

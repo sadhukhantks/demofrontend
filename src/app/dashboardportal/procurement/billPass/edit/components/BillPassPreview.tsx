@@ -23,6 +23,7 @@ type BillPassPreviewProps = {
   detail: BillPassDetail;
   formData: BillPassPreviewFormData;
   netPayable: number;
+  companyName?: string | null;
 };
 
 // ─── Format helpers ───────────────────────────────────────────────────────────
@@ -88,6 +89,7 @@ export const BillPassPreview: React.FC<BillPassPreviewProps> = ({
   detail,
   formData,
   netPayable,
+  companyName,
 }) => {
   const isComplete = detail.billpass_status === 1;
   const { summary } = detail;
@@ -101,7 +103,8 @@ export const BillPassPreview: React.FC<BillPassPreviewProps> = ({
 
       {/* ── Header ───────────────────────────────────────────────────── */}
       <div className="bp-header">
-        <div className="bp-branch">{detail.branch_name || "—"}</div>
+        <div className="bp-company">{companyName || "—"}</div>
+        <div className="bp-branch">Branch: {detail.branch_name || "—"}</div>
         <div className="bp-title">BILL PASS VOUCHER</div>
         <div className="bp-header-meta">
           <div>
@@ -415,8 +418,9 @@ export const BILL_PASS_PRINT_CSS = `
 
   /* Header */
   .bp-header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10pt; margin-bottom: 12pt; }
-  .bp-branch { font-size: 18pt; font-weight: 700; letter-spacing: 0.5pt; }
-  .bp-title { font-size: 13pt; letter-spacing: 3pt; margin-top: 4pt; color: #333; }
+  .bp-company { font-size: 18pt; font-weight: 700; letter-spacing: 0.5pt; text-transform: uppercase; }
+  .bp-branch { font-size: 11pt; font-weight: 500; color: #555; margin-top: 2pt; }
+  .bp-title { font-size: 13pt; letter-spacing: 3pt; margin-top: 6pt; color: #333; }
   .bp-header-meta {
     display: flex;
     justify-content: space-between;

@@ -162,6 +162,8 @@ export const SRPreview: React.FC<SRPreviewProps> = ({
 					<FieldRow label="Supplier" value={header?.supplier_name} />
 					<FieldRow label="Challan No" value={header?.challan_no} />
 					<FieldRow label="Inspection Date" value={formatDate(header?.inspection_date)} />
+					<FieldRow label="Invoice No" value={header?.invoice_no} />
+					<FieldRow label="Invoice Date" value={formatDate(header?.invoice_date)} />
 				</Box>
 
 				<Divider sx={{ my: 2 }} />
