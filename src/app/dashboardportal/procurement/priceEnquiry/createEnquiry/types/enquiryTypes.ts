@@ -14,7 +14,7 @@
 export type EnquirySetupData = {
 	branches: Array<{ branch_id: number; branch_name: string }>;
 	suppliers: Array<{ party_id: number; supp_name: string; supp_code: string }>;
-	expenseTypes: Array<{ expense_type_id: number; expense_type_name: string }>;
+	expense_types: Array<{ expense_type_id: number; expense_type_name: string }>;
 	projects: Array<{ project_id: number; prj_name: string }>;
 };
 

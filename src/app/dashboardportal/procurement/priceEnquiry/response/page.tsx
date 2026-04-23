@@ -29,6 +29,7 @@ import type {
 import {
 	DISCOUNT_MODE,
 } from "../createEnquiry/utils/enquiryConstants";
+import { hubUrl, indexUrl } from "../createEnquiry/utils/enquiryRoutes";
 import ResponseHeaderForm from "./_components/ResponseHeaderForm";
 import type { HeaderField, ResponseHeaderValues } from "./_components/ResponseHeaderForm";
 import ResponseLineItemsTable from "./_components/ResponseLineItemsTable";
@@ -201,6 +202,7 @@ function ResponseRecordingContent() {
 	const enquiryId = searchParams?.get("enquiry_id") ?? "";
 	const supplierIdParam = searchParams?.get("supplier_id") ?? "";
 	const responseIdParam = searchParams?.get("response_id") ?? "";
+	const menuIdParam = searchParams?.get("menu_id") ?? "";
 	const modeParam = (searchParams?.get("mode") ?? "create").toLowerCase();
 	const mode: PageMode = modeParam === "edit" ? "edit" : modeParam === "view" ? "view" : "create";
 
@@ -431,8 +433,12 @@ function ResponseRecordingContent() {
 	);
 
 	const handleGoBack = React.useCallback(() => {
-		router.back();
-	}, [router]);
+		if (enquiryId) {
+			router.push(hubUrl(enquiryId, menuIdParam || null));
+		} else {
+			router.push(indexUrl(menuIdParam || null));
+		}
+	}, [router, enquiryId, menuIdParam]);
 
 	// -----------------------------------------------------------------------
 	// Save
@@ -517,8 +523,8 @@ function ResponseRecordingContent() {
 					: "Response recorded successfully.",
 			});
 
-			// Navigate back to enquiry list or comparison page
-			router.push(`/dashboardportal/procurement/priceEnquiry`);
+			// Return to the enquiry hub so the user can record more responses or compare
+			router.push(hubUrl(enquiryId, menuIdParam || null));
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Failed to save response.";
 			toast({
@@ -536,6 +542,7 @@ function ResponseRecordingContent() {
 		enquiryId,
 		mode,
 		responseId,
+		menuIdParam,
 		router,
 	]);
 

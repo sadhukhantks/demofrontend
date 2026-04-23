@@ -28,12 +28,12 @@ export const useEnquirySelectOptions = ({ setupData }: UseEnquirySelectOptionsPa
 	}, [setupData?.suppliers]);
 
 	const expenseOptions = React.useMemo<Option[]>(() => {
-		if (!setupData?.expenseTypes?.length) return [];
-		return setupData.expenseTypes.map((e) => ({
+		if (!setupData?.expense_types?.length) return [];
+		return setupData.expense_types.map((e) => ({
 			label: e.expense_type_name || String(e.expense_type_id),
 			value: String(e.expense_type_id),
 		}));
-	}, [setupData?.expenseTypes]);
+	}, [setupData?.expense_types]);
 
 	const projectOptions = React.useMemo<Option[]>(() => {
 		if (!setupData?.projects?.length) return [];

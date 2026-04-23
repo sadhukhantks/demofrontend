@@ -23,6 +23,11 @@ import type {
 	EnquiryDetails,
 	ComparisonResponseDetail,
 } from "../createEnquiry/types/enquiryTypes";
+import {
+	createPoFromResponseUrl,
+	hubUrl,
+	indexUrl,
+} from "../createEnquiry/utils/enquiryRoutes";
 import ComparisonTable from "./_components/ComparisonTable";
 import ComparisonSummary from "./_components/ComparisonSummary";
 
@@ -83,6 +88,7 @@ function ComparisonPageContent() {
 	const searchParams = useSearchParams();
 
 	const enquiryId = searchParams?.get("enquiry_id") ?? "";
+	const menuIdParam = searchParams?.get("menu_id") ?? "";
 
 	// -----------------------------------------------------------------------
 	// State
@@ -187,8 +193,12 @@ function ComparisonPageContent() {
 	// -----------------------------------------------------------------------
 
 	const handleGoBack = React.useCallback(() => {
-		router.back();
-	}, [router]);
+		if (enquiryId) {
+			router.push(hubUrl(enquiryId, menuIdParam || null));
+		} else {
+			router.push(indexUrl(menuIdParam || null));
+		}
+	}, [router, enquiryId, menuIdParam]);
 
 	const handleSelectResponse = React.useCallback((responseId: number) => {
 		setSelectedResponseId(responseId);
@@ -249,9 +259,9 @@ function ComparisonPageContent() {
 	const handleCreatePO = React.useCallback(() => {
 		if (!selectedResponseId || !enquiryId) return;
 		router.push(
-			`/dashboardportal/procurement/purchaseOrder/createPO?mode=create&from_enquiry=1&enquiry_id=${encodeURIComponent(enquiryId)}&response_id=${encodeURIComponent(String(selectedResponseId))}`,
+			createPoFromResponseUrl(enquiryId, selectedResponseId, menuIdParam || null),
 		);
-	}, [router, selectedResponseId, enquiryId]);
+	}, [router, selectedResponseId, enquiryId, menuIdParam]);
 
 	// Check if the currently selected response has been confirmed (saved to backend)
 	const isSelectionConfirmed = React.useMemo(() => {

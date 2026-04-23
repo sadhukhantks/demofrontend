@@ -21,6 +21,7 @@ import {
 	CircularProgress,
 	Divider,
 	Box,
+	TextField,
 } from "@mui/material";
 import type { MuiFormMode, Schema } from "@/components/ui/muiform";
 import { useBranchOptions } from "@/utils/branchUtils";
@@ -41,9 +42,18 @@ import type {
 	EnquiryLineItem,
 	EnquirySupplierEntry,
 	EnquirySetupData,
+	EnquiryResponseSummary,
 	IndentLineItemForEnquiry,
 } from "./types/enquiryTypes";
-import { STATUS_IDS } from "./utils/enquiryConstants";
+import { ENQUIRY_STATUS_IDS as STATUS_IDS } from "./utils/enquiryConstants";
+import {
+	compareUrl,
+	createResponseUrl,
+	editResponseUrl,
+	hubUrl,
+	indexUrl,
+	viewResponseUrl,
+} from "./utils/enquiryRoutes";
 import { useEnquiryFormState } from "./hooks/useEnquiryFormState";
 import { useEnquirySelectOptions } from "./hooks/useEnquirySelectOptions";
 import { EnquiryHeaderForm } from "./_components/EnquiryHeaderForm";
@@ -116,12 +126,31 @@ function EnquiryPageContent() {
 	const [enquiryStatusId, setEnquiryStatusId] = React.useState<number>(STATUS_IDS.DRAFT);
 	const [enquiryStatusName, setEnquiryStatusName] = React.useState<string>("Draft");
 	const [approvalPermissions, setApprovalPermissions] = React.useState<Record<string, boolean>>({});
+	const [responses, setResponses] = React.useState<EnquiryResponseSummary[]>([]);
 
 	// ── Indent items dialog ──
 	const [indentDialogOpen, setIndentDialogOpen] = React.useState(false);
 	const [availableIndentItems, setAvailableIndentItems] = React.useState<IndentLineItemForEnquiry[]>([]);
 	const [selectedIndentIds, setSelectedIndentIds] = React.useState<Set<number>>(new Set());
 	const [loadingIndentItems, setLoadingIndentItems] = React.useState(false);
+	const [indentSearchQuery, setIndentSearchQuery] = React.useState("");
+
+	const filteredIndentItems = React.useMemo(() => {
+		const q = indentSearchQuery.trim().toLowerCase();
+		if (!q) return availableIndentItems;
+		return availableIndentItems.filter((item) => {
+			const indentNo = String(item.indent_no ?? "").toLowerCase();
+			const itemCode = String(item.item_code ?? "").toLowerCase();
+			const itemName = String(item.item_name ?? "").toLowerCase();
+			const makeName = String(item.item_make_name ?? "").toLowerCase();
+			return (
+				indentNo.includes(q) ||
+				itemCode.includes(q) ||
+				itemName.includes(q) ||
+				makeName.includes(q)
+			);
+		});
+	}, [indentSearchQuery, availableIndentItems]);
 
 	const branchValue = React.useMemo(() => {
 		const fromForm = formValues.branch != null ? String(formValues.branch) : "";
@@ -203,6 +232,12 @@ function EnquiryPageContent() {
 						supplierCode: String(s.supp_code || ""),
 					} satisfies EnquirySupplierEntry));
 					setSelectedSuppliers(suppliers);
+				}
+
+				if (Array.isArray(raw.responses)) {
+					setResponses(raw.responses as EnquiryResponseSummary[]);
+				} else {
+					setResponses([]);
 				}
 			} catch (err) {
 				if (!cancelled) {
@@ -321,6 +356,7 @@ function EnquiryPageContent() {
 		setLineItems((prev) => [...prev, ...newItems]);
 		setIndentDialogOpen(false);
 		setSelectedIndentIds(new Set());
+		setIndentSearchQuery("");
 
 		if (newItems.length > 0) {
 			toast({ title: `Added ${newItems.length} item(s) from indent` });
@@ -373,19 +409,11 @@ function EnquiryPageContent() {
 			if (mode === "create") {
 				const result = await createEnquiry(payload);
 				toast({ title: "Price enquiry created successfully" });
-				const menuId = getMenuId();
-				const menuParam = menuId ? `&menu_id=${encodeURIComponent(menuId)}` : "";
-				router.push(
-					`/dashboardportal/procurement/priceEnquiry/createEnquiry?mode=view&id=${result.enquiry_id}${menuParam}`,
-				);
+				router.push(hubUrl(String(result.enquiry_id), getMenuId()));
 			} else {
 				await updateEnquiry({ ...payload, enquiry_id: requestedId });
 				toast({ title: "Price enquiry updated successfully" });
-				const menuId = getMenuId();
-				const menuParam = menuId ? `&menu_id=${encodeURIComponent(menuId)}` : "";
-				router.push(
-					`/dashboardportal/procurement/priceEnquiry/createEnquiry?mode=view&id=${requestedId}${menuParam}`,
-				);
+				router.push(hubUrl(requestedId, getMenuId()));
 			}
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : "Failed to save enquiry";
@@ -439,21 +467,34 @@ function EnquiryPageContent() {
 	}, [requestedId, getMenuId, router, toast]);
 
 	// ── Navigation ──
-	const navigateToResponse = React.useCallback((supplierId: number) => {
-		router.push(
-			`/dashboardportal/procurement/priceEnquiry/response?enquiry_id=${requestedId}&supplier_id=${supplierId}&mode=create`,
-		);
-	}, [router, requestedId]);
+	const navigateToCreateResponse = React.useCallback(
+		(supplierId: number) => {
+			router.push(createResponseUrl(requestedId, supplierId, getMenuId()));
+		},
+		[router, requestedId, getMenuId],
+	);
+
+	const navigateToEditResponse = React.useCallback(
+		(responseId: number) => {
+			router.push(editResponseUrl(requestedId, responseId, getMenuId()));
+		},
+		[router, requestedId, getMenuId],
+	);
+
+	const navigateToViewResponse = React.useCallback(
+		(responseId: number) => {
+			router.push(viewResponseUrl(requestedId, responseId, getMenuId()));
+		},
+		[router, requestedId, getMenuId],
+	);
 
 	const navigateToComparison = React.useCallback(() => {
-		router.push(
-			`/dashboardportal/procurement/priceEnquiry/compare?enquiry_id=${requestedId}`,
-		);
-	}, [router, requestedId]);
+		router.push(compareUrl(requestedId, getMenuId()));
+	}, [router, requestedId, getMenuId]);
 
 	const navigateBack = React.useCallback(() => {
-		router.push("/dashboardportal/procurement/priceEnquiry");
-	}, [router]);
+		router.push(indexUrl(getMenuId()));
+	}, [router, getMenuId]);
 
 	if (loading) {
 		return (
@@ -583,39 +624,106 @@ function EnquiryPageContent() {
 				/>
 			</Paper>
 
-			{/* View mode actions: Record Response / Compare */}
+			{/* View mode actions: Record / Edit / View / Compare */}
 			{mode === "view" && isApproved && (
 				<Paper className="p-4">
-					<Typography variant="subtitle1" className="mb-3 font-semibold">
-						Supplier Responses
-					</Typography>
-					<div className="flex gap-2 flex-wrap">
-						{selectedSuppliers.map((s) => (
+					<div className="flex justify-between items-center mb-3 flex-wrap gap-2">
+						<Typography variant="subtitle1" className="font-semibold">
+							Supplier Responses ({responses.length}/{selectedSuppliers.length})
+						</Typography>
+						{responses.length > 0 && (
 							<Button
-								key={s.supplierId}
-								variant="outlined"
+								variant="contained"
+								color="primary"
 								size="small"
-								onClick={() => navigateToResponse(s.supplierId)}
+								onClick={navigateToComparison}
 							>
-								Record Response - {s.supplierName}
+								Compare Responses
 							</Button>
-						))}
-						<Button
-							variant="contained"
-							color="primary"
-							size="small"
-							onClick={navigateToComparison}
-						>
-							Compare Responses
-						</Button>
+						)}
 					</div>
+					<Table size="small">
+						<TableHead>
+							<TableRow>
+								<TableCell>Supplier</TableCell>
+								<TableCell>Response Date</TableCell>
+								<TableCell align="right">Net Amount</TableCell>
+								<TableCell>Status</TableCell>
+								<TableCell align="right">Actions</TableCell>
+							</TableRow>
+						</TableHead>
+						<TableBody>
+							{selectedSuppliers.map((s) => {
+								const resp = responses.find((r) => r.supplier_id === s.supplierId);
+								const respId = resp?.proc_price_enquiry_response_id;
+								return (
+									<TableRow key={s.supplierId} hover>
+										<TableCell>{s.supplierName}</TableCell>
+										<TableCell>
+											{resp?.response_date
+												? String(resp.response_date).slice(0, 10)
+												: "-"}
+										</TableCell>
+										<TableCell align="right">
+											{resp?.net_amount != null ? resp.net_amount : "-"}
+										</TableCell>
+										<TableCell>
+											{resp ? (
+												resp.is_selected === 1 ? (
+													<Chip size="small" color="success" label="Selected" />
+												) : (
+													<Chip size="small" color="info" label="Received" />
+												)
+											) : (
+												<Chip size="small" label="Pending" />
+											)}
+										</TableCell>
+										<TableCell align="right">
+											<div className="flex gap-1 justify-end">
+												{!resp && (
+													<Button
+														size="small"
+														variant="outlined"
+														onClick={() => navigateToCreateResponse(s.supplierId)}
+													>
+														Record
+													</Button>
+												)}
+												{resp && respId != null && (
+													<>
+														<Button
+															size="small"
+															variant="outlined"
+															onClick={() => navigateToEditResponse(respId)}
+														>
+															Edit
+														</Button>
+														<Button
+															size="small"
+															variant="text"
+															onClick={() => navigateToViewResponse(respId)}
+														>
+															View
+														</Button>
+													</>
+												)}
+											</div>
+										</TableCell>
+									</TableRow>
+								);
+							})}
+						</TableBody>
+					</Table>
 				</Paper>
 			)}
 
 			{/* Indent Items Selection Dialog */}
 			<Dialog
 				open={indentDialogOpen}
-				onClose={() => setIndentDialogOpen(false)}
+				onClose={() => {
+					setIndentDialogOpen(false);
+					setIndentSearchQuery("");
+				}}
 				maxWidth="md"
 				fullWidth
 			>
@@ -630,6 +738,22 @@ function EnquiryPageContent() {
 							No approved indent items found for this branch.
 						</Alert>
 					) : (
+						<>
+							<TextField
+								fullWidth
+								size="small"
+								label="Search"
+								placeholder="Search by indent no, item code, item name, or make"
+								value={indentSearchQuery}
+								onChange={(e) => setIndentSearchQuery(e.target.value)}
+								autoFocus
+								sx={{ mt: 1, mb: 2 }}
+							/>
+							{filteredIndentItems.length === 0 ? (
+								<Alert severity="info">
+									No items match &quot;{indentSearchQuery}&quot;.
+								</Alert>
+							) : (
 						<Table size="small">
 							<TableHead>
 								<TableRow>
@@ -643,7 +767,7 @@ function EnquiryPageContent() {
 								</TableRow>
 							</TableHead>
 							<TableBody>
-								{availableIndentItems.map((item) => {
+								{filteredIndentItems.map((item) => {
 									const alreadyAdded = lineItems.some(
 										(li) => li.indentDtlId === item.indent_dtl_id,
 									);
@@ -671,10 +795,19 @@ function EnquiryPageContent() {
 								})}
 							</TableBody>
 						</Table>
+							)}
+						</>
 					)}
 				</DialogContent>
 				<DialogActions>
-					<Button onClick={() => setIndentDialogOpen(false)}>Cancel</Button>
+					<Button
+						onClick={() => {
+							setIndentDialogOpen(false);
+							setIndentSearchQuery("");
+						}}
+					>
+						Cancel
+					</Button>
 					<Button
 						variant="contained"
 						onClick={handleAddIndentItems}

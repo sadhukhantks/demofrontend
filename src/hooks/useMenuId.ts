@@ -2,7 +2,7 @@ import React from "react";
 import { usePathname } from "next/navigation";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 
-type TransactionType = "indent" | "po" | "purchaseorder" | "grn" | "invoice" | "stock-transfer" | "delivery-order" | "quotation" | "salesOrder" | "sales-invoice";
+type TransactionType = "indent" | "po" | "purchaseorder" | "grn" | "invoice" | "stock-transfer" | "delivery-order" | "quotation" | "salesOrder" | "sales-invoice" | "priceEnquiry";
 
 /**
  * Menu path patterns for each transaction type.
@@ -58,6 +58,11 @@ const TRANSACTION_MENU_PATTERNS: Record<TransactionType, { pathIncludes: string[
 		pathIncludes: ["sales/salesinvoice", "sales/sales-invoice"],
 		nameIncludes: ["sales invoice", "sales_invoice"],
 		excludes: [],
+	},
+	priceEnquiry: {
+		pathIncludes: ["procurement/priceenquiry", "procurement/price-enquiry"],
+		nameIncludes: ["price enquiry", "price_enquiry", "priceenquiry"],
+		excludes: ["jute"],
 	},
 };
 

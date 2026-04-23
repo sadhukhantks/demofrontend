@@ -8,6 +8,13 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { useRouter } from "next/navigation";
 import { useMenuId } from "@/hooks/useMenuId";
+import {
+	compareUrl,
+	createResponseUrl,
+	createUrl,
+	editUrl,
+	hubUrl,
+} from "./createEnquiry/utils/enquiryRoutes";
 
 type EnquiryRow = {
 	id: string | number;
@@ -70,9 +77,7 @@ export default function PriceEnquiryIndexPage() {
 		(row: EnquiryRow) => {
 			const id = row.id;
 			if (!id) return;
-			const menuId = getMenuId();
-			const menuParam = menuId ? `&menu_id=${encodeURIComponent(menuId)}` : "";
-			router.push(`/dashboardportal/procurement/priceEnquiry/createEnquiry?mode=view&id=${encodeURIComponent(String(id))}${menuParam}`);
+			router.push(hubUrl(String(id), getMenuId()));
 		},
 		[router, getMenuId],
 	);
@@ -81,9 +86,7 @@ export default function PriceEnquiryIndexPage() {
 		(row: EnquiryRow) => {
 			const id = row.id;
 			if (!id) return;
-			const menuId = getMenuId();
-			const menuParam = menuId ? `&menu_id=${encodeURIComponent(menuId)}` : "";
-			router.push(`/dashboardportal/procurement/priceEnquiry/createEnquiry?mode=edit&id=${encodeURIComponent(String(id))}${menuParam}`);
+			router.push(editUrl(String(id), getMenuId()));
 		},
 		[router, getMenuId],
 	);
@@ -182,7 +185,7 @@ export default function PriceEnquiryIndexPage() {
 									variant="outlined"
 									onClick={(e) => {
 										e.stopPropagation();
-										router.push(`/dashboardportal/procurement/priceEnquiry/response?enquiry_id=${row.id}&mode=create`);
+										router.push(createResponseUrl(String(row.id), null, getMenuId()));
 									}}
 								>
 									Add Quote
@@ -194,7 +197,7 @@ export default function PriceEnquiryIndexPage() {
 										color="secondary"
 										onClick={(e) => {
 											e.stopPropagation();
-											router.push(`/dashboardportal/procurement/priceEnquiry/compare?enquiry_id=${row.id}`);
+											router.push(compareUrl(String(row.id), getMenuId()));
 										}}
 									>
 										Compare
@@ -206,7 +209,7 @@ export default function PriceEnquiryIndexPage() {
 				);
 			},
 		},
-	], [router]);
+	], [router, getMenuId]);
 
 	const fetchEnquiries = React.useCallback(async () => {
 		setLoading(true);
@@ -291,9 +294,7 @@ export default function PriceEnquiryIndexPage() {
 	}, []);
 
 	const handleCreateEnquiry = React.useCallback(() => {
-		const menuId = getMenuId();
-		const menuParam = menuId ? `?menu_id=${encodeURIComponent(menuId)}` : "";
-		router.push(`/dashboardportal/procurement/priceEnquiry/createEnquiry${menuParam}`);
+		router.push(createUrl(getMenuId()));
 	}, [router, getMenuId]);
 
 	return (

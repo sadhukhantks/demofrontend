@@ -161,7 +161,7 @@ export async function fetchApprovedIndentItems(
 	const query = new URLSearchParams({ branch_id: String(branchId) });
 
 	const { data, error } = await fetchWithCookie<ApprovedIndentItemsResponse>(
-		`${apiRoutesPortalMasters.ENQUIRY_APPROVED_INDENT_ITEMS}?${query.toString()}`,
+		`${apiRoutesPortalMasters.GET_APPROVED_INDENT_ITEMS_FOR_ENQUIRY}?${query.toString()}`,
 		"GET",
 	);
 

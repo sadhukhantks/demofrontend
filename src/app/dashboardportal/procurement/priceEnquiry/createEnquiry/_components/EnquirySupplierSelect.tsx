@@ -43,19 +43,22 @@ export function EnquirySupplierSelect({
 	onSuppliersChange,
 	readOnly = false,
 }: EnquirySupplierSelectProps) {
-	// Build enriched options with supplier code
-	const options = React.useMemo<SupplierOption[]>(
-		() =>
-			supplierOptions.map((opt) => {
-				const raw = suppliers.find((s) => String(s.party_id) === opt.value);
-				return {
-					label: opt.label,
-					value: opt.value,
-					code: raw?.supp_code ?? "",
-				};
-			}),
-		[supplierOptions, suppliers],
-	);
+	// Build enriched options with supplier code, deduping by value (party_id)
+	const options = React.useMemo<SupplierOption[]>(() => {
+		const seen = new Set<string>();
+		const out: SupplierOption[] = [];
+		for (const opt of supplierOptions) {
+			if (seen.has(opt.value)) continue;
+			seen.add(opt.value);
+			const raw = suppliers.find((s) => String(s.party_id) === opt.value);
+			out.push({
+				label: opt.label,
+				value: opt.value,
+				code: raw?.supp_code ?? "",
+			});
+		}
+		return out;
+	}, [supplierOptions, suppliers]);
 
 	// Map selected suppliers to option values for the autocomplete
 	const selectedValues = React.useMemo<SupplierOption[]>(
@@ -122,6 +125,14 @@ export function EnquirySupplierSelect({
 					option.code ? `${option.label} (${option.code})` : option.label
 				}
 				isOptionEqualToValue={(option, value) => option.value === value.value}
+				renderOption={(props, option) => {
+					const { key: _ignoredKey, ...rest } = props as React.HTMLAttributes<HTMLLIElement> & { key?: React.Key };
+					return (
+						<li key={option.value} {...rest}>
+							{option.code ? `${option.label} (${option.code})` : option.label}
+						</li>
+					);
+				}}
 				renderInput={(params) => (
 					<TextField
 						{...params}
