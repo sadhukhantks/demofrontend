@@ -376,6 +376,9 @@ const apiRoutesPortalMasters = {
     // Jute Reports
     JUTE_REPORT_STOCK: `${API_URL}/juteReports/stock`,
     JUTE_REPORT_BATCH_COST: `${API_URL}/juteReports/batch-cost`,
+    JUTE_REPORT_MR_LIST: `${API_URL}/juteReports/mr-list`,
+    JUTE_REPORT_TALLY_DOWNLOAD: `${API_URL}/juteReports/tally-download`,
+    SALES_REPORT_JUTE_TALLY_DOWNLOAD: `${API_URL}/salesReports/jute-tally-download`,
 
     // Jute SQC - Morrah Weight QC
     MORRAH_WT_TABLE: `${API_URL}/juteSQC/get_morrah_wt_table`,
