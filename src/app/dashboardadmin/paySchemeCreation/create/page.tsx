@@ -33,10 +33,11 @@ interface Company {
   co_name: string;
 }
 
-const WAGE_TYPE_OPTIONS = [
-  { label: "Fortnightly", value: "Fortnightly" },
-  { label: "Monthly", value: "Monthly" },
-] as const;
+interface WageType {
+  id: number;
+  code: string;
+  name: string;
+}
 
 interface PayComponent {
   id: number;
@@ -117,6 +118,7 @@ export default function CreatePaySchemePage() {
   const [activeStatus, setActiveStatus] = useState<number>(1);
 
   // Setup data
+  const [wageTypes, setWageTypes] = useState<WageType[]>([]);
   const [components, setComponents] = useState<PayComponent[]>([]);
   const [schemeDropdown, setSchemeDropdown] = useState<SchemeDropdown[]>([]);
   const [cloneSchemeId, setCloneSchemeId] = useState<number | null>(null);
@@ -151,9 +153,10 @@ export default function CreatePaySchemePage() {
       const { data, error } = (await fetchWithCookie(
         `${apiRoutesPortalMasters.HRMS_PAY_SCHEME_CREATE_SETUP}?${params}`,
         "GET"
-      )) as { data?: { data: { wage_types: unknown[]; components: PayComponent[]; schemes: SchemeDropdown[]; companies: Company[] } }; error?: string };
+      )) as { data?: { data: { wage_types: WageType[]; components: PayComponent[]; schemes: SchemeDropdown[]; companies: Company[] } }; error?: string };
 
       if (error || !data?.data) return;
+      setWageTypes(data.data.wage_types || []);
       setComponents(data.data.components || []);
       setSchemeDropdown(data.data.schemes || []);
 
@@ -329,6 +332,56 @@ export default function CreatePaySchemePage() {
         iv.component_id === componentId ? { ...iv, formula: value } : iv
       )
     );
+  };
+
+  // ─── Check Calculation ────────────────────────────────────────
+  const handleCheckCalculation = () => {
+    const ctx: Record<string, number> = {};
+
+    for (const iv of inputValues.filter((iv) => iv.status !== 0)) {
+      if (iv.component_code) ctx[iv.component_code] = parseFloat(iv.formula) || 0;
+    }
+
+    const evaluate = (formula: string): number => {
+      try {
+        const varNames = Object.keys(ctx);
+        const varValues = varNames.map((k) => ctx[k]);
+        try {
+          // eslint-disable-next-line no-new-func
+          const fn = new Function(...varNames, `return (${formula});`);
+          const r = fn(...varValues);
+          if (typeof r === "number" && !isNaN(r)) return r;
+        } catch { /* fall through to statement eval */ }
+        // eslint-disable-next-line no-new-func
+        const fn = new Function(...varNames, `${formula}\nreturn typeof result !== 'undefined' ? Number(result) : 0;`);
+        return Number(fn(...varValues)) || 0;
+      } catch {
+        return 0;
+      }
+    };
+
+    const processEarnings = earningList.map((item) => {
+      if (item.status === 0) return item;
+      const val = evaluate(item.formula);
+      if (item.component_code) ctx[item.component_code] = val;
+      return { ...item, value: val };
+    });
+
+    const processDeductions = deductionList.map((item) => {
+      if (item.status === 0) return item;
+      const val = evaluate(item.formula);
+      if (item.component_code) ctx[item.component_code] = val;
+      return { ...item, value: val };
+    });
+
+    const processSummary = summaryList.map((item) => {
+      if (item.status === 0) return item;
+      return { ...item, value: evaluate(item.formula) };
+    });
+
+    setEarningList(processEarnings);
+    setDeductionList(processDeductions);
+    setSummaryList(processSummary);
   };
 
   // ─── Save / Update ─────────────────────────────────────────────
@@ -522,9 +575,9 @@ export default function CreatePaySchemePage() {
                   onChange={(e: SelectChangeEvent) => setWageType(e.target.value)}
                   disabled={isLocked || isDeactivated}
                 >
-                  {WAGE_TYPE_OPTIONS.map((o) => (
-                    <MenuItem key={o.value} value={o.value}>
-                      {o.label}
+                  {wageTypes.map((wt) => (
+                    <MenuItem key={wt.id} value={String(wt.id)}>
+                      {wt.name}
                     </MenuItem>
                   ))}
                 </Select>
@@ -627,7 +680,7 @@ export default function CreatePaySchemePage() {
                       <tr key={idx} className="border-b border-gray-100">
                         <td className="px-3 py-2">{item.component_name}</td>
                         <td className="px-3 py-2">{item.formula}</td>
-                        <td className="px-3 py-2">{item.default_value ?? ""}</td>
+                        <td className="px-3 py-2">{item.value !== undefined ? item.value : (item.default_value ?? "")}</td>
                         <td className="px-3 py-2">
                           {!isLocked && !isDeactivated && (
                             <IconButton
@@ -670,7 +723,7 @@ export default function CreatePaySchemePage() {
                       <tr key={idx} className="border-b border-gray-100">
                         <td className="px-3 py-2">{item.component_name}</td>
                         <td className="px-3 py-2">{item.formula}</td>
-                        <td className="px-3 py-2">{item.default_value ?? ""}</td>
+                        <td className="px-3 py-2">{item.value !== undefined ? item.value : (item.default_value ?? "")}</td>
                         <td className="px-3 py-2">
                           {!isLocked && !isDeactivated && (
                             <IconButton
@@ -745,7 +798,7 @@ export default function CreatePaySchemePage() {
               style={{ backgroundColor: "#00b7c2" }}
               onClick={openAddItem}
             >
-              Add Item
+              Add Component
             </button>
           </div>
         )}
@@ -781,6 +834,7 @@ export default function CreatePaySchemePage() {
             type="button"
             className="rounded px-6 py-2 font-semibold text-white"
             style={{ backgroundColor: "#00b7c2" }}
+            onClick={handleCheckCalculation}
             disabled={loading}
           >
             Check Calculation
@@ -822,7 +876,7 @@ export default function CreatePaySchemePage() {
 
       {/* ─── Add Item Dialog ───────────────────────────────────── */}
       <Dialog open={addItemOpen} onClose={() => setAddItemOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Add Item</DialogTitle>
+        <DialogTitle>Add Component</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             {/* Component */}
@@ -830,7 +884,7 @@ export default function CreatePaySchemePage() {
               <Autocomplete
                 size="small"
                 options={components}
-                getOptionLabel={(o) => `${o.name} (${o.type_label})`}
+                getOptionLabel={(o) => `${o.name} (${o.type_label}) (${o.code})`}
                 value={selectedComponent}
                 onChange={(_, v) => {
                   setSelectedComponent(v);
@@ -867,7 +921,7 @@ export default function CreatePaySchemePage() {
                   <Autocomplete
                     size="small"
                     options={components}
-                    getOptionLabel={(o) => o.code}
+                    getOptionLabel={(o) => `${o.name} (${o.type_label}) (${o.code})`}
                     onChange={(_, v) => {
                       if (v) appendToFormula(v.code);
                     }}
