@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Box, Divider, Stack, Typography } from "@mui/material";
 import { Button } from "@/components/ui/button";
+import { openStyledPrintWindow } from "@/utils/printUtils";
 import type { SRHeader, SRLineItem, SRTotals } from "../types/srTypes";
 
 /**
@@ -36,8 +37,8 @@ const formatCurrency = (value?: number): string => {
 };
 
 const FieldRow = ({ label, value }: { label: string; value?: React.ReactNode }) => (
-	<Stack direction="column" spacing={0.25} sx={{ minWidth: 0 }}>
-		<Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem" }}>
+	<Stack direction="row" spacing={0.5} sx={{ minWidth: 0, alignItems: "baseline" }}>
+		<Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem", whiteSpace: "nowrap" }}>
 			{label}:
 		</Typography>
 		<Typography variant="body2" sx={{ fontWeight: 400, fontSize: "0.875rem" }}>
@@ -64,10 +65,20 @@ const TotalsRow = ({ label, value, isBold = false }: { label: string; value?: Re
 	</Stack>
 );
 
+type AdditionalChargesTotals = {
+	baseAmount: number;
+	totalIGST: number;
+	totalCGST: number;
+	totalSGST: number;
+	totalTax: number;
+	totalAmount: number;
+};
+
 type SRPreviewProps = {
 	header: SRHeader | null;
 	lineItems: SRLineItem[];
 	totals: SRTotals;
+	chargesTotals?: AdditionalChargesTotals;
 	srDate: string;
 	srRemarks: string;
 	onPrint?: () => void;
@@ -80,6 +91,7 @@ export const SRPreview: React.FC<SRPreviewProps> = ({
 	header,
 	lineItems,
 	totals,
+	chargesTotals,
 	srDate,
 	srRemarks,
 	onPrint,
@@ -93,34 +105,19 @@ export const SRPreview: React.FC<SRPreviewProps> = ({
 		}
 
 		const printContent = previewRef.current?.innerHTML || "";
-		const printWindow = window.open("", "_blank");
-		if (!printWindow) {
-			alert("Please allow popups to print.");
-			return;
-		}
-
-		printWindow.document.open();
-		printWindow.document.write(`<!DOCTYPE html><html><head><title>Stores Receipt - ${header?.sr_no || header?.inward_no}</title></head><body><div id="print-root"></div></body></html>`);
-		printWindow.document.close();
-
-		const styleNodes = document.querySelectorAll("style, link[rel=\"stylesheet\"]");
-		styleNodes.forEach((node) => {
-			printWindow.document.head.appendChild(node.cloneNode(true));
-		});
-
-		const helperStyle = printWindow.document.createElement("style");
-		helperStyle.textContent = `
-			@media print { @page { margin: 12mm; } }
-			body { margin: 0; padding: 20px; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-family: Arial, sans-serif; }
-			table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+		const extraCss = `
+			body { font-family: Arial, sans-serif; }
+			table { margin-top: 16px; }
 			th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
 			th { background-color: #f5f5f5; font-weight: 600; }
 			.text-right { text-align: right; }
 		`;
-		printWindow.document.head.appendChild(helperStyle);
-
-		const root = printWindow.document.getElementById("print-root");
-		if (root) root.innerHTML = printContent;
+		const printWindow = openStyledPrintWindow(
+			printContent,
+			`Stores Receipt - ${header?.sr_no || header?.inward_no}`,
+			extraCss
+		);
+		if (!printWindow) return;
 
 		printWindow.focus();
 		setTimeout(() => {
@@ -152,10 +149,10 @@ export const SRPreview: React.FC<SRPreviewProps> = ({
 						mb: 3,
 					}}
 				>
-					<FieldRow label="SR No" value={<Typography component="span" fontWeight={600} color="primary">{header?.sr_no || "Draft"}</Typography>} />
+					<FieldRow label="SR No" value={<Typography component="span" fontWeight={600} color="primary">{header?.sr_no || header?.sr_status_name || "Draft"}</Typography>} />
 					<FieldRow label="SR Date" value={formatDate(srDate)} />
-					<FieldRow label="GRN No" value={header?.inward_no} />
-					<FieldRow label="GRN Date" value={formatDate(header?.inward_date)} />
+					<FieldRow label="Inward No" value={header?.inward_no} />
+					<FieldRow label="Inward Date" value={formatDate(header?.inward_date)} />
 					<FieldRow label="Branch" value={header?.branch_name} />
 					<FieldRow label="Supplier" value={header?.supplier_name} />
 					<FieldRow label="Challan No" value={header?.challan_no} />
@@ -176,7 +173,8 @@ export const SRPreview: React.FC<SRPreviewProps> = ({
 						<tr style={{ backgroundColor: "#f5f5f5" }}>
 							<th style={{ border: "1px solid #ddd", padding: "8px" }}>#</th>
 							<th style={{ border: "1px solid #ddd", padding: "8px" }}>PO No.</th>
-							<th style={{ border: "1px solid #ddd", padding: "8px" }}>Item</th>
+							<th style={{ border: "1px solid #ddd", padding: "8px" }}>Item Code</th>
+								<th style={{ border: "1px solid #ddd", padding: "8px" }}>Item</th>
 							<th style={{ border: "1px solid #ddd", padding: "8px" }}>UOM</th>
 							<th style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>Qty</th>
 							<th style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>Rate</th>
@@ -196,8 +194,11 @@ export const SRPreview: React.FC<SRPreviewProps> = ({
 								<td style={{ border: "1px solid #ddd", padding: "8px" }}>
 									{item.po_no_formatted || "-"}
 								</td>
+								<td style={{ border: "1px solid #ddd", padding: "8px", fontFamily: "monospace" }}>
+									{item.full_item_code || item.item_code || "-"}
+								</td>
 								<td style={{ border: "1px solid #ddd", padding: "8px" }}>
-									{item.item_name}
+									{item.item_name || "-"}
 									{item.accepted_item_make_name && (
 										<span style={{ color: "#666", fontSize: "11px" }}>
 											{" "}({item.accepted_item_make_name})
@@ -248,12 +249,21 @@ export const SRPreview: React.FC<SRPreviewProps> = ({
 						{totals.totalDiscount > 0 && (
 							<TotalsRow label="Discount" value={`-${formatCurrency(totals.totalDiscount)}`} />
 						)}
-						<TotalsRow label="Net Amount" value={formatCurrency(totals.netAmount)} />
-						{totals.totalIGST > 0 && <TotalsRow label="IGST" value={formatCurrency(totals.totalIGST)} />}
-						{totals.totalCGST > 0 && <TotalsRow label="CGST" value={formatCurrency(totals.totalCGST)} />}
-						{totals.totalSGST > 0 && <TotalsRow label="SGST" value={formatCurrency(totals.totalSGST)} />}
+						{(chargesTotals?.baseAmount ?? 0) > 0 && (
+							<TotalsRow label="Additional Charges" value={formatCurrency(chargesTotals!.baseAmount)} />
+						)}
+						<TotalsRow label="Net Amount" value={formatCurrency(totals.netAmount + (chargesTotals?.baseAmount ?? 0))} />
+						{(totals.totalIGST + (chargesTotals?.totalIGST ?? 0)) > 0 && (
+							<TotalsRow label="IGST" value={formatCurrency(totals.totalIGST + (chargesTotals?.totalIGST ?? 0))} />
+						)}
+						{(totals.totalCGST + (chargesTotals?.totalCGST ?? 0)) > 0 && (
+							<TotalsRow label="CGST" value={formatCurrency(totals.totalCGST + (chargesTotals?.totalCGST ?? 0))} />
+						)}
+						{(totals.totalSGST + (chargesTotals?.totalSGST ?? 0)) > 0 && (
+							<TotalsRow label="SGST" value={formatCurrency(totals.totalSGST + (chargesTotals?.totalSGST ?? 0))} />
+						)}
 						<Divider sx={{ my: 0.5 }} />
-						<TotalsRow label="Grand Total" value={formatCurrency(totals.grandTotal)} isBold />
+						<TotalsRow label="Grand Total" value={formatCurrency(totals.grandTotal + (chargesTotals?.baseAmount ?? 0) + (chargesTotals?.totalTax ?? 0))} isBold />
 					</Stack>
 				</Box>
 

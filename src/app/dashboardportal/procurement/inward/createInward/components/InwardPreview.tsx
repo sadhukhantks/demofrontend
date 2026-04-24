@@ -3,6 +3,7 @@
 import React, { useRef } from "react";
 import { Box, Divider, Stack, Typography } from "@mui/material";
 import { Button } from "@/components/ui/button";
+import { openStyledPrintWindow } from "@/utils/printUtils";
 
 export type InwardPreviewHeader = {
 	inwardNo?: string;
@@ -19,12 +20,13 @@ export type InwardPreviewHeader = {
 	updatedBy?: string;
 	updatedAt?: string;
 	companyName?: string;
+	companyLogo?: string;
 };
 
 export type InwardPreviewItem = {
 	srNo: number;
 	poNo?: string;
-	itemGroup?: string;
+	itemCode?: string;
 	item?: string;
 	quantity?: string | number;
 	uom?: string;
@@ -40,11 +42,11 @@ type InwardPreviewProps = {
 };
 
 const FieldRow = ({ label, value }: { label: string; value?: React.ReactNode }) => (
-	<Stack direction="column" spacing={0.25} sx={{ minWidth: 0 }}>
-		<Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem" }}>
+	<Stack direction="row" spacing={0.5} alignItems="flex-start" sx={{ minWidth: 0 }}>
+		<Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem", whiteSpace: "nowrap", flexShrink: 0 }}>
 			{label}:
 		</Typography>
-		<Typography variant="body2" sx={{ fontWeight: 400, fontSize: "0.875rem" }}>
+		<Typography variant="body2" sx={{ fontWeight: 400, fontSize: "0.875rem", wordBreak: "break-word" }}>
 			{value ?? "-"}
 		</Typography>
 	</Stack>
@@ -85,33 +87,7 @@ const InwardPreview: React.FC<InwardPreviewProps> = ({ header, items, remarks, o
 
 	const buildPrintableWindow = (titleSuffix: string) => {
 		const printContent = previewRef.current?.innerHTML || "";
-		const printWindow = window.open("", "_blank");
-		if (!printWindow) {
-			alert("Please allow popups to continue.");
-			return null;
-		}
-
-		printWindow.document.open();
-		printWindow.document.write(`<!DOCTYPE html><html><head><title>Inward - ${titleSuffix}</title></head><body><div id="print-root"></div></body></html>`);
-		printWindow.document.close();
-
-		const styleNodes = document.querySelectorAll("style, link[rel=\"stylesheet\"]");
-		styleNodes.forEach((node) => {
-			printWindow.document.head.appendChild(node.cloneNode(true));
-		});
-
-		const helperStyle = printWindow.document.createElement("style");
-		helperStyle.textContent = `
-			@media print { @page { margin: 12mm; } }
-			body { margin: 0; padding: 20px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-			table { width: 100%; border-collapse: collapse; }
-			#preview-left-pane { max-width: 25% !important; flex-basis: 25% !important; word-break: break-word; white-space: normal; }
-		`;
-		printWindow.document.head.appendChild(helperStyle);
-
-		const root = printWindow.document.getElementById("print-root");
-		if (root) root.innerHTML = printContent;
-		return printWindow;
+		return openStyledPrintWindow(printContent, `Inward - ${titleSuffix}`);
 	};
 
 	const handlePrint = () => {
@@ -155,6 +131,9 @@ const InwardPreview: React.FC<InwardPreviewProps> = ({ header, items, remarks, o
 							flexBasis: { md: "25%" },
 						}}
 					>
+						{header.companyLogo && (
+							<img src={header.companyLogo} alt="" style={{ maxHeight: 60, maxWidth: 200, marginBottom: 4 }} />
+						)}
 						<Typography variant="body1" sx={{ fontWeight: 600, fontSize: "1rem", wordBreak: "break-word", whiteSpace: "normal" }}>
 							{header.companyName || "-"}
 						</Typography>
@@ -223,7 +202,7 @@ const InwardPreview: React.FC<InwardPreviewProps> = ({ header, items, remarks, o
 					<Box component="table" sx={{ width: "100%", borderCollapse: "collapse" }}>
 						<Box component="thead" sx={{ backgroundColor: "rgba(12,60,96,0.08)" }}>
 							<Box component="tr">
-								{["Sr No", "PO No.", "Item", "Qty", "UOM", "Remarks"].map((col) => (
+								{["Sr No", "PO No.", "Item Code", "Item", "Qty", "UOM", "Remarks"].map((col) => (
 									<Box
 										key={col}
 										component="th"
@@ -244,6 +223,9 @@ const InwardPreview: React.FC<InwardPreviewProps> = ({ header, items, remarks, o
 										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, textAlign: "center" }}>
 											{item.poNo || "-"}
 										</Box>
+										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, fontFamily: "monospace" }}>
+											{item.itemCode || "-"}
+										</Box>
 										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12 }}>
 											{item.item || "-"}
 										</Box>
@@ -260,7 +242,7 @@ const InwardPreview: React.FC<InwardPreviewProps> = ({ header, items, remarks, o
 								))
 							) : (
 								<Box component="tr">
-									<Box component="td" colSpan={6} sx={{ border: "1px solid", borderColor: "divider", p: 2, fontSize: 12, textAlign: "center" }}>
+									<Box component="td" colSpan={7} sx={{ border: "1px solid", borderColor: "divider", p: 2, fontSize: 12, textAlign: "center" }}>
 										No line items captured yet.
 									</Box>
 								</Box>

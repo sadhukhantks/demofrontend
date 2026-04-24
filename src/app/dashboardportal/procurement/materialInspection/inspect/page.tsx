@@ -21,6 +21,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { toast } from "@/hooks/use-toast";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import MaterialInspectionPreview from "./components/MaterialInspectionPreview";
 
 /**
  * Editable text cell component that manages its own local state
@@ -46,12 +47,14 @@ const EditableTextCell: React.FC<{
 			value={localValue}
 			disabled={disabled}
 			placeholder={placeholder}
-			onChange={(e) => setLocalValue(e.target.value)}
+			onChange={(e) => setLocalValue(e.target.value.slice(0, 150))}
 			onBlur={() => {
 				if (localValue !== initialValue) {
 					onCommit(localValue);
 				}
 			}}
+			onKeyDown={(e) => e.stopPropagation()}
+			inputProps={{ maxLength: 150 }}
 			sx={{ width: "100%" }}
 		/>
 	);
@@ -103,7 +106,7 @@ type InspectionLineItem = {
 	id: string;
 	po_no_formatted: string;
 	inward_dtl_id: number;
-	item_group_desc: string;
+	full_item_code: string;
 	item_desc: string;
 	make_desc: string;
 	uom_name: string;
@@ -216,7 +219,7 @@ function MaterialInspectionEditPageContent() {
 				id: item.inward_dtl_id ? String(item.inward_dtl_id) : `line-${index}`,
 				po_no_formatted: item.po_no_formatted ?? "",
 				inward_dtl_id: item.inward_dtl_id ?? 0,
-				item_group_desc: item.item_grp_name ?? item.item_group_desc ?? "",
+				full_item_code: item.full_item_code ?? item.item_code ?? "",
 				item_desc: item.item_name ?? item.item_desc ?? "",
 				make_desc: item.item_make_name ?? item.make_desc ?? "",
 				uom_name: item.uom_name ?? "",
@@ -277,7 +280,8 @@ function MaterialInspectionEditPageContent() {
 			const lineItemsPayload = lineItems.map((item) => ({
 				inward_dtl_id: item.inward_dtl_id,
 				rejected_qty: item.rejected_qty,
-				rejection_reason: item.rejection_reason,
+				approved_qty: item.approved_qty,
+				reasons: item.rejection_reason,
 				accepted_item_make_id: item.accepted_item_make_id,
 			}));
 
@@ -331,15 +335,10 @@ function MaterialInspectionEditPageContent() {
 			minWidth: 120,
 		},
 		{
-			field: "item_group_desc",
-			headerName: "Item Group",
+			field: "full_item_code",
+			headerName: "Item Code",
 			flex: 1,
 			minWidth: 120,
-			renderHeader: () => (
-				<Typography variant="body2" fontWeight={600} sx={{ whiteSpace: "normal", lineHeight: 1.2 }}>
-					Item Group
-				</Typography>
-			),
 		},
 		{
 			field: "item_desc",
@@ -489,7 +488,7 @@ function MaterialInspectionEditPageContent() {
 				>
 					<Box>
 						<Typography variant="caption" color="text.secondary">
-							GRN Number
+							Inward Number
 						</Typography>
 						<Typography variant="body1" fontWeight={600} color="primary">
 							{header?.inward_no || "-"}
@@ -497,7 +496,7 @@ function MaterialInspectionEditPageContent() {
 					</Box>
 					<Box>
 						<Typography variant="caption" color="text.secondary">
-							GRN Date
+							Inward Date
 						</Typography>
 						<Typography variant="body1">{formatDate(header?.inward_date)}</Typography>
 					</Box>
@@ -557,6 +556,16 @@ function MaterialInspectionEditPageContent() {
 					)}
 				</Stack>
 			</Paper>
+
+			{/* Printable Preview */}
+			{header && lineItems.length > 0 && (
+				<Paper sx={{ p: 3, mt: 3 }}>
+					<Typography variant="h6" fontWeight={600} mb={2}>
+						Printable Preview
+					</Typography>
+					<MaterialInspectionPreview header={header} items={lineItems} />
+				</Paper>
+			)}
 		</Box>
 	);
 }

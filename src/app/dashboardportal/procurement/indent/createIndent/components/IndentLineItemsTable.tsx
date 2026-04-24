@@ -2,15 +2,13 @@ import React from "react";
 import { SearchableSelect, type TransactionLineColumn } from "@/components/ui/transaction";
 import { Input } from "@/components/ui/input";
 import Tooltip from "@mui/material/Tooltip";
-import type { EditableLineItem, IndentLabelResolvers, ItemOption, ItemValidationResult, LineItemValidationState, Option } from "../types/indentTypes";
+import type { EditableLineItem, IndentLabelResolvers, ItemValidationResult, LineItemValidationState, Option } from "../types/indentTypes";
 
 type UseIndentLineItemColumnsParams = {
 	canEdit: boolean;
 	departmentOptions: readonly Option[];
-	itemGroupOptions: readonly Option[];
 	itemGroupLoading: Partial<Record<string, boolean>>;
 	labelResolvers: IndentLabelResolvers;
-	getItemOptions: (groupId: string) => ItemOption[];
 	getMakeOptions: (groupId: string) => Option[];
 	getUomOptions: (groupId: string, itemId: string) => Option[];
 	handleLineFieldChange: (id: string, field: keyof EditableLineItem, value: string) => void;
@@ -77,10 +75,8 @@ function QtyInputWithTooltip({
 export const useIndentLineItemColumns = ({
 	canEdit,
 	departmentOptions,
-	itemGroupOptions,
 	itemGroupLoading,
 	labelResolvers,
-	getItemOptions,
 	getMakeOptions,
 	getUomOptions,
 	handleLineFieldChange,
@@ -129,74 +125,43 @@ export const useIndentLineItemColumns = ({
 				},
 			},
 			{
-				id: "itemGroup",
-				header: "Item Group",
-				width: "2fr",
-				minWidth: "188px",
+				id: "itemCode",
+				header: "Item Code",
+				width: "1.6fr",
+				minWidth: "150px",
 				renderCell: ({ item }) => {
-					if (!canEdit) {
-						return (
-							<span className="block truncate text-sm text-slate-700">
-								{labelResolvers.itemGroup(item.itemGroup)}
-							</span>
-						);
-					}
-
-					const value = (itemGroupOptions as Option[]).find((option) => option.value === item.itemGroup) ?? null;
+					const waitingForGroup = Boolean(item.itemGroup) && itemGroupLoading[item.itemGroup];
+					const code = labelResolvers.itemCode(item.itemGroup, item.item);
 					return (
-						<SearchableSelect<Option>
-							options={itemGroupOptions as Option[]}
-							value={value}
-							onChange={(next) => handleLineFieldChange(item.id, "itemGroup", next?.value ?? "")}
-							getOptionLabel={(option) => option.label}
-							isOptionEqualToValue={(option, valueOption) => option.value === valueOption.value}
-							placeholder="Search item group"
-							noOptionsText="No options"
-						/>
+						<span className="block truncate text-sm font-mono text-slate-700">
+							{waitingForGroup && (!code || code === "-") ? "Loading..." : code}
+						</span>
 					);
 				},
 				getTooltip: ({ item }) => {
-					const label = labelResolvers.itemGroup(item.itemGroup);
-					return label && label !== "-" ? label : undefined;
+					const code = labelResolvers.itemCode(item.itemGroup, item.item);
+					return code && code !== "-" ? code : undefined;
 				},
 			},
 			{
-				id: "item",
-				header: "Item",
+				id: "itemName",
+				header: "Item Name",
 				width: "2.4fr",
-				minWidth: "225px",
+				minWidth: "200px",
 				className: "flex flex-col gap-0.5",
 				renderCell: ({ item }) => {
 					const lineValidation = validationMap?.[item.id];
 					const itemErrors = lineValidation?.result?.errors ?? [];
 					const itemWarnings = getLineWarnings?.(item.id) ?? [];
 					const isValidating = lineValidation?.loading ?? false;
-
-					if (!canEdit) {
-						return (
-							<span className="block truncate text-sm text-slate-700">
-								{labelResolvers.item(item.itemGroup, item.item)}
-							</span>
-						);
-					}
-
-					const options = getItemOptions(item.itemGroup);
-					const value = options.find((option) => option.value === item.item) ?? null;
-					const waitingForGroup = Boolean(item.itemGroup) && !options.length && itemGroupLoading[item.itemGroup];
+					const waitingForGroup = Boolean(item.itemGroup) && itemGroupLoading[item.itemGroup];
+					const name = labelResolvers.itemName(item.itemGroup, item.item);
 
 					return (
 						<div className="flex flex-col gap-0.5 w-full">
-							<SearchableSelect<ItemOption>
-								options={options}
-								value={value}
-								onChange={(next) => handleLineFieldChange(item.id, "item", next?.value ?? "")}
-								getOptionLabel={(option) => option.label}
-								isOptionEqualToValue={(option, valueOption) => option.value === valueOption.value}
-								placeholder={waitingForGroup ? "Loading items..." : "Search item"}
-								disabled={!item.itemGroup || waitingForGroup}
-								loading={waitingForGroup}
-								noOptionsText={waitingForGroup ? "Loading..." : "No options"}
-							/>
+							<span className="block truncate text-sm text-slate-700">
+								{waitingForGroup && (!name || name === "-") ? "Loading..." : name}
+							</span>
 							{isValidating && (
 								<span className="text-[11px] leading-tight text-blue-500">Validating...</span>
 							)}
@@ -214,10 +179,10 @@ export const useIndentLineItemColumns = ({
 					);
 				},
 				getTooltip: ({ item }) => {
-					const label = labelResolvers.item(item.itemGroup, item.item);
+					const name = labelResolvers.itemName(item.itemGroup, item.item);
 					const errors = validationMap?.[item.id]?.result?.errors ?? [];
 					if (errors.length > 0) return `⚠ ${errors[0]}`;
-					return label && label !== "-" ? label : undefined;
+					return name && name !== "-" ? name : undefined;
 				},
 			},
 			{
@@ -245,9 +210,10 @@ export const useIndentLineItemColumns = ({
 							onChange={(next) => handleLineFieldChange(item.id, "itemMake", next?.value ?? "")}
 							getOptionLabel={(option) => option.label}
 							isOptionEqualToValue={(option, valueOption) => option.value === valueOption.value}
-							placeholder={options.length ? "Search make" : "No make options"}
+							placeholder={waitingForGroup ? "Loading..." : options.length ? "Search make" : "No makes"}
 							disabled={!item.itemGroup || waitingForGroup}
-							noOptionsText={options.length ? "No matches" : "No options"}
+							loading={waitingForGroup}
+							noOptionsText={waitingForGroup ? "Loading..." : "No options"}
 						/>
 					);
 				},
@@ -375,11 +341,9 @@ export const useIndentLineItemColumns = ({
 			adjustTextareaHeight,
 			canEdit,
 			departmentOptions,
-			getItemOptions,
 			getMakeOptions,
 			getUomOptions,
 			handleLineFieldChange,
-			itemGroupOptions,
 			labelResolvers,
 			itemGroupLoading,
 			validationMap,

@@ -5,6 +5,7 @@ type SalesOrderTotalsDisplayProps = {
 	grossAmount: number;
 	totalTax: number;
 	freightCharges: number;
+	additionalChargesTotal?: number;
 	netAmount: number;
 	taxType?: string;
 };
@@ -16,6 +17,7 @@ export function SalesOrderTotalsDisplay({
 	grossAmount,
 	totalTax,
 	freightCharges,
+	additionalChargesTotal,
 	netAmount,
 	taxType,
 }: SalesOrderTotalsDisplayProps) {
@@ -27,18 +29,24 @@ export function SalesOrderTotalsDisplay({
 					<Typography variant="body2" color="text.secondary">Gross Amount</Typography>
 					<Typography variant="body2">{formatCurrency(grossAmount)}</Typography>
 				</div>
-				<div className="flex justify-between">
-					<Typography variant="body2" color="text.secondary">
-						Total GST{taxType ? ` (${taxType})` : ""}
-					</Typography>
-					<Typography variant="body2">{formatCurrency(totalTax)}</Typography>
-				</div>
 				{freightCharges > 0 && (
 					<div className="flex justify-between">
 						<Typography variant="body2" color="text.secondary">Freight Charges</Typography>
 						<Typography variant="body2">{formatCurrency(freightCharges)}</Typography>
 					</div>
 				)}
+				{(additionalChargesTotal ?? 0) > 0 && (
+					<div className="flex justify-between">
+						<Typography variant="body2" color="text.secondary">Additional Charges</Typography>
+						<Typography variant="body2">{formatCurrency(additionalChargesTotal!)}</Typography>
+					</div>
+				)}
+				<div className="flex justify-between">
+					<Typography variant="body2" color="text.secondary">
+						Total GST{taxType ? ` (${taxType})` : ""}
+					</Typography>
+					<Typography variant="body2">{formatCurrency(totalTax)}</Typography>
+				</div>
 				<Divider sx={{ my: 1 }} />
 				<div className="flex justify-between">
 					<Typography variant="body2" fontWeight={700}>Net Amount</Typography>

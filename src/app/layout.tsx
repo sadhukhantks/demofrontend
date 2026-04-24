@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import SidebarCompaniesGuardClient from '@/components/clientside/SidebarCompaniesGuardClient';
+import SubdomainGuard from '@/components/clientside/SubdomainGuard';
 import { AppThemeProvider } from '@/styles/AppThemeProvider';
+import { Toaster } from '@/components/ui/toaster';
 
 const inter = Inter({ subsets: ["latin"] });
 /* 
@@ -34,8 +36,10 @@ export default function RootLayout({
       <body className={`${inter.className}`} suppressHydrationWarning>
         {/* <AuthProvider>    */}
           <AppThemeProvider>
+            <SubdomainGuard />
             <SidebarCompaniesGuardClient />
             {children}
+            <Toaster />
           </AppThemeProvider>
          {/* </AuthProvider>  */}
       </body>

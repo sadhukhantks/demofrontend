@@ -55,7 +55,8 @@ export type SRAdditionalCharge = {
  * Raw additional charge from API.
  */
 export type SRAdditionalChargeRaw = {
-	inward_additional_id?: number;
+	proc_inward_additional_id?: number;
+	inward_additional_id?: number; // Legacy alias
 	inward_id?: number;
 	additional_charges_id?: number;
 	additional_charges_name?: string;
@@ -81,6 +82,7 @@ export type SRLineItem = {
 	inward_dtl_id: number;
 	item_id: number;
 	item_code: string;
+	full_item_code?: string;
 	item_name: string;
 	item_grp_id: number;
 	item_grp_name: string;
@@ -106,6 +108,7 @@ export type SRLineItem = {
 	warehouse_id: number | null;
 	warehouse_name: string;
 	warehouse_path: string;
+	hsn_code: string;
 };
 
 /**
@@ -176,6 +179,7 @@ export type SRLineItemRaw = {
 	inward_dtl_id?: number;
 	item_id?: number;
 	item_code?: string;
+	full_item_code?: string;
 	item_name?: string;
 	item_grp_id?: number;
 	item_grp_name?: string;
@@ -197,6 +201,7 @@ export type SRLineItemRaw = {
 	warehouse_id?: number | null;
 	warehouse_name?: string;
 	warehouse_path?: string;
+	hsn_code?: string;
 };
 
 /**

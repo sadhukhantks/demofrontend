@@ -32,6 +32,9 @@ export type EditableLineItem = {
 	amount?: number;
 	remarks: string;
 	taxPercentage?: number;
+	hsnCode?: string;
+	rowError?: string;
+	rowWarning?: string;
 };
 
 /**
@@ -90,6 +93,7 @@ export type InwardSetupData = {
 	itemGroups: ItemGroupRecord[];
 	coConfig?: {
 		india_gst?: number;
+		po_required?: number;
 	};
 };
 
@@ -113,6 +117,7 @@ export type POLineItem = {
 	po_no: string;
 	item_id: number;
 	item_code: string;
+	full_item_code?: string;
 	item_name: string;
 	item_grp_id: number;
 	item_grp_code: string;
@@ -128,4 +133,5 @@ export type POLineItem = {
 	tax_percentage?: number;
 	amount?: number;
 	remarks?: string;
+	hsn_code?: string;
 };

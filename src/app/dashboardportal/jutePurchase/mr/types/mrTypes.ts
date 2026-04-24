@@ -19,6 +19,8 @@ export type JuteMRHeader = {
 	party_name: string | null;
 	party_branch_id: number | null;
 	party_branch_name: string | null;
+	party_address: string | null;
+	party_gst_no: string | null;
 	po_id: number | null;
 	po_no: number | null;
 	po_date: string | null;
@@ -37,6 +39,11 @@ export type JuteMRHeader = {
 	jute_gate_entry_date: string | null;
 	updated_by: number | null;
 	updated_date_time: string | null;
+	co_name: string | null;
+	co_logo: string | null;
+	co_address1: string | null;
+	co_address2: string | null;
+	co_zipcode: number | null;
 };
 
 // Party branch option type
@@ -77,6 +84,7 @@ export type JuteMRLineItemAPI = {
 	active: number | null;
 	warehouse_id: number | null;
 	warehouse_path: string | null;
+	unit_conversion: string | null;
 };
 
 // UI line item type used in the MR page
@@ -103,4 +111,5 @@ export type MRLineItem = {
 	remarks: string | null;
 	warehouseId: number | null;
 	warehousePath: string | null;
+	unitConversion: string | null;
 };

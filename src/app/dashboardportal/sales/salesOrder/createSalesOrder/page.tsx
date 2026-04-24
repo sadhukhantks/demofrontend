@@ -3,13 +3,27 @@
 import React, { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TextField } from "@mui/material";
-import TransactionWrapper from "@/components/ui/TransactionWrapper";
+import TransactionWrapper, { type TransactionAction } from "@/components/ui/TransactionWrapper";
 import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogFooter,
+	DialogTitle,
+	DialogDescription,
+} from "@/components/ui/dialog";
 import type { MuiFormMode } from "@/components/ui/muiform";
 import {
 	useDeferredOptionCache,
 	useTransactionSetup,
 	useTransactionPreview,
+	buildApprovalTransactionActions,
+	useRejectDialog,
+	useUnsavedChanges,
+	AutoResizeTextarea,
+	ItemSelectionDialog,
+	type SelectedItem,
 } from "@/components/ui/transaction";
 import { useBranchOptions } from "@/utils/branchUtils";
 import {
@@ -24,21 +38,25 @@ import { toast } from "@/hooks/use-toast";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { useMenuId } from "@/hooks/useMenuId";
 import { useCompanyName } from "@/hooks/useCompanyName";
+import { useCompanyLogo } from "@/hooks/useCompanyLogo";
 
 import { SalesOrderHeaderForm } from "./components/SalesOrderHeaderForm";
 import { SalesOrderTotalsDisplay } from "./components/SalesOrderTotalsDisplay";
-import { SalesOrderApprovalBar } from "./components/SalesOrderApprovalBar";
 import SalesOrderPreview from "./components/SalesOrderPreview";
 import { useSalesOrderLineItemColumns } from "./components/SalesOrderLineItemsTable";
+import { AdditionalChargesSection, type AdditionalChargeRow } from "./components/AdditionalChargesSection";
 
 import { useSalesOrderFormState } from "./hooks/useSalesOrderFormState";
 import { useSalesOrderTaxCalculations } from "./hooks/useSalesOrderTaxCalculations";
 import { useSalesOrderSelectOptions } from "./hooks/useSalesOrderSelectOptions";
 import { useSalesOrderHeaderSchema } from "./hooks/useSalesOrderFormSchemas";
+import { useSalesOrderGovtskgSchema } from "./hooks/useSalesOrderGovtskgSchema";
+import { useSalesOrderJuteSchema } from "./hooks/useSalesOrderJuteSchema";
+import { useSalesOrderJuteYarnSchema } from "./hooks/useSalesOrderJuteYarnSchema";
 import { useSalesOrderFormSubmission } from "./hooks/useSalesOrderFormSubmission";
 import { useSalesOrderApproval } from "./hooks/useSalesOrderApproval";
 import { useSalesOrderLineItems } from "./hooks/useSalesOrderLineItems";
-import type { ItemGroupCacheEntry, SalesOrderSetupData } from "./types/salesOrderTypes";
+import type { EditableLineItem, ItemGroupCacheEntry, SalesOrderSetupData } from "./types/salesOrderTypes";
 
 import { mapItemGroupDetailResponse, mapSalesOrderSetupResponse, mapSalesOrderDetailsToFormValues } from "./utils/salesOrderMappers";
 import { buildDefaultFormValues, createBlankLine } from "./utils/salesOrderFactories";
@@ -51,7 +69,10 @@ import {
 	EMPTY_QUOTATIONS,
 	EMPTY_SETUP_PARAMS,
 	EMPTY_TRANSPORTERS,
+	isHessianOrder,
+	isGovtSkgOrder,
 } from "./utils/salesOrderConstants";
+import { computeGovtskgTransportCharges, mergeTransportCharges } from "../../utils/govtskgTransportCharges";
 
 function SOPageLoading() {
 	return (
@@ -93,6 +114,7 @@ function SalesOrderTransactionPageContent() {
 
 	const { getMenuId } = useMenuId({ transactionType: "salesOrder", menuIdFromUrl });
 	const companyName = useCompanyName();
+	const companyLogo = useCompanyLogo(coId);
 
 	const {
 		initialValues,
@@ -112,6 +134,7 @@ function SalesOrderTransactionPageContent() {
 	const [soDetails, setSODetails] = React.useState<SalesOrderDetails | null>(null);
 	const [loading, setLoading] = React.useState<boolean>(mode !== "create");
 	const [pageError, setPageError] = React.useState<string | null>(null);
+	const [additionalCharges, setAdditionalCharges] = React.useState<AdditionalChargeRow[]>([]);
 
 	// Branch value resolution
 	const branchValue = React.useMemo(() => {
@@ -131,10 +154,18 @@ function SalesOrderTransactionPageContent() {
 		return [...branchOptions, { label: fallbackLabel, value: branchValue }];
 	}, [branchOptions, branchValue, soDetails?.branch]);
 
+	// SO-GOVT-006: in create mode, fall back to the first sidebar branch when the
+	// user hasn't explicitly picked one yet, so get_sales_order_setup_1 fires on
+	// page mount and the form unblocks. The branch dropdown still lets the user
+	// override afterwards. Edit/view modes always pass branch_id from the URL.
 	const branchIdForSetup = React.useMemo(() => {
-		if (!branchValue || !/^\d+$/.test(branchValue)) return undefined;
-		return branchValue;
-	}, [branchValue]);
+		if (branchValue && /^\d+$/.test(branchValue)) return branchValue;
+		if (mode === "create") {
+			const firstBranch = branchOptions.find((opt) => /^\d+$/.test(String(opt.value)));
+			if (firstBranch) return String(firstBranch.value);
+		}
+		return undefined;
+	}, [branchValue, mode, branchOptions]);
 
 	// Setup params with stable reference
 	const setupParamsRef = React.useRef<typeof EMPTY_SETUP_PARAMS>(EMPTY_SETUP_PARAMS);
@@ -178,6 +209,16 @@ function SalesOrderTransactionPageContent() {
 	const coConfig = setupData?.coConfig;
 	const invoiceTypes = setupData?.invoiceTypes ?? EMPTY_INVOICE_TYPES;
 	const branchAddresses = setupData?.branchAddresses ?? EMPTY_BRANCH_ADDRESSES;
+
+	const chargeOptions = React.useMemo(() => {
+		const raw = setupData?.additionalChargesMaster;
+		if (!Array.isArray(raw) || !raw.length) return [];
+		return raw.map((c) => ({
+			value: String(c.additional_charges_id ?? ""),
+			label: String(c.additional_charges_name ?? ""),
+			defaultValue: c.default_value != null ? Number(c.default_value) : undefined,
+		}));
+	}, [setupData]);
 
 	const quotationRequired = React.useMemo(
 		() => Boolean(coConfig?.quotation_required),
@@ -234,6 +275,54 @@ function SalesOrderTransactionPageContent() {
 		return customerBranches.find((b) => b.id === shippingId)?.stateName;
 	}, [formValues.shipping_to, customerBranches]);
 
+	// Resolve invoice type code from selected ID + invoiceTypes list (name-based, not hardcoded ID)
+	const invoiceTypeCode = React.useMemo(() => {
+		const selectedId = String(formValues.invoice_type ?? "");
+		if (!selectedId) return "";
+		const found = invoiceTypes.find((t) => t.id === selectedId);
+		return found?.typeCode ?? "";
+	}, [formValues.invoice_type, invoiceTypes]);
+
+	// Lock invoice type dropdown when type-specific header fields have data
+	const hasTypeSpecificHeaderData = React.useMemo(() => {
+		const v = formValues;
+		const hasGovtskg = !!(v.govtskg_pcso_no || v.govtskg_pcso_date || v.govtskg_admin_office || v.govtskg_rail_head || v.govtskg_loading_point || v.govtskg_mode_of_transport);
+		const hasJute = !!(v.jute_mr_no || v.jute_mukam_id || v.jute_claim_amount || v.jute_claim_description);
+		const hasJuteYarn = !!(v.juteyarn_pcso_no || v.juteyarn_container_no || v.juteyarn_customer_ref_no);
+		return hasGovtskg || hasJute || hasJuteYarn;
+	}, [formValues]);
+
+	// Clear previous type's header fields when invoice type changes.
+	// IMPORTANT: prevInvoiceTypeCodeRef starts as `null` (NOT ""), so the first time
+	// invoiceTypeCode resolves to anything (including the initial "") we just record it
+	// without firing a clear. This prevents an infinite update loop when the user
+	// picks an invoice type for the first time on a freshly loaded page — see
+	// SO-GOVT-003. The ref must be updated AFTER the equality guard so a re-run
+	// triggered by the same code is a no-op (no setState inside the effect).
+	const prevInvoiceTypeCodeRef = React.useRef<string | null>(null);
+	React.useEffect(() => {
+		if (mode === "view") return;
+		const currentCode = invoiceTypeCode;
+		const prevCode = prevInvoiceTypeCodeRef.current;
+		// Guard FIRST, then update the ref. This way a same-value re-run never sets state.
+		if (prevCode === currentCode) return;
+		prevInvoiceTypeCodeRef.current = currentCode;
+		// First observation (ref was null) or transitioning from empty: nothing to clear.
+		if (prevCode === null || prevCode === "") return;
+
+		const clearFields: Record<string, string> = {};
+		if (prevCode === "govt_skg") {
+			Object.assign(clearFields, { govtskg_pcso_no: "", govtskg_pcso_date: "", govtskg_admin_office: "", govtskg_rail_head: "", govtskg_loading_point: "", govtskg_mode_of_transport: "" });
+		} else if (prevCode === "jute") {
+			Object.assign(clearFields, { jute_mr_no: "", jute_mukam_id: "", jute_claim_amount: "", jute_claim_description: "" });
+		} else if (prevCode === "jute_yarn") {
+			Object.assign(clearFields, { juteyarn_pcso_no: "", juteyarn_container_no: "", juteyarn_customer_ref_no: "" });
+		}
+		if (Object.keys(clearFields).length) {
+			setFormValues((prev) => ({ ...prev, ...clearFields }));
+		}
+	}, [invoiceTypeCode, mode, setFormValues]);
+
 	// Clear party-dependent fields when customer changes
 	const prevPartyRef = React.useRef<string>("");
 	React.useEffect(() => {
@@ -257,6 +346,7 @@ function SalesOrderTransactionPageContent() {
 		filledLineItems,
 		lineItemsValid,
 		itemGroupsFromLineItems,
+		lineHasAnyData,
 	} = useSalesOrderLineItems({
 		mode,
 		coConfig,
@@ -266,8 +356,36 @@ function SalesOrderTransactionPageContent() {
 		itemGroupLoading,
 		ensureItemGroupData,
 		itemGroups,
-		invoiceTypeId: String(formValues.invoice_type ?? ""),
+		invoiceTypeCode,
 		brokeragePercent: formValues.broker_commission_percent ? Number(formValues.broker_commission_percent) : undefined,
+	});
+
+	// Unsaved changes detection for unified action bar
+	const getComparableLineData = React.useCallback(
+		(item: EditableLineItem) => ({
+			itemGroup: item.itemGroup,
+			item: item.item,
+			itemMake: item.itemMake,
+			quantity: item.quantity,
+			rate: item.rate,
+			uom: item.uom,
+			discountValue: item.discountValue,
+			remarks: item.remarks,
+			hsnCode: item.hsnCode,
+		}),
+		[],
+	);
+
+	const comparableLineItems = React.useMemo(
+		() => lineItems.filter(lineHasAnyData),
+		[lineItems],
+	);
+
+	const { hasUnsavedChanges, resetBaseline, setBaseline } = useUnsavedChanges({
+		formValues,
+		lineItems: comparableLineItems,
+		getComparableLineData,
+		enabled: mode !== "create",
 	});
 
 	// Seed an initial blank line in create mode
@@ -285,44 +403,114 @@ function SalesOrderTransactionPageContent() {
 		});
 	}, [mode, setLineItems]);
 
+	// Item selection dialog
+	const [itemDialogOpen, setItemDialogOpen] = React.useState(false);
+
+	const excludeItemIds = React.useMemo(() => {
+		const ids = new Set<number>();
+		for (const li of lineItems) {
+			if (li.item) {
+				const num = Number(li.item);
+				if (Number.isFinite(num)) ids.add(num);
+			}
+		}
+		return ids;
+	}, [lineItems]);
+
+	const handleItemDialogConfirm = React.useCallback(
+		(items: SelectedItem[]) => {
+			if (mode === "view" || !items.length) return;
+
+			const newLines: EditableLineItem[] = items.map((item) => ({
+				id: crypto.randomUUID?.() ?? String(Date.now() + Math.random()),
+				itemGroup: String(item.item_grp_id),
+				item: String(item.item_id),
+				itemMake: "",
+				hsnCode: item.hsn_code ?? "",
+				quantity: "",
+				rate: "",
+				uom: String(item.uom_id),
+				discountValue: "",
+				remarks: "",
+				taxPercentage: item.tax_percentage ?? undefined,
+			fullItemCode: item.full_item_code || undefined,
+			}));
+
+			const groupIds = [...new Set(items.map((i) => String(i.item_grp_id)))];
+			for (const gid of groupIds) {
+				if (!itemGroupCache[gid] && !itemGroupLoading[gid]) {
+					void ensureItemGroupData(gid);
+				}
+			}
+
+			setLineItems((prev) => {
+				const filledLines = prev.filter((line) => lineHasAnyData(line));
+				return [...filledLines, ...newLines, createBlankLine()];
+			});
+
+			toast({
+				title: `Added ${newLines.length} item${newLines.length > 1 ? "s" : ""}`,
+				description: "Fill in quantity, rate and other details.",
+			});
+		},
+		[mode, setLineItems, lineHasAnyData, itemGroupCache, itemGroupLoading, ensureItemGroupData]
+	);
+
+	const suppressTaxRecalcRef = React.useRef(false);
 	const { taxType } = useSalesOrderTaxCalculations({
 		mode,
 		coConfig,
 		billingToState,
 		shippingToState,
 		setLineItems,
+		suppressRef: suppressTaxRecalcRef,
 	});
 
+	// Auto-populate additional charges when Govt Sacking transport mode or line qty changes
+	React.useEffect(() => {
+		const mode = String(formValues.govtskg_mode_of_transport ?? "");
+		if (!mode || !isGovtSkgOrder(invoiceTypeCode)) return;
+
+		const totalQty = filledLineItems.reduce((sum, li) => sum + (Number(li.quantity) || 0), 0);
+		if (totalQty <= 0) return;
+
+		const rates = setupData?.transportChargeRates ?? [];
+		if (!rates.length) return;
+
+		const lineTaxPct = filledLineItems[0]?.taxPercentage;
+		const computed = computeGovtskgTransportCharges(mode, totalQty, rates, chargeOptions, lineTaxPct, billingToState, shippingToState);
+		setAdditionalCharges((prev) => mergeTransportCharges(prev, computed, mode));
+	}, [formValues.govtskg_mode_of_transport, filledLineItems, invoiceTypeCode, setupData?.transportChargeRates, chargeOptions, billingToState, shippingToState]);
+
 	// Calculate totals
+	const additionalChargesTotal = React.useMemo(
+		() => additionalCharges.reduce((sum, c) => sum + (parseFloat(c.netAmount) || 0) + (c.gst?.gstTotal ?? 0), 0),
+		[additionalCharges],
+	);
+
 	const totals = React.useMemo(() => {
 		const grossAmount = filledLineItems.reduce((sum, li) => sum + (li.amount ?? 0), 0);
 		const totalTax = filledLineItems.reduce((sum, li) => sum + (li.taxAmount ?? 0), 0);
 		const freightCharges = Number(formValues.freight_charges) || 0;
-		const netAmount = grossAmount + totalTax + freightCharges;
-		return { grossAmount, totalTax, freightCharges, netAmount };
-	}, [filledLineItems, formValues.freight_charges]);
+		const netAmount = grossAmount + totalTax + freightCharges + additionalChargesTotal;
+		return { grossAmount, totalTax, freightCharges, netAmount, additionalChargesTotal };
+	}, [filledLineItems, formValues.freight_charges, additionalChargesTotal]);
 
-	// Fetch details for edit/view
-	const detailsFetchKey = React.useMemo(
-		() => [mode, requestedId || "", branchIdForSetup || branchIdFromUrl || "", coId || ""].join("|"),
-		[mode, requestedId, branchIdForSetup, branchIdFromUrl, coId],
-	);
-
-	const lastDetailsKeyRef = React.useRef<string | null>(null);
+	// Phase A: Fetch details immediately in edit/view mode (no setup dependency)
+	// This breaks the circular dependency: details contain branch_id which is needed to load setup
 	const detailsFetchedRef = React.useRef(false);
-
-	React.useEffect(() => {
-		if (lastDetailsKeyRef.current !== detailsFetchKey) {
-			lastDetailsKeyRef.current = detailsFetchKey;
-			detailsFetchedRef.current = false;
-		}
-	}, [detailsFetchKey]);
+	// Use refs for values that may change reference across renders but shouldn't cancel in-flight fetches
+	const getMenuIdRef = React.useRef(getMenuId);
+	getMenuIdRef.current = getMenuId;
+	const coIdRef = React.useRef(coId);
+	coIdRef.current = coId;
 
 	React.useEffect(() => {
 		if (mode === "create") {
 			setSODetails(null);
 			setPageError(null);
 			setLoading(false);
+			detailsFetchedRef.current = false;
 			return;
 		}
 
@@ -333,46 +521,24 @@ function SalesOrderTransactionPageContent() {
 			return;
 		}
 
-		if (!setupEnabled) return;
-		if (setupLoading) return;
-		if (!setupData) return;
 		if (detailsFetchedRef.current) return;
-
 		detailsFetchedRef.current = true;
 
 		let cancelled = false;
-		const fetchDetails = async () => {
+		(async () => {
 			setLoading(true);
 			try {
-				const details = await getSalesOrderById(requestedId, coId || undefined, getMenuId() || undefined);
+				const details = await getSalesOrderById(
+					requestedId,
+					coIdRef.current || undefined,
+					getMenuIdRef.current() || undefined,
+				);
 				if (cancelled) return;
-
 				setSODetails(details);
-				const defaultFormValues = buildDefaultFormValues();
-				const nextValues = mapSalesOrderDetailsToFormValues(details, defaultFormValues);
-
-				const detailsBranch = details as unknown as { branch_id?: unknown; branchId?: unknown };
-				const branchIdFromDetails = detailsBranch?.branch_id ?? detailsBranch?.branchId ?? details?.branch;
-				const resolvedBranchValue = (() => {
-					if (branchIdFromDetails != null && branchIdFromDetails !== "") return String(branchIdFromDetails);
-					if (branchIdFromUrl) return String(branchIdFromUrl);
-					if (branchValue && /^\d+$/.test(branchValue)) return branchValue;
-					const mappedValue = nextValues.branch != null ? String(nextValues.branch) : "";
-					return /^\d+$/.test(mappedValue) ? mappedValue : "";
-				})();
-
-				if (resolvedBranchValue) {
-					nextValues.branch = resolvedBranchValue;
-					setLockedBranchId(resolvedBranchValue);
+				// Extract branch_id to unblock setup loading
+				if (details.branch && /^\d+$/.test(details.branch)) {
+					setLockedBranchId(details.branch);
 				}
-
-				setInitialValues(nextValues);
-				setFormValues(nextValues);
-				bumpFormKey();
-
-				const normalizedLines = (details.lines ?? []).map((line) => mapLineToEditable(line));
-				replaceItems(normalizedLines);
-
 				setPageError(null);
 			} catch (error) {
 				if (cancelled) return;
@@ -383,19 +549,94 @@ function SalesOrderTransactionPageContent() {
 			} finally {
 				if (!cancelled) setLoading(false);
 			}
-		};
+		})();
+		return () => { cancelled = true; detailsFetchedRef.current = false; };
+	// Only re-run when the actual identity of the SO changes, not when callback refs change
+	}, [mode, requestedId]);
 
-		void fetchDetails();
+	// Phase B: Populate form once both details AND setup are ready
+	const formPopulatedRef = React.useRef(false);
 
-		return () => {
-			cancelled = true;
-		};
+	React.useEffect(() => {
+		if (mode === "create") {
+			formPopulatedRef.current = false;
+			return;
+		}
+		if (!soDetails) {
+				return;
+		}
+		if (!setupEnabled || setupLoading || !setupData) {
+				return;
+		}
+		if (formPopulatedRef.current) return;
+		formPopulatedRef.current = true;
+
+		const nextValues = mapSalesOrderDetailsToFormValues(soDetails, buildDefaultFormValues());
+
+		const resolvedBranchValue = soDetails.branch || branchIdFromUrl || branchValue;
+		if (resolvedBranchValue && /^\d+$/.test(resolvedBranchValue)) {
+			nextValues.branch = resolvedBranchValue;
+			setLockedBranchId(resolvedBranchValue);
+		}
+
+		const normalizedLines = (soDetails.lines ?? []).map((line) => mapLineToEditable(line));
+
+		// Suppress the tax recalculation effect that would fire from billing/shipping state change
+		suppressTaxRecalcRef.current = true;
+
+		setInitialValues(nextValues);
+		setFormValues(nextValues);
+		bumpFormKey();
+		replaceItems(normalizedLines);
+
+		// Map additional charges from SO details
+		const rawCharges = (soDetails as Record<string, unknown>).additionalCharges;
+		if (Array.isArray(rawCharges) && rawCharges.length > 0) {
+			setAdditionalCharges(
+				rawCharges.map((ch: Record<string, unknown>, idx: number) => {
+					// Backend returns flat GST fields (igst_amount, cgst_amount, etc.),
+					// not a nested gst object.
+					const gstTotal = Number(ch.gst_total ?? 0);
+					const igstPercent = Number(ch.igst_percent ?? 0);
+					const cgstPercent = Number(ch.cgst_percent ?? 0);
+					const sgstPercent = Number(ch.sgst_percent ?? 0);
+					// Derive tax_pct: IGST% or CGST% + SGST% (whichever is non-zero)
+					const taxPct = igstPercent > 0 ? igstPercent : cgstPercent + sgstPercent;
+					return {
+						id: `charge_loaded_${idx}`,
+						additionalChargesId: String(ch.additional_charges_id ?? ch.additionalChargesId ?? ""),
+						chargeName: String(ch.additional_charges_name ?? ch.chargeName ?? ""),
+						qty: String(ch.qty ?? "1"),
+						rate: String(ch.rate ?? ""),
+						netAmount: String(ch.net_amount ?? ch.netAmount ?? ""),
+						remarks: String(ch.remarks ?? ""),
+						taxPct: taxPct > 0 ? String(taxPct) : "",
+						gst: gstTotal > 0 ? {
+							igstAmount: Number(ch.igst_amount ?? 0),
+							igstPercent,
+							cgstAmount: Number(ch.cgst_amount ?? 0),
+							cgstPercent,
+							sgstAmount: Number(ch.sgst_amount ?? 0),
+							sgstPercent,
+							gstTotal,
+						} : undefined,
+					};
+				}),
+			);
+		} else {
+			setAdditionalCharges([]);
+		}
+
+		// Set baseline for unsaved changes detection
+		setBaseline(nextValues, normalizedLines.filter(lineHasAnyData));
+
+		return () => { formPopulatedRef.current = false; };
 	}, [
-		mode, requestedId, coId, getMenuId,
+		mode, soDetails, setupEnabled, setupLoading, setupData,
 		setInitialValues, setFormValues, bumpFormKey,
 		replaceItems, mapLineToEditable,
-		setupEnabled, setupLoading, setupData,
 		branchIdFromUrl, branchValue,
+		setBaseline, lineHasAnyData,
 	]);
 
 	// Pre-load item group data for existing line items
@@ -450,6 +691,7 @@ function SalesOrderTransactionPageContent() {
 		getUomOptions,
 		getUomConversions,
 		getItemLabel,
+		getItemFullCode,
 		getUomLabel,
 	} = useSalesOrderSelectOptions({
 		customers,
@@ -474,13 +716,18 @@ function SalesOrderTransactionPageContent() {
 		quotationRequired,
 		mode,
 		headerFieldsDisabled,
+		invoiceTypeLocked: hasTypeSpecificHeaderData,
 	});
+
+	const govtskgSchema = useSalesOrderGovtskgSchema({ mode, headerFieldsDisabled });
+	const juteYarnSchema = useSalesOrderJuteYarnSchema({ mode, headerFieldsDisabled });
+	const juteSchema = useSalesOrderJuteSchema({ mukamOptions: [], mode, headerFieldsDisabled });
 
 	const canEdit = mode !== "view";
 
 	const lineItemColumns = useSalesOrderLineItemColumns({
 		canEdit,
-		invoiceTypeId: String(formValues.invoice_type ?? ""),
+		invoiceTypeCode,
 		itemGroupOptions,
 		itemGroupLoading,
 		getItemOptions,
@@ -488,6 +735,7 @@ function SalesOrderTransactionPageContent() {
 		getUomOptions,
 		getUomConversions,
 		getItemGroupLabel,
+		getItemFullCode,
 		handleLineFieldChange,
 	});
 
@@ -513,6 +761,23 @@ function SalesOrderTransactionPageContent() {
 		setDetails: setSODetails,
 	});
 
+	// Reject dialog hook
+	const {
+		rejectDialogOpen,
+		rejectReason,
+		setRejectReason,
+		openRejectDialog,
+		handleRejectConfirm,
+		handleRejectCancel,
+	} = useRejectDialog(handleReject);
+
+	// Reset baseline when soDetails changes (initial load or post-approval refresh)
+	React.useEffect(() => {
+		if (!soDetails || mode === "create") return;
+		const timer = setTimeout(() => resetBaseline(), 0);
+		return () => clearTimeout(timer);
+	}, [soDetails, mode, resetBaseline]);
+
 	// Preview data
 	const previewHeader = React.useMemo(
 		() => ({
@@ -524,35 +789,101 @@ function SalesOrderTransactionPageContent() {
 			transporterName: transporterOptions.find((o) => String(o.value) === String(formValues.transporter))?.label ?? soDetails?.transporterName ?? undefined,
 			status: statusChipProps?.label ?? soDetails?.status,
 			companyName,
+			companyLogo,
 		}),
 		[
 			soDetails, formValues.date, formValues.party, formValues.broker, formValues.transporter,
 			branchValue, resolvedBranchOptions, customerOptions, brokerOptions, transporterOptions,
-			statusChipProps?.label, companyName,
+			statusChipProps?.label, companyName, companyLogo,
 		],
 	);
 
 	const previewItems = React.useMemo(() => {
+		const isHessian = isHessianOrder(invoiceTypeCode);
+		const isGovtSkg = isGovtSkgOrder(invoiceTypeCode);
 		return filledLineItems.map((line, index) => {
 			const itemLabel = getItemLabel(line.itemGroup, line.item);
+			const fullItemName = itemLabel || "-";
+
 			const uomOptions = getUomOptions(line.itemGroup, line.item);
-			const uomLabel = uomOptions.find((opt) => opt.value === line.uom)?.label ?? line.uom ?? "-";
+			const uomLabel = uomOptions.find((opt) => opt.value === line.uom)?.label ?? line.uom ?? "";
+			const qtyRounding = line.qtyRounding;
+			const rawQty = line.quantity;
+			const formattedQty = rawQty && Number(rawQty) && qtyRounding != null
+				? Number(rawQty).toFixed(qtyRounding) : (rawQty || "-");
+			const qtyDisplay = `${formattedQty} ${uomLabel}`.trim();
+
+			// Hessian / Govt Sacking: show bales qty as other qty
+			let otherQtyDisplay: string | undefined;
+			if (isHessian && line.qtyBales && Number(line.qtyBales)) {
+				otherQtyDisplay = `${line.qtyBales} Bales`;
+			} else if (isGovtSkg && line.govtskgQtyBales && Number(line.govtskgQtyBales)) {
+				otherQtyDisplay = `${line.govtskgQtyBales} Bales`;
+			} else if (!isHessian && !isGovtSkg) {
+				// For non-hessian, show converted qty if available
+				const conversions = getUomConversions?.(line.itemGroup, line.item);
+				if (conversions?.length && rawQty && Number(rawQty) && line.uom) {
+					for (const conv of conversions) {
+						if (conv.relationValue === 0) continue;
+						let convertedQty: number;
+						let otherUomName: string;
+						if (line.uom === conv.mapFromId) {
+							convertedQty = Number(rawQty) * conv.relationValue;
+							otherUomName = conv.mapToName;
+						} else if (line.uom === conv.mapToId) {
+							convertedQty = Number(rawQty) / conv.relationValue;
+							otherUomName = conv.mapFromName;
+						} else {
+							continue;
+						}
+						otherQtyDisplay = `${convertedQty.toFixed(conv.rounding ?? 2)} ${otherUomName}`;
+						break;
+					}
+				}
+			}
+
+			// Rate with UOM label
+			const rateRounding = line.rateRounding ?? 2;
+			const rateVal = line.rate;
+			const formattedRate = rateVal && Number(rateVal) ? Number(rateVal).toFixed(rateRounding) : (rateVal || "-");
+			const rateUomLabel = uomLabel;
+			const rateDisplay = formattedRate !== "-"
+				? `${new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 }).format(Number(formattedRate))} / ${rateUomLabel}`
+				: "-";
+
 			return {
 				index: index + 1,
-				itemName: itemLabel !== "-" ? itemLabel : line.item || "-",
-				quantity: line.quantity || "-",
-				uom: uomLabel,
-				rate: line.rate || "-",
+				itemName: fullItemName,
+				qtyDisplay,
+				otherQtyDisplay,
+				rateDisplay,
 				amount: line.amount ?? "-",
 				gst: line.taxAmount ?? "-",
 				total: ((line.amount ?? 0) + (line.taxAmount ?? 0)) || "-",
 			};
 		});
-	}, [filledLineItems, getItemLabel, getUomOptions]);
+	}, [filledLineItems, getItemLabel, getUomOptions, getUomConversions, invoiceTypeCode]);
 
 	const previewRemarks = React.useMemo(() => {
 		return (formValues.internal_note as string) || soDetails?.internalNote || (formValues.footer_note as string) || soDetails?.footerNote || "";
 	}, [formValues.internal_note, formValues.footer_note, soDetails?.internalNote, soDetails?.footerNote]);
+
+	const previewAdditionalCharges = React.useMemo(() => {
+		return additionalCharges
+			.filter((c) => c.additionalChargesId)
+			.map((c) => {
+				const netAmount = parseFloat(c.netAmount) || 0;
+				const taxAmount = c.gst?.gstTotal ?? 0;
+				return {
+					chargeName: c.chargeName || "-",
+					qty: parseFloat(c.qty) || 1,
+					rate: parseFloat(c.rate) || 0,
+					netAmount,
+					taxAmount,
+					total: netAmount + taxAmount,
+				};
+			});
+	}, [additionalCharges]);
 
 	const { metadata } = useTransactionPreview({
 		header: previewHeader,
@@ -574,15 +905,68 @@ function SalesOrderTransactionPageContent() {
 		filledLineItems,
 		isLineItemsReady,
 		requestedId,
+		formValues,
+		invoiceTypeCode,
 	});
 
-	const primaryActionLabel = mode === "create" ? "Create" : "Save";
-	const handleSaveClick = React.useCallback(() => {
-		if (!formRef.current?.submit) return;
-		void formRef.current.submit();
-	}, [formRef]);
+	// Unified primary actions — shows Create, Save, or Approval buttons in the same location
+	const primaryActions = React.useMemo<TransactionAction[] | undefined>(() => {
+		if (pageError || setupError) return undefined;
 
-	// Wrap submit to inject notes fields (rendered outside MuiForm) into the submitted values
+		// Create mode → Create button
+		if (mode === "create") {
+			return [
+				{
+					label: "Create Sales Order",
+					onClick: () => formRef.current?.submit(),
+					disabled: saving || !lineItemsValid || setupLoading,
+					loading: saving,
+				},
+			];
+		}
+
+		// No SO details yet (still loading)
+		if (!soDetails) return undefined;
+
+		// Edit mode with unsaved changes → Save button
+		if (mode === "edit" && approvalPermissions.canSave && hasUnsavedChanges) {
+			return [
+				{
+					label: "Save Changes",
+					onClick: () => formRef.current?.submit(),
+					disabled: saving || !lineItemsValid || setupLoading,
+					loading: saving,
+				},
+			];
+		}
+
+		// View mode, or edit mode without unsaved changes → Approval buttons
+		const approvalActions = buildApprovalTransactionActions({
+			approvalInfo,
+			permissions: approvalPermissions,
+			handlers: {
+				onOpen: handleOpen,
+				onCancelDraft: handleCancelDraft,
+				onReopen: handleReopen,
+				onSendForApproval: handleSendForApproval,
+				onApprove: handleApprove,
+				onReject: openRejectDialog,
+				onViewApprovalLog: handleViewApprovalLog,
+			},
+			loading: approvalLoading,
+			disabled: saving || loading || setupLoading,
+		});
+
+		return approvalActions.length ? approvalActions : undefined;
+	}, [
+		mode, pageError, setupError, saving, lineItemsValid, setupLoading,
+		formRef, soDetails, approvalPermissions, hasUnsavedChanges,
+		approvalInfo, approvalLoading, loading,
+		handleOpen, handleCancelDraft, handleReopen, handleSendForApproval,
+		handleApprove, openRejectDialog, handleViewApprovalLog,
+	]);
+
+	// Wrap submit to inject notes fields and additional charges (rendered outside MuiForm) into the submitted values
 	const handleFormSubmitWithNotes = React.useCallback(
 		async (values: Record<string, unknown>) => {
 			const merged = {
@@ -590,10 +974,29 @@ function SalesOrderTransactionPageContent() {
 				footer_note: formValues.footer_note ?? "",
 				internal_note: formValues.internal_note ?? "",
 				terms_conditions: formValues.terms_conditions ?? "",
+				additional_charges: additionalCharges
+					.filter((c) => c.additionalChargesId)
+					.map((c) => ({
+						additional_charges_id: c.additionalChargesId,
+						charge_name: c.chargeName,
+						qty: parseFloat(c.qty) || 1,
+						rate: parseFloat(c.rate) || 0,
+						net_amount: parseFloat(c.netAmount) || 0,
+						remarks: c.remarks || "",
+						gst: c.gst ? {
+							igst_amount: c.gst.igstAmount ?? 0,
+							igst_percent: c.gst.igstPercent ?? 0,
+							cgst_amount: c.gst.cgstAmount ?? 0,
+							cgst_percent: c.gst.cgstPercent ?? 0,
+							sgst_amount: c.gst.sgstAmount ?? 0,
+							sgst_percent: c.gst.sgstPercent ?? 0,
+							gst_total: c.gst.gstTotal ?? 0,
+						} : undefined,
+					})),
 			};
 			await handleFormSubmit(merged);
 		},
-		[handleFormSubmit, formValues.footer_note, formValues.internal_note, formValues.terms_conditions],
+		[handleFormSubmit, formValues.footer_note, formValues.internal_note, formValues.terms_conditions, additionalCharges],
 	);
 
 	const pageTitle = React.useMemo(() => {
@@ -605,12 +1008,15 @@ function SalesOrderTransactionPageContent() {
 	}, [mode, soDetails?.salesNo]);
 
 	return (
+		<>
 		<TransactionWrapper
 			title={pageTitle}
 			subtitle={mode === "create" ? "Create a new sales order" : mode === "edit" ? "Edit sales order" : "View sales order details"}
 			metadata={metadata}
 			statusChip={statusChipProps}
 			backAction={{ onClick: () => router.push("/dashboardportal/sales/salesOrder") }}
+			primaryActions={primaryActions}
+			actionsAfterFooter
 			loading={loading || setupLoading}
 			alerts={pageError ? <div role="alert" aria-live="assertive" className="text-red-600">{pageError}</div> : undefined}
 			preview={
@@ -618,6 +1024,8 @@ function SalesOrderTransactionPageContent() {
 					header={previewHeader}
 					items={previewItems}
 					remarks={previewRemarks}
+					additionalCharges={previewAdditionalCharges}
+					freightCharges={Number(formValues.freight_charges) || 0}
 				/>
 			}
 			lineItems={{
@@ -627,13 +1035,34 @@ function SalesOrderTransactionPageContent() {
 				columns: lineItemColumns,
 				placeholder: "Add line items to the sales order",
 				selectionColumnWidth: "28px",
+				onRemoveSelected: canEdit ? removeLineItems : undefined,
+				headerAction: canEdit ? (
+					<Button
+						type="button"
+						size="sm"
+						onClick={() => setItemDialogOpen(true)}
+						disabled={!coId}
+					>
+						Add Items
+					</Button>
+				) : undefined,
 			}}
 				footer={
 					<div className="space-y-6 pt-4 border-t">
+						<AdditionalChargesSection
+							charges={additionalCharges}
+							chargeOptions={chargeOptions}
+							onChange={setAdditionalCharges}
+							disabled={mode === "view"}
+							billingToState={billingToState}
+							shippingToState={shippingToState}
+							indiaGst={Boolean(coConfig?.india_gst)}
+						/>
 						<SalesOrderTotalsDisplay
 							grossAmount={totals.grossAmount}
 							totalTax={totals.totalTax}
 							freightCharges={totals.freightCharges}
+							additionalChargesTotal={totals.additionalChargesTotal}
 							netAmount={totals.netAmount}
 							taxType={taxType || undefined}
 						/>
@@ -669,25 +1098,6 @@ function SalesOrderTransactionPageContent() {
 								disabled={mode === "view"}
 							/>
 						</div>
-						<SalesOrderApprovalBar
-							approvalInfo={approvalInfo}
-							permissions={approvalPermissions}
-							loading={approvalLoading}
-							onApprove={handleApprove}
-							onReject={handleReject}
-							onOpen={handleOpen}
-							onCancelDraft={handleCancelDraft}
-							onReopen={handleReopen}
-							onSendForApproval={handleSendForApproval}
-							onViewApprovalLog={handleViewApprovalLog}
-						/>
-						{mode !== "view" ? (
-							<div className="flex justify-end pt-2">
-								<Button type="button" onClick={handleSaveClick} disabled={saving || setupLoading || !isLineItemsReady}>
-									{saving ? "Processing..." : primaryActionLabel}
-								</Button>
-							</div>
-						) : null}
 					</div>
 				}
 		>
@@ -702,7 +1112,51 @@ function SalesOrderTransactionPageContent() {
 				showQuotationButton={quotationRequired && mode !== "view"}
 				onQuotationSelect={handleQuotationSelect}
 				quotationButtonDisabled={!isMounted || !formValues.quotation}
+				govtskgSchema={govtskgSchema}
+				juteSchema={juteSchema}
+				juteYarnSchema={juteYarnSchema}
+				invoiceTypeCode={invoiceTypeCode}
 			/>
 		</TransactionWrapper>
+
+		<ItemSelectionDialog
+			open={itemDialogOpen}
+			onOpenChange={setItemDialogOpen}
+			coId={coId}
+			onConfirm={handleItemDialogConfirm}
+			filter="saleable"
+			excludeItemIds={excludeItemIds}
+			title="Select Items for Sales Order"
+		/>
+
+		<Dialog open={rejectDialogOpen} onOpenChange={(open) => { if (!open) handleRejectCancel(); }}>
+			<DialogContent className="sm:max-w-125">
+				<DialogHeader>
+					<DialogTitle>Reject Sales Order</DialogTitle>
+					<DialogDescription>Please provide a reason for rejecting this sales order.</DialogDescription>
+				</DialogHeader>
+				<div className="space-y-4 py-4">
+					<div className="space-y-2">
+						<label htmlFor="reject-reason" className="text-sm font-medium leading-none">
+							Rejection Reason *
+						</label>
+						<AutoResizeTextarea
+							id="reject-reason"
+							placeholder="Enter rejection reason..."
+							value={rejectReason}
+							onChange={(e) => setRejectReason(e.target.value)}
+							className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+							minHeight={80}
+							maxHeight={200}
+						/>
+					</div>
+				</div>
+				<DialogFooter>
+					<Button variant="outline" onClick={handleRejectCancel}>Cancel</Button>
+					<Button variant="destructive" onClick={handleRejectConfirm} disabled={!rejectReason.trim()}>Reject</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+		</>
 	);
 }

@@ -106,16 +106,16 @@ export const useSRLineItemColumns = ({
 				getTooltip: ({ item }) => item.po_no_formatted || undefined,
 			},
 			{
-				id: "item_grp_name",
-				header: "Item Group",
+				id: "item_code",
+				header: "Item Code",
 				width: "1.2fr",
 				minWidth: "150px",
 				renderCell: ({ item }) => (
-					<Typography variant="body2" noWrap title={item.item_grp_name || undefined}>
-						{item.item_grp_name || "-"}
+					<Typography variant="body2" noWrap sx={{ fontFamily: "monospace" }} title={item.full_item_code || item.item_code || undefined}>
+						{item.full_item_code || item.item_code || "-"}
 					</Typography>
 				),
-				getTooltip: ({ item }) => item.item_grp_name || undefined,
+				getTooltip: ({ item }) => item.full_item_code || item.item_code || undefined,
 			},
 			{
 				id: "item_name",
@@ -140,6 +140,34 @@ export const useSRLineItemColumns = ({
 					</Typography>
 				),
 				getTooltip: ({ item }) => item.accepted_item_make_name || undefined,
+			},
+			{
+				id: "hsn_code",
+				header: "HSN",
+				width: "0.7fr",
+				minWidth: "100px",
+				renderCell: ({ item }) => {
+					if (!canEdit) {
+						return (
+							<Typography variant="body2" noWrap title={item.hsn_code || undefined}>
+								{item.hsn_code || "-"}
+							</Typography>
+						);
+					}
+					return (
+						<TextField
+							size="small"
+							variant="outlined"
+							value={item.hsn_code ?? ""}
+							onChange={(e) => {
+								onLineItemChange(item.id, "hsn_code", e.target.value);
+							}}
+							placeholder="HSN Code"
+							sx={{ width: "100%" }}
+						/>
+					);
+				},
+				getTooltip: ({ item }) => item.hsn_code || undefined,
 			},
 			{
 				id: "uom_name",
@@ -272,7 +300,7 @@ export const useSRLineItemColumns = ({
 					if (!canEdit) {
 						const warehouseLabel = item.warehouse_id ? warehouseLabelMap[String(item.warehouse_id)] || item.warehouse_path || item.warehouse_name : "-";
 						return (
-							<Typography variant="body2" noWrap>
+							<Typography variant="body2" noWrap sx={{ textAlign: "center", width: "100%" }}>
 								{warehouseLabel}
 							</Typography>
 						);
@@ -286,8 +314,8 @@ export const useSRLineItemColumns = ({
 					// If not in the dropdown list, inject a synthetic option so the
 					// Autocomplete `value` always matches one of the `options`.
 					let effectiveOptions = warehouseOptions;
-					if (!selectedOption && item.warehouse_id && (item.warehouse_path || item.warehouse_name)) {
-						selectedOption = { label: item.warehouse_path || item.warehouse_name, value: String(item.warehouse_id) };
+					if (!selectedOption && item.warehouse_id) {
+						selectedOption = { label: item.warehouse_path || item.warehouse_name || `Warehouse ${item.warehouse_id}`, value: String(item.warehouse_id) };
 						effectiveOptions = [...warehouseOptions, selectedOption];
 					}
 

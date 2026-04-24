@@ -31,9 +31,11 @@ export const mapCustomerBranchRecords = (records: unknown[]): CustomerBranchReco
 			const data = row as CustomerBranchRecordRaw;
 			const id = data?.party_mst_branch_id ?? data?.id;
 			if (!id) return null;
-			const address = data?.fatory_address ?? data?.branch_address1 ?? "";
+			const address = data?.address ?? data?.fatory_address ?? data?.branch_address1 ?? "";
+			const addressAdditional = data?.address_additional ?? "";
+			const zipCode = data?.zip_code ?? "";
 			const stateName = data?.state_name ?? "";
-			const addressParts = [address, stateName].filter(Boolean);
+			const addressParts = [address, addressAdditional, stateName, zipCode].filter(Boolean);
 			const fullAddress = addressParts.length > 0 ? addressParts.join(", ") : String(id);
 			return {
 				id: String(id),
@@ -102,8 +104,14 @@ export const mapApprovedSalesOrders = (records: unknown[]): ApprovedSalesOrderRe
 				id: String(id),
 				salesNo: data?.sales_no ?? data?.sales_order_no ?? String(id),
 				salesOrderDate: data?.sales_order_date,
+				partyId: data?.party_id != null ? String(data.party_id) : undefined,
 				partyName: data?.party_name,
 				netAmount: data?.net_amount,
+				invoiceType: data?.invoice_type ? String(data.invoice_type) : undefined,
+				brokerId: data?.broker_id != null ? String(data.broker_id) : undefined,
+				billingToId: data?.billing_to_id != null ? String(data.billing_to_id) : undefined,
+				shippingToId: data?.shipping_to_id != null ? String(data.shipping_to_id) : undefined,
+				transporterId: data?.transporter_id != null ? String(data.transporter_id) : undefined,
 			} satisfies ApprovedSalesOrderRecord;
 		})
 		.filter(Boolean) as ApprovedSalesOrderRecord[];
@@ -292,6 +300,7 @@ export const mapDODetailsToFormValues = (
 		party?: unknown;
 		partyBranch?: unknown;
 		salesOrder?: unknown;
+		invoiceType?: unknown;
 		billingTo?: unknown;
 		shippingTo?: unknown;
 		transporter?: unknown;
@@ -316,6 +325,7 @@ export const mapDODetailsToFormValues = (
 	party: toStringValue(details.party ?? defaultValues.party),
 	party_branch: toStringValue(details.partyBranch ?? defaultValues.party_branch),
 	sales_order: toStringValue(details.salesOrder ?? defaultValues.sales_order),
+	invoice_type: toStringValue(details.invoiceType ?? defaultValues.invoice_type),
 	billing_to: toStringValue(details.billingTo ?? defaultValues.billing_to),
 	shipping_to: toStringValue(details.shippingTo ?? defaultValues.shipping_to),
 	transporter: toStringValue(details.transporter ?? defaultValues.transporter),

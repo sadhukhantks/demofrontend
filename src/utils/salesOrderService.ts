@@ -22,6 +22,20 @@ export type SalesOrderLineHessian = {
   billingRateBale?: number | null;
 };
 
+export type SalesOrderLineJuteDtl = {
+  claimAmountDtl?: number | null;
+  claimDesc?: string | null;
+  claimRate?: number | null;
+  unitConversion?: string | null;
+  qtyUnitConversion?: number | null;
+};
+
+export type SalesOrderLineGovtSkgDtl = {
+  packSheet?: number | null;
+  netWeight?: number | null;
+  totalWeight?: number | null;
+};
+
 export type SalesOrderLine = {
   id: string;
   quotationLineitemId?: number | null;
@@ -32,7 +46,9 @@ export type SalesOrderLine = {
   itemMake?: string;
   quantity?: number | string;
   uom?: string;
+  qtyUom?: string;
   uomName?: string;
+  qtyUomName?: string;
   rate?: number | string;
   discountType?: number | null;
   discountedRate?: number | null;
@@ -42,6 +58,10 @@ export type SalesOrderLine = {
   remarks?: string;
   gst?: SalesOrderLineGst | null;
   hessian?: SalesOrderLineHessian | null;
+  juteDtl?: SalesOrderLineJuteDtl | null;
+  govtskgDtl?: SalesOrderLineGovtSkgDtl | null;
+  full_item_code?: string;
+  fullItemCode?: string;
 };
 
 export type ApprovalActionPermissions = {
@@ -80,6 +100,8 @@ export type SalesOrderDetails = {
   internalNote?: string | null;
   deliveryTerms?: string | null;
   paymentTerms?: string | null;
+  buyerOrderNo?: string | null;
+  buyerOrderDate?: string | null;
   deliveryDays?: number | null;
   freightCharges?: number | null;
   grossAmount?: number | null;
@@ -92,6 +114,24 @@ export type SalesOrderDetails = {
   updatedAt?: string | null;
   permissions?: ApprovalActionPermissions;
   lines: SalesOrderLine[];
+  jute?: {
+    mr_no?: string | null;
+    mukam_id?: string | number | null;
+    claim_amount?: number | null;
+    claim_description?: string | null;
+  } | null;
+  govtskg?: {
+    pcso_no?: string | null;
+    pcso_date?: string | null;
+    administrative_office_address?: string | null;
+    destination_rail_head?: string | null;
+    loading_point?: string | null;
+  } | null;
+  juteyarn?: {
+    pcso_no?: string | null;
+    container_no?: string | null;
+    customer_ref_no?: string | null;
+  } | null;
 };
 
 export type SalesOrderSetup1Response = {
@@ -129,6 +169,8 @@ export type CreateSalesOrderRequest = {
   expiry_date?: string | null;
   delivery_terms?: string | null;
   payment_terms?: string | null;
+  buyer_order_no?: string | null;
+  buyer_order_date?: string | null;
   delivery_days?: number | null;
   freight_charges?: number | null;
   footer_note?: string | null;
@@ -165,6 +207,53 @@ export type CreateSalesOrderRequest = {
       billing_rate_mt?: number | null;
       billing_rate_bale?: number | null;
     } | null;
+    jute_dtl?: {
+      claim_amount_dtl?: number | null;
+      claim_desc?: string | null;
+      claim_rate?: number | null;
+      unit_conversion?: string | null;
+      qty_untit_conversion?: number | null;
+    } | null;
+    govtskg_dtl?: {
+      pack_sheet?: number | null;
+      net_weight?: number | null;
+      total_weight?: number | null;
+    } | null;
+  }>;
+  jute?: {
+    mr_no?: string;
+    mukam_id?: string;
+    claim_amount?: number;
+    claim_description?: string;
+  };
+  govtskg?: {
+    pcso_no?: string;
+    pcso_date?: string;
+    administrative_office_address?: string;
+    destination_rail_head?: string;
+    loading_point?: string;
+  };
+  juteyarn?: {
+    pcso_no?: string;
+    container_no?: string;
+    customer_ref_no?: string;
+  };
+  additional_charges?: Array<{
+    additional_charges_id: string;
+    charge_name?: string;
+    qty: number;
+    rate: number;
+    net_amount: number;
+    remarks?: string;
+    gst?: {
+      igst_amount?: number;
+      igst_percent?: number;
+      cgst_amount?: number;
+      cgst_percent?: number;
+      sgst_amount?: number;
+      sgst_percent?: number;
+      gst_total?: number;
+    };
   }>;
 };
 
@@ -298,7 +387,14 @@ export async function createSalesOrder(
 }
 
 export async function updateSalesOrder(
-  payload: Partial<SalesOrderDetails> & { id: string; items?: CreateSalesOrderRequest["items"] }
+  payload: Partial<SalesOrderDetails> & {
+    id: string;
+    items?: CreateSalesOrderRequest["items"];
+    jute?: CreateSalesOrderRequest["jute"];
+    govtskg?: CreateSalesOrderRequest["govtskg"];
+    juteyarn?: CreateSalesOrderRequest["juteyarn"];
+    additional_charges?: CreateSalesOrderRequest["additional_charges"];
+  }
 ): Promise<{ message: string; sales_order_id?: number }> {
   if (!payload.id) {
     throw new Error("Sales order ID is required for update");
@@ -320,6 +416,8 @@ export async function updateSalesOrder(
     expiry_date: payload.salesOrderExpiryDate ?? undefined,
     delivery_terms: payload.deliveryTerms ?? undefined,
     payment_terms: payload.paymentTerms ?? undefined,
+    buyer_order_no: payload.buyerOrderNo ?? undefined,
+    buyer_order_date: payload.buyerOrderDate ?? undefined,
     delivery_days: payload.deliveryDays ?? undefined,
     freight_charges: payload.freightCharges ?? undefined,
     footer_note: payload.footerNote ?? undefined,
@@ -328,6 +426,13 @@ export async function updateSalesOrder(
     gross_amount: payload.grossAmount ?? undefined,
     net_amount: payload.netAmount ?? undefined,
     items: payload.items ?? [],
+    // Type-specific header extensions — must be forwarded so the backend
+    // can persist them. Without these, invoice_type=GovtSacking/Jute/JuteYarn
+    // updates silently drop their extension data.
+    jute: payload.jute,
+    govtskg: payload.govtskg,
+    juteyarn: payload.juteyarn,
+    additional_charges: payload.additional_charges,
   };
 
   const { data, error } = await fetchWithCookie<{

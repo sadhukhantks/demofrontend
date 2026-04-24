@@ -2,7 +2,7 @@ import React from "react";
 import { useLineItems } from "@/components/ui/transaction";
 import type { MuiFormMode } from "@/components/ui/muiform";
 import { toast } from "@/hooks/use-toast";
-import type { InvoiceLine, DeliveryOrderLineForInvoice } from "@/utils/salesInvoiceService";
+import type { InvoiceLine, DeliveryOrderLineForInvoice, SalesOrderLineForInvoice } from "@/utils/salesInvoiceService";
 import type { EditableLineItem, ItemGroupCacheEntry, ItemGroupRecord } from "../types/salesInvoiceTypes";
 import { createBlankLine, generateLineId } from "../utils/salesInvoiceFactories";
 import { calculateLineAmount, calculateLineTax } from "../utils/salesInvoiceCalculations";
@@ -24,12 +24,14 @@ type Params = {
 	itemGroupLoading: Partial<Record<string, boolean>>;
 	ensureItemGroupData: (groupId: string) => void;
 	itemGroups: ReadonlyArray<ItemGroupRecord>;
+	invoiceTypeId?: string;
 };
 
 export const useSalesInvoiceLineItems = ({
 	mode, partyState, shippingState,
-	itemGroupCache, itemGroupLoading, ensureItemGroupData, itemGroups,
+	itemGroupCache, itemGroupLoading, ensureItemGroupData, itemGroups, invoiceTypeId,
 }: Params) => {
+	const isHessian = invoiceTypeId === "2";
 	const {
 		items: lineItems, setItems: setLineItems, replaceItems, removeItems: removeLineItems,
 	} = useLineItems<EditableLineItem>({
@@ -40,14 +42,18 @@ export const useSalesInvoiceLineItems = ({
 	});
 
 	const doGroupInfoRef = React.useRef<Map<string, { code?: string; name?: string }>>(new Map());
+	const soGroupInfoRef = React.useRef<Map<string, { code?: string; name?: string }>>(new Map());
 
 	const mapLineToEditable = React.useCallback((line: InvoiceLine): EditableLineItem => ({
 		id: line.id ? String(line.id) : generateLineId(),
 		deliveryOrderDtlId: line.deliveryOrderDtlId,
+		salesOrderDtlId: line.salesOrderDtlId,
 		hsnCode: line.hsnCode,
 		itemGroup: line.itemGroup ? String(line.itemGroup) : "",
 		item: line.item ?? "",
 		itemCode: line.itemCode,
+		itemName: line.itemName,
+		fullItemCode: line.fullItemCode ?? line.itemCode,
 		itemMake: line.itemMake ?? "",
 		quantity: line.quantity != null ? String(line.quantity) : "",
 		rate: line.rate != null ? String(line.rate) : "",
@@ -58,14 +64,26 @@ export const useSalesInvoiceLineItems = ({
 		netAmount: line.netAmount,
 		totalAmount: line.totalAmount,
 		remarks: line.remarks ?? "",
-		taxPercentage: line.taxPercentage,
+		taxPercentage: line.gst?.taxPercentage ?? line.taxPercentage,
 		igstAmount: line.gst?.igstAmount,
 		igstPercent: line.gst?.igstPercent,
 		cgstAmount: line.gst?.cgstAmount,
 		cgstPercent: line.gst?.cgstPercent,
 		sgstAmount: line.gst?.sgstAmount,
 		sgstPercent: line.gst?.sgstPercent,
-		gstTotal: line.gst?.gstTotal,
+		gstTotal: line.gst?.taxAmount ?? line.gst?.gstTotal,
+		juteClaimAmountDtl: line.juteDtl?.claimAmountDtl,
+		juteClaimDesc: line.juteDtl?.claimDesc ?? "",
+		juteClaimRate: line.juteDtl?.claimRate,
+		juteUnitConversion: line.juteDtl?.unitConversion ?? "",
+		juteQtyUnitConversion: line.juteDtl?.qtyUnitConversion,
+		hessianQtyBales: line.hessianDtl?.qtyBales,
+		hessianRatePerBale: line.hessianDtl?.ratePerBale,
+		hessianBillingRateMt: line.hessianDtl?.billingRateMt,
+		hessianBillingRateBale: line.hessianDtl?.billingRateBale,
+		govtskgPackSheet: line.govtskgDtl?.packSheet,
+		govtskgNetWeight: line.govtskgDtl?.netWeight,
+		govtskgTotalWeight: line.govtskgDtl?.totalWeight,
 	}), []);
 
 	const recalcLine = React.useCallback((item: EditableLineItem): EditableLineItem => {
@@ -116,9 +134,10 @@ export const useSalesInvoiceLineItems = ({
 						let nextUom = item.uom;
 						if (defaultUom && uomOptions.some((opt) => opt.value === defaultUom)) nextUom = defaultUom;
 						else if (uomOptions.length) nextUom = uomOptions[0].value;
+						const effectiveRate = isHessian && defaultRate != null ? Math.round(defaultRate) : defaultRate;
 						const updated: EditableLineItem = {
 							...item, item: value, uom: nextUom,
-							rate: defaultRate != null ? String(defaultRate) : item.rate,
+							rate: effectiveRate != null ? String(effectiveRate) : item.rate,
 							taxPercentage: defaultTax,
 						};
 						return recalcLine(updated);
@@ -129,10 +148,13 @@ export const useSalesInvoiceLineItems = ({
 
 			if (field === "quantity" || field === "rate") {
 				const sanitized = value.replace(/[^0-9.]/g, "");
+				const applied = isHessian && field === "rate"
+					? String(Math.round(Number(sanitized) || 0))
+					: sanitized;
 				setLineItems((prev) =>
 					prev.map((item) => {
 						if (item.id !== id) return item;
-						return recalcLine({ ...item, [field]: sanitized });
+						return recalcLine({ ...item, [field]: applied });
 					}),
 				);
 				return;
@@ -177,70 +199,111 @@ export const useSalesInvoiceLineItems = ({
 				prev.map((item) => (item.id === id ? { ...item, [field]: value } as EditableLineItem : item)),
 			);
 		},
-		[mode, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, recalcLine, partyState, shippingState],
+		[mode, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, recalcLine, isHessian, partyState, shippingState],
 	);
 
-	const handleDeliveryOrderLinesConfirm = React.useCallback(
-		(selectedItems: DeliveryOrderLineForInvoice[]) => {
-			setLineItems((prev) => {
-				const filledLines = prev.filter(lineHasAnyData);
-				const existingDoDtlIds = new Set(filledLines.map((l) => l.deliveryOrderDtlId).filter(Boolean));
-				const existingItemIds = new Set(filledLines.map((l) => l.item).filter(Boolean));
-
-				const newItems = selectedItems.filter((item) => {
-					return !existingDoDtlIds.has(item.delivery_order_dtl_id) && !existingItemIds.has(String(item.item_id));
-				});
-
-				const skippedCount = selectedItems.length - newItems.length;
-				if (skippedCount > 0) {
-					toast({ variant: "default", title: "Some items skipped", description: `${skippedCount} item(s) already exist.` });
-				}
-				if (newItems.length === 0) return prev;
-
-				const uniqueGroupIds = Array.from(new Set(newItems.map((item) => String(item.item_grp_id))));
-				uniqueGroupIds.forEach((groupId) => {
-					if (groupId && !itemGroupCache[groupId]) ensureItemGroupData(groupId);
-				});
-
-				const newLines: EditableLineItem[] = newItems.map((item) => {
-					const qty = item.quantity || 0;
-					const rate = item.rate || 0;
-					const netAmt = item.net_amount ?? qty * rate;
-					const tax = calculateLineTax(netAmt, item.tax_percentage || 0, partyState, shippingState);
-					return {
-						id: generateLineId(),
-						deliveryOrderDtlId: item.delivery_order_dtl_id,
-						hsnCode: item.hsn_code || "",
-						itemGroup: String(item.item_grp_id),
-						item: String(item.item_id),
-						itemCode: item.item_code,
-						itemMake: item.item_make_id ? String(item.item_make_id) : "",
-						quantity: String(qty),
-						rate: String(rate),
-						uom: String(item.uom_id),
-						discountType: item.discount_type,
-						discountedRate: item.discounted_rate,
-						discountAmount: item.discount_amount,
-						netAmount: netAmt,
-						totalAmount: (netAmt) + tax.gstTotal,
-						remarks: item.remarks || "",
-						taxPercentage: item.tax_percentage,
-						...tax,
-					};
-				});
-
-				newItems.forEach((item) => {
-					const groupId = String(item.item_grp_id);
-					if (!doGroupInfoRef.current.has(groupId)) {
-						doGroupInfoRef.current.set(groupId, { code: item.item_grp_code, name: item.item_grp_name });
-					}
-				});
-
-				return [...filledLines, ...newLines];
+	const replaceWithDeliveryOrderLines = React.useCallback(
+		(items: DeliveryOrderLineForInvoice[]) => {
+			const uniqueGroupIds = Array.from(new Set(items.map((item) => String(item.item_grp_id))));
+			uniqueGroupIds.forEach((groupId) => {
+				if (groupId && !itemGroupCache[groupId]) ensureItemGroupData(groupId);
 			});
+
+			const newLines: EditableLineItem[] = items.map((item) => {
+				const qty = item.quantity || 0;
+				const rate = item.rate || 0;
+				const netAmt = item.net_amount ?? qty * rate;
+				const tax = calculateLineTax(netAmt, item.tax_percentage || 0, partyState, shippingState);
+				return {
+					id: generateLineId(),
+					deliveryOrderDtlId: item.delivery_order_dtl_id,
+					hsnCode: item.hsn_code || "",
+					itemGroup: String(item.item_grp_id),
+					item: String(item.item_id),
+					itemCode: item.item_code,
+					itemName: item.item_name,
+					fullItemCode: item.full_item_code,
+					itemMake: item.item_make_id ? String(item.item_make_id) : "",
+					quantity: String(qty),
+					rate: String(rate),
+					uom: String(item.uom_id),
+					discountType: item.discount_type,
+					discountedRate: item.discounted_rate,
+					discountAmount: item.discount_amount,
+					netAmount: netAmt,
+					totalAmount: (netAmt) + tax.gstTotal,
+					remarks: item.remarks || "",
+					taxPercentage: item.tax_percentage,
+					...tax,
+					govtskgPackSheet: item.govtskg_pack_sheet != null ? Number(item.govtskg_pack_sheet) : undefined,
+					govtskgNetWeight: item.govtskg_net_weight != null ? Number(item.govtskg_net_weight) : undefined,
+					govtskgTotalWeight: item.govtskg_total_weight != null ? Number(item.govtskg_total_weight) : undefined,
+				};
+			});
+
+			items.forEach((item) => {
+				const groupId = String(item.item_grp_id);
+				if (!doGroupInfoRef.current.has(groupId)) {
+					doGroupInfoRef.current.set(groupId, { code: item.item_grp_code, name: item.item_grp_name });
+				}
+			});
+
+			replaceItems(newLines);
 		},
-		[ensureItemGroupData, itemGroupCache, setLineItems, partyState, shippingState],
+		[ensureItemGroupData, itemGroupCache, replaceItems, partyState, shippingState],
 	);
+
+	const replaceWithSalesOrderLines = React.useCallback(
+		(items: SalesOrderLineForInvoice[]) => {
+			const uniqueGroupIds = Array.from(new Set(items.map((item) => String(item.item_grp_id))));
+			uniqueGroupIds.forEach((groupId) => {
+				if (groupId && !itemGroupCache[groupId]) ensureItemGroupData(groupId);
+			});
+
+			const newLines: EditableLineItem[] = items.map((item) => {
+				const qty = item.quantity || 0;
+				const rate = item.rate || 0;
+				const netAmt = item.net_amount ?? qty * rate;
+				const tax = calculateLineTax(netAmt, item.tax_percentage || 0, partyState, shippingState);
+				return {
+					id: generateLineId(),
+					salesOrderDtlId: item.sales_order_dtl_id,
+					hsnCode: item.hsn_code || "",
+					itemGroup: String(item.item_grp_id),
+					item: String(item.item_id),
+					itemCode: item.item_code,
+					itemName: item.item_name,
+					fullItemCode: item.full_item_code,
+					itemMake: item.item_make_id ? String(item.item_make_id) : "",
+					quantity: String(qty),
+					rate: String(rate),
+					uom: String(item.uom_id),
+					discountType: item.discount_type,
+					discountedRate: item.discounted_rate,
+					discountAmount: item.discount_amount,
+					netAmount: netAmt,
+					totalAmount: netAmt + tax.gstTotal,
+					remarks: item.remarks || "",
+					taxPercentage: item.tax_percentage,
+					...tax,
+				};
+			});
+
+			items.forEach((item) => {
+				const groupId = String(item.item_grp_id);
+				if (!soGroupInfoRef.current.has(groupId)) {
+					soGroupInfoRef.current.set(groupId, { code: item.item_grp_code, name: item.item_grp_name });
+				}
+			});
+
+			replaceItems(newLines);
+		},
+		[ensureItemGroupData, itemGroupCache, replaceItems, partyState, shippingState],
+	);
+
+	const clearImportedLines = React.useCallback(() => {
+		replaceItems([]);
+	}, [replaceItems]);
 
 	const filledLineItems = React.useMemo(() => lineItems.filter(lineHasAnyData), [lineItems]);
 
@@ -260,7 +323,9 @@ export const useSalesInvoiceLineItems = ({
 					groups.set(line.itemGroup, { id: line.itemGroup, label: cachedLabel });
 				} else {
 					const doInfo = doGroupInfoRef.current.get(line.itemGroup);
-					const labelParts = doInfo ? [doInfo.code, doInfo.name].filter(Boolean) : [];
+					const soInfo = soGroupInfoRef.current.get(line.itemGroup);
+					const info = doInfo ?? soInfo;
+					const labelParts = info ? [info.code, info.name].filter(Boolean) : [];
 					const label = labelParts.length ? labelParts.join(" — ") : line.itemGroup;
 					groups.set(line.itemGroup, { id: line.itemGroup, label });
 				}
@@ -271,7 +336,9 @@ export const useSalesInvoiceLineItems = ({
 
 	return {
 		lineItems, setLineItems, replaceItems, removeLineItems,
-		handleLineFieldChange, handleDeliveryOrderLinesConfirm,
+		handleLineFieldChange, replaceWithDeliveryOrderLines, replaceWithSalesOrderLines,
+		clearImportedLines,
 		mapLineToEditable, filledLineItems, lineItemsValid, itemGroupsFromLineItems,
+		lineHasAnyData,
 	};
 };

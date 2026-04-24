@@ -13,6 +13,7 @@ export type UseSalesOrderHeaderSchemaParams = {
 	quotationRequired: boolean;
 	mode: "create" | "edit" | "view";
 	headerFieldsDisabled: boolean;
+	invoiceTypeLocked?: boolean;
 };
 
 export const useSalesOrderHeaderSchema = ({
@@ -26,6 +27,7 @@ export const useSalesOrderHeaderSchema = ({
 	quotationRequired,
 	mode,
 	headerFieldsDisabled,
+	invoiceTypeLocked,
 }: UseSalesOrderHeaderSchemaParams): Schema =>
 	React.useMemo(() => {
 		const fields: Field[] = [
@@ -39,6 +41,7 @@ export const useSalesOrderHeaderSchema = ({
 				grid: { xs: 12, md: 4 },
 			},
 			{ name: "date", label: "Order Date", type: "date", required: true, disabled: mode === "view", grid: { xs: 12, md: 4 } },
+			{ name: "invoice_type", label: "Invoice Type", type: "select", options: invoiceTypeOptions, disabled: headerFieldsDisabled || invoiceTypeLocked, grid: { xs: 12, md: 4 } },
 			{ name: "expiry_date", label: "Expiry Date", type: "date", disabled: headerFieldsDisabled, grid: { xs: 12, md: 4 } },
 			{
 				name: "party",
@@ -64,7 +67,6 @@ export const useSalesOrderHeaderSchema = ({
 		}
 
 		fields.push(
-			{ name: "invoice_type", label: "Invoice Type", type: "select", options: invoiceTypeOptions, disabled: headerFieldsDisabled, grid: { xs: 12, md: 4 } },
 			{
 				name: "broker",
 				label: "Broker",
@@ -81,6 +83,8 @@ export const useSalesOrderHeaderSchema = ({
 			{ name: "transporter", label: "Transporter", type: "select", options: transporterOptions, disabled: headerFieldsDisabled, grid: { xs: 12, md: 4 } },
 			{ name: "delivery_terms", label: "Delivery Terms", type: "text", disabled: headerFieldsDisabled, grid: { xs: 12, md: 4 } },
 			{ name: "payment_terms", label: "Payment Terms", type: "text", disabled: headerFieldsDisabled, grid: { xs: 12, md: 4 } },
+			{ name: "buyer_order_no", label: "Buyer's Order No.", type: "text", disabled: headerFieldsDisabled, placeholder: "Customer's PO reference", grid: { xs: 12, md: 4 } },
+			{ name: "buyer_order_date", label: "Buyer's Order Date", type: "date", disabled: headerFieldsDisabled, grid: { xs: 12, md: 4 } },
 			{ name: "delivery_days", label: "Delivery Days", type: "text", placeholder: "days", disabled: headerFieldsDisabled, grid: { xs: 12, md: 4 } },
 			{ name: "freight_charges", label: "Freight Charges", type: "text", placeholder: "0.00", disabled: headerFieldsDisabled, grid: { xs: 12, md: 4 } },
 		);
@@ -89,5 +93,5 @@ export const useSalesOrderHeaderSchema = ({
 	}, [
 		branchOptions, customerOptions, customerBranchOptions,
 		brokerOptions, transporterOptions, quotationOptions,
-		invoiceTypeOptions, quotationRequired, mode, headerFieldsDisabled,
+		invoiceTypeOptions, quotationRequired, mode, headerFieldsDisabled, invoiceTypeLocked,
 	]);

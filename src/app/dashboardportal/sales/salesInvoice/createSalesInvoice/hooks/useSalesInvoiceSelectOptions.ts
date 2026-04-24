@@ -1,14 +1,17 @@
 import React from "react";
+import { getTransporterBranches } from "@/utils/salesInvoiceService";
 import type {
 	CustomerRecord,
 	TransporterRecord,
 	BrokerRecord,
 	ApprovedDeliveryOrderRecord,
+	ApprovedSalesOrderRecord,
 	InvoiceTypeRecord,
 	ItemGroupCacheEntry,
 	ItemGroupRecord,
 	Option,
 	UomConversionEntry,
+	TransporterBranchRecord,
 } from "../types/salesInvoiceTypes";
 
 type Params = {
@@ -16,16 +19,20 @@ type Params = {
 	transporters: ReadonlyArray<TransporterRecord>;
 	brokers: ReadonlyArray<BrokerRecord>;
 	approvedDeliveryOrders: ReadonlyArray<ApprovedDeliveryOrderRecord>;
+	approvedSalesOrders: ReadonlyArray<ApprovedSalesOrderRecord>;
 	invoiceTypes: ReadonlyArray<InvoiceTypeRecord>;
 	itemGroupsFromLineItems: ReadonlyArray<ItemGroupRecord>;
 	itemGroupCache?: Partial<Record<string, ItemGroupCacheEntry>>;
 	selectedPartyId?: string;
+	coId?: number;
 };
 
 export const useSalesInvoiceSelectOptions = ({
-	customers, transporters, brokers, approvedDeliveryOrders, invoiceTypes,
-	itemGroupsFromLineItems, itemGroupCache = {}, selectedPartyId,
+	customers, transporters, brokers, approvedDeliveryOrders, approvedSalesOrders, invoiceTypes,
+	itemGroupsFromLineItems, itemGroupCache = {}, selectedPartyId, coId,
 }: Params) => {
+	const [transporterBranchOptions, setTransporterBranchOptions] = React.useState<TransporterBranchRecord[]>([]);
+	const [loading, setLoading] = React.useState(false);
 	const customerOptions = React.useMemo<Option[]>(() => {
 		if (!customers?.length) return [];
 		return customers
@@ -60,6 +67,16 @@ export const useSalesInvoiceSelectOptions = ({
 			value: doRec.id,
 		}));
 	}, [approvedDeliveryOrders]);
+
+	const salesOrderOptions = React.useMemo<Option[]>(() => {
+		if (!approvedSalesOrders?.length) return [];
+		return approvedSalesOrders
+			.filter((so) => !selectedPartyId || String(so.partyId) === selectedPartyId)
+			.map((so) => ({
+				label: so.salesOrderNo + (so.partyName ? ` — ${so.partyName}` : ""),
+				value: so.id,
+			}));
+	}, [approvedSalesOrders, selectedPartyId]);
 
 	const invoiceTypeOptions = React.useMemo<Option[]>(
 		() => invoiceTypes.map((t) => ({ label: t.name || t.id, value: t.id })),
@@ -99,9 +116,9 @@ export const useSalesInvoiceSelectOptions = ({
 	);
 
 	const getItemLabel = React.useCallback(
-		(groupId: string, itemId: string, itemCode?: string): string => {
-			if (!groupId || !itemId) return itemCode || "-";
-			return itemGroupCache[groupId]?.itemLabelById[itemId] ?? itemCode ?? itemId;
+		(groupId: string, itemId: string, fallbackName?: string): string => {
+			if (!groupId || !itemId) return fallbackName || "-";
+			return itemGroupCache[groupId]?.itemLabelById[itemId] ?? fallbackName ?? itemId;
 		},
 		[itemGroupCache],
 	);
@@ -137,10 +154,32 @@ export const useSalesInvoiceSelectOptions = ({
 		[],
 	);
 
+	const fetchTransporterBranches = React.useCallback(
+		async (transporterId: number) => {
+			if (!transporterId || !coId) {
+				setTransporterBranchOptions([]);
+				return;
+			}
+
+			try {
+				setLoading(true);
+				const response = await getTransporterBranches(transporterId, coId);
+				setTransporterBranchOptions(response.data || []);
+			} catch (error) {
+				console.error("Failed to fetch transporter branches:", error);
+				setTransporterBranchOptions([]);
+			} finally {
+				setLoading(false);
+			}
+		},
+		[coId],
+	);
+
 	return {
-		customerOptions, customerBranchOptions, transporterOptions, brokerOptions, deliveryOrderOptions,
+		customerOptions, customerBranchOptions, transporterOptions, brokerOptions, deliveryOrderOptions, salesOrderOptions,
 		invoiceTypeOptions, itemGroupOptions, getItemGroupLabel,
 		getItemOptions, getMakeOptions, getUomOptions,
 		getItemLabel, getMakeLabel, getUomLabel, getUomConversions, getOptionLabel,
+		transporterBranchOptions, fetchTransporterBranches, loading,
 	};
 };

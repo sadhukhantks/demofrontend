@@ -2,18 +2,33 @@
 
 import React, { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import TransactionWrapper from "@/components/ui/TransactionWrapper";
+import TransactionWrapper, { type TransactionAction } from "@/components/ui/TransactionWrapper";
 import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import type { MuiFormMode } from "@/components/ui/muiform";
 import {
 	useDeferredOptionCache,
 	useTransactionSetup,
 	useTransactionPreview,
+	ItemSelectionDialog,
+	buildApprovalTransactionActions,
+	useRejectDialog,
+	useUnsavedChanges,
+	AutoResizeTextarea,
+	type SelectedItem,
 } from "@/components/ui/transaction";
 import { useBranchOptions } from "@/utils/branchUtils";
 import {
 	fetchDOSetup1,
 	fetchDOSetup2,
+	fetchSalesOrderLines,
 	getDOById,
 	type DODetails,
 } from "@/utils/deliveryOrderService";
@@ -21,13 +36,13 @@ import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { toast } from "@/hooks/use-toast";
 import { useMenuId } from "@/hooks/useMenuId";
 import { useCompanyName } from "@/hooks/useCompanyName";
+import { useCompanyLogo } from "@/hooks/useCompanyLogo";
 
 import { DeliveryOrderHeaderForm } from "./components/DeliveryOrderHeaderForm";
 import { DeliveryOrderFooterForm, DeliveryOrderTotalsDisplay } from "./components/DeliveryOrderFooter";
-import { DeliveryOrderApprovalBar } from "./components/DeliveryOrderApprovalBar";
 import DeliveryOrderPreview from "./components/DeliveryOrderPreview";
 import { useDOLineItemColumns } from "./components/DeliveryOrderLineItemsTable";
-import { SalesOrderLinesDialog } from "./components/SalesOrderLinesDialog";
+import { DOSalesOrderExtensionDisplay } from "./components/DOSalesOrderExtensionDisplay";
 
 import { useDeliveryOrderFormState } from "./hooks/useDeliveryOrderFormState";
 import { useDeliveryOrderLineItems } from "./hooks/useDeliveryOrderLineItems";
@@ -36,7 +51,7 @@ import { useDeliveryOrderHeaderSchema, useDeliveryOrderFooterSchema } from "./ho
 import { useDeliveryOrderFormSubmission } from "./hooks/useDeliveryOrderFormSubmission";
 import { useDeliveryOrderApproval } from "./hooks/useDeliveryOrderApproval";
 
-import type { ItemGroupCacheEntry, DOSetupData } from "./types/deliveryOrderTypes";
+import type { EditableLineItem, ItemGroupCacheEntry, DOSetupData } from "./types/deliveryOrderTypes";
 import { mapItemGroupDetailResponse, mapDOSetupResponse, mapDODetailsToFormValues } from "./utils/deliveryOrderMappers";
 import { calculateDOTotals } from "./utils/deliveryOrderCalculations";
 import { buildDefaultFormValues, createBlankLine } from "./utils/deliveryOrderFactories";
@@ -83,7 +98,10 @@ function DOTransactionPageContent() {
 	const branchPrefillAppliedRef = React.useRef(false);
 
 	const { getMenuId } = useMenuId({ transactionType: "delivery-order", menuIdFromUrl });
+	const getMenuIdRef = React.useRef(getMenuId);
+	React.useEffect(() => { getMenuIdRef.current = getMenuId; }, [getMenuId]);
 	const companyName = useCompanyName();
+	const companyLogo = useCompanyLogo(coId);
 
 	const {
 		initialValues, setInitialValues, formValues, setFormValues,
@@ -94,7 +112,6 @@ function DOTransactionPageContent() {
 	const [doDetails, setDODetails] = React.useState<DODetails | null>(null);
 	const [loading, setLoading] = React.useState<boolean>(mode !== "create");
 	const [pageError, setPageError] = React.useState<string | null>(null);
-	const [soDialogOpen, setSODialogOpen] = React.useState(false);
 
 	const branchValue = React.useMemo(() => {
 		if (lockedBranchId) return lockedBranchId;
@@ -203,6 +220,7 @@ function DOTransactionPageContent() {
 		lineItems, setLineItems, replaceItems, removeLineItems,
 		handleLineFieldChange, handleSalesOrderLinesConfirm,
 		mapLineToEditable, filledLineItems, lineItemsValid, itemGroupsFromLineItems,
+		lineHasAnyData,
 	} = useDeliveryOrderLineItems({
 		mode,
 		partyState,
@@ -211,6 +229,7 @@ function DOTransactionPageContent() {
 		itemGroupLoading,
 		ensureItemGroupData,
 		itemGroups,
+		invoiceTypeId: String(formValues.invoice_type ?? ""),
 	});
 
 	const initialLineSeededRef = React.useRef(false);
@@ -227,6 +246,90 @@ function DOTransactionPageContent() {
 		});
 	}, [mode, setLineItems]);
 
+	// Unsaved changes tracking for unified action bar
+	const getComparableLineData = React.useCallback(
+		(item: EditableLineItem) => ({
+			itemGroup: item.itemGroup,
+			item: item.item,
+			itemMake: item.itemMake,
+			hsnCode: item.hsnCode,
+			quantity: item.quantity,
+			rate: item.rate,
+			uom: item.uom,
+			discountType: item.discountType,
+			remarks: item.remarks,
+			taxPercentage: item.taxPercentage,
+		}),
+		[],
+	);
+
+	const comparableLineItems = React.useMemo(
+		() => lineItems.filter(lineHasAnyData),
+		[lineItems, lineHasAnyData],
+	);
+
+	const { hasUnsavedChanges, resetBaseline, setBaseline } = useUnsavedChanges({
+		formValues,
+		lineItems: comparableLineItems,
+		getComparableLineData,
+		enabled: mode !== "create",
+	});
+
+	// Item selection dialog
+	const [itemDialogOpen, setItemDialogOpen] = React.useState(false);
+
+	const excludeItemIds = React.useMemo(() => {
+		const ids = new Set<number>();
+		for (const li of lineItems) {
+			if (li.item) {
+				const num = Number(li.item);
+				if (Number.isFinite(num)) ids.add(num);
+			}
+		}
+		return ids;
+	}, [lineItems]);
+
+	const handleItemDialogConfirm = React.useCallback(
+		(items: SelectedItem[]) => {
+			if (mode === "view" || !items.length) return;
+
+			const newLines: EditableLineItem[] = items.map((item) => ({
+				id: crypto.randomUUID?.() ?? String(Date.now() + Math.random()),
+				itemGroup: String(item.item_grp_id),
+				item: String(item.item_id),
+				itemCode: item.full_item_code || item.item_code || "",
+				itemName: item.item_name || "",
+				itemMake: "",
+				hsnCode: item.hsn_code ?? "",
+				quantity: "",
+				rate: "",
+				uom: String(item.uom_id),
+				uomName: item.uom_name || undefined,
+				discountValue: "",
+				remarks: "",
+				taxPercentage: item.tax_percentage ?? undefined,
+			}));
+
+			const groupIds = [...new Set(items.map((i) => String(i.item_grp_id)))];
+			for (const gid of groupIds) {
+				if (!itemGroupCache[gid] && !itemGroupLoading[gid]) {
+					void ensureItemGroupData(gid);
+				}
+			}
+
+			setLineItems((prev) => {
+				const filledLines = prev.filter((line) => lineHasAnyData(line));
+				return [...filledLines, ...newLines, createBlankLine()];
+			});
+
+			toast({
+				title: `Added ${newLines.length} item${newLines.length > 1 ? "s" : ""}`,
+				description: "Fill in quantity, rate and other details.",
+			});
+		},
+		[mode, setLineItems, lineHasAnyData, itemGroupCache, itemGroupLoading, ensureItemGroupData]
+	);
+
 	const freightCharges = Number(formValues.freight_charges) || 0;
 	const roundOffValue = Number(formValues.round_off_value) || 0;
 	const totals = React.useMemo(
@@ -234,20 +337,15 @@ function DOTransactionPageContent() {
 		[filledLineItems, freightCharges, roundOffValue],
 	);
 
-	const detailsFetchKey = React.useMemo(
-		() => [mode, requestedId || "", branchIdForSetup || branchIdFromUrl || "", coId || ""].join("|"),
-		[mode, requestedId, branchIdForSetup, branchIdFromUrl, coId],
-	);
-
-	const lastDetailsKeyRef = React.useRef<string | null>(null);
-	const detailsFetchedRef = React.useRef(false);
-
+	// Refs for callbacks used inside the fetch effect — avoids including them in deps
+	const fetchCallbacksRef = React.useRef({ setInitialValues, setFormValues, bumpFormKey, replaceItems, mapLineToEditable, setBaseline, lineHasAnyData });
 	React.useEffect(() => {
-		if (lastDetailsKeyRef.current !== detailsFetchKey) {
-			lastDetailsKeyRef.current = detailsFetchKey;
-			detailsFetchedRef.current = false;
-		}
-	}, [detailsFetchKey]);
+		fetchCallbacksRef.current = { setInitialValues, setFormValues, bumpFormKey, replaceItems, mapLineToEditable, setBaseline, lineHasAnyData };
+	});
+	const branchValueRef = React.useRef(branchValue);
+	React.useEffect(() => { branchValueRef.current = branchValue; }, [branchValue]);
+
+	const lastDetailsFetchKeyRef = React.useRef("");
 
 	React.useEffect(() => {
 		if (mode === "create") {
@@ -264,18 +362,18 @@ function DOTransactionPageContent() {
 			return;
 		}
 
-		if (!setupEnabled) return;
-		if (setupLoading) return;
-		if (!setupData) return;
-		if (detailsFetchedRef.current) return;
+		if (!coId) return;
 
-		detailsFetchedRef.current = true;
+		const fetchKey = `${requestedId}|${coId}`;
+		if (lastDetailsFetchKeyRef.current === fetchKey) return;
 
 		let cancelled = false;
+		lastDetailsFetchKeyRef.current = fetchKey;
+
 		const fetchDetails = async () => {
 			setLoading(true);
 			try {
-				const details = await getDOById(requestedId, coId || undefined, getMenuId() || undefined);
+				const details = await getDOById(requestedId, coId || undefined, getMenuIdRef.current() || undefined);
 				if (cancelled) return;
 
 				setDODetails(details);
@@ -284,10 +382,11 @@ function DOTransactionPageContent() {
 
 				const detailsWithBranchId = details as unknown as { branch_id?: unknown; branchId?: unknown };
 				const branchIdFromDetails = detailsWithBranchId?.branch_id ?? detailsWithBranchId?.branchId;
+				const currentBranchValue = branchValueRef.current;
 				const resolvedBranchValue = (() => {
 					if (branchIdFromDetails != null && branchIdFromDetails !== "") return String(branchIdFromDetails);
 					if (branchIdFromUrl) return String(branchIdFromUrl);
-					if (branchValue && /^\d+$/.test(branchValue)) return branchValue;
+					if (currentBranchValue && /^\d+$/.test(currentBranchValue)) return currentBranchValue;
 					const mappedValue = nextValues.branch != null ? String(nextValues.branch) : "";
 					return /^\d+$/.test(mappedValue) ? mappedValue : "";
 				})();
@@ -297,12 +396,16 @@ function DOTransactionPageContent() {
 					setLockedBranchId(resolvedBranchValue);
 				}
 
-				setInitialValues(nextValues);
-				setFormValues(nextValues);
-				bumpFormKey();
+				const { setInitialValues: setInit, setFormValues: setForm, bumpFormKey: bump, replaceItems: replace, mapLineToEditable: mapLine, setBaseline: setBase, lineHasAnyData: hasData } = fetchCallbacksRef.current;
+				setInit(nextValues);
+				setForm(nextValues);
+				bump();
 
-				const normalizedLines = (details.lines ?? []).map((line) => mapLineToEditable(line));
-				replaceItems(normalizedLines);
+				const normalizedLines = (details.lines ?? []).map((line) => mapLine(line));
+				replace(normalizedLines);
+
+				const baselineLines = normalizedLines.filter(hasData);
+				setBase(nextValues, baselineLines);
 
 				setPageError(null);
 			} catch (error) {
@@ -318,14 +421,11 @@ function DOTransactionPageContent() {
 
 		void fetchDetails();
 
-		return () => { cancelled = true; };
-	}, [
-		mode, requestedId, coId, getMenuId,
-		setInitialValues, setFormValues, bumpFormKey,
-		replaceItems, mapLineToEditable,
-		setupEnabled, setupLoading, setupData,
-		branchIdFromUrl, branchValue,
-	]);
+		return () => {
+			cancelled = true;
+			lastDetailsFetchKeyRef.current = "";
+		};
+	}, [mode, requestedId, coId, branchIdFromUrl]);
 
 	React.useEffect(() => {
 		if (!doDetails?.lines?.length) return;
@@ -337,28 +437,68 @@ function DOTransactionPageContent() {
 		uniqueGroups.forEach((groupId) => { ensureItemGroupData(groupId); });
 	}, [doDetails, ensureItemGroupData]);
 
+	// Disable the SO dropdown if lines were manually entered without an SO selected
+	const hasManualLines = React.useMemo(() => {
+		if (mode !== "create") return false;
+		if (formValues.sales_order) return false;
+		return filledLineItems.length > 0;
+	}, [mode, formValues.sales_order, filledLineItems.length]);
+
+	// When sales_order is selected in create mode, auto-populate header fields + line items from the SO
+	const prevSORef = React.useRef<string | undefined>(undefined);
+	React.useEffect(() => {
+		const soValue = formValues.sales_order ? String(formValues.sales_order) : undefined;
+		if (!soValue || mode !== "create") return;
+		// Only autofill when the SO selection actually changes
+		if (prevSORef.current === soValue) return;
+		prevSORef.current = soValue;
+
+		const selectedSO = setupData?.approvedSalesOrders?.find(
+			(so) => String(so.id) === soValue,
+		);
+		if (!selectedSO) return;
+
+		// Autofill header fields — update both React state and the live form via formRef
+		const headerUpdates: Record<string, unknown> = {};
+		if (selectedSO.partyId) headerUpdates.party = selectedSO.partyId;
+		if (selectedSO.billingToId) {
+			headerUpdates.billing_to = selectedSO.billingToId;
+			headerUpdates.party_branch = selectedSO.billingToId;
+		}
+		if (selectedSO.shippingToId) headerUpdates.shipping_to = selectedSO.shippingToId;
+		if (selectedSO.transporterId) headerUpdates.transporter = selectedSO.transporterId;
+		if (selectedSO.brokerId) headerUpdates.broker = selectedSO.brokerId;
+		if (selectedSO.invoiceType) headerUpdates.invoice_type = selectedSO.invoiceType;
+
+		setFormValues((prev: Record<string, unknown>) => ({ ...prev, ...headerUpdates }));
+		Object.entries(headerUpdates).forEach(([key, value]) => {
+			formRef.current?.setValue(key, value);
+		});
+
+		// Auto-import ALL line items from the sales order
+		fetchSalesOrderLines(soValue)
+			.then((response) => {
+				const lines = response.data || [];
+				if (lines.length > 0) {
+					handleSalesOrderLinesConfirm(lines);
+				}
+			})
+			.catch((error) => {
+				const description = error instanceof Error ? error.message : "Unable to load sales order lines.";
+				toast({ variant: "destructive", title: "Failed to import SO lines", description });
+			});
+	}, [formValues.sales_order, mode, setupData?.approvedSalesOrders, setFormValues, handleSalesOrderLinesConfirm, formRef]);
+
 	const isLineItemsReady = React.useMemo(() => {
 		if (mode === "view" || pageError || setupError) return true;
 		return lineItemsValid;
 	}, [lineItemsValid, mode, pageError, setupError]);
 
-	const handleSOSelect = React.useCallback(() => {
-		setSODialogOpen(true);
-	}, []);
-
-	const handleSOLinesConfirm = React.useCallback(
-		(selectedItems: import("@/utils/deliveryOrderService").SalesOrderLine[]) => {
-			handleSalesOrderLinesConfirm(selectedItems);
-			setSODialogOpen(false);
-		},
-		[handleSalesOrderLinesConfirm],
-	);
-
 	const {
 		customerOptions, customerBranchOptions, transporterOptions, brokerOptions, salesOrderOptions,
-		invoiceTypeOptions, itemGroupOptions, getItemGroupLabel,
+		invoiceTypeOptions,
 		getItemOptions, getMakeOptions, getUomOptions,
-		getItemLabel, getMakeLabel, getUomLabel, getUomConversions, getOptionLabel,
+		getMakeLabel, getUomLabel, getUomConversions, getOptionLabel,
 	} = useDeliveryOrderSelectOptions({
 		customers,
 		transporters,
@@ -380,6 +520,7 @@ function DOTransactionPageContent() {
 		invoiceTypeOptions,
 		mode,
 		headerFieldsDisabled,
+		hasManualLines,
 	});
 
 	const footerSchema = useDeliveryOrderFooterSchema({ mode });
@@ -388,13 +529,11 @@ function DOTransactionPageContent() {
 
 	const lineItemColumns = useDOLineItemColumns({
 		canEdit,
-		itemGroupOptions,
-		getItemGroupLabel,
 		getItemOptions,
-		getItemLabel,
+		getMakeOptions,
 		getUomOptions,
 		getUomLabel,
-		onFieldChange: handleLineFieldChange,
+		handleLineFieldChange,
 		invoiceTypeId: String(formValues.invoice_type ?? ""),
 		getUomConversions,
 	});
@@ -413,6 +552,19 @@ function DOTransactionPageContent() {
 		setDODetails,
 	});
 
+	// Reset unsaved-changes baseline after approval actions refresh doDetails
+	React.useEffect(() => {
+		if (!doDetails || mode === "create") return;
+		const timer = setTimeout(() => resetBaseline(), 0);
+		return () => clearTimeout(timer);
+	}, [doDetails, mode, resetBaseline]);
+
+	// Reject dialog for approval workflow
+	const {
+		rejectDialogOpen, rejectReason, setRejectReason,
+		openRejectDialog, handleRejectConfirm, handleRejectCancel,
+	} = useRejectDialog(handleReject);
+
 	const branchLabel = React.useMemo(() => {
 		const value = formValues.branch ?? doDetails?.branch;
 		return getOptionLabel(resolvedBranchOptions, value) ?? (typeof value === "string" ? value : undefined);
@@ -430,13 +582,37 @@ function DOTransactionPageContent() {
 
 	const billingToLabel = React.useMemo(() => {
 		const value = formValues.billing_to ?? doDetails?.billingTo;
-		return getOptionLabel(customerBranchOptions, value) ?? (typeof value === "string" ? value : undefined);
-	}, [formValues.billing_to, doDetails?.billingTo, customerBranchOptions, getOptionLabel]);
+		if (!value) return undefined;
+		// First try to get from options
+		const fromOptions = getOptionLabel(customerBranchOptions, value);
+		if (fromOptions) return fromOptions;
+		// Otherwise construct from branch record with full address concatenation
+		if (selectedCustomer?.branches) {
+			const branch = selectedCustomer.branches.find((b) => b.id === String(value));
+			if (branch) {
+				const parts = [branch.address, branch.stateName].filter(Boolean);
+				return parts.length > 0 ? parts.join(" — ") : branch.address || String(value);
+			}
+		}
+		return typeof value === "string" ? value : undefined;
+	}, [formValues.billing_to, doDetails?.billingTo, customerBranchOptions, getOptionLabel, selectedCustomer]);
 
 	const shippingToLabel = React.useMemo(() => {
 		const value = formValues.shipping_to ?? doDetails?.shippingTo;
-		return getOptionLabel(customerBranchOptions, value) ?? (typeof value === "string" ? value : undefined);
-	}, [formValues.shipping_to, doDetails?.shippingTo, customerBranchOptions, getOptionLabel]);
+		if (!value) return undefined;
+		// First try to get from options
+		const fromOptions = getOptionLabel(customerBranchOptions, value);
+		if (fromOptions) return fromOptions;
+		// Otherwise construct from branch record with full address concatenation
+		if (selectedCustomer?.branches) {
+			const branch = selectedCustomer.branches.find((b) => b.id === String(value));
+			if (branch) {
+				const parts = [branch.address, branch.stateName].filter(Boolean);
+				return parts.length > 0 ? parts.join(" — ") : branch.address || String(value);
+			}
+		}
+		return typeof value === "string" ? value : undefined;
+	}, [formValues.shipping_to, doDetails?.shippingTo, customerBranchOptions, getOptionLabel, selectedCustomer]);
 
 	const salesOrderLabel = React.useMemo(() => {
 		const value = formValues.sales_order ?? doDetails?.salesOrder;
@@ -450,66 +626,56 @@ function DOTransactionPageContent() {
 
 	const statusLabel = React.useMemo(() => statusChipProps?.label ?? doDetails?.status, [statusChipProps?.label, doDetails?.status]);
 
+	// Resolve billing/shipping addresses for print preview
+	const billingBranchId = formValues.billing_to ? String(formValues.billing_to) : undefined;
+	const billingToAddress = React.useMemo(() => {
+		if (!selectedCustomer?.branches || !billingBranchId) return undefined;
+		return selectedCustomer.branches.find((b) => b.id === billingBranchId)?.fullAddress;
+	}, [selectedCustomer, billingBranchId]);
+
+	const shippingToAddress = React.useMemo(() => {
+		if (!selectedCustomer?.branches || !shippingBranchId) return undefined;
+		return selectedCustomer.branches.find((b) => b.id === shippingBranchId)?.fullAddress;
+	}, [selectedCustomer, shippingBranchId]);
+
 	const previewHeader = React.useMemo(
 		() => ({
 			doNo: doDetails?.deliveryOrderNo,
 			doDate: (formValues.date as string) || doDetails?.deliveryOrderDate,
-			expectedDeliveryDate: (formValues.expected_delivery_date as string) || doDetails?.expectedDeliveryDate,
 			branch: branchLabel,
 			customer: customerLabel,
-			customerBranch: customerBranchLabel,
+			billingToAddress,
+			shippingToAddress,
 			salesOrder: salesOrderLabel,
-			billingTo: billingToLabel,
-			shippingTo: shippingToLabel,
 			transporter: transporterLabel,
 			vehicleNo: (formValues.vehicle_no as string) || doDetails?.vehicleNo,
 			driverName: (formValues.driver_name as string) || doDetails?.driverName,
-			driverContact: (formValues.driver_contact as string) || doDetails?.driverContact,
-			ewayBillNo: (formValues.eway_bill_no as string) || doDetails?.ewayBillNo,
-			ewayBillDate: (formValues.eway_bill_date as string) || doDetails?.ewayBillDate,
 			companyName,
+			companyLogo,
 			status: statusLabel,
-			updatedBy: doDetails?.updatedBy,
-			updatedAt: doDetails?.updatedAt,
 		}),
 		[
-			doDetails, formValues.date, formValues.expected_delivery_date,
-			formValues.vehicle_no, formValues.driver_name, formValues.driver_contact,
-			formValues.eway_bill_no, formValues.eway_bill_date,
-			branchLabel, customerLabel, customerBranchLabel, salesOrderLabel,
-			billingToLabel, shippingToLabel, transporterLabel, companyName, statusLabel,
+			doDetails, formValues.date,
+			formValues.vehicle_no, formValues.driver_name,
+			branchLabel, customerLabel, billingToAddress, shippingToAddress, salesOrderLabel,
+			transporterLabel, companyName, companyLogo, statusLabel,
 		],
 	);
 
 	const previewItems = React.useMemo(() => {
 		return filledLineItems.map((line, index) => {
-			const groupLabel = itemGroups.find((grp) => grp.id === line.itemGroup)?.label ?? line.itemGroup ?? "";
-			const itemLabel = getItemLabel(line.itemGroup, line.item, line.itemCode);
-			const uomLabel = getUomLabel(line.itemGroup, line.item, line.uom);
-			const displayItem = (() => {
-				const parts = [groupLabel, itemLabel].filter(Boolean);
-				if (parts.length > 0) return parts.join(" — ");
-				return line.item || "-";
-			})();
-			const discountType = (() => {
-				if (line.discountType === 1) return "%";
-				if (line.discountType === 2) return "Amt";
-				return "";
-			})();
+			const itemOptions = getItemOptions(line.itemGroup);
+			const itemLabel = itemOptions.find((o) => o.value === line.item)?.label ?? line.itemName ?? "-";
+			const uomLabel = getUomLabel(line.itemGroup, line.item, line.uom, line.uomName);
 			return {
 				srNo: index + 1,
-				itemGroup: groupLabel || undefined,
-				item: displayItem,
+				itemCode: line.itemCode || "-",
+				item: itemLabel,
 				quantity: line.quantity || "-",
 				uom: uomLabel,
-				rate: line.rate,
-				discountType,
-				discountAmount: typeof line.discountAmount === "number" ? line.discountAmount : "",
-				netAmount: typeof line.netAmount === "number" ? line.netAmount : "",
-				remarks: line.remarks || "-",
 			};
 		});
-	}, [filledLineItems, getItemLabel, getUomLabel, itemGroups]);
+	}, [filledLineItems, getItemOptions, getUomLabel]);
 
 	const previewTotals = React.useMemo(
 		() => ({
@@ -554,11 +720,51 @@ function DOTransactionPageContent() {
 		formValues,
 	});
 
-	const primaryActionLabel = mode === "create" ? "Create" : "Save";
-	const handleSaveClick = React.useCallback(() => {
-		if (!formRef.current?.submit) return;
-		void formRef.current.submit();
-	}, [formRef]);
+	// Unified primary actions for TransactionWrapper
+	const primaryActions = React.useMemo<TransactionAction[] | undefined>(() => {
+		if (pageError || setupError) return undefined;
+
+		if (mode === "create") {
+			return [{
+				label: "Create Delivery Order",
+				onClick: () => formRef.current?.submit(),
+				disabled: saving || !isLineItemsReady || setupLoading,
+				loading: saving,
+			}];
+		}
+
+		if (!doDetails) return undefined;
+
+		if (mode === "edit" && approvalPermissions.canSave && hasUnsavedChanges) {
+			return [{
+				label: "Save Changes",
+				onClick: () => formRef.current?.submit(),
+				disabled: saving || !isLineItemsReady || setupLoading,
+				loading: saving,
+			}];
+		}
+
+		const approvalActions = buildApprovalTransactionActions({
+			approvalInfo,
+			permissions: approvalPermissions,
+			handlers: {
+				onOpen: handleOpen,
+				onCancelDraft: handleCancelDraft,
+				onReopen: handleReopen,
+				onSendForApproval: handleSendForApproval,
+				onApprove: handleApprove,
+				onReject: openRejectDialog,
+				onViewApprovalLog: handleViewApprovalLog,
+			},
+			loading: approvalLoading,
+			disabled: saving || loading || setupLoading,
+		});
+
+		return approvalActions.length ? approvalActions : undefined;
+	}, [pageError, setupError, mode, doDetails, saving, isLineItemsReady, setupLoading,
+		approvalPermissions, hasUnsavedChanges, approvalInfo, handleOpen, handleCancelDraft,
+		handleReopen, handleSendForApproval, handleApprove, openRejectDialog,
+		handleViewApprovalLog, approvalLoading, loading, formRef]);
 
 	const pageTitle = React.useMemo(() => {
 		if (mode === "create") return "Create Delivery Order";
@@ -568,19 +774,35 @@ function DOTransactionPageContent() {
 		return doDetails?.deliveryOrderNo ? `Delivery Order ${doDetails.deliveryOrderNo}` : "Delivery Order Details";
 	}, [mode, doDetails?.deliveryOrderNo]);
 
-	const showSOButton = React.useMemo(() => {
-		return mode !== "view" && Boolean(formValues.sales_order);
-	}, [mode, formValues.sales_order]);
+	// Detect empty customer list issue
+	const customerListWarning = React.useMemo(() => {
+		if (setupLoading || pageError) return null;
+		if (mode === "view") return null;
+		if (setupData && customers.length === 0) {
+			return (
+				<div role="alert" aria-live="assertive" className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+					<p className="text-sm text-yellow-800">
+						<strong>⚠️ No customers available:</strong> The customer list is empty. This typically occurs when customer party types are not properly configured.
+						Please contact your system administrator to ensure that customer master data with proper party types is set up in the system.
+					</p>
+				</div>
+			);
+		}
+		return null;
+	}, [setupLoading, pageError, mode, setupData, customers.length]);
 
 	return (
+		<>
 		<TransactionWrapper
 			title={pageTitle}
 			subtitle={mode === "create" ? "Create a new delivery order" : mode === "edit" ? "Edit delivery order" : "View delivery order details"}
 			metadata={metadata}
 			statusChip={statusChipProps}
 			backAction={{ onClick: () => router.push("/dashboardportal/sales/deliveryOrder") }}
+			primaryActions={primaryActions}
+			actionsAfterFooter
 			loading={loading || setupLoading}
-			alerts={pageError ? <div role="alert" aria-live="assertive" className="text-red-600">{pageError}</div> : undefined}
+			alerts={pageError ? <div role="alert" aria-live="assertive" className="text-red-600">{pageError}</div> : customerListWarning}
 			preview={
 				<DeliveryOrderPreview
 					header={previewHeader}
@@ -596,6 +818,16 @@ function DOTransactionPageContent() {
 				columns: lineItemColumns,
 				placeholder: "Add line items manually or import from a sales order",
 				selectionColumnWidth: "28px",
+				headerAction: canEdit ? (
+					<Button
+						type="button"
+						size="sm"
+						onClick={() => setItemDialogOpen(true)}
+						disabled={!coId}
+					>
+						Add Items
+					</Button>
+				) : undefined,
 			}}
 			footer={
 				<div className="space-y-6 pt-4 border-t">
@@ -608,25 +840,6 @@ function DOTransactionPageContent() {
 						onValuesChange={handleFooterFormValuesChange}
 					/>
 					<DeliveryOrderTotalsDisplay totals={totals} showGSTBreakdown={Boolean(partyState || shippingState)} />
-					<DeliveryOrderApprovalBar
-						approvalInfo={approvalInfo}
-						permissions={approvalPermissions}
-						loading={approvalLoading}
-						onApprove={handleApprove}
-						onReject={handleReject}
-						onOpen={handleOpen}
-						onCancelDraft={handleCancelDraft}
-						onReopen={handleReopen}
-						onSendForApproval={handleSendForApproval}
-						onViewApprovalLog={handleViewApprovalLog}
-					/>
-					{mode !== "view" ? (
-						<div className="flex justify-end pt-2">
-							<Button type="button" onClick={handleSaveClick} disabled={saving || setupLoading || !isLineItemsReady}>
-								{saving ? "Processing..." : primaryActionLabel}
-							</Button>
-						</div>
-					) : null}
 				</div>
 			}
 		>
@@ -638,17 +851,52 @@ function DOTransactionPageContent() {
 				formRef={formRef}
 				onSubmit={handleFormSubmit}
 				onValuesChange={handleMainFormValuesChange}
-				showSalesOrderButton={showSOButton}
-				onSalesOrderSelect={handleSOSelect}
-				salesOrderButtonDisabled={!formValues.sales_order}
 			/>
 
-			<SalesOrderLinesDialog
-				open={soDialogOpen}
-				onOpenChange={setSODialogOpen}
-				onConfirm={handleSOLinesConfirm}
-				salesOrderId={formValues.sales_order ? String(formValues.sales_order) : undefined}
+			<DOSalesOrderExtensionDisplay
+				soExtensionData={doDetails?.soExtensionData}
+				invoiceTypeId={formValues.invoice_type as string}
 			/>
 		</TransactionWrapper>
+
+		<ItemSelectionDialog
+			open={itemDialogOpen}
+			onOpenChange={setItemDialogOpen}
+			coId={coId}
+			onConfirm={handleItemDialogConfirm}
+			filter="saleable"
+			excludeItemIds={excludeItemIds}
+			title="Select Items for Delivery Order"
+		/>
+
+		<Dialog open={rejectDialogOpen} onOpenChange={(open) => { if (!open) handleRejectCancel(); }}>
+			<DialogContent className="sm:max-w-125">
+				<DialogHeader>
+					<DialogTitle>Reject Delivery Order</DialogTitle>
+					<DialogDescription>Please provide a reason for rejecting this delivery order.</DialogDescription>
+				</DialogHeader>
+				<div className="space-y-4 py-4">
+					<div className="space-y-2">
+						<label htmlFor="reject-reason" className="text-sm font-medium leading-none">
+							Rejection Reason *
+						</label>
+						<AutoResizeTextarea
+							id="reject-reason"
+							placeholder="Enter rejection reason..."
+							value={rejectReason}
+							onChange={(e) => setRejectReason(e.target.value)}
+							className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+							minHeight={80}
+							maxHeight={200}
+						/>
+					</div>
+				</div>
+				<DialogFooter>
+					<Button variant="outline" onClick={handleRejectCancel}>Cancel</Button>
+					<Button variant="destructive" onClick={handleRejectConfirm} disabled={!rejectReason.trim()}>Reject</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+		</>
 	);
 }

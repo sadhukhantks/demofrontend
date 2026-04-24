@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Alert, CircularProgress, Box } from "@mui/material";
+import { Alert, CircularProgress, Box, Typography } from "@mui/material";
 import TransactionWrapper from "@/components/ui/TransactionWrapper";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -172,17 +172,43 @@ function JuteMREditPageContent() {
 	const [partyBranchOptions, setPartyBranchOptions] = React.useState<PartyBranchOption[]>([]);
 	const [partyBranchLoading, setPartyBranchLoading] = React.useState(false);
 	const [partyBranchesLoaded, setPartyBranchesLoaded] = React.useState(false);
+	// Tracks unsaved user edits. Approval actions (Pending/Open/Approve/etc.)
+	// are hidden until isDirty === false to prevent sending stale data to
+	// the approval workflow before Save has persisted the latest changes.
+	const [isDirty, setIsDirty] = React.useState(false);
 
 	const handleHeaderChange = React.useCallback(
 		(field: keyof JuteMRHeader, value: string | number | null) => {
-			setHeader((prev) => (prev ? { ...prev, [field]: value } : null));
+			setIsDirty(true);
+			setHeader((prev) => {
+				if (!prev) return null;
+				const updated = { ...prev, [field]: value };
+
+				// When party_branch_id is changed, also update address and gst_no from the selected branch
+				if (field === "party_branch_id") {
+					if (value != null) {
+						const selectedBranch = partyBranchOptions.find((b) => b.party_mst_branch_id === value);
+						if (selectedBranch) {
+							updated.party_address = selectedBranch.address;
+							updated.party_gst_no = selectedBranch.gst_no;
+						}
+					} else {
+						// Clear fields when party branch is deselected
+						updated.party_address = null;
+						updated.party_gst_no = null;
+					}
+				}
+
+				return updated;
+			});
 		},
-		[]
+		[partyBranchOptions]
 	);
 
 	// Build line item columns
 	const handleLineFieldChange = React.useCallback(
 		(id: string, field: keyof MRLineItem, value: string | number | null) => {
+			setIsDirty(true);
 			setLineItems((prev) =>
 				prev.map((li) => {
 					if (li.id !== id) return li;
@@ -285,10 +311,12 @@ function JuteMREditPageContent() {
 			
 			// Auto-select if only 1 branch and no branch is currently selected
 			if (branches.length === 1 && !currentPartyBranchId) {
-				setHeader((prev) => prev ? { 
-					...prev, 
+				setHeader((prev) => prev ? {
+					...prev,
 					party_branch_id: branches[0].party_mst_branch_id,
-					party_branch_name: branches[0].display 
+					party_branch_name: branches[0].display,
+					party_address: branches[0].address,
+					party_gst_no: branches[0].gst_no
 				} : null);
 			}
 		} catch (err) {
@@ -356,6 +384,7 @@ function JuteMREditPageContent() {
 					remarks: li.remarks,
 					warehouseId: li.warehouse_id,
 					warehousePath: li.warehouse_path,
+					unitConversion: li.unit_conversion || null,
 				};
 			});
 
@@ -369,6 +398,9 @@ function JuteMREditPageContent() {
 			} else {
 				setLineItems(mappedLineItems);
 			}
+
+			// Fresh load from server — no unsaved edits.
+			setIsDirty(false);
 		} catch (err) {
 			setPageError(err instanceof Error ? err.message : "Failed to load MR data");
 		} finally {
@@ -445,7 +477,6 @@ function JuteMREditPageContent() {
 				mr_weight: Math.round(header.mr_weight ?? 0),
 				party_branch_id: header.party_branch_id,
 				remarks: header.remarks,
-				src_com_id: header.src_com_id,
 				line_items: lineItems.map((li) => ({
 					jute_mr_li_id: li.juteMrLiId,
 					actual_item_grp_id: li.actualItemId,
@@ -552,20 +583,31 @@ function JuteMREditPageContent() {
 				/>
 			}
 			footer={
-				<MRApprovalBar
-					approvalInfo={approvalInfo}
-					permissions={approvalPermissions}
-					loading={approvalLoading}
-					canSetOpen={canSetOpen}
-					canSetPending={canSetPending}
-					partyHasNoBranches={partyHasNoBranches}
-					onOpen={handleOpen}
-					onApprove={handleApprove}
-					onReject={handleReject}
-					onPending={handlePending}
-					onCancel={handleCancel}
-					onViewApprovalLog={handleViewApprovalLog}
-				/>
+				isDirty ? (
+					<Box sx={{ p: 2, borderTop: 1, borderColor: "divider" }}>
+						<Alert severity="info" sx={{ mb: 0 }}>
+							<Typography variant="body2">
+								You have unsaved changes. Press <strong>Save</strong> to enable approval actions
+								(Open / Pending / Approve / Reject / Cancel).
+							</Typography>
+						</Alert>
+					</Box>
+				) : (
+					<MRApprovalBar
+						approvalInfo={approvalInfo}
+						permissions={approvalPermissions}
+						loading={approvalLoading}
+						canSetOpen={canSetOpen}
+						canSetPending={canSetPending}
+						partyHasNoBranches={partyHasNoBranches}
+						onOpen={handleOpen}
+						onApprove={handleApprove}
+						onReject={handleReject}
+						onPending={handlePending}
+						onCancel={handleCancel}
+						onViewApprovalLog={handleViewApprovalLog}
+					/>
+				)
 			}
 		>
 			<Box sx={{ maxHeight: "calc(100vh - 300px)", overflowY: "auto", pr: 1 }}>

@@ -3,6 +3,7 @@
 import React, { useRef } from "react";
 import { Box, Stack, Typography, Divider } from "@mui/material";
 import { Button } from "@/components/ui/button";
+import { openStyledPrintWindow } from "@/utils/printUtils";
 
 export type IndentPreviewHeader = {
   indentNo?: string;
@@ -16,15 +17,12 @@ export type IndentPreviewHeader = {
   updatedBy?: string;
   updatedAt?: string;
   companyName?: string;
+  companyLogo?: string;
 };
 
 export type IndentPreviewItem = {
   srNo: number;
   department?: string;
-  itemGroup?: string;
-  itemGroupCode?: string;
-  itemGroupName?: string;
-  item?: string;
   itemCode?: string;
   itemName?: string;
   itemMake?: string;
@@ -42,8 +40,8 @@ type IndentPreviewProps = {
 };
 
 const FieldRow = ({ label, value }: { label: string; value?: React.ReactNode }) => (
-  <Stack direction="column" spacing={0.25} sx={{ minWidth: 0 }}>
-    <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem" }}>
+  <Stack direction="row" spacing={0.5} sx={{ minWidth: 0, alignItems: "baseline" }}>
+    <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem", whiteSpace: "nowrap" }}>
       {label}:
     </Typography>
     <Typography variant="body2" sx={{ fontWeight: 400, fontSize: "0.875rem" }}>
@@ -89,41 +87,13 @@ const IndentPreview: React.FC<IndentPreviewProps> = ({ header, items, remarks, o
       return;
     }
 
-    // Default print functionality - open a new window and copy current styles so it matches on-screen preview
     const printContent = previewRef.current?.innerHTML || "";
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) {
-      alert("Please allow popups to print this document");
-      return;
-    }
+    const printWindow = openStyledPrintWindow(
+      printContent,
+      `Purchase Indent - ${header.indentNo || "Print"}`
+    );
+    if (!printWindow) return;
 
-    // Basic HTML skeleton
-    printWindow.document.open();
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>Purchase Indent - ${header.indentNo || "Print"}</title></head><body><div id="print-root"></div></body></html>`);
-    printWindow.document.close();
-
-    // Copy styles from current document (includes MUI/emotion style tags)
-    const styleNodes = document.querySelectorAll('style, link[rel="stylesheet"]');
-    styleNodes.forEach((node) => {
-      printWindow.document.head.appendChild(node.cloneNode(true));
-    });
-
-    // Add minimal print helpers
-    const helperStyle = printWindow.document.createElement("style");
-    helperStyle.textContent = `
-      @media print { @page { margin: 12mm; } }
-      body { margin: 0; padding: 20px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      table { width: 100%; border-collapse: collapse; }
-      /* Ensure left company block wraps and stays within 1/4 width when printing */
-      #preview-left-pane { max-width: 25% !important; flex-basis: 25% !important; word-break: break-word; white-space: normal; }
-    `;
-    printWindow.document.head.appendChild(helperStyle);
-
-    // Inject content
-    const root = printWindow.document.getElementById("print-root");
-    if (root) root.innerHTML = printContent;
-
-    // Wait briefly for styles to apply, then print
     printWindow.focus();
     setTimeout(() => {
       printWindow.print();
@@ -137,41 +107,12 @@ const IndentPreview: React.FC<IndentPreviewProps> = ({ header, items, remarks, o
       return;
     }
 
-    // Default download functionality - open print dialog (Save as PDF) with matching styles
     const printContent = previewRef.current?.innerHTML || "";
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) {
-      alert("Please allow popups to download this document");
-      return;
-    }
-
-    // Basic HTML skeleton
-    printWindow.document.open();
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>Purchase Indent - ${header.indentNo || "Download"}</title></head><body><div id="print-root"></div></body></html>`);
-    printWindow.document.close();
-
-    // Copy styles from current document (includes MUI/emotion style tags)
-    const styleNodes = document.querySelectorAll('style, link[rel="stylesheet"]');
-    styleNodes.forEach((node) => {
-      printWindow.document.head.appendChild(node.cloneNode(true));
-    });
-
-    // Add minimal print helpers
-    const helperStyle = printWindow.document.createElement("style");
-    helperStyle.textContent = `
-      @media print { @page { margin: 12mm; } }
-      body { margin: 0; padding: 20px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      table { width: 100%; border-collapse: collapse; }
-      /* Ensure left company block wraps and stays within 1/4 width when printing */
-      #preview-left-pane { max-width: 25% !important; flex-basis: 25% !important; word-break: break-word; white-space: normal; }
-      /* Ensure left company block wraps and stays within 1/4 width when printing */
-      #preview-left-pane { max-width: 25% !important; flex-basis: 25% !important; word-break: break-word; white-space: normal; }
-    `;
-    printWindow.document.head.appendChild(helperStyle);
-
-    // Inject content
-    const root = printWindow.document.getElementById("print-root");
-    if (root) root.innerHTML = printContent;
+    const printWindow = openStyledPrintWindow(
+      printContent,
+      `Purchase Indent - ${header.indentNo || "Download"}`
+    );
+    if (!printWindow) return;
 
     printWindow.focus();
     setTimeout(() => {
@@ -194,6 +135,9 @@ const IndentPreview: React.FC<IndentPreviewProps> = ({ header, items, remarks, o
               flexBasis: { md: "25%" },
             }}
           >
+            {header.companyLogo && (
+              <img src={header.companyLogo} alt="" style={{ maxHeight: 60, maxWidth: 200, marginBottom: 4 }} />
+            )}
             <Typography
               variant="body1"
               sx={{
@@ -283,7 +227,8 @@ const IndentPreview: React.FC<IndentPreviewProps> = ({ header, items, remarks, o
                 {[
                   "Sr No",
                   "Department",
-                  "Item",
+                  "Item Code",
+                  "Item Name",
                   "Make",
                   "Qty",
                   "UOM",
@@ -301,61 +246,7 @@ const IndentPreview: React.FC<IndentPreviewProps> = ({ header, items, remarks, o
             </Box>
             <Box component="tbody">
               {items.length ? (
-                items.map((item) => {
-                  // Format item as [Item Group Code] Item Code - Item Group Name - Item Name
-                  const formattedItem = (() => {
-                    // Helper to extract code and name from a label
-                    const extractCodeAndName = (label: string | undefined) => {
-                      if (!label) return { code: undefined, name: undefined };
-                      const separator = label.includes(" — ") ? " — " : label.includes(" - ") ? " - " : null;
-                      if (separator) {
-                        const parts = label.split(separator);
-                        return {
-                          code: parts[0]?.trim(),
-                          name: parts[1]?.trim(),
-                        };
-                      }
-                      return { code: label.trim(), name: undefined };
-                    };
-
-                    // Get codes and names
-                    const groupData = extractCodeAndName(item.itemGroup);
-                    const itemData = extractCodeAndName(item.item);
-
-                    const groupCode = item.itemGroupCode || groupData.code;
-                    const itemCode = item.itemCode || itemData.code;
-                    const groupName = item.itemGroupName || groupData.name;
-                    const itemName = item.itemName || itemData.name;
-
-                    // Build the formatted string
-                    const parts: string[] = [];
-
-                    // Add codes in brackets
-                    if (groupCode && itemCode) {
-                      parts.push(`[${groupCode}] ${itemCode}`);
-                    } else if (groupCode) {
-                      parts.push(`[${groupCode}]`);
-                    } else if (itemCode) {
-                      parts.push(itemCode);
-                    }
-
-                    // Add names if available
-                    if (groupName) {
-                      parts.push(groupName);
-                    }
-                    if (itemName) {
-                      parts.push(itemName);
-                    }
-
-                    // Join with " - " separator
-                    if (parts.length > 0) {
-                      return parts.join(" - ");
-                    }
-
-                    return item.item || "-";
-                  })();
-
-                  return (
+                items.map((item) => (
                     <Box component="tr" key={`preview-row-${item.srNo}`}>
                       <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12 }}>
                         {item.srNo}
@@ -363,8 +254,11 @@ const IndentPreview: React.FC<IndentPreviewProps> = ({ header, items, remarks, o
                       <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12 }}>
                         {item.department || "-"}
                       </Box>
+                      <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, fontFamily: "monospace" }}>
+                        {item.itemCode || "-"}
+                      </Box>
                       <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12 }}>
-                        {formattedItem}
+                        {item.itemName || "-"}
                       </Box>
                       <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12 }}>
                         {item.itemMake || "-"}
@@ -379,11 +273,10 @@ const IndentPreview: React.FC<IndentPreviewProps> = ({ header, items, remarks, o
                         {item.remarks || "-"}
                       </Box>
                     </Box>
-                  );
-                })
+                  ))
               ) : (
                 <Box component="tr">
-                  <Box component="td" colSpan={7} sx={{ border: "1px solid", borderColor: "divider", p: 2, fontSize: 12, textAlign: "center" }}>
+                  <Box component="td" colSpan={8} sx={{ border: "1px solid", borderColor: "divider", p: 2, fontSize: 12, textAlign: "center" }}>
                     No line items captured yet.
                   </Box>
                 </Box>

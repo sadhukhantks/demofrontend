@@ -132,6 +132,10 @@ export const mapInwardSetupResponse = (response: unknown): InwardSetupData => {
 		itemGroups: mapItemGroupRecords((result?.item_groups as ItemGroupRecordRaw[]) ?? []),
 		coConfig: {
 			india_gst: typeof result?.co_config?.india_gst === "number" ? result.co_config.india_gst : undefined,
+			po_required:
+				result?.co_config?.po_required != null && result.co_config.po_required !== ""
+					? Number(result.co_config.po_required)
+					: undefined,
 		},
 	};
 };
@@ -153,7 +157,7 @@ export const mapItemGroupDetailResponse = (response: unknown): ItemGroupCacheEnt
 		const id = item?.item_id ?? item?.id;
 		const code = item?.item_code ?? "";
 		const name = item?.item_name ?? "";
-		const label = code && name ? `${code} — ${name}` : code || name || String(id ?? "");
+		const label = name || code || String(id ?? "");
 		const defaultRate = item?.rate != null ? Number(item.rate) : undefined;
 		const taxPct = item?.tax_percentage != null ? Number(item.tax_percentage) : undefined;
 		return {

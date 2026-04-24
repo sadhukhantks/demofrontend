@@ -66,6 +66,7 @@ export type ItemGroupRecord = {
 export type InvoiceTypeRecord = {
 	id: string;
 	name: string;
+	typeCode: string;
 };
 
 export type ItemOption = Option & {
@@ -73,6 +74,9 @@ export type ItemOption = Option & {
 	defaultUomLabel?: string;
 	defaultRate?: number;
 	taxPercentage?: number;
+	uomRounding?: number;
+	rateRounding?: number;
+	fullItemCode?: string;
 };
 
 export type ItemGroupCacheEntry = {
@@ -86,6 +90,18 @@ export type ItemGroupCacheEntry = {
 	itemRateById: Record<string, number>;
 	itemTaxById: Record<string, number>;
 	uomConversionsByItemId: Record<string, import("@/utils/uomConversion").UomConversionEntry[]>;
+	/** Item-level UOM/quantity rounding (decimal places) */
+	itemUomRoundingById: Record<string, number>;
+	/** Item-level rate rounding (decimal places); default 2 */
+	itemRateRoundingById: Record<string, number>;
+	/** Full item code (group path + item code) from vw_item_with_group_path */
+	itemFullCodeById: Record<string, string>;
+};
+
+export type AdditionalChargeMasterRecord = {
+	additional_charges_id: number;
+	additional_charges_name: string;
+	default_value?: number | null;
 };
 
 export type SalesOrderSetupData = {
@@ -100,6 +116,16 @@ export type SalesOrderSetupData = {
 		india_gst?: number;
 		quotation_required?: number | boolean;
 	};
+	additionalChargesMaster: AdditionalChargeMasterRecord[];
+	transportChargeRates: TransportChargeRateRecord[];
+};
+
+export type TransportChargeRateRecord = {
+	id: number;
+	mode_of_transport: string;
+	additional_charges_id: number;
+	rate_per_100pcs: number;
+	co_id: number | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -126,6 +152,11 @@ export type EditableLineItem = {
 	cgstAmount?: number;
 	sgstAmount?: number;
 	taxAmount?: number;
+	// --- Rounding ---
+	/** Decimal places for quantity (from item_mst.uom_rounding or uom_item_map_mst.rounding) */
+	qtyRounding?: number;
+	/** Decimal places for rate (from item_mst.rate_rounding, default 2) */
+	rateRounding?: number;
 	// --- Hessian (invoice_type_id = 2) ---
 	/** Qty entered in bales (user-entered); quantity field stores the MT equivalent */
 	qtyBales?: string;
@@ -139,6 +170,24 @@ export type EditableLineItem = {
 	billingRateBale?: number;
 	/** Bales-to-MT conversion factor from uom_item_map_mst */
 	conversionFactor?: number;
+	// --- Jute (invoice_type_id = 4) ---
+	juteClaimRate?: string;
+	juteClaimAmountDtl?: string;
+	juteClaimDesc?: string;
+	juteUnitConversion?: string;
+	juteQtyUnitConversion?: string;
+	// --- Govt SKG (invoice_type_id = 5) ---
+	govtskgPackSheet?: string;
+	govtskgNetWeight?: string;
+	govtskgTotalWeight?: string;
+	/** Qty entered in bales (user-entered); quantity field stores the 100-pcs equivalent */
+	govtskgQtyBales?: string;
+	/** map_to_id for the bales UOM from uom_item_map_mst (e.g. 172) */
+	govtskgBalesUomId?: string;
+	/** Bales-to-billing-UOM conversion factor from uom_item_map_mst */
+	govtskgConversionFactor?: number;
+	// --- Full item code (from vw_item_with_group_path) ---
+	fullItemCode?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -223,11 +272,14 @@ export type ItemOptionRaw = {
 	id?: string | number;
 	item_id?: string | number;
 	item_code?: string;
+	full_item_code?: string;
 	item_name?: string;
 	uom_id?: string | number | null;
 	uom_name?: string | null;
 	rate?: number | string | null;
 	tax_percentage?: number | string | null;
+	uom_rounding?: number | null;
+	rate_rounding?: number | null;
 };
 
 export type ItemMakeOptionRaw = {
@@ -259,6 +311,8 @@ export type SalesOrderSetup1ResponseRaw = {
 	invoice_types?: InvoiceTypeRecordRaw[];
 	co_config?: Record<string, unknown>;
 	branches?: Array<Record<string, unknown>>;
+	additional_charges_master?: Array<Record<string, unknown>>;
+	transport_charge_rates?: Array<Record<string, unknown>>;
 };
 
 export type SalesOrderSetup2ResponseRaw = {

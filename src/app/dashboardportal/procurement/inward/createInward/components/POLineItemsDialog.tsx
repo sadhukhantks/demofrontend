@@ -118,6 +118,7 @@ export function POLineItemsDialog({
 					tax_percentage: item.tax_percentage ? Number(item.tax_percentage) : undefined,
 					amount: item.amount ? Number(item.amount) : undefined,
 					remarks: item.remarks ? String(item.remarks) : undefined,
+					hsn_code: item.hsn_code ? String(item.hsn_code) : undefined,
 				}));
 				// Only show items with pending quantity > 0
 				const pendingItems = mappedItems.filter((item) => item.pending_qty > 0);
@@ -270,7 +271,7 @@ export function POLineItemsDialog({
 											/>
 											<div className="flex-1 grid grid-cols-12 gap-2 text-sm">
 												<div className="col-span-2">
-													<div className="font-medium">{item.item_code || "-"}</div>
+													<div className="font-medium">{item.full_item_code || item.item_code || "-"}</div>
 													<div className="text-muted-foreground text-xs">{item.item_name || "-"}</div>
 												</div>
 												<div className="col-span-2">

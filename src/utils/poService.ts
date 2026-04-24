@@ -10,6 +10,7 @@ export type POLine = {
   item?: string;
   itemCode?: string;
   itemMake?: string;
+  hsnCode?: string;
   quantity?: number | string;
   rate?: number | string;
   uom?: string;
@@ -36,6 +37,9 @@ export type POAdditionalCharge = {
   igst?: number;
   sgst?: number;
   cgst?: number;
+  tax_pct?: number;
+  tax_amount?: number;
+  apply_tax?: boolean;
 };
 
 export type ApprovalActionPermissions = {
@@ -55,8 +59,10 @@ export type PODetails = {
   poNo: string;
   poDate: string;
   branch: string;
+  branchName?: string;
   supplier: string;
   supplierBranch: string;
+  supplierState?: string;
   billingAddress: string;
   billingState?: string;
   shippingAddress: string;
@@ -134,8 +140,10 @@ export type CreatePORequest = {
   terms_conditions?: string;
   advance_percentage?: number;
   items: Array<{
+    po_dtl_id?: string;
     indent_dtl_id?: string;
     item?: string;
+    hsn_code?: string;
     quantity?: string;
     rate?: string;
     uom?: string;
@@ -196,8 +204,10 @@ export async function fetchPOSetup1(params: { coId: string; branchId?: string })
   return data;
 }
 
-export async function fetchPOSetup2(itemGroupId: string): Promise<POSetup2Response> {
-  const query = new URLSearchParams({ item_group: itemGroupId });
+export async function fetchPOSetup2(itemGroupId: string, coId?: string): Promise<POSetup2Response> {
+  const params: Record<string, string> = { item_group: itemGroupId };
+  if (coId) params.co_id = coId;
+  const query = new URLSearchParams(params);
   const { data, error } = await fetchWithCookie<POSetup2Response>(
     `${apiRoutesPortalMasters.GET_PO_SETUP_2}?${query.toString()}`,
     "GET"
@@ -637,6 +647,7 @@ export type ValidateItemForPOParams = {
   itemId: string;
   poType: string;
   expenseTypeId: string;
+  poId?: string; // Optional — for edit-mode validation adjustment
 };
 
 export async function validateItemForPO(params: ValidateItemForPOParams): Promise<POItemValidationResult> {
@@ -647,6 +658,9 @@ export async function validateItemForPO(params: ValidateItemForPOParams): Promis
     po_type: params.poType,
     expense_type_id: params.expenseTypeId,
   });
+  if (params.poId) {
+    query.set("po_id", params.poId);
+  }
 
   const { data, error } = await fetchWithCookie<POItemValidationResult>(
     `${apiRoutesPortalMasters.PO_VALIDATE_ITEM}?${query.toString()}`,

@@ -3,7 +3,7 @@ import type { MuiFormMode } from "@/components/ui/muiform";
 import { SearchableSelect } from "@/components/ui/transaction";
 import { Input } from "@/components/ui/input";
 import type { TransactionLineColumn } from "@/components/ui/transaction";
-import type { EditableLineItem, Option } from "../types/poTypes";
+import type { EditableLineItem, ItemLastPurchaseInfo, Option } from "../types/poTypes";
 import { DISCOUNT_MODE } from "../utils/poConstants";
 
 /** Discount mode dropdown options */
@@ -15,13 +15,22 @@ const DISCOUNT_MODE_OPTIONS: Option[] = [
 
 type UsePOLineItemColumnsParams = {
   canEdit: boolean;
-  itemGroupOptions: Option[];
-  getItemGroupLabel: (groupId: string) => string;
-  getItemOptions: (groupId: string) => Option[];
   getItemLabel: (groupId: string, itemId: string, itemCode?: string) => string;
   getUomOptions: (groupId: string, itemId: string) => Option[];
   getUomLabel: (groupId: string, itemId: string, uomId: string) => string;
   onFieldChange: (id: string, field: keyof EditableLineItem, value: string | number) => void;
+  getLastPurchaseInfo: (groupId: string, itemId: string) => ItemLastPurchaseInfo | undefined;
+};
+
+/**
+ * Splits a "code — name" label into its parts. Mirrors the logic used in
+ * the preview pane so the line items table and the preview agree on what
+ * counts as the item's display name.
+ */
+const splitItemLabel = (label: string): { code: string; name: string } => {
+  const idx = label.indexOf(" — ");
+  if (idx < 0) return { code: label, name: label };
+  return { code: label.substring(0, idx), name: label.substring(idx + 3) };
 };
 
 /**
@@ -30,62 +39,53 @@ type UsePOLineItemColumnsParams = {
  */
 export const usePOLineItemColumns = ({
   canEdit,
-  itemGroupOptions,
-  getItemGroupLabel,
-  getItemOptions,
   getItemLabel,
   getUomOptions,
   getUomLabel,
   onFieldChange,
+  getLastPurchaseInfo,
 }: UsePOLineItemColumnsParams): TransactionLineColumn<EditableLineItem>[] =>
   React.useMemo(
     () => [
       {
-        id: "itemGroup",
-        header: "Item Group",
-        width: "1.5fr",
-        minWidth: "163px",
-        renderCell: ({ item }) => {
-          const label = getItemGroupLabel(item.itemGroup);
-          if (!canEdit) {
-            return <span className="block truncate text-sm">{label || "-"}</span>;
-          }
-          const value = itemGroupOptions.find((o) => o.value === item.itemGroup) ?? null;
-          return (
-            <SearchableSelect<Option>
-              options={itemGroupOptions}
-              value={value}
-              onChange={(next) => onFieldChange(item.id, "itemGroup", next?.value ?? "")}
-              getOptionLabel={(o) => o.label}
-              isOptionEqualToValue={(a, b) => a.value === b.value}
-              placeholder="Select group"
-            />
-          );
-        },
-        getTooltip: ({ item }) => getItemGroupLabel(item.itemGroup) || undefined,
+        id: "indentNo",
+        header: "Indent No",
+        width: "0.9fr",
+        minWidth: "100px",
+        renderCell: ({ item }) => (
+          <span className="block truncate text-sm font-mono text-slate-700">{item.indentNo || "-"}</span>
+        ),
+        getTooltip: ({ item }) => item.indentNo || undefined,
       },
       {
-        id: "item",
-        header: "Item",
-        width: "2.25fr",
-        minWidth: "225px",
+        id: "itemCode",
+        header: "Item Code",
+        width: "1.3fr",
+        minWidth: "140px",
         renderCell: ({ item }) => {
-          const label = getItemLabel(item.itemGroup, item.item, item.itemCode);
-          if (!canEdit) {
-            return <span className="block truncate text-sm">{label}</span>;
-          }
-          const options = getItemOptions(item.itemGroup);
-          const value = options.find((o) => o.value === item.item) ?? null;
+          const cachedLabel = getItemLabel(item.itemGroup, item.item, item.itemCode);
+          const code = item.itemCode || splitItemLabel(cachedLabel).code || "-";
+          return <span className="block truncate text-sm font-mono text-slate-700">{code}</span>;
+        },
+        getTooltip: ({ item }) => {
+          const cachedLabel = getItemLabel(item.itemGroup, item.item, item.itemCode);
+          return item.itemCode || splitItemLabel(cachedLabel).code || undefined;
+        },
+      },
+      {
+        id: "itemName",
+        header: "Item Name",
+        width: "2fr",
+        minWidth: "200px",
+        renderCell: ({ item }) => {
+          const cachedLabel = getItemLabel(item.itemGroup, item.item, item.itemCode);
+          const { code, name } = splitItemLabel(cachedLabel);
+          // If the cached label collapses to just the code (no " — " separator),
+          // fall back to the raw label so we don't show a redundant code twice.
+          const displayName = name && name !== code ? name : cachedLabel || "-";
           return (
             <div className="flex flex-col gap-0.5 w-full">
-              <SearchableSelect<Option>
-                options={options}
-                value={value}
-                onChange={(next) => onFieldChange(item.id, "item", next?.value ?? "")}
-                getOptionLabel={(o) => o.label}
-                isOptionEqualToValue={(a, b) => a.value === b.value}
-                placeholder="Select item"
-              />
+              <span className="block truncate text-sm text-slate-700">{displayName}</span>
               {item.rowError && (
                 <p className="text-xs text-red-600 leading-tight">{item.rowError}</p>
               )}
@@ -95,26 +95,76 @@ export const usePOLineItemColumns = ({
             </div>
           );
         },
-        getTooltip: ({ item }) => getItemLabel(item.itemGroup, item.item, item.itemCode) || undefined,
+        getTooltip: ({ item }) => {
+          const cachedLabel = getItemLabel(item.itemGroup, item.item, item.itemCode);
+          const { code, name } = splitItemLabel(cachedLabel);
+          return name && name !== code ? name : cachedLabel || undefined;
+        },
+      },
+      {
+        id: "hsnCode",
+        header: "HSN",
+        width: "0.7fr",
+        minWidth: "90px",
+        renderCell: ({ item }) => {
+          if (!canEdit) {
+            return <span className="block truncate text-sm">{item.hsnCode || "-"}</span>;
+          }
+          return (
+            <Input
+              type="text"
+              value={item.hsnCode ?? ""}
+              onChange={(e) => onFieldChange(item.id, "hsnCode", e.target.value)}
+              placeholder="HSN"
+              className="h-8 text-sm"
+            />
+          );
+        },
+        getTooltip: ({ item }) => (item.hsnCode ? `HSN: ${item.hsnCode}` : undefined),
       },
       {
         id: "rate",
         header: "Rate",
         width: "0.8fr",
         minWidth: "80px",
-        renderCell: ({ item }) =>
-          canEdit ? (
-            <Input
-              type="text"
-              value={item.rate}
-              onChange={(e) => onFieldChange(item.id, "rate", e.target.value)}
-              placeholder="0.00"
-              className="h-8 text-sm"
-            />
-          ) : (
-            <span className="block truncate text-sm">{item.rate || "-"}</span>
-          ),
-        getTooltip: ({ item }) => (item.rate ? `Rate: ${item.rate}` : undefined),
+        renderCell: ({ item }) => {
+          const lastPurchase = item.item ? getLastPurchaseInfo(item.itemGroup, item.item) : undefined;
+          if (!canEdit) {
+            return (
+              <div className="flex flex-col gap-0.5 w-full">
+                <span className="block truncate text-sm">{item.rate || "-"}</span>
+                {lastPurchase && (
+                  <p className="text-xs text-muted-foreground leading-tight" title={`Last purchased from ${lastPurchase.supplierName ?? "N/A"} on ${lastPurchase.date ?? "N/A"}`}>
+                    Prev: {lastPurchase.rate.toFixed(2)}
+                  </p>
+                )}
+              </div>
+            );
+          }
+          return (
+            <div className="flex flex-col gap-0.5 w-full">
+              <Input
+                type="text"
+                value={item.rate}
+                onChange={(e) => onFieldChange(item.id, "rate", e.target.value)}
+                placeholder="0.00"
+                className="h-8 text-sm"
+              />
+              {lastPurchase && (
+                <p className="text-xs text-muted-foreground leading-tight" title={`Last purchased from ${lastPurchase.supplierName ?? "N/A"} on ${lastPurchase.date ?? "N/A"}`}>
+                  Prev: {lastPurchase.rate.toFixed(2)}
+                </p>
+              )}
+            </div>
+          );
+        },
+        getTooltip: ({ item }) => {
+          const lastPurchase = item.item ? getLastPurchaseInfo(item.itemGroup, item.item) : undefined;
+          const parts: string[] = [];
+          if (item.rate) parts.push(`Rate: ${item.rate}`);
+          if (lastPurchase) parts.push(`Last: ${lastPurchase.rate.toFixed(2)} from ${lastPurchase.supplierName ?? "N/A"} on ${lastPurchase.date ?? "N/A"}`);
+          return parts.length ? parts.join("\n") : undefined;
+        },
       },
       {
         id: "quantity",
@@ -246,6 +296,19 @@ export const usePOLineItemColumns = ({
         getTooltip: ({ item }) => (item.discountAmount ? `Discount Amount: ${item.discountAmount.toFixed(2)}` : undefined),
       },
       {
+        id: "taxPercentage",
+        header: "Tax%",
+        width: "0.6fr",
+        minWidth: "65px",
+        renderCell: ({ item }) => (
+          <span className="block truncate text-sm">
+            {item.taxPercentage != null ? `${item.taxPercentage}%` : "-"}
+          </span>
+        ),
+        getTooltip: ({ item }) =>
+          item.taxPercentage != null ? `Tax: ${item.taxPercentage}%` : undefined,
+      },
+      {
         id: "amount",
         header: "Amount",
         width: "0.8fr",
@@ -254,7 +317,7 @@ export const usePOLineItemColumns = ({
         getTooltip: ({ item }) => (item.amount ? `Amount: ${item.amount.toFixed(2)}` : undefined),
       },
     ],
-    [canEdit, itemGroupOptions, getItemGroupLabel, getItemOptions, getItemLabel, getUomOptions, getUomLabel, onFieldChange],
+    [canEdit, getItemLabel, getUomOptions, getUomLabel, onFieldChange, getLastPurchaseInfo],
   );
 
 /**

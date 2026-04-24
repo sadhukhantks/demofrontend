@@ -1,42 +1,33 @@
 "use client";
 
-import React, { useRef } from "react";
+import React from "react";
 import { Box, Divider, Stack, Typography } from "@mui/material";
 import { Button } from "@/components/ui/button";
 
 export type DOPreviewHeader = {
 	doNo?: string;
 	doDate?: string;
-	expectedDeliveryDate?: string;
 	branch?: string;
 	customer?: string;
-	customerBranch?: string;
-	billingTo?: string;
-	shippingTo?: string;
+	billingToAddress?: string;
+	shippingToAddress?: string;
 	salesOrder?: string;
+	salesOrderNo?: string;
+	salesOrderDate?: string;
 	transporter?: string;
 	vehicleNo?: string;
 	driverName?: string;
-	driverContact?: string;
-	ewayBillNo?: string;
-	ewayBillDate?: string;
 	status?: string;
-	updatedBy?: string;
-	updatedAt?: string;
 	companyName?: string;
+	companyLogo?: string;
 };
 
 export type DOPreviewItem = {
 	srNo: number;
-	itemGroup?: string;
+	itemCode?: string;
 	item?: string;
 	quantity?: string | number;
 	uom?: string;
-	rate?: string | number;
-	discountType?: string;
-	discountAmount?: string | number;
-	netAmount?: string | number;
-	remarks?: string;
 };
 
 export type DOPreviewTotals = {
@@ -58,28 +49,6 @@ type DOPreviewProps = {
 	onDownload?: () => void;
 };
 
-const FieldRow = ({ label, value }: { label: string; value?: React.ReactNode }) => (
-	<Stack direction="column" spacing={0.25} sx={{ minWidth: 0 }}>
-		<Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem" }}>
-			{label}:
-		</Typography>
-		<Typography variant="body2" sx={{ fontWeight: 400, fontSize: "0.875rem" }}>
-			{value ?? "-"}
-		</Typography>
-	</Stack>
-);
-
-const TotalsRow = ({ label, value, isBold = false }: { label: string; value?: React.ReactNode; isBold?: boolean }) => (
-	<Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} sx={{ minWidth: 280 }}>
-		<Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.8125rem", fontWeight: isBold ? 600 : 400 }}>
-			{label}:
-		</Typography>
-		<Typography variant="body2" sx={{ fontWeight: isBold ? 600 : 400, fontSize: "0.875rem", textAlign: "right", minWidth: 120, fontVariantNumeric: "tabular-nums" }}>
-			{value ?? "-"}
-		</Typography>
-	</Stack>
-);
-
 const formatDate = (dateStr?: string) => {
 	if (!dateStr) return "-";
 	try {
@@ -91,55 +60,170 @@ const formatDate = (dateStr?: string) => {
 	}
 };
 
-const formatDateTime = (dateStr?: string) => {
-	if (!dateStr) return "-";
-	try {
-		const date = new Date(dateStr);
-		if (Number.isNaN(date.getTime())) return dateStr;
-		return date.toLocaleString("en-GB", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
-	} catch {
-		return dateStr;
-	}
-};
+/* ── Shared inline styles for the on-screen preview ── */
+const labelSx = { fontSize: 13, fontWeight: 600 } as const;
+const valueSx = { fontSize: 13 } as const;
+const kvRowSx = { display: "flex", gap: 0.5 } as const;
 
-const formatAmount = (value?: number | string) => {
-	if (value === null || value === undefined || value === "") return "-";
-	const num = Number(value);
-	if (Number.isNaN(num)) return value;
-	return num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-};
+const DeliveryOrderPreview: React.FC<DOPreviewProps> = ({ header, items, remarks, onPrint, onDownload }) => {
 
-const DeliveryOrderPreview: React.FC<DOPreviewProps> = ({ header, items, totals, remarks, onPrint, onDownload }) => {
-	const previewRef = useRef<HTMLDivElement>(null);
+	/* Total quantity summary (e.g. "52 Bales") */
+	const totalQtySummary = React.useMemo(() => {
+		if (!items.length) return "";
+		const uomCounts: Record<string, number> = {};
+		for (const item of items) {
+			const qty = Number(item.quantity) || 0;
+			const uom = item.uom || "Units";
+			uomCounts[uom] = (uomCounts[uom] || 0) + qty;
+		}
+		return Object.entries(uomCounts)
+			.map(([uom, qty]) => `${qty} ${uom}`)
+			.join(", ");
+	}, [items]);
 
+	/* Description lines — each item as "ITEM_CODE ITEM_NAME" */
+	const descriptionLines = React.useMemo(() => {
+		return items.map((item) => {
+			const parts = [item.itemCode, item.item].filter(Boolean);
+			return parts.join(" — ") || "-";
+		});
+	}, [items]);
+
+	/* ═══════════════ Print HTML builder ═══════════════ */
 	const buildPrintableWindow = (titleSuffix: string) => {
-		const printContent = previewRef.current?.innerHTML || "";
 		const printWindow = window.open("", "_blank");
 		if (!printWindow) {
 			alert("Please allow popups to continue.");
 			return null;
 		}
 
+		const h = header;
+
+		const descriptionHtml = descriptionLines.length
+			? descriptionLines.map((desc, i) => `<div style="font-size:13px;font-weight:700;margin-bottom:4px;">${i + 1}. ${desc}</div>`).join("")
+			: `<div style="font-size:13px;">No line items captured yet.</div>`;
+
+		const html = `<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8"/>
+	<title>Delivery Order - ${titleSuffix}</title>
+	<style>
+		@page { size: A4; margin: 10mm; }
+		* { box-sizing: border-box; }
+		body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+		.header-label { font-size:12px; font-weight:600; padding:2px 6px; white-space:nowrap; }
+		.header-colon { font-size:12px; padding:2px 2px; }
+		.header-value { font-size:12px; padding:2px 6px; font-weight:500; }
+	</style>
+</head>
+<body>
+	<!-- Copy indicator -->
+	<div style="font-size:11px;font-weight:600;color:#555;margin-bottom:12px;">PARTY COPY / MILL COPY / OFFICE COPY</div>
+
+	<!-- Company name & address -->
+	<div style="font-size:15px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">${h.companyName || "-"}</div>
+	<div style="font-size:12px;color:#333;margin-bottom:12px;">${h.branch || ""}</div>
+
+	<!-- Title -->
+	<div style="font-size:15px;font-weight:700;text-decoration:underline;margin-bottom:16px;">DELIVERY ORDER</div>
+
+	<!-- Info block: left = company details, right = DO number/date -->
+	<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+		<tr>
+			<td style="vertical-align:top;width:60%;">
+				<div style="font-size:13px;font-weight:600;margin-bottom:2px;">${h.companyName || ""}</div>
+				<div style="font-size:12px;color:#333;">${h.branch || ""}</div>
+			</td>
+			<td style="vertical-align:top;text-align:right;">
+				<table style="border-collapse:collapse;margin-left:auto;">
+					<tr>
+						<td class="header-label">DO No.</td>
+						<td class="header-colon">:</td>
+						<td class="header-value">${h.doNo || "Pending"}</td>
+					</tr>
+					<tr>
+						<td class="header-label">Date</td>
+						<td class="header-colon">:</td>
+						<td class="header-value">${formatDate(h.doDate)}</td>
+					</tr>
+					${h.salesOrderNo || h.salesOrder ? `<tr>
+						<td class="header-label">Sale No.</td>
+						<td class="header-colon">:</td>
+						<td class="header-value">${h.salesOrderNo || h.salesOrder || "-"}</td>
+					</tr>` : ""}
+					${h.salesOrderDate ? `<tr>
+						<td class="header-label">Date</td>
+						<td class="header-colon">:</td>
+						<td class="header-value">${formatDate(h.salesOrderDate)}</td>
+					</tr>` : ""}
+				</table>
+			</td>
+		</tr>
+	</table>
+
+	<!-- Dear Sir -->
+	<div style="font-size:13px;margin-bottom:16px;">Dear Sir,</div>
+
+	<!-- Quantity summary -->
+	${totalQtySummary ? `<div style="font-size:13px;font-weight:700;margin-bottom:16px;">Quantity for ${totalQtySummary}</div>` : ""}
+
+	<!-- Item descriptions -->
+	<div style="margin-bottom:20px;">
+		<div style="font-size:13px;font-weight:700;margin-bottom:6px;">Description:</div>
+		${descriptionHtml}
+	</div>
+
+	<!-- Customer info -->
+	<div style="margin-bottom:16px;">
+		<div style="font-size:13px;margin-bottom:4px;"><strong>A/C Messrs.</strong> ${h.customer || "-"}</div>
+		${h.billingToAddress ? `<div style="font-size:13px;margin-bottom:4px;"><strong>Address :</strong> ${h.billingToAddress}</div>` : ""}
+		${h.shippingToAddress && h.shippingToAddress !== h.billingToAddress ? `<div style="font-size:13px;margin-bottom:4px;"><strong>Ship To :</strong> ${h.shippingToAddress}</div>` : ""}
+	</div>
+
+	<!-- Delivery instruction -->
+	<div style="font-size:12px;margin-bottom:20px;line-height:1.5;">
+		On presentation of this Delivery Order, please deliver to the bearer, the above Goods with
+		marks as per undernoted M.S.I. and get this Delivery Order back duly receipt after delivery.
+	</div>
+
+	<!-- M.S.I. No. -->
+	<div style="font-size:13px;font-weight:600;margin-bottom:24px;">M.S.I. No.</div>
+
+	${remarks ? `<div style="font-size:12px;margin-bottom:16px;"><strong>Remarks:</strong> ${remarks}</div>` : ""}
+
+	<!-- Signature block -->
+	<table style="width:100%;border-collapse:collapse;margin-top:24px;">
+		<tr>
+			<td style="text-align:left;width:50%;vertical-align:bottom;padding-top:8px;">
+				<div style="font-size:12px;">Copy to Jute Mills</div>
+			</td>
+			<td style="text-align:right;width:50%;vertical-align:bottom;padding-top:8px;">
+				<div style="font-size:13px;font-weight:600;text-transform:uppercase;">${h.companyName || ""}</div>
+			</td>
+		</tr>
+	</table>
+
+	<!-- Footer instructions -->
+	<div style="margin-top:32px;border-top:1px solid #ccc;padding-top:12px;">
+		${h.transporter || h.vehicleNo || h.driverName ? `<div style="display:flex;gap:32px;flex-wrap:wrap;margin-bottom:8px;">
+			${h.transporter ? `<div style="font-size:11px;"><strong>Transporter:</strong> ${h.transporter}</div>` : ""}
+			${h.vehicleNo ? `<div style="font-size:11px;"><strong>Vehicle No.:</strong> ${h.vehicleNo}</div>` : ""}
+			${h.driverName ? `<div style="font-size:11px;"><strong>Driver:</strong> ${h.driverName}</div>` : ""}
+		</div>` : ""}
+		<div style="font-size:11px;color:#555;line-height:1.6;">
+			&gt; For quick delivery please contact mills before sending Lorry<br/>
+			&gt; Lorry Should reach mills before 10 A.M.<br/>
+			&gt; Consignments Note Should be sent to the Mill along with Lorry.<br/>
+			&gt; Mill remain Closed on Sunday
+		</div>
+	</div>
+</body>
+</html>`;
+
 		printWindow.document.open();
-		printWindow.document.write(`<!DOCTYPE html><html><head><title>Delivery Order - ${titleSuffix}</title></head><body><div id="print-root"></div></body></html>`);
+		printWindow.document.write(html);
 		printWindow.document.close();
-
-		const styleNodes = document.querySelectorAll("style, link[rel=\"stylesheet\"]");
-		styleNodes.forEach((node) => {
-			printWindow.document.head.appendChild(node.cloneNode(true));
-		});
-
-		const helperStyle = printWindow.document.createElement("style");
-		helperStyle.textContent = `
-			@media print { @page { margin: 12mm; } }
-			body { margin: 0; padding: 20px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-			table { width: 100%; border-collapse: collapse; }
-			#preview-left-pane { max-width: 25% !important; flex-basis: 25% !important; word-break: break-word; white-space: normal; }
-		`;
-		printWindow.document.head.appendChild(helperStyle);
-
-		const root = printWindow.document.getElementById("print-root");
-		if (root) root.innerHTML = printContent;
 		return printWindow;
 	};
 
@@ -159,137 +243,156 @@ const DeliveryOrderPreview: React.FC<DOPreviewProps> = ({ header, items, totals,
 		setTimeout(() => { printWindow.print(); }, 300);
 	};
 
+	/* ═══════════════ On-screen preview ═══════════════ */
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-			<Box ref={previewRef} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 3, backgroundColor: "#fff" }}>
-				<Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 3 }}>
-					<Stack id="preview-left-pane" spacing={0.5} sx={{ minWidth: 200, maxWidth: { xs: "100%", md: "25%" }, flexBasis: { md: "25%" } }}>
-						<Typography variant="body1" sx={{ fontWeight: 600, fontSize: "1rem", wordBreak: "break-word", whiteSpace: "normal" }}>
-							{header.companyName || "-"}
-						</Typography>
-						<Typography variant="body2" sx={{ fontSize: "0.875rem", color: "text.secondary", wordBreak: "break-word", whiteSpace: "normal" }}>
-							{header.branch || "-"}
-						</Typography>
-					</Stack>
+			<Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 3, backgroundColor: "#fff" }}>
+				{/* Copy indicator */}
+				<Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary", mb: 1.5, display: "block" }}>
+					PARTY COPY / MILL COPY / OFFICE COPY
+				</Typography>
 
-					<Box sx={{ flex: 1, display: "flex", justifyContent: "center" }}>
-						<Stack spacing={0.25} alignItems="center">
-							<Typography variant="h5" sx={{ fontWeight: 600 }}>Delivery Order</Typography>
-							{header.status ? (
-								<Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.875rem" }}>{header.status}</Typography>
-							) : null}
-						</Stack>
+				{/* Company Header */}
+				<Typography variant="body1" sx={{ fontWeight: 700, fontSize: "1rem", textTransform: "uppercase" }}>
+					{header.companyName || "-"}
+				</Typography>
+				<Typography variant="body2" sx={{ fontSize: "0.8125rem", color: "text.secondary", mb: 1.5 }}>
+					{header.branch || ""}
+				</Typography>
+
+				{/* Title */}
+				<Typography variant="h6" sx={{ fontWeight: 700, textDecoration: "underline", mb: 2 }}>
+					DELIVERY ORDER
+				</Typography>
+
+				{/* Info block: company details + DO/Sale numbers */}
+				<Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2.5 }}>
+					<Box>
+						<Typography sx={labelSx}>{header.companyName || ""}</Typography>
+						<Typography sx={{ ...valueSx, color: "text.secondary" }}>{header.branch || ""}</Typography>
 					</Box>
-
-					<Stack spacing={0.5} alignItems="flex-end" sx={{ minWidth: 200 }}>
-						<Stack direction="row" spacing={0.5} alignItems="center">
-							<Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem" }}>DO Date:</Typography>
-							<Typography variant="body2" sx={{ fontWeight: 400, fontSize: "0.875rem" }}>{formatDate(header.doDate)}</Typography>
-						</Stack>
-						<Stack direction="row" spacing={0.5} alignItems="center">
-							<Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem" }}>DO No:</Typography>
-							<Typography variant="body2" sx={{ fontWeight: 400, fontSize: "0.875rem" }}>{header.doNo || "-"}</Typography>
-						</Stack>
-					</Stack>
+					<Box component="table" sx={{ borderCollapse: "collapse", width: "auto" }}>
+						<Box component="tbody">
+							<Box component="tr">
+								<Box component="td" sx={{ pr: 0.5, ...labelSx }}>DO No.</Box>
+								<Box component="td" sx={{ pr: 0.5, ...valueSx }}>:</Box>
+								<Box component="td" sx={{ ...valueSx, fontWeight: 500 }}>{header.doNo || "Pending"}</Box>
+							</Box>
+							<Box component="tr">
+								<Box component="td" sx={{ pr: 0.5, ...labelSx }}>Date</Box>
+								<Box component="td" sx={{ pr: 0.5, ...valueSx }}>:</Box>
+								<Box component="td" sx={valueSx}>{formatDate(header.doDate)}</Box>
+							</Box>
+							{header.salesOrderNo || header.salesOrder ? (
+								<Box component="tr">
+									<Box component="td" sx={{ pr: 0.5, ...labelSx }}>Sale No.</Box>
+									<Box component="td" sx={{ pr: 0.5, ...valueSx }}>:</Box>
+									<Box component="td" sx={valueSx}>{header.salesOrderNo || header.salesOrder}</Box>
+								</Box>
+							) : null}
+							{header.salesOrderDate ? (
+								<Box component="tr">
+									<Box component="td" sx={{ pr: 0.5, ...labelSx }}>Date</Box>
+									<Box component="td" sx={{ pr: 0.5, ...valueSx }}>:</Box>
+									<Box component="td" sx={valueSx}>{formatDate(header.salesOrderDate)}</Box>
+								</Box>
+							) : null}
+						</Box>
+					</Box>
 				</Stack>
 
-				<Divider sx={{ mb: 2 }} />
+				{/* Dear Sir */}
+				<Typography sx={{ ...valueSx, mb: 2 }}>Dear Sir,</Typography>
 
-				<Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" }, gap: 2, mb: 3 }}>
-					<FieldRow label="Customer" value={header.customer || "-"} />
-					<FieldRow label="Customer Branch" value={header.customerBranch || "-"} />
-					<FieldRow label="Sales Order" value={header.salesOrder || "-"} />
-					<FieldRow label="Billing To" value={header.billingTo || "-"} />
-					<FieldRow label="Shipping To" value={header.shippingTo || "-"} />
-					<FieldRow label="Expected Delivery" value={header.expectedDeliveryDate ? formatDate(header.expectedDeliveryDate) : "-"} />
-					<FieldRow label="Transporter" value={header.transporter || "-"} />
-					<FieldRow label="Vehicle No." value={header.vehicleNo || "-"} />
-					<FieldRow label="Driver Name" value={header.driverName || "-"} />
-					{header.driverContact ? <FieldRow label="Driver Contact" value={header.driverContact} /> : null}
-					{header.ewayBillNo ? <FieldRow label="E-Way Bill No." value={header.ewayBillNo} /> : null}
-					{header.ewayBillDate ? <FieldRow label="E-Way Bill Date" value={formatDate(header.ewayBillDate)} /> : null}
-				</Box>
-
-				<Divider sx={{ my: 2 }} />
-
-				<Box sx={{ overflowX: "auto" }}>
-					<Box component="table" sx={{ width: "100%", borderCollapse: "collapse" }}>
-						<Box component="thead" sx={{ backgroundColor: "rgba(12,60,96,0.08)" }}>
-							<Box component="tr">
-								{["Sr No", "Item", "Qty", "UOM", "Rate", "Disc. Amt", "Amount", "Remarks"].map((col) => (
-									<Box key={col} component="th" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, textAlign: col === "Remarks" ? "left" : "center" }}>
-										{col}
-									</Box>
-								))}
-							</Box>
-						</Box>
-						<Box component="tbody">
-							{items.length ? (
-								items.map((item) => (
-									<Box component="tr" key={`do-preview-row-${item.srNo}`}>
-										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, textAlign: "center" }}>{item.srNo}</Box>
-										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12 }}>{item.item || "-"}</Box>
-										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, textAlign: "right" }}>{item.quantity ?? "-"}</Box>
-										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, textAlign: "center" }}>{item.uom || "-"}</Box>
-										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, textAlign: "right" }}>{formatAmount(item.rate)}</Box>
-										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, textAlign: "right" }}>{formatAmount(item.discountAmount)}</Box>
-										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, textAlign: "right" }}>{formatAmount(item.netAmount)}</Box>
-										<Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12 }}>{item.remarks || "-"}</Box>
-									</Box>
-								))
-							) : (
-								<Box component="tr">
-									<Box component="td" colSpan={8} sx={{ border: "1px solid", borderColor: "divider", p: 2, fontSize: 12, textAlign: "center" }}>
-										No line items captured yet.
-									</Box>
-								</Box>
-							)}
-						</Box>
-					</Box>
-				</Box>
-
-				{totals ? (
-					<>
-						<Divider sx={{ my: 2 }} />
-						<Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="flex-end" sx={{ pr: 2 }}>
-							<Box sx={{ minWidth: 280 }}>
-								<Stack spacing={0.75}>
-									<TotalsRow label="Gross Amount" value={formatAmount(totals.grossAmount)} />
-									<TotalsRow label="IGST" value={formatAmount(totals.totalIGST)} />
-									<TotalsRow label="CGST" value={formatAmount(totals.totalCGST)} />
-									<TotalsRow label="SGST" value={formatAmount(totals.totalSGST)} />
-									{totals.freightCharges ? <TotalsRow label="Freight Charges" value={formatAmount(totals.freightCharges)} /> : null}
-									{totals.roundOffValue ? <TotalsRow label="Round Off" value={formatAmount(totals.roundOffValue)} /> : null}
-									<Divider sx={{ my: 0.5 }} />
-									<TotalsRow label="Net Amount" value={formatAmount(totals.netAmount)} isBold />
-								</Stack>
-							</Box>
-						</Stack>
-					</>
+				{/* Quantity summary */}
+				{totalQtySummary ? (
+					<Typography sx={{ ...labelSx, mb: 2 }}>Quantity for {totalQtySummary}</Typography>
 				) : null}
 
-				<Divider sx={{ my: 2 }} />
+				{/* Item descriptions */}
+				<Box sx={{ mb: 2.5 }}>
+					<Typography sx={{ ...labelSx, mb: 0.5 }}>Description:</Typography>
+					{descriptionLines.length ? (
+						descriptionLines.map((desc, i) => (
+							<Typography key={`desc-${i}`} sx={{ ...labelSx, ml: 1, mb: 0.25 }}>
+								{i + 1}. {desc}
+							</Typography>
+						))
+					) : (
+						<Typography sx={valueSx}>No line items captured yet.</Typography>
+					)}
+				</Box>
 
-				<Stack spacing={1}>
-					<Typography variant="subtitle2">Remarks</Typography>
-					<Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 1.5, minHeight: 80 }}>
-						<Typography variant="body2" color="text.secondary">
-							{remarks || "No remarks provided."}
-						</Typography>
+				{/* Customer info */}
+				<Stack spacing={0.5} sx={{ mb: 2 }}>
+					<Box sx={kvRowSx}>
+						<Typography sx={labelSx}>A/C Messrs.</Typography>
+						<Typography sx={valueSx}>{header.customer || "-"}</Typography>
 					</Box>
+					{header.billingToAddress ? (
+						<Box sx={kvRowSx}>
+							<Typography sx={labelSx}>Address :</Typography>
+							<Typography sx={valueSx}>{header.billingToAddress}</Typography>
+						</Box>
+					) : null}
+					{header.shippingToAddress && header.shippingToAddress !== header.billingToAddress ? (
+						<Box sx={kvRowSx}>
+							<Typography sx={labelSx}>Ship To :</Typography>
+							<Typography sx={valueSx}>{header.shippingToAddress}</Typography>
+						</Box>
+					) : null}
 				</Stack>
 
-				<Divider sx={{ my: 2 }} />
+				<Divider sx={{ my: 1.5 }} />
 
-				<Stack direction={{ xs: "column", sm: "row" }} justifyContent="flex-start" spacing={4}>
-					<Stack spacing={0.5}>
-						<Typography variant="caption" color="text.secondary">Updated By</Typography>
-						<Box sx={{ borderBottom: "1px solid", borderColor: "divider", width: 200, height: 24 }} />
-						<Typography variant="caption" color="text.secondary">
-							Last Updated: {header.updatedAt ? formatDateTime(header.updatedAt) : "-"}
-						</Typography>
-					</Stack>
+				{/* Delivery instruction */}
+				<Typography variant="body2" sx={{ fontSize: "0.75rem", lineHeight: 1.5, mb: 2 }}>
+					On presentation of this Delivery Order, please deliver to the bearer, the above Goods with
+					marks as per undernoted M.S.I. and get this Delivery Order back duly receipt after delivery.
+				</Typography>
+
+				{/* M.S.I. No. */}
+				<Typography sx={{ ...labelSx, mb: 2 }}>M.S.I. No.</Typography>
+
+				{/* Remarks */}
+				{remarks ? (
+					<Typography variant="body2" sx={{ fontSize: "0.75rem", mb: 2 }}>
+						<strong>Remarks:</strong> {remarks}
+					</Typography>
+				) : null}
+
+				<Divider sx={{ my: 1.5 }} />
+
+				{/* Signature / copy block */}
+				<Stack direction="row" justifyContent="space-between" alignItems="flex-end" sx={{ mt: 3 }}>
+					<Typography sx={{ fontSize: 12 }}>Copy to Jute Mills</Typography>
+					<Typography sx={{ fontSize: 13, fontWeight: 600, textTransform: "uppercase" }}>
+						{header.companyName || ""}
+					</Typography>
 				</Stack>
+
+				{/* Transport details + footer notes */}
+				<Box sx={{ mt: 4, borderTop: "1px solid", borderColor: "divider", pt: 1.5 }}>
+					{(header.transporter || header.vehicleNo || header.driverName) ? (
+						<Stack direction="row" spacing={4} sx={{ mb: 1, flexWrap: "wrap" }}>
+							{header.transporter ? (
+								<Typography variant="caption"><strong>Transporter:</strong> {header.transporter}</Typography>
+							) : null}
+							{header.vehicleNo ? (
+								<Typography variant="caption"><strong>Vehicle No.:</strong> {header.vehicleNo}</Typography>
+							) : null}
+							{header.driverName ? (
+								<Typography variant="caption"><strong>Driver:</strong> {header.driverName}</Typography>
+							) : null}
+						</Stack>
+					) : null}
+					<Box sx={{ fontSize: 11, color: "text.secondary", lineHeight: 1.6 }}>
+						<div>&gt; For quick delivery please contact mills before sending Lorry</div>
+						<div>&gt; Lorry Should reach mills before 10 A.M.</div>
+						<div>&gt; Consignments Note Should be sent to the Mill along with Lorry.</div>
+						<div>&gt; Mill remain Closed on Sunday</div>
+					</Box>
+				</Box>
 			</Box>
 
 			<Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="flex-end">

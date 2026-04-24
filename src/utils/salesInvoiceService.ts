@@ -6,11 +6,13 @@ export type { ApprovalActionPermissions } from "@/utils/poService";
 export type InvoiceLine = {
   id: string;
   deliveryOrderDtlId?: number;
+  salesOrderDtlId?: number;
   hsnCode?: string;
   itemGroup?: string;
   item?: string;
   itemName?: string;
   itemCode?: string;
+  fullItemCode?: string;
   itemMake?: string;
   quantity?: number | string;
   rate?: number | string;
@@ -31,7 +33,27 @@ export type InvoiceLine = {
     sgstAmount?: number;
     sgstPercent?: number;
     gstTotal?: number;
+    taxPercentage?: number;
+    taxAmount?: number;
   };
+  juteDtl?: {
+    claimAmountDtl?: number;
+    claimDesc?: string;
+    claimRate?: number;
+    unitConversion?: string;
+    qtyUnitConversion?: number;
+  } | null;
+  hessianDtl?: {
+    qtyBales?: number;
+    ratePerBale?: number;
+    billingRateMt?: number;
+    billingRateBale?: number;
+  } | null;
+  govtskgDtl?: {
+    packSheet?: number;
+    netWeight?: number;
+    totalWeight?: number;
+  } | null;
 };
 
 export type InvoiceDetails = {
@@ -62,8 +84,43 @@ export type InvoiceDetails = {
   netAmount?: number;
   freightCharges?: number;
   roundOff?: number;
-  tcsPercentage?: number;
-  tcsAmount?: number;
+  dueDate?: string;
+  typeOfSale?: string;
+  taxId?: string;
+  transporterAddress?: string;
+  transporterStateCode?: string;
+  transporterStateName?: string;
+  containerNo?: string;
+  contractNo?: string;
+  contractDate?: string;
+  consignmentNo?: string;
+  consignmentDate?: string;
+  shippingStateCode?: string;
+  intraInterState?: number;
+  paymentTerms?: number;
+  salesOrderId?: number;
+  salesOrderDate?: string;
+  salesOrderNo?: string;
+  billingStateCode?: number;
+  bankDetailId?: number;
+  bankName?: string;
+  bankAccNo?: string;
+  bankIfscCode?: string;
+  bankBranchName?: string;
+  companyName?: string;
+  companyAddress1?: string;
+  companyAddress2?: string;
+  companyZipcode?: number;
+  companyCinNo?: string;
+  companyPanNo?: string;
+  companyStateName?: string;
+  companyStateCode?: string;
+  branchAddress1?: string;
+  branchAddress2?: string;
+  branchZipcode?: number;
+  branchGstNo?: string;
+  branchStateName?: string;
+  branchStateCode?: string;
   status?: string;
   statusId?: 1 | 3 | 4 | 5 | 6 | 20 | 21;
   approvalLevel?: number | null;
@@ -71,6 +128,36 @@ export type InvoiceDetails = {
   updatedBy?: string;
   updatedAt?: string;
   permissions?: import("@/utils/poService").ApprovalActionPermissions;
+  jute?: {
+    mrNo?: string;
+    mrId?: number;
+    claimAmount?: number;
+    otherReference?: string;
+    unitConversion?: string;
+    claimDescription?: string;
+    mukamId?: number;
+    mukamName?: string;
+  } | null;
+  govtskg?: {
+    pcsoNo?: string;
+    pcsoDate?: string;
+    administrativeOfficeAddress?: string;
+    destinationRailHead?: string;
+    loadingPoint?: string;
+    packSheet?: number;
+    netWeight?: number;
+    totalWeight?: number;
+  } | null;
+  transporterBranchId?: number;
+  transporterGstNo?: string;
+  transporterDocNo?: string;
+  transporterDocDate?: string;
+  buyerOrderNo?: string;
+  buyerOrderDate?: string;
+  ackNo?: string;
+  ackDate?: string;
+  qrCode?: string;
+  eInvoiceSubmissionHistory?: unknown[];
   lines: InvoiceLine[];
 };
 
@@ -93,6 +180,64 @@ export type DeliveryOrderLineForInvoice = {
   item_id: number;
   item_code?: string;
   item_name?: string;
+  full_item_code?: string;
+  item_grp_id: number;
+  item_grp_code?: string;
+  item_grp_name?: string;
+  item_make_id?: number;
+  item_make_name?: string;
+  hsn_code?: string;
+  quantity: number;
+  uom_id: number;
+  uom_name?: string;
+  rate?: number;
+  discount_type?: number;
+  discounted_rate?: number;
+  discount_amount?: number;
+  net_amount?: number;
+  total_amount?: number;
+  remarks?: string;
+  tax_percentage?: number;
+  govtskg_pack_sheet?: string | null;
+  govtskg_net_weight?: number | null;
+  govtskg_total_weight?: number | null;
+};
+
+/** SO extension data returned inline by both DO-lines and SO-lines endpoints. */
+export type SoExtensionData = {
+  invoice_type?: number | null;
+  so_govtskg?: {
+    pcso_no?: string | null;
+    pcso_date?: string | null;
+    mode_of_transport?: string | null;
+    administrative_office_address?: string | null;
+    destination_rail_head?: string | null;
+    loading_point?: string | null;
+  };
+  so_additional_charges?: Array<{
+    sales_order_additional_id: number;
+    additional_charges_id: number;
+    additional_charges_name?: string;
+    qty?: number;
+    rate?: number;
+    net_amount?: number;
+    remarks?: string;
+    igst_amount?: number;
+    igst_percent?: number;
+    cgst_amount?: number;
+    cgst_percent?: number;
+    sgst_amount?: number;
+    sgst_percent?: number;
+    gst_total?: number;
+  }>;
+};
+
+export type SalesOrderLineForInvoice = {
+  sales_order_dtl_id: number;
+  item_id: number;
+  item_code?: string;
+  item_name?: string;
+  full_item_code?: string;
   item_grp_id: number;
   item_grp_code?: string;
   item_grp_name?: string;
@@ -134,12 +279,64 @@ export type CreateInvoiceRequest = {
   net_amount?: number;
   freight_charges?: number;
   round_off?: number;
-  tcs_percentage?: number;
-  tcs_amount?: number;
+  due_date?: string;
+  type_of_sale?: string;
+  tax_id?: string;
+  transporter_address?: string;
+  transporter_state_code?: string;
+  transporter_state_name?: string;
+  container_no?: string;
+  contract_no?: string;
+  contract_date?: string;
+  consignment_no?: string;
+  consignment_date?: string;
+  shipping_state_code?: string;
+  intra_inter_state?: string;
+  payment_terms?: number;
+  sales_order_id?: number;
+  billing_state_code?: number;
+  bank_detail_id?: number;
+  jute?: {
+    mr_no?: string;
+    mr_id?: number;
+    claim_amount?: number;
+    other_reference?: string;
+    unit_conversion?: string;
+    claim_description?: string;
+    mukam_id?: number;
+  };
+  govtskg?: {
+    pcso_no?: string;
+    pcso_date?: string;
+    administrative_office_address?: string;
+    destination_rail_head?: string;
+    loading_point?: string;
+    mode_of_transport?: string;
+    pack_sheet?: number;
+    net_weight?: number;
+    total_weight?: number;
+  };
+  additional_charges?: Array<{
+    additional_charges_id: string;
+    qty: number;
+    rate: number;
+    net_amount: number;
+    remarks?: string;
+    gst?: {
+      igst_amount?: number;
+      igst_percent?: number;
+      cgst_amount?: number;
+      cgst_percent?: number;
+      sgst_amount?: number;
+      sgst_percent?: number;
+      gst_total?: number;
+    };
+  }>;
   items: Array<{
     item: string;
     item_make?: string;
     delivery_order_dtl_id?: number;
+    sales_order_dtl_id?: number;
     hsn_code?: string;
     quantity: string;
     uom: string;
@@ -158,6 +355,26 @@ export type CreateInvoiceRequest = {
       sgst_amount?: number;
       sgst_percent?: number;
       gst_total?: number;
+      tax_percentage?: number;
+      tax_amount?: number;
+    };
+    jute_dtl?: {
+      claim_amount_dtl?: number;
+      claim_desc?: string;
+      claim_rate?: number;
+      unit_conversion?: string;
+      qty_untit_conversion?: number;
+    };
+    hessian_dtl?: {
+      qty_bales?: number;
+      rate_per_bale?: number;
+      billing_rate_mt?: number;
+      billing_rate_bale?: number;
+    };
+    govtskg_dtl?: {
+      pack_sheet?: number;
+      net_weight?: number;
+      total_weight?: number;
     };
   }>;
 };
@@ -200,14 +417,28 @@ export async function fetchInvoiceSetup2(itemGroupId: string): Promise<InvoiceSe
   return data;
 }
 
-export async function fetchDeliveryOrderLines(deliveryOrderId: string): Promise<{ data: DeliveryOrderLineForInvoice[] }> {
+type DOLinesResponse = { data: DeliveryOrderLineForInvoice[] } & SoExtensionData;
+type SOLinesResponse = { data: SalesOrderLineForInvoice[] } & SoExtensionData;
+
+export async function fetchDeliveryOrderLines(deliveryOrderId: string): Promise<DOLinesResponse> {
   const query = new URLSearchParams({ sales_delivery_order_id: deliveryOrderId });
-  const { data, error } = await fetchWithCookie<{ data: DeliveryOrderLineForInvoice[] }>(
+  const { data, error } = await fetchWithCookie<DOLinesResponse>(
     `${apiRoutesPortalMasters.SALES_INVOICE_DELIVERY_ORDER_LINES}?${query.toString()}`,
     "GET"
   );
   if (error) throw new Error(error);
   if (!data) throw new Error("Empty delivery order lines response.");
+  return data;
+}
+
+export async function fetchSalesOrderLinesForInvoice(salesOrderId: string): Promise<SOLinesResponse> {
+  const query = new URLSearchParams({ sales_order_id: salesOrderId });
+  const { data, error } = await fetchWithCookie<SOLinesResponse>(
+    `${apiRoutesPortalMasters.SALES_INVOICE_SALES_ORDER_LINES}?${query.toString()}`,
+    "GET"
+  );
+  if (error) throw new Error(error);
+  if (!data) throw new Error("Empty sales order lines response.");
   return data;
 }
 
@@ -303,5 +534,15 @@ export async function reopenInvoice(invoiceId: string): Promise<StatusChangeResp
   );
   if (error) throw new Error(error);
   if (!data) throw new Error("Empty response from reopen API");
+  return data;
+}
+
+export async function getTransporterBranches(transporterId: number, coId: number): Promise<{ data: Array<{ id: number; gst_no: string; address: string; state_id: number }> }> {
+  const { data, error } = await fetchWithCookie(
+    `${apiRoutesPortalMasters.SALES_INVOICE_TRANSPORTER_BRANCHES}?transporter_id=${transporterId}&co_id=${coId}`,
+    "GET"
+  );
+  if (error) throw new Error(error);
+  if (!data) throw new Error("Empty response from transporter branches API");
   return data;
 }

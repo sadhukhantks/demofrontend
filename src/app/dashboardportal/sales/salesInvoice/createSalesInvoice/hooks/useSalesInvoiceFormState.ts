@@ -1,25 +1,28 @@
 import React from "react";
 import type { MuiFormMode } from "@/components/ui/muiform";
+import type { TransporterBranchRecord } from "../types/salesInvoiceTypes";
 
 type Params = {
 	mode: MuiFormMode;
-	buildDefaultFormValues: () => Record<string, unknown>;
+	buildDefaultFormValues: (skipDate?: boolean) => Record<string, unknown>;
 	branchIdFromUrl?: string;
 };
 
 export function useSalesInvoiceFormState({ mode, buildDefaultFormValues, branchIdFromUrl }: Params) {
+	// Use skipDate=true for SSR-safe initial state; the useEffect below seeds the real date on mount
 	const [initialValues, setInitialValues] = React.useState<Record<string, unknown>>(() => {
-		const base = buildDefaultFormValues();
+		const base = buildDefaultFormValues(true);
 		if (mode !== "create" && branchIdFromUrl) base.branch = branchIdFromUrl;
 		return base;
 	});
 	const [formValues, setFormValues] = React.useState<Record<string, unknown>>(() => {
-		const base = buildDefaultFormValues();
+		const base = buildDefaultFormValues(true);
 		if (mode !== "create" && branchIdFromUrl) base.branch = branchIdFromUrl;
 		return base;
 	});
 	const [formKey, setFormKey] = React.useState(0);
 	const formRef = React.useRef<{ submit: () => Promise<void>; isDirty: () => boolean; setValue: (name: string, value: unknown) => void } | null>(null);
+	const selectOptionsRef = React.useRef<any>(null);
 	const createDefaultsSeededRef = React.useRef(false);
 
 	const bumpFormKey = React.useCallback(() => setFormKey((prev) => prev + 1), []);
@@ -63,10 +66,46 @@ export function useSalesInvoiceFormState({ mode, buildDefaultFormValues, branchI
 		});
 	}, []);
 
+	const handleTransporterChange = React.useCallback(
+		(transporterId: number) => {
+			setFormValues((prev) => ({
+				...prev,
+				transporter: transporterId,
+				transporter_branch_id: undefined,
+				transporter_gst_no: undefined,
+			}));
+
+			if (selectOptionsRef?.current?.fetchTransporterBranches) {
+				selectOptionsRef.current.fetchTransporterBranches(transporterId);
+			}
+		},
+		[],
+	);
+
+	const handleTransporterBranchChange = React.useCallback(
+		(branchId: number, selectedBranch?: TransporterBranchRecord) => {
+			setFormValues((prev) => ({
+				...prev,
+				transporter_branch_id: branchId,
+				transporter_gst_no: selectedBranch?.gst_no || undefined,
+			}));
+		},
+		[],
+	);
+
+	const handleAutoFillTransporter = React.useCallback(
+		(transporterId: number) => {
+			handleTransporterChange(transporterId);
+		},
+		[handleTransporterChange],
+	);
+
 	return {
 		initialValues, setInitialValues,
 		formValues, setFormValues,
 		formKey, bumpFormKey, formRef,
+		selectOptionsRef,
 		handleMainFormValuesChange, handleFooterFormValuesChange,
+		handleTransporterChange, handleTransporterBranchChange, handleAutoFillTransporter,
 	};
 }

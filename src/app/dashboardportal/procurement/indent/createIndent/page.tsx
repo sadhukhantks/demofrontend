@@ -1,13 +1,19 @@
 "use client";
 
 import React, { Suspense } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import TransactionWrapper, { type TransactionAction } from "@/components/ui/TransactionWrapper";
 import IndentPreview from "../components/IndentPreview";
 import {
 	useDeferredOptionCache,
 	useTransactionSetup,
 	useTransactionPreview,
+	buildApprovalTransactionActions,
+	useRejectDialog,
+	useUnsavedChanges,
+	AutoResizeTextarea,
+	ItemSelectionDialog,
+	type SelectedItem,
 } from "@/components/ui/transaction";
 import { useBranchOptions } from "@/utils/branchUtils";
 import {
@@ -21,15 +27,16 @@ import {
 } from "@/utils/indentService";
 import { toast } from "@/hooks/use-toast";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
-import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import { useMenuId } from "@/hooks/useMenuId";
 import type { MuiFormMode } from "@/components/ui/muiform";
+import { useCompanyLogo } from "@/hooks/useCompanyLogo";
 
 // Types
 import type { EditableLineItem, IndentSetupData, ItemGroupCacheEntry } from "./types/indentTypes";
 
 // Utils
 import { EMPTY_DEPARTMENTS, EMPTY_EXPENSES, EMPTY_ITEM_GROUPS, EMPTY_PROJECTS, EMPTY_INDENT_TITLES, EMPTY_SETUP_PARAMS } from "./utils/indentConstants";
-import { buildDefaultFormValues, createBlankLine } from "./utils/indentFactories";
+import { buildDefaultFormValues, createBlankLine, lineHasAnyData } from "./utils/indentFactories";
 import { mapIndentSetupResponse, mapItemGroupDetailResponse } from "./utils/indentMappers";
 
 // Hooks
@@ -42,7 +49,6 @@ import { useIndentItemValidation } from "./hooks/useIndentItemValidation";
 
 // Components
 import { IndentHeaderForm } from "./components/IndentHeaderForm";
-import { IndentApprovalBar } from "./components/IndentApprovalBar";
 import { useIndentLineItemColumns } from "./components/IndentLineItemsTable";
 import {
 	Dialog,
@@ -74,8 +80,6 @@ export default function IndentTransactionPage() {
 function IndentTransactionPageContent() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
-	const pathname = usePathname();
-
 	const modeParam = (searchParams?.get("mode") || "create").toLowerCase();
 	const requestedId = searchParams?.get("id") || "";
 	const menuIdFromUrl = searchParams?.get("menu_id") || "";
@@ -84,64 +88,10 @@ function IndentTransactionPageContent() {
 
 	const branchOptions = useBranchOptions();
 	const { coId } = useSelectedCompanyCoId();
-	const { availableMenus, menuItems: sidebarMenuItems } = useSidebarContext();
+	const companyLogo = useCompanyLogo(coId);
 
-	// Get menu_id from URL, or lookup from menuItems based on current path
-	const getMenuId = React.useCallback((): string => {
-		if (menuIdFromUrl) return menuIdFromUrl;
-
-		if (availableMenus && availableMenus.length > 0) {
-			const currentPath = pathname?.toLowerCase() || "";
-
-			// First, try exact path match
-			const matchingMenu = availableMenus.find((item) => {
-				if (!item.menu_path) return false;
-				const menuPath = item.menu_path.toLowerCase();
-				return currentPath === menuPath || currentPath.startsWith(menuPath + "/");
-			});
-			if (matchingMenu?.menu_id) return String(matchingMenu.menu_id);
-
-			// Second, try to find by "indent" in path or name
-			const indentMenu = availableMenus.find((item) => {
-				const path = (item.menu_path || "").toLowerCase();
-				const name = (item.menu_name || "").toLowerCase();
-				return path.includes("indent") || path.includes("/procurement/indent") || name.includes("indent");
-			});
-			if (indentMenu?.menu_id) return String(indentMenu.menu_id);
-		}
-
-		// Fallback to sidebarMenuItems
-		if (sidebarMenuItems && sidebarMenuItems.length > 0) {
-			const indentMenu = sidebarMenuItems.find((item) => {
-				const path = (item.menu_path || "").toLowerCase();
-				const name = (item.menu_name || "").toLowerCase();
-				return path.includes("indent") || path.includes("/procurement/indent") || name.includes("indent");
-			});
-			if (indentMenu?.menu_id) return String(indentMenu.menu_id);
-		}
-
-		// Try localStorage
-		if (typeof window !== "undefined" && pathname) {
-			try {
-				const storedMenuItems = localStorage.getItem("sidebar_menuItems");
-				if (storedMenuItems) {
-					const menuItems = JSON.parse(storedMenuItems) as Array<{ menu_id?: number; menu_path?: string; menu_name?: string }> | null;
-					if (Array.isArray(menuItems)) {
-						const indentMenu = menuItems.find((item) => {
-							const path = (item.menu_path || "").toLowerCase();
-							const name = (item.menu_name || "").toLowerCase();
-							return path.includes("indent") || path.includes("/procurement/indent") || name.includes("indent");
-						});
-						if (indentMenu?.menu_id) return String(indentMenu.menu_id);
-					}
-				}
-			} catch {
-				// Ignore errors
-			}
-		}
-
-		return "";
-	}, [menuIdFromUrl, pathname, availableMenus, sidebarMenuItems]);
+	// Resolve menu_id via centralized hook
+	const { getMenuId } = useMenuId({ transactionType: "indent", menuIdFromUrl });
 
 	// Form state hook
 	const { initialValues, setInitialValues, formValues, setFormValues, formKey, bumpFormKey, formRef } = useIndentFormState({ mode });
@@ -151,6 +101,7 @@ function IndentTransactionPageContent() {
 	const [loading, setLoading] = React.useState<boolean>(mode !== "create");
 	const [saving, setSaving] = React.useState(false);
 	const [pageError, setPageError] = React.useState<string | null>(null);
+	const [saveError, setSaveError] = React.useState<string | null>(null);
 
 	// ── Template reuse state ───────────────────────────────────────────
 	/** Name of the indent title currently used as template source (null if none) */
@@ -201,6 +152,36 @@ function IndentTransactionPageContent() {
 		itemGroupCache,
 		itemGroupLoading,
 		ensureItemGroupData,
+	});
+
+	// Unsaved changes tracking for unified save/approval button display
+	const getComparableLineData = React.useCallback(
+		(item: EditableLineItem) => ({
+			department: item.department,
+			itemGroup: item.itemGroup,
+			item: item.item,
+			itemMake: item.itemMake,
+			quantity: item.quantity,
+			uom: item.uom,
+			remarks: item.remarks,
+		}),
+		[],
+	);
+
+	const comparableLineItems = React.useMemo(
+		() => lineItems.filter(lineHasAnyData),
+		[lineItems],
+	);
+
+	const {
+		hasUnsavedChanges,
+		resetBaseline,
+		setBaseline,
+	} = useUnsavedChanges({
+		formValues,
+		lineItems: comparableLineItems,
+		getComparableLineData,
+		enabled: mode !== "create",
 	});
 
 	// Branch options prefill for create mode
@@ -277,6 +258,8 @@ function IndentTransactionPageContent() {
 				const mappedLines = (detail.lines ?? []).map(mapLineToEditable);
 				replaceItems(mappedLines.length ? mappedLines : [createBlankLine()]);
 				setPageError(null);
+				// Set baseline for unsaved changes tracking
+				setBaseline(base, mappedLines.filter(lineHasAnyData));
 			})
 			.catch((error) => {
 				if (cancelled) return;
@@ -291,7 +274,7 @@ function IndentTransactionPageContent() {
 		return () => {
 			cancelled = true;
 		};
-	}, [mode, requestedId, mapLineToEditable, coId, getMenuId, setInitialValues, setFormValues, bumpFormKey, replaceItems]);
+	}, [mode, requestedId, mapLineToEditable, coId, getMenuId, setInitialValues, setFormValues, bumpFormKey, replaceItems, setBaseline]);
 
 	// Setup data
 	const branchValue = React.useMemo(() => String(formValues.branch ?? ""), [formValues.branch]);
@@ -328,10 +311,8 @@ function IndentTransactionPageContent() {
 		departmentOptions,
 		projectOptions,
 		expenseOptions,
-		itemGroupOptions,
 		getExpenseLabel,
 		getProjectLabel,
-		getItemOptions,
 		getMakeOptions,
 		getUomOptions,
 		labelResolvers,
@@ -348,9 +329,8 @@ function IndentTransactionPageContent() {
 	// Item validation hook (per-line max qty / FY checks)
 	const {
 		validationMap,
-		currentLogic: validationLogic,
 		validateLine,
-		clearLine: clearLineValidation,
+		validateLineAndReturn,
 		getQuantityError,
 		getLineWarnings,
 		allLinesValid: allLinesValidFn,
@@ -359,29 +339,32 @@ function IndentTransactionPageContent() {
 		indentType: String(formValues.indent_type ?? ""),
 		expenseTypeName: resolvedExpenseTypeName,
 		expenseTypeId: String(formValues.expense_type ?? ""),
+		indentId: requestedId || undefined,
 	});
 
-	// Wrap line field changes to trigger validation on item selection
+	// Wrap line field changes so that quantity edits on pre-loaded lines lazily
+	// trigger validation (normal item-add validation flow now runs inside
+	// handleItemDialogConfirm since items are only added via the dialog).
 	const handleLineFieldChangeWithValidation = React.useCallback(
 		(id: string, field: keyof EditableLineItem, rawValue: string) => {
 			handleLineFieldChange(id, field, rawValue);
 
-			// When item changes, trigger validation for the new item
-			if (field === "item" && rawValue) {
-				void validateLine(id, rawValue);
-			}
-			// When itemGroup changes (clears item), clear validation for that line
-			if (field === "itemGroup") {
-				clearLineValidation(id);
+			// When quantity changes, ensure validation data exists for the line
+			// (handles pre-loaded edit lines that haven't been validated yet)
+			if (field === "quantity") {
+				const lineItem = lineItems.find((li) => li.id === id);
+				if (lineItem?.item && !validationMap[id]) {
+					void validateLine(id, lineItem.item);
+				}
 			}
 
 			// If user modifies a line while a template is active, prompt for rename
-			if (templateSourceName && ["itemGroup", "item", "quantity", "uom", "department", "itemMake"].includes(field)) {
+			if (templateSourceName && ["quantity", "uom", "department"].includes(field)) {
 				setRenameInputValue(templateSourceName);
 				setShowRenameDialog(true);
 			}
 		},
-		[handleLineFieldChange, validateLine, clearLineValidation, templateSourceName]
+		[handleLineFieldChange, validateLine, templateSourceName, lineItems, validationMap]
 	);
 
 	// ── Template reuse handlers ────────────────────────────────────────
@@ -503,6 +486,203 @@ function IndentTransactionPageContent() {
 		return Boolean(indentType && expenseType);
 	}, [formValues.indent_type, formValues.expense_type]);
 
+	// Item selection dialog state
+	const [itemDialogOpen, setItemDialogOpen] = React.useState(false);
+
+	// Set of item IDs already selected in the line items (to exclude from dialog)
+	const excludeItemIds = React.useMemo(() => {
+		const ids = new Set<number>();
+		for (const li of lineItems) {
+			if (li.item) {
+				const num = Number(li.item);
+				if (Number.isFinite(num)) ids.add(num);
+			}
+		}
+		return ids;
+	}, [lineItems]);
+
+	// Handle items confirmed from the item selection dialog.
+	// Runs per-item validation against the backend before committing lines to
+	// the table; items that fail (errors, FY duplicate, etc.) are auto-removed
+	// and reported in a toast so the user knows why.
+	const handleItemDialogConfirm = React.useCallback(
+		async (items: SelectedItem[]) => {
+			if (mode === "view" || !items.length) return;
+
+			try {
+				// Guard: validation requires header fields to be set. If the
+				// user somehow opens the dialog before header is complete,
+				// surface a clear error instead of silently skipping.
+				if (!branchValue) {
+					toast({
+						variant: "destructive",
+						title: "Branch required",
+						description: "Select a branch before adding items.",
+					});
+					return;
+				}
+				if (!String(formValues.expense_type ?? "").trim()) {
+					toast({
+						variant: "destructive",
+						title: "Expense type required",
+						description: "Select an expense type before adding items.",
+					});
+					return;
+				}
+
+				// Build candidate lines paired with their source SelectedItem
+				// for reporting failures by name/code later.
+				const candidates = items.map((item) => ({
+					source: item,
+					line: {
+						id: crypto.randomUUID?.() ?? String(Date.now() + Math.random()),
+						department: "",
+						itemGroup: String(item.item_grp_id),
+						item: String(item.item_id),
+						itemMake: "",
+						quantity: "",
+						uom: String(item.uom_id),
+						remarks: "",
+					} satisfies EditableLineItem,
+				}));
+
+				// Warm the item group caches in the background so
+				// labelResolvers can render item code/name once the fetch
+				// lands.
+				const groupIds = [
+					...new Set(items.map((item) => String(item.item_grp_id))),
+				];
+				for (const gid of groupIds) {
+					if (!itemGroupCache[gid] && !itemGroupLoading[gid]) {
+						void ensureItemGroupData(gid);
+					}
+				}
+
+				// Validate every candidate line in parallel. Each call
+				// updates validationMap as a side effect (so the forcedQty
+				// auto-fill effect still picks up results for passing lines).
+				// `allSettled` so a single unexpected rejection can't poison
+				// the whole batch.
+				console.log("[indent-dialog] handleItemDialogConfirm", {
+					itemCount: candidates.length,
+					candidates: candidates.map((c) => ({
+						lineId: c.line.id,
+						itemId: c.line.item,
+						itemGroupId: c.line.itemGroup,
+					})),
+				});
+				const settled = await Promise.allSettled(
+					candidates.map((c) => validateLineAndReturn(c.line.id, c.line.item))
+				);
+				console.log("[indent-dialog] settled outcomes", settled);
+
+				const passed: EditableLineItem[] = [];
+				const failed: { name: string; reason: string }[] = [];
+
+				candidates.forEach((candidate, idx) => {
+					const result = settled[idx];
+					const displayName =
+						candidate.source.item_name ||
+						candidate.source.full_item_code ||
+						candidate.source.item_code ||
+						String(candidate.source.item_id);
+
+					if (result.status === "rejected") {
+						const reason =
+							result.reason instanceof Error
+								? result.reason.message
+								: "Unexpected validation error";
+						failed.push({ name: displayName, reason });
+						// Log the raw rejection so it's not lost.
+						console.error("[indent] validation rejected for item", {
+							itemId: candidate.line.item,
+							reason: result.reason,
+						});
+						return;
+					}
+
+					const outcome = result.value;
+					if (outcome.status === "ok" || outcome.status === "skipped") {
+						passed.push(candidate.line);
+					} else if (outcome.status === "blocked") {
+						failed.push({ name: displayName, reason: outcome.reason });
+					} else {
+						failed.push({ name: displayName, reason: outcome.message });
+					}
+				});
+
+				console.log("[indent-dialog] partition result", {
+					passedCount: passed.length,
+					failedCount: failed.length,
+					failed,
+				});
+
+				if (passed.length > 0) {
+					setLineItems((prev) => {
+						const filledLines = prev.filter((line) => lineHasAnyData(line));
+						return [...filledLines, ...passed, createBlankLine()];
+					});
+				}
+
+				// Consolidate into a single toast because use-toast enforces
+				// TOAST_LIMIT = 1 (firing two toasts in the same tick clobbers
+				// one of them). Failure takes priority so the user sees why
+				// items were rejected.
+				if (failed.length > 0) {
+					const description = [
+						passed.length > 0
+							? `Added ${passed.length} item${passed.length > 1 ? "s" : ""}. ${failed.length} rejected:`
+							: `None of the selected items could be added:`,
+						...failed.map((f) => `• ${f.name}: ${f.reason}`),
+					].join("\n");
+					toast({
+						variant: "destructive",
+						title:
+							passed.length > 0
+								? `${failed.length} item${failed.length > 1 ? "s" : ""} rejected`
+								: `No items added`,
+						description,
+						duration: 15000,
+					});
+				} else if (passed.length > 0) {
+					toast({
+						title: `Added ${passed.length} item${passed.length > 1 ? "s" : ""}`,
+						description: "Fill in quantity and other details for each item.",
+					});
+				} else {
+					// Safety net: empty on both sides — impossible in normal flow.
+					toast({
+						variant: "destructive",
+						title: "No items added",
+						description:
+							"Validation produced no results. Check your network connection and try again.",
+					});
+				}
+			} catch (err) {
+				const message =
+					err instanceof Error
+						? err.message
+						: "Unexpected error while adding items.";
+				console.error("[indent] handleItemDialogConfirm failed", err);
+				toast({
+					variant: "destructive",
+					title: "Unable to add items",
+					description: message,
+				});
+			}
+		},
+		[
+			mode,
+			branchValue,
+			formValues.expense_type,
+			setLineItems,
+			itemGroupCache,
+			itemGroupLoading,
+			ensureItemGroupData,
+			validateLineAndReturn,
+		]
+	);
+
 	// Check if any line item has data entered (to lock indent_type and expense_type)
 	const hasLineItemData = React.useMemo(() => {
 		return filledLineItems.length > 0;
@@ -545,16 +725,31 @@ function IndentTransactionPageContent() {
 		setFormValues,
 	});
 
+	// Reject dialog hook (extracted from ApprovalActionsBar)
+	const {
+		rejectDialogOpen,
+		rejectReason,
+		setRejectReason,
+		openRejectDialog,
+		handleRejectConfirm,
+		handleRejectCancel,
+	} = useRejectDialog(handleReject);
+
+	// Reset baseline when indentDetails changes (initial load or post-approval refresh)
+	React.useEffect(() => {
+		if (!indentDetails || mode === "create") return;
+		const timer = setTimeout(() => resetBaseline(), 0);
+		return () => clearTimeout(timer);
+	}, [indentDetails, mode, resetBaseline]);
+
 	// Line item columns - only allow editing if header fields are complete
 	// Only allow editing lines if header is complete AND status permits saving
 	const canEdit = mode !== "view" && headerFieldsComplete && approvalPermissions.canSave !== false;
 	const lineItemColumns = useIndentLineItemColumns({
 		canEdit,
 		departmentOptions,
-		itemGroupOptions,
 		itemGroupLoading,
 		labelResolvers,
-		getItemOptions,
 		getMakeOptions,
 		getUomOptions,
 		handleLineFieldChange: handleLineFieldChangeWithValidation,
@@ -562,6 +757,19 @@ function IndentTransactionPageContent() {
 		getQuantityError,
 		getLineWarnings,
 	});
+
+	// Auto-validate pre-loaded lines in edit mode so users see qty constraints immediately
+	const editValidationTriggeredRef = React.useRef(false);
+	React.useEffect(() => {
+		if (mode !== "edit" || loading || editValidationTriggeredRef.current) return;
+		if (!lineItems.length || !headerFieldsComplete) return;
+		editValidationTriggeredRef.current = true;
+		for (const li of lineItems) {
+			if (li.item) {
+				void validateLine(li.id, li.item);
+			}
+		}
+	}, [mode, loading, lineItems, headerFieldsComplete, validateLine]);
 
 	// Auto-fill forcedQty from validation result (Logic 2 — Open indent: qty = maxqty)
 	React.useEffect(() => {
@@ -695,23 +903,13 @@ function IndentTransactionPageContent() {
 					}
 				}
 			} catch (error) {
-				toast({
-					variant: "destructive",
-					title: "Unable to save indent",
-					description: error instanceof Error ? error.message : "Please try again.",
-				});
+				setSaveError(error instanceof Error ? error.message : "An unexpected error occurred. Please try again.");
 			} finally {
 				setSaving(false);
 			}
 		},
 		[filledLineItems, lineItemsValid, mode, pageError, setupError, requestedId, router, approvalPermissions.canSave, allLinesValidFn]
 	);
-
-	// Save handler for approval bar
-	const handleSave = React.useCallback(async () => {
-		if (!formRef.current?.submit) return;
-		await formRef.current.submit();
-	}, [formRef]);
 
 	// Page metadata
 	const pageTitle = mode === "create" ? "Create Indent" : mode === "edit" ? "Edit Indent" : "Indent Details";
@@ -751,37 +949,16 @@ function IndentTransactionPageContent() {
 
 	const previewItems = React.useMemo(
 		() =>
-			filledLineItems.map((item, index) => {
-				const extractCodeAndName = (label: string | undefined) => {
-					if (!label) return { code: undefined, name: undefined };
-					const separator = label.includes(" — ") ? " — " : label.includes(" - ") ? " - " : null;
-					if (separator) {
-						const parts = label.split(separator);
-						return { code: parts[0]?.trim(), name: parts[1]?.trim() };
-					}
-					return { code: label.trim(), name: undefined };
-				};
-
-				const groupLabel = item.itemGroup ? labelResolvers.itemGroup(item.itemGroup) : undefined;
-				const groupData = extractCodeAndName(groupLabel);
-				const itemLabel = item.itemGroup && item.item ? labelResolvers.item(item.itemGroup, item.item) : undefined;
-				const itemData = extractCodeAndName(itemLabel);
-
-				return {
-					srNo: index + 1,
-					department: labelResolvers.department(item.department),
-					itemGroup: labelResolvers.itemGroup(item.itemGroup),
-					itemGroupCode: groupData.code,
-					itemGroupName: groupData.name,
-					item: labelResolvers.item(item.itemGroup, item.item),
-					itemCode: itemData.code,
-					itemName: itemData.name,
-					itemMake: labelResolvers.itemMake(item.itemGroup, item.itemMake),
-					quantity: item.quantity || "-",
-					uom: labelResolvers.uom(item.itemGroup, item.item, item.uom),
-					remarks: item.remarks || "-",
-				};
-			}),
+			filledLineItems.map((item, index) => ({
+				srNo: index + 1,
+				department: labelResolvers.department(item.department),
+				itemCode: labelResolvers.itemCode(item.itemGroup, item.item),
+				itemName: labelResolvers.itemName(item.itemGroup, item.item),
+				itemMake: labelResolvers.itemMake(item.itemGroup, item.itemMake),
+				quantity: item.quantity || "-",
+				uom: labelResolvers.uom(item.itemGroup, item.item, item.uom),
+				remarks: item.remarks || "-",
+			})),
 		[filledLineItems, labelResolvers]
 	);
 
@@ -812,6 +989,7 @@ function IndentTransactionPageContent() {
 		updatedBy: indentDetails?.updatedBy,
 		updatedAt: indentDetails?.updatedAt,
 		companyName: companyName,
+		companyLogo: companyLogo,
 	};
 
 	const { metadata } = useTransactionPreview({
@@ -835,20 +1013,63 @@ function IndentTransactionPageContent() {
 		return statusChipProps;
 	}, [indentDetails?.status, statusChipProps]);
 
-	// Primary actions — hide save when mode is view or status doesn't allow it
+	// Unified primary actions — shows Create, Save, or Approval buttons in the same location
 	const primaryActions = React.useMemo<TransactionAction[] | undefined>(() => {
-		if (mode === "view" || pageError || setupError) return undefined;
-		// In edit mode, only show Save if the approval status allows saving
-		if (mode === "edit" && !approvalPermissions.canSave) return undefined;
-		return [
-			{
-				label: mode === "create" ? "Create Indent" : "Save Changes",
-				onClick: () => formRef.current?.submit(),
-				disabled: saving || !lineItemsValid || setupLoading,
-				loading: saving,
+		if (pageError || setupError) return undefined;
+
+		// Create mode → Create button
+		if (mode === "create") {
+			return [
+				{
+					label: "Create Indent",
+					onClick: () => formRef.current?.submit(),
+					disabled: saving || !lineItemsValid || setupLoading,
+					loading: saving,
+				},
+			];
+		}
+
+		// No indent details yet (still loading)
+		if (!indentDetails) return undefined;
+
+		// Edit mode with unsaved changes → Save button
+		if (mode === "edit" && approvalPermissions.canSave && hasUnsavedChanges) {
+			return [
+				{
+					label: "Save Changes",
+					onClick: () => formRef.current?.submit(),
+					disabled: saving || !lineItemsValid || setupLoading,
+					loading: saving,
+				},
+			];
+		}
+
+		// View mode, or edit mode without unsaved changes → Approval buttons
+		const approvalActions = buildApprovalTransactionActions({
+			approvalInfo,
+			permissions: approvalPermissions,
+			handlers: {
+				onOpen: handleOpen,
+				onCancelDraft: handleCancelDraft,
+				onReopen: handleReopen,
+				onSendForApproval: handleSendForApproval,
+				onApprove: handleApprove,
+				onReject: openRejectDialog,
+				onViewApprovalLog: handleViewApprovalLog,
+				onClone: handleClone,
 			},
-		];
-	}, [mode, pageError, setupError, saving, lineItemsValid, setupLoading, formRef, approvalPermissions.canSave]);
+			loading: approvalLoading,
+			disabled: saving || loading || setupLoading,
+		});
+
+		return approvalActions.length ? approvalActions : undefined;
+	}, [
+		mode, pageError, setupError, saving, lineItemsValid, setupLoading,
+		formRef, indentDetails, approvalPermissions, hasUnsavedChanges,
+		approvalInfo, approvalLoading, loading,
+		handleOpen, handleCancelDraft, handleReopen, handleSendForApproval,
+		handleApprove, openRejectDialog, handleViewApprovalLog, handleClone,
+	]);
 
 	// Secondary actions
 	const secondaryActions = React.useMemo<TransactionAction[] | undefined>(() => {
@@ -907,31 +1128,11 @@ function IndentTransactionPageContent() {
 			loading={loading || setupLoading}
 			alerts={alerts}
 			preview={
-				<div className="space-y-4">
-					{/* Approval Actions Bar */}
-					{mode !== "create" && indentDetails ? (
-						<IndentApprovalBar
-							approvalInfo={approvalInfo}
-							permissions={approvalPermissions}
-							loading={approvalLoading}
-							disabled={saving || loading || setupLoading}
-							onSave={handleSave}
-							onOpen={handleOpen}
-							onCancelDraft={handleCancelDraft}
-							onReopen={handleReopen}
-							onSendForApproval={handleSendForApproval}
-							onApprove={handleApprove}
-							onReject={handleReject}
-							onViewApprovalLog={handleViewApprovalLog}
-							onClone={handleClone}
-						/>
-					) : null}
-					<IndentPreview
-						header={previewHeader}
-						items={previewItems}
-						remarks={(formValues.remarks as string) || indentDetails?.remarks}
-					/>
-				</div>
+				<IndentPreview
+					header={previewHeader}
+					items={previewItems}
+					remarks={(formValues.remarks as string) || indentDetails?.remarks}
+				/>
 			}
 			lineItems={{
 				title: "Line Items",
@@ -949,6 +1150,16 @@ function IndentTransactionPageContent() {
 						? "Add items to build the indent."
 						: "No line items available.",
 				selectionColumnWidth: "28px",
+				headerAction: canEdit ? (
+					<Button
+						type="button"
+						size="sm"
+						onClick={() => setItemDialogOpen(true)}
+						disabled={!coId}
+					>
+						Add Items
+					</Button>
+				) : undefined,
 			}}
 		>
 			<IndentHeaderForm
@@ -1016,6 +1227,66 @@ function IndentTransactionPageContent() {
 						disabled={!renameInputValue.trim() || renameInputValue.trim() === templateSourceName}
 					>
 						Save indent name
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+
+		{/* ── Save Error Dialog ──────────────────────────────────────── */}
+		<Dialog open={saveError !== null} onOpenChange={(open) => { if (!open) setSaveError(null); }}>
+			<DialogContent className="sm:max-w-md">
+				<DialogHeader>
+					<DialogTitle>Unable to save indent</DialogTitle>
+					<DialogDescription>{saveError}</DialogDescription>
+				</DialogHeader>
+				<DialogFooter>
+					<Button variant="outline" onClick={() => setSaveError(null)}>
+						Close
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+
+		{/* ── Item Selection Dialog ─────────────────────────────────────── */}
+		<ItemSelectionDialog
+			open={itemDialogOpen}
+			onOpenChange={setItemDialogOpen}
+			coId={coId}
+			onConfirm={handleItemDialogConfirm}
+			filter="purchaseable"
+			excludeItemIds={excludeItemIds}
+			title="Select Items for Indent"
+		/>
+
+		{/* ── Reject Confirmation Dialog ────────────────────────────────── */}
+		<Dialog open={rejectDialogOpen} onOpenChange={(open) => { if (!open) handleRejectCancel(); }}>
+			<DialogContent className="sm:max-w-125">
+				<DialogHeader>
+					<DialogTitle>Reject Document</DialogTitle>
+					<DialogDescription>Please provide a reason for rejecting this document.</DialogDescription>
+				</DialogHeader>
+				<div className="space-y-4 py-4">
+					<div className="space-y-2">
+						<label htmlFor="reject-reason" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+							Rejection Reason *
+						</label>
+						<AutoResizeTextarea
+							id="reject-reason"
+							placeholder="Enter rejection reason..."
+							value={rejectReason}
+							onChange={(e) => setRejectReason(e.target.value)}
+							className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+							minHeight={80}
+							maxHeight={200}
+						/>
+					</div>
+				</div>
+				<DialogFooter>
+					<Button variant="outline" onClick={handleRejectCancel}>
+						Cancel
+					</Button>
+					<Button variant="destructive" onClick={handleRejectConfirm} disabled={!rejectReason.trim()}>
+						Reject
 					</Button>
 				</DialogFooter>
 			</DialogContent>

@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import type { TransactionLineColumn } from "@/components/ui/transaction";
 import type { EditableLineItem, Option, UomConversionEntry } from "../types/salesInvoiceTypes";
 import { computeConvertedRate } from "@/utils/uomConversion";
-import { DISCOUNT_TYPE } from "../utils/salesInvoiceConstants";
+import { DISCOUNT_TYPE, isRawJuteInvoice, isHessianInvoice } from "../utils/salesInvoiceConstants";
 
 const DISCOUNT_TYPE_OPTIONS: Option[] = [
 	{ label: "None", value: "" },
@@ -17,7 +17,7 @@ type UseInvoiceLineItemColumnsParams = {
 	itemGroupOptions: Option[];
 	getItemGroupLabel: (groupId: string) => string;
 	getItemOptions: (groupId: string) => Option[];
-	getItemLabel: (groupId: string, itemId: string, itemCode?: string) => string;
+	getItemLabel: (groupId: string, itemId: string, fallbackName?: string) => string;
 	getUomOptions: (groupId: string, itemId: string) => Option[];
 	getUomLabel: (groupId: string, itemId: string, uomId: string) => string;
 	onFieldChange: (id: string, field: keyof EditableLineItem, value: string | number) => void;
@@ -40,28 +40,15 @@ export const useInvoiceLineItemColumns = ({
 	React.useMemo(
 		() => [
 			{
-				id: "itemGroup",
-				header: "Item Group",
+				id: "itemCode",
+				header: "Item Code",
 				width: "1.5fr",
 				minWidth: "163px",
 				renderCell: ({ item }) => {
-					const label = getItemGroupLabel(item.itemGroup);
-					if (!canEdit) {
-						return <span className="block truncate text-sm">{label || "-"}</span>;
-					}
-					const value = itemGroupOptions.find((o) => o.value === item.itemGroup) ?? null;
-					return (
-						<SearchableSelect<Option>
-							options={itemGroupOptions}
-							value={value}
-							onChange={(next) => onFieldChange(item.id, "itemGroup", next?.value ?? "")}
-							getOptionLabel={(o) => o.label}
-							isOptionEqualToValue={(a, b) => a.value === b.value}
-							placeholder="Select group"
-						/>
-					);
+					const code = item.fullItemCode || item.itemCode || "-";
+					return <span className="block truncate text-sm">{code}</span>;
 				},
-				getTooltip: ({ item }) => getItemGroupLabel(item.itemGroup) || undefined,
+				getTooltip: ({ item }) => item.fullItemCode || item.itemCode || undefined,
 			},
 			{
 				id: "item",
@@ -69,24 +56,10 @@ export const useInvoiceLineItemColumns = ({
 				width: "2fr",
 				minWidth: "200px",
 				renderCell: ({ item }) => {
-					const label = getItemLabel(item.itemGroup, item.item, item.itemCode);
-					if (!canEdit) {
-						return <span className="block truncate text-sm">{label}</span>;
-					}
-					const options = getItemOptions(item.itemGroup);
-					const value = options.find((o) => o.value === item.item) ?? null;
-					return (
-						<SearchableSelect<Option>
-							options={options}
-							value={value}
-							onChange={(next) => onFieldChange(item.id, "item", next?.value ?? "")}
-							getOptionLabel={(o) => o.label}
-							isOptionEqualToValue={(a, b) => a.value === b.value}
-							placeholder="Select item"
-						/>
-					);
+					const label = getItemLabel(item.itemGroup, item.item, item.itemName);
+					return <span className="block truncate text-sm">{label || "-"}</span>;
 				},
-				getTooltip: ({ item }) => getItemLabel(item.itemGroup, item.item, item.itemCode) || undefined,
+				getTooltip: ({ item }) => getItemLabel(item.itemGroup, item.item, item.itemName) || undefined,
 			},
 			{
 				id: "rate",
@@ -264,6 +237,174 @@ export const useInvoiceLineItemColumns = ({
 					),
 				getTooltip: ({ item }) => (item.remarks ? item.remarks : undefined),
 			},
+			// --- Raw Jute (type 5) line item columns ---
+			...(isRawJuteInvoice(invoiceTypeId) ? [
+				{
+					id: "juteClaimRate" as const,
+					header: "Claim Rate",
+					width: "0.7fr",
+					minWidth: "80px",
+					renderCell: ({ item }: { item: EditableLineItem }) =>
+						canEdit ? (
+							<Input
+								type="text"
+								value={item.juteClaimRate ?? ""}
+								onChange={(e) => onFieldChange(item.id, "juteClaimRate", e.target.value)}
+								placeholder="0"
+								className="h-8 text-sm"
+							/>
+						) : (
+							<span className="block truncate text-sm">{item.juteClaimRate ?? "-"}</span>
+						),
+				},
+				{
+					id: "juteClaimAmountDtl" as const,
+					header: "Claim Amt",
+					width: "0.7fr",
+					minWidth: "80px",
+					renderCell: ({ item }: { item: EditableLineItem }) =>
+						canEdit ? (
+							<Input
+								type="text"
+								value={item.juteClaimAmountDtl ?? ""}
+								onChange={(e) => onFieldChange(item.id, "juteClaimAmountDtl", e.target.value)}
+								placeholder="0"
+								className="h-8 text-sm"
+							/>
+						) : (
+							<span className="block truncate text-sm">{item.juteClaimAmountDtl ?? "-"}</span>
+						),
+				},
+				{
+					id: "juteClaimDesc" as const,
+					header: "Claim Desc",
+					width: "1fr",
+					minWidth: "100px",
+					renderCell: ({ item }: { item: EditableLineItem }) =>
+						canEdit ? (
+							<Input
+								type="text"
+								value={item.juteClaimDesc ?? ""}
+								onChange={(e) => onFieldChange(item.id, "juteClaimDesc", e.target.value)}
+								placeholder=""
+								className="h-8 text-sm"
+							/>
+						) : (
+							<span className="block truncate text-sm">{item.juteClaimDesc || "-"}</span>
+						),
+				},
+				{
+					id: "juteUnitConversion" as const,
+					header: "Unit Conv.",
+					width: "0.7fr",
+					minWidth: "80px",
+					renderCell: ({ item }: { item: EditableLineItem }) =>
+						canEdit ? (
+							<Input
+								type="text"
+								value={item.juteUnitConversion ?? ""}
+								onChange={(e) => onFieldChange(item.id, "juteUnitConversion", e.target.value)}
+								placeholder=""
+								className="h-8 text-sm"
+							/>
+						) : (
+							<span className="block truncate text-sm">{item.juteUnitConversion || "-"}</span>
+						),
+				},
+				{
+					id: "juteQtyUnitConversion" as const,
+					header: "Qty (Conv.)",
+					width: "0.7fr",
+					minWidth: "80px",
+					renderCell: ({ item }: { item: EditableLineItem }) =>
+						canEdit ? (
+							<Input
+								type="text"
+								value={item.juteQtyUnitConversion ?? ""}
+								onChange={(e) => onFieldChange(item.id, "juteQtyUnitConversion", e.target.value)}
+								placeholder="0"
+								className="h-8 text-sm"
+							/>
+						) : (
+							<span className="block truncate text-sm">{item.juteQtyUnitConversion ?? "-"}</span>
+						),
+				},
+			] as TransactionLineColumn<EditableLineItem>[] : []),
+			// --- Hessian (type 2) line item columns ---
+			...(isHessianInvoice(invoiceTypeId) ? [
+				{
+					id: "hessianQtyBales" as const,
+					header: "Qty Bales",
+					width: "0.7fr",
+					minWidth: "80px",
+					renderCell: ({ item }: { item: EditableLineItem }) =>
+						canEdit ? (
+							<Input
+								type="text"
+								value={item.hessianQtyBales ?? ""}
+								onChange={(e) => onFieldChange(item.id, "hessianQtyBales", e.target.value)}
+								placeholder="0"
+								className="h-8 text-sm"
+							/>
+						) : (
+							<span className="block truncate text-sm">{item.hessianQtyBales ?? "-"}</span>
+						),
+				},
+				{
+					id: "hessianRatePerBale" as const,
+					header: "Rate/Bale",
+					width: "0.7fr",
+					minWidth: "80px",
+					renderCell: ({ item }: { item: EditableLineItem }) =>
+						canEdit ? (
+							<Input
+								type="text"
+								value={item.hessianRatePerBale ?? ""}
+								onChange={(e) => onFieldChange(item.id, "hessianRatePerBale", e.target.value)}
+								placeholder="0"
+								className="h-8 text-sm"
+							/>
+						) : (
+							<span className="block truncate text-sm">{item.hessianRatePerBale ?? "-"}</span>
+						),
+				},
+				{
+					id: "hessianBillingRateMt" as const,
+					header: "Rate/MT",
+					width: "0.7fr",
+					minWidth: "80px",
+					renderCell: ({ item }: { item: EditableLineItem }) =>
+						canEdit ? (
+							<Input
+								type="text"
+								value={item.hessianBillingRateMt ?? ""}
+								onChange={(e) => onFieldChange(item.id, "hessianBillingRateMt", e.target.value)}
+								placeholder="0"
+								className="h-8 text-sm"
+							/>
+						) : (
+							<span className="block truncate text-sm">{item.hessianBillingRateMt ?? "-"}</span>
+						),
+				},
+				{
+					id: "hessianBillingRateBale" as const,
+					header: "Rate/Bale (Bill)",
+					width: "0.8fr",
+					minWidth: "90px",
+					renderCell: ({ item }: { item: EditableLineItem }) =>
+						canEdit ? (
+							<Input
+								type="text"
+								value={item.hessianBillingRateBale ?? ""}
+								onChange={(e) => onFieldChange(item.id, "hessianBillingRateBale", e.target.value)}
+								placeholder="0"
+								className="h-8 text-sm"
+							/>
+						) : (
+							<span className="block truncate text-sm">{item.hessianBillingRateBale ?? "-"}</span>
+						),
+				},
+			] as TransactionLineColumn<EditableLineItem>[] : []),
 		],
 		[canEdit, itemGroupOptions, getItemGroupLabel, getItemOptions, getItemLabel, getUomOptions, getUomLabel, onFieldChange, invoiceTypeId, getUomConversions],
 	);

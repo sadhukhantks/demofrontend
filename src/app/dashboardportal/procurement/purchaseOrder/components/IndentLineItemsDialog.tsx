@@ -24,6 +24,7 @@ export type IndentLineItem = {
   indent_type?: string;
   item_id: number;
   item_code: string;
+  full_item_code?: string;
   item_name: string;
   item_grp_id: number;
   item_grp_code: string;
@@ -50,6 +51,7 @@ type IndentLineItemsDialogProps = {
   onConfirm: (selectedItems: IndentLineItem[]) => void;
   branchId?: number | string;
   coId?: number | string;
+  poDate?: string;
 };
 
 export function IndentLineItemsDialog({
@@ -58,6 +60,7 @@ export function IndentLineItemsDialog({
   onConfirm,
   branchId,
   coId,
+  poDate,
 }: IndentLineItemsDialogProps) {
   const [selectedIndent, setSelectedIndent] = React.useState<ApprovedIndent | null>(null);
   const [approvedIndents, setApprovedIndents] = React.useState<ApprovedIndent[]>([]);
@@ -75,8 +78,12 @@ export function IndentLineItemsDialog({
       const branchIdNum = typeof branchId === "string" ? Number(branchId) : branchId;
       const coIdNum = coId ? (typeof coId === "string" ? Number(coId) : coId) : undefined;
       const response = await getAllApprovedIndents(branchIdNum, coIdNum);
-      setApprovedIndents(response.data || []);
-      const options: Option[] = (response.data || []).map((indent) => ({
+      const indents = (response.data || []).filter((indent) => {
+        if (!poDate) return true;
+        return indent.indent_date <= poDate;
+      });
+      setApprovedIndents(indents);
+      const options: Option[] = indents.map((indent) => ({
         label: `${indent.indent_no} - ${indent.branch_name} (${indent.indent_date})`,
         value: String(indent.indent_id),
       }));
@@ -86,7 +93,7 @@ export function IndentLineItemsDialog({
     } finally {
       setLoadingIndents(false);
     }
-  }, [branchId, coId]);
+  }, [branchId, coId, poDate]);
 
   // Load approved indents when dialog opens
   React.useEffect(() => {
@@ -298,15 +305,15 @@ export function IndentLineItemsDialog({
                         className="mt-1"
                       />
                       <div className="flex-1 grid grid-cols-12 gap-2 text-sm">
-                        <div className="col-span-2">
-                          <div className="font-medium">{item.item_code || "-"}</div>
-                          <div className="text-muted-foreground text-xs">{item.item_name || "-"}</div>
+                        <div className="col-span-2 min-w-0">
+                          <div className="font-medium truncate">{item.full_item_code || item.item_code || "-"}</div>
+                          <div className="text-muted-foreground text-xs truncate">{item.item_name || "-"}</div>
                         </div>
-                        <div className="col-span-2">
+                        <div className="col-span-3 min-w-0">
                           <div className="text-muted-foreground text-xs">Item Group</div>
-                          <div>{item.item_grp_code || "-"} {item.item_grp_name ? `- ${item.item_grp_name}` : ""}</div>
+                          <div className="wrap-break-word">{item.item_grp_code || "-"} {item.item_grp_name ? `- ${item.item_grp_name}` : ""}</div>
                         </div>
-                        <div className="col-span-2">
+                        <div className="col-span-2 min-w-0">
                           <div className="text-muted-foreground text-xs">Quantity</div>
                           <div>{item.qty || 0} {item.uom_name || ""}</div>
                           {item.outstanding_qty !== undefined && item.outstanding_qty !== null && (
@@ -315,15 +322,15 @@ export function IndentLineItemsDialog({
                             </div>
                           )}
                         </div>
-                        <div className="col-span-2">
+                        <div className="col-span-1 min-w-0">
                           <div className="text-muted-foreground text-xs">Make</div>
-                          <div>{item.item_make_name || "-"}</div>
+                          <div className="truncate">{item.item_make_name || "-"}</div>
                         </div>
-                        <div className="col-span-2">
+                        <div className="col-span-2 min-w-0">
                           <div className="text-muted-foreground text-xs">Department</div>
-                          <div>{item.dept_name || "-"}</div>
+                          <div className="truncate">{item.dept_name || "-"}</div>
                         </div>
-                        <div className="col-span-2">
+                        <div className="col-span-2 min-w-0">
                           <div className="text-muted-foreground text-xs">Tax %</div>
                           <div>{item.tax_percentage ? `${item.tax_percentage}%` : "-"}</div>
                         </div>

@@ -3,10 +3,13 @@
 import React, { Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import TransactionWrapper, { type TransactionAction } from "@/components/ui/TransactionWrapper";
+import { Button } from "@/components/ui/button";
 import {
 	useDeferredOptionCache,
 	useTransactionSetup,
 	useTransactionPreview,
+	ItemSelectionDialog,
+	type SelectedItem,
 } from "@/components/ui/transaction";
 import { useBranchOptions } from "@/utils/branchUtils";
 import {
@@ -15,19 +18,21 @@ import {
 	getInwardById,
 	createInward,
 	updateInward,
+	cancelInward,
 	type InwardDetails,
 } from "@/utils/inwardService";
 import { toast } from "@/hooks/use-toast";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import type { MuiFormMode } from "@/components/ui/muiform";
+import { useCompanyLogo } from "@/hooks/useCompanyLogo";
 
 // Types
-import type { InwardSetupData, ItemGroupCacheEntry, POLineItem } from "./types/inwardTypes";
+import type { EditableLineItem, InwardSetupData, ItemGroupCacheEntry, POLineItem } from "./types/inwardTypes";
 
 // Utils
 import { EMPTY_SUPPLIERS, EMPTY_ITEM_GROUPS, EMPTY_SETUP_PARAMS } from "./utils/inwardConstants";
-import { buildDefaultFormValues, createBlankLine } from "./utils/inwardFactories";
+import { buildDefaultFormValues, lineHasAnyData, generateLineId } from "./utils/inwardFactories";
 import { mapInwardSetupResponse, mapItemGroupDetailResponse, mapInwardDetailsToFormValues } from "./utils/inwardMappers";
 
 // Hooks
@@ -72,6 +77,7 @@ function InwardTransactionPageContent() {
 
 	const branchOptions = useBranchOptions();
 	const { coId } = useSelectedCompanyCoId();
+	const companyLogo = useCompanyLogo(coId);
 	const { availableMenus, menuItems: sidebarMenuItems } = useSidebarContext();
 
 	// Get menu_id from URL, or lookup from menuItems based on current path
@@ -140,6 +146,7 @@ function InwardTransactionPageContent() {
 	const [saving, setSaving] = React.useState(false);
 	const [pageError, setPageError] = React.useState<string | null>(null);
 	const [poDialogOpen, setPODialogOpen] = React.useState(false);
+	const [itemDialogOpen, setItemDialogOpen] = React.useState(false);
 
 	// Item group cache
 	const { cache: itemGroupCache, loading: itemGroupLoading, ensure: ensureItemGroupData, reset: resetItemGroupCache } =
@@ -172,6 +179,9 @@ function InwardTransactionPageContent() {
 		handlePOItemsConfirm,
 		filledLineItems,
 		lineItemsValid,
+		hasRowErrors,
+		firstRowError,
+		computeRowError,
 	} = useInwardLineItems({
 		mode,
 		itemGroupCache,
@@ -275,17 +285,14 @@ function InwardTransactionPageContent() {
 
 	const suppliers = setupData?.suppliers ?? EMPTY_SUPPLIERS;
 	const itemGroups = setupData?.itemGroups ?? EMPTY_ITEM_GROUPS;
+	const poRequired = setupData?.coConfig?.po_required === 1;
 
 	// Select options hook
 	const {
 		supplierOptions,
-		itemGroupOptions,
 		getSupplierLabel,
-		getItemOptions,
-		getMakeOptions,
 		getUomOptions,
 		labelResolvers,
-		getOptionLabel,
 	} = useInwardSelectOptions({
 		suppliers,
 		itemGroups,
@@ -321,15 +328,11 @@ function InwardTransactionPageContent() {
 		showFullForm,
 	});
 
-	// Line item columns
+	// Line item columns — no inline item group / item dropdowns.
 	const canEdit = mode !== "view";
 	const lineItemColumns = useInwardLineItemColumns({
 		canEdit,
-		itemGroupOptions,
-		itemGroupLoading,
 		labelResolvers,
-		getItemOptions,
-		getMakeOptions,
 		getUomOptions,
 		handleLineFieldChange,
 	});
@@ -356,11 +359,29 @@ function InwardTransactionPageContent() {
 				return;
 			}
 
+			if (filledLineItems.length === 0) {
+				toast({
+					variant: "destructive",
+					title: "No items added",
+					description: "Add at least one item before saving the inward.",
+				});
+				return;
+			}
+
+			if (hasRowErrors) {
+				toast({
+					variant: "destructive",
+					title: "Fix line errors before saving",
+					description: firstRowError ?? "One or more line items have errors.",
+				});
+				return;
+			}
+
 			if (!lineItemsValid) {
 				toast({
 					variant: "destructive",
 					title: "Line items incomplete",
-					description: "Add at least one item and make sure quantity is greater than zero.",
+					description: "Ensure every line has an item, UOM, and quantity greater than zero.",
 				});
 				return;
 			}
@@ -371,6 +392,7 @@ function InwardTransactionPageContent() {
 				quantity: item.quantity || undefined,
 				uom: item.uom || undefined,
 				remarks: item.remarks || undefined,
+				hsn_code: item.hsnCode || undefined,
 			}));
 
 			const createPayload = {
@@ -423,6 +445,7 @@ function InwardTransactionPageContent() {
 							quantity: item.quantity ? Number(item.quantity) : undefined,
 							uom: item.uom || undefined,
 							remarks: item.remarks || undefined,
+							hsnCode: item.hsnCode || undefined,
 						})),
 					};
 
@@ -450,7 +473,7 @@ function InwardTransactionPageContent() {
 				setSaving(false);
 			}
 		},
-		[filledLineItems, lineItemsValid, mode, pageError, setupError, requestedId, router, validateChallanInvoice]
+		[filledLineItems, lineItemsValid, hasRowErrors, firstRowError, mode, pageError, setupError, requestedId, router, validateChallanInvoice]
 	);
 
 	// Handle PO selection
@@ -466,13 +489,134 @@ function InwardTransactionPageContent() {
 		setPODialogOpen(true);
 	}, [formValues.supplier]);
 
-	// Handle PO items confirm
+	// Handle PO items confirm — surfaces counts for user feedback.
 	const handlePOItemsConfirmWrapper = React.useCallback(
 		(selectedItems: POLineItem[]) => {
-			handlePOItemsConfirm(selectedItems);
+			const result = handlePOItemsConfirm(selectedItems);
 			setPODialogOpen(false);
+
+			if (result.addedCount > 0) {
+				toast({
+					title: `Added ${result.addedCount} PO line${result.addedCount > 1 ? "s" : ""}`,
+					description: "Review quantity and save when ready.",
+				});
+			}
+			if (result.duplicateCount > 0) {
+				toast({
+					variant: "destructive",
+					title: "Duplicate PO lines skipped",
+					description: `${result.duplicateCount} PO line${result.duplicateCount > 1 ? "s were" : " was"} already added and ${result.duplicateCount > 1 ? "were" : "was"} skipped.`,
+				});
+			}
+			if (result.skippedNoPendingCount > 0) {
+				toast({
+					variant: "destructive",
+					title: "No pending quantity",
+					description: `${result.skippedNoPendingCount} PO line${result.skippedNoPendingCount > 1 ? "s" : ""} had no pending quantity and ${result.skippedNoPendingCount > 1 ? "were" : "was"} skipped.`,
+				});
+			}
+			if (
+				result.addedCount === 0 &&
+				result.duplicateCount === 0 &&
+				result.skippedNoPendingCount === 0
+			) {
+				toast({
+					variant: "destructive",
+					title: "Nothing to add",
+					description: "No PO lines were selected.",
+				});
+			}
 		},
 		[handlePOItemsConfirm]
+	);
+
+	// Handle items from item selection dialog
+	const excludeItemIds = React.useMemo(() => {
+		const ids = new Set<number>();
+		for (const li of lineItems) {
+			if (li.item) {
+				const num = Number(li.item);
+				if (Number.isFinite(num)) ids.add(num);
+			}
+		}
+		return ids;
+	}, [lineItems]);
+
+	const handleItemDialogConfirm = React.useCallback(
+		(items: SelectedItem[]) => {
+			if (mode === "view" || !items.length) return;
+
+			// Build a set of already-present item IDs for a defensive duplicate check.
+			const existingItemIds = new Set<string>();
+			for (const li of lineItems) {
+				if (li.item) existingItemIds.add(String(li.item));
+			}
+
+			let duplicateCount = 0;
+			let missingUomCount = 0;
+			const newLines: EditableLineItem[] = [];
+
+			for (const item of items) {
+				const itemIdStr = String(item.item_id);
+				if (existingItemIds.has(itemIdStr)) {
+					duplicateCount += 1;
+					continue;
+				}
+				if (!item.uom_id || !item.item_grp_id) {
+					missingUomCount += 1;
+					continue;
+				}
+
+				const line: EditableLineItem = {
+					id: generateLineId(),
+					itemGroup: String(item.item_grp_id),
+					item: itemIdStr,
+					itemCode: item.full_item_code || item.item_code || undefined,
+					itemMake: "",
+					quantity: "",
+					uom: String(item.uom_id),
+					remarks: "",
+					hsnCode: item.hsn_code ?? "",
+					taxPercentage: item.tax_percentage ?? undefined,
+				};
+				line.rowError = computeRowError(line);
+				newLines.push(line);
+			}
+
+			const groupIds = [...new Set(newLines.map((line) => line.itemGroup))];
+			for (const gid of groupIds) {
+				if (gid && !itemGroupCache[gid] && !itemGroupLoading[gid]) {
+					void ensureItemGroupData(gid);
+				}
+			}
+
+			if (newLines.length > 0) {
+				setLineItems((prev) => {
+					const filledLines = prev.filter((line) => lineHasAnyData(line));
+					return [...filledLines, ...newLines];
+				});
+				toast({
+					title: `Added ${newLines.length} item${newLines.length > 1 ? "s" : ""}`,
+					description: "Fill in quantity and other details.",
+				});
+			}
+
+			if (duplicateCount > 0) {
+				toast({
+					variant: "destructive",
+					title: "Duplicate items skipped",
+					description: `${duplicateCount} item${duplicateCount > 1 ? "s were" : " was"} already in the list and ${duplicateCount > 1 ? "were" : "was"} skipped.`,
+				});
+			}
+			if (missingUomCount > 0) {
+				toast({
+					variant: "destructive",
+					title: "Missing default UOM",
+					description: `${missingUomCount} item${missingUomCount > 1 ? "s were" : " was"} skipped due to missing default UOM or group. Please check item master.`,
+				});
+			}
+		},
+		[mode, lineItems, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, computeRowError]
 	);
 
 	// Page metadata
@@ -512,7 +656,7 @@ function InwardTransactionPageContent() {
 				return {
 					srNo: index + 1,
 					poNo: item.poNo,
-					itemGroup: labelResolvers.itemGroup(item.itemGroup),
+					itemCode: item.itemCode || "-",
 					item: labelResolvers.item(item.itemGroup, item.item) || item.itemCode || "-",
 					quantity: item.quantity || "-",
 					uom: labelResolvers.uom(item.itemGroup, item.item, item.uom),
@@ -551,6 +695,7 @@ function InwardTransactionPageContent() {
 		updatedBy: inwardDetails?.updatedBy,
 		updatedAt: inwardDetails?.updatedAt,
 		companyName: companyName,
+		companyLogo: companyLogo,
 	};
 
 	const { metadata } = useTransactionPreview({
@@ -568,16 +713,56 @@ function InwardTransactionPageContent() {
 			{
 				label: mode === "create" ? "Create Inward" : "Save Changes",
 				onClick: () => formRef.current?.submit(),
-				disabled: saving || !lineItemsValid || setupLoading,
+				disabled: saving || !lineItemsValid || hasRowErrors || setupLoading,
 				loading: saving,
 			},
 		];
-	}, [mode, pageError, setupError, saving, lineItemsValid, setupLoading, formRef]);
+	}, [mode, pageError, setupError, saving, lineItemsValid, hasRowErrors, setupLoading, formRef]);
+
+	// Cancel inward handler — only available in edit mode for non-inspected, active inwards
+	const [cancelling, setCancelling] = React.useState(false);
+	const handleCancelInward = React.useCallback(async () => {
+		if (!requestedId) return;
+		const confirmed = typeof window !== "undefined"
+			? window.confirm("Cancel this inward? This cannot be undone.")
+			: false;
+		if (!confirmed) return;
+
+		setCancelling(true);
+		try {
+			const result = await cancelInward(requestedId);
+			toast({
+				title: result?.message ?? "Inward cancelled",
+			});
+			router.push("/dashboardportal/procurement/inward");
+		} catch (error) {
+			toast({
+				variant: "destructive",
+				title: "Unable to cancel inward",
+				description: error instanceof Error ? error.message : "Please try again.",
+			});
+		} finally {
+			setCancelling(false);
+		}
+	}, [requestedId, router]);
 
 	// Secondary actions
 	const secondaryActions = React.useMemo<TransactionAction[] | undefined>(() => {
-		return undefined;
-	}, []);
+		if (mode !== "edit" || !requestedId) return undefined;
+		const inspectionDone = inwardDetails?.inspection_check === true || inwardDetails?.inspection_check === 1;
+		const isActive = inwardDetails?.active === undefined || inwardDetails?.active === null
+			|| inwardDetails?.active === true || inwardDetails?.active === 1;
+		if (inspectionDone || !isActive) return undefined;
+		return [
+			{
+				label: "Cancel Inward",
+				variant: "destructive",
+				onClick: handleCancelInward,
+				disabled: cancelling || saving,
+				loading: cancelling,
+			},
+		];
+	}, [mode, requestedId, inwardDetails?.inspection_check, inwardDetails?.active, handleCancelInward, cancelling, saving]);
 
 	// Alerts
 	const alerts = pageError || setupError ? (
@@ -613,10 +798,25 @@ function InwardTransactionPageContent() {
 			canEdit,
 			columns: lineItemColumns,
 			onRemoveSelected: handleBulkRemoveLines,
-			placeholder: canEdit ? "Select items from a PO to add to this inward." : "No line items available.",
+			placeholder: canEdit
+				? poRequired
+					? "Use 'Select from PO' to add items to this inward."
+					: "Use 'Add Items' or 'Select from PO' to add items to this inward."
+				: "No line items available.",
 			selectionColumnWidth: "28px",
+			headerAction:
+				canEdit && !poRequired ? (
+					<Button
+						type="button"
+						size="sm"
+						onClick={() => setItemDialogOpen(true)}
+						disabled={!coId}
+					>
+						Add Items
+					</Button>
+				) : undefined,
 		};
-	}, [showFullForm, lineItems, getLineItemId, canEdit, lineItemColumns, handleBulkRemoveLines]);
+	}, [showFullForm, lineItems, getLineItemId, canEdit, lineItemColumns, handleBulkRemoveLines, coId, poRequired]);
 
 	return (
 		<TransactionWrapper
@@ -648,6 +848,7 @@ function InwardTransactionPageContent() {
 				showPOButton={showFullForm && mode !== "view"}
 				onPOSelect={handlePOSelect}
 				poButtonDisabled={!formValues.supplier || setupLoading}
+				poRequired={poRequired}
 			/>
 
 			{/* Prompt to select branch and supplier in create mode */}
@@ -664,6 +865,18 @@ function InwardTransactionPageContent() {
 				supplierId={formValues.supplier as string}
 				branchId={branchValue || undefined}
 			/>
+
+			{!poRequired && (
+				<ItemSelectionDialog
+					open={itemDialogOpen}
+					onOpenChange={setItemDialogOpen}
+					coId={coId}
+					onConfirm={handleItemDialogConfirm}
+					filter="purchaseable"
+					excludeItemIds={excludeItemIds}
+					title="Select Items for Inward"
+				/>
+			)}
 		</TransactionWrapper>
 	);
 }

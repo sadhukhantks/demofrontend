@@ -37,6 +37,8 @@ type UsePOLineItemsParams = {
 	branchId?: string;
 	/** Company ID for the PO — used to call the validation API. */
 	coId?: string;
+	/** PO ID when editing — passed to validation API for qty adjustment in edit mode */
+	poId?: string;
 };
 
 /**
@@ -56,6 +58,7 @@ export const usePOLineItems = ({
 	expenseTypeId,
 	branchId,
 	coId,
+	poId,
 }: UsePOLineItemsParams) => {
 	const {
 		items: lineItems,
@@ -66,19 +69,21 @@ export const usePOLineItems = ({
 		createBlankItem: createBlankLine,
 		hasData: lineHasAnyData,
 		getItemId: (item) => item.id,
-		maintainTrailingBlank: allowManualEntry,
+		maintainTrailingBlank: false,
 	});
 
 	const indentItemGroupInfoRef = React.useRef<Map<string, { code?: string; name?: string }>>(new Map());
 
 	const mapLineToEditable = React.useCallback((line: POLine): EditableLineItem => ({
-		id: line.id ? String(line.id) : generateLineId(),
+		id: generateLineId(),
+		poDtlId: line.id ? String(line.id) : undefined,
 		indentDtlId: line.indentDtlId,
 		indentNo: line.indentNo,
 		itemGroup: line.itemGroup ? String(line.itemGroup) : "",
 		item: line.item ?? "",
 		itemCode: line.itemCode,
 		itemMake: line.itemMake ?? "",
+		hsnCode: line.hsnCode ?? "",
 		quantity: line.quantity != null ? String(line.quantity) : "",
 		rate: line.rate != null ? String(line.rate) : "",
 		uom: line.uom ?? "",
@@ -133,6 +138,7 @@ export const usePOLineItems = ({
 						const cache = itemGroupCache[groupId ?? ""];
 						const defaultRate = cache?.itemRateById[value];
 						const defaultTax = cache?.itemTaxById[value];
+						const defaultHsn = cache?.itemHsnById[value];
 						const defaultUom = cache?.items.find((opt) => opt.value === value)?.defaultUomId;
 						const uomOptions = cache?.uomsByItemId[value] ?? [];
 						let nextUom = item.uom;
@@ -148,6 +154,7 @@ export const usePOLineItems = ({
 							item: value,
 							uom: nextUom,
 							rate: defaultRate != null ? String(defaultRate) : item.rate,
+							hsnCode: defaultHsn ?? item.hsnCode,
 							taxPercentage: defaultTax,
 							igstAmount: tax.igst,
 							cgstAmount: tax.cgst,
@@ -173,6 +180,7 @@ export const usePOLineItems = ({
 								itemId: value,
 								poType: poType ?? "Regular",
 								expenseTypeId,
+								poId,
 							});
 							if (!result) return;
 							setLineItems((prev) =>
@@ -218,17 +226,19 @@ export const usePOLineItems = ({
 						updated.discountAmount = discountAmount;
 						updated.amount = amount;
 
-						const tax = calculateLineTax(
-							amount,
-							updated.taxPercentage || 0,
-							supplierBranchState,
-							shippingState,
-							!!coConfig?.india_gst,
-						);
-						updated.igstAmount = tax.igst;
-						updated.cgstAmount = tax.cgst;
-						updated.sgstAmount = tax.sgst;
-						updated.taxAmount = tax.total;
+						if (supplierBranchState && shippingState && coConfig?.india_gst) {
+							const tax = calculateLineTax(
+								amount,
+								updated.taxPercentage || 0,
+								supplierBranchState,
+								shippingState,
+								true,
+							);
+							updated.igstAmount = tax.igst;
+							updated.cgstAmount = tax.cgst;
+							updated.sgstAmount = tax.sgst;
+							updated.taxAmount = tax.total;
+						}
 
 						// Live quantity bounds validation
 						if (field === "quantity" && qty > 0) {
@@ -282,17 +292,19 @@ export const usePOLineItems = ({
 						updated.discountAmount = discountAmount;
 						updated.amount = amount;
 
-						const tax = calculateLineTax(
-							amount,
-							updated.taxPercentage || 0,
-							supplierBranchState,
-							shippingState,
-							!!coConfig?.india_gst,
-						);
-						updated.igstAmount = tax.igst;
-						updated.cgstAmount = tax.cgst;
-						updated.sgstAmount = tax.sgst;
-						updated.taxAmount = tax.total;
+						if (supplierBranchState && shippingState && coConfig?.india_gst) {
+							const tax = calculateLineTax(
+								amount,
+								updated.taxPercentage || 0,
+								supplierBranchState,
+								shippingState,
+								true,
+							);
+							updated.igstAmount = tax.igst;
+							updated.cgstAmount = tax.cgst;
+							updated.sgstAmount = tax.sgst;
+							updated.taxAmount = tax.total;
+						}
 
 						return updated;
 					}),
@@ -309,7 +321,7 @@ export const usePOLineItems = ({
 						const discountMode = item.discountMode;
 						let discountValue = Number(sanitized) || 0;
 
-						// Validation: % must be < 100, PriceDiscount must be < rate
+						// Validation: % must be < 100; amount discount is not capped
 						if (isPercentageDiscountMode(discountMode) && discountValue >= 100) {
 							toast({
 								variant: "destructive",
@@ -317,13 +329,6 @@ export const usePOLineItems = ({
 								description: "Percentage discount must be less than 100%.",
 							});
 							discountValue = 99.99;
-						} else if (isAmountDiscountMode(discountMode) && discountValue >= rate && rate > 0) {
-							toast({
-								variant: "destructive",
-								title: "Invalid discount",
-								description: "Discount amount must be less than the rate.",
-							});
-							discountValue = rate - 0.01;
 						}
 
 						const updated = { ...item, discountValue: String(discountValue === 0 ? sanitized : discountValue) };
@@ -332,17 +337,19 @@ export const usePOLineItems = ({
 						updated.discountAmount = discountAmount;
 						updated.amount = amount;
 
-						const tax = calculateLineTax(
-							amount,
-							updated.taxPercentage || 0,
-							supplierBranchState,
-							shippingState,
-							!!coConfig?.india_gst,
-						);
-						updated.igstAmount = tax.igst;
-						updated.cgstAmount = tax.cgst;
-						updated.sgstAmount = tax.sgst;
-						updated.taxAmount = tax.total;
+						if (supplierBranchState && shippingState && coConfig?.india_gst) {
+							const tax = calculateLineTax(
+								amount,
+								updated.taxPercentage || 0,
+								supplierBranchState,
+								shippingState,
+								true,
+							);
+							updated.igstAmount = tax.igst;
+							updated.cgstAmount = tax.cgst;
+							updated.sgstAmount = tax.sgst;
+							updated.taxAmount = tax.total;
+						}
 
 						return updated;
 					}),
@@ -354,7 +361,7 @@ export const usePOLineItems = ({
 				prev.map((item) => {
 					if (item.id === id) {
 						const updated = { ...item, [field]: value } as EditableLineItem;
-						if (field === "taxPercentage") {
+						if (field === "taxPercentage" && supplierBranchState && shippingState && coConfig?.india_gst) {
 							const qty = Number(updated.quantity) || 0;
 							const rate = Number(updated.rate) || 0;
 							const discountMode = updated.discountMode;
@@ -366,7 +373,7 @@ export const usePOLineItems = ({
 								Number(value) || 0,
 								supplierBranchState,
 								shippingState,
-								!!coConfig?.india_gst,
+								true,
 							);
 							updated.igstAmount = tax.igst;
 							updated.cgstAmount = tax.cgst;
@@ -379,7 +386,7 @@ export const usePOLineItems = ({
 				}),
 			);
 		},
-		[allowManualEntry, branchId, coConfig, coId, ensureItemGroupData, expenseTypeId, itemGroupCache, itemGroupLoading, mode, poType, setLineItems, shippingState, supplierBranchState],
+		[allowManualEntry, branchId, coConfig, coId, ensureItemGroupData, expenseTypeId, itemGroupCache, itemGroupLoading, mode, poId, poType, setLineItems, shippingState, supplierBranchState],
 	);
 
 	const handleIndentItemsConfirm = React.useCallback(
@@ -427,7 +434,7 @@ export const usePOLineItems = ({
 						indentNo: item.indent_no,
 						itemGroup: String(item.item_grp_id),
 						item: String(item.item_id),
-						itemCode: item.item_code,
+						itemCode: item.full_item_code || item.item_code,
 						itemMake: item.item_make_id ? String(item.item_make_id) : "",
 						quantity: String(availableQty),
 						rate: "",
@@ -435,6 +442,7 @@ export const usePOLineItems = ({
 						discountValue: "",
 						remarks: item.remarks || "",
 						taxPercentage: item.tax_percentage,
+						hsnCode: itemGroupCache[String(item.item_grp_id)]?.itemHsnById[String(item.item_id)] ?? "",
 						/** Max enterable qty for indent-based row = outstanding */
 						availableIndentQty: availableQty,
 						/** Qty is always editable for indent items (inc. open indent); validation enforces the cap and MOQ multiples */
@@ -508,6 +516,12 @@ export const usePOLineItems = ({
 				coId?: string;
 				expenseTypeId?: string;
 				poType?: string;
+				/**
+				 * Optional callback fired when the backend returns blocking errors
+				 * for a line. Used by the dialog-add flow to surface a toast so
+				 * the user knows why a freshly added row is invalid.
+				 */
+				onValidationError?: (line: EditableLineItem, errors: string[]) => void;
 			},
 		) => {
 			if (mode === "view") return;
@@ -516,6 +530,7 @@ export const usePOLineItems = ({
 			const resolvedCoId = overrideParams?.coId ?? coId;
 			const resolvedExpenseTypeId = overrideParams?.expenseTypeId ?? expenseTypeId;
 			const resolvedPoType = overrideParams?.poType ?? poType ?? "Regular";
+			const onValidationError = overrideParams?.onValidationError;
 
 			lines.forEach((line) => {
 				if (!line.item) return;
@@ -537,6 +552,7 @@ export const usePOLineItems = ({
 									itemId: line.item!,
 									poType: resolvedPoType,
 									expenseTypeId: resolvedExpenseTypeId,
+									poId,
 								});
 								if (!result) return;
 								setLineItems((prev) =>
@@ -562,6 +578,7 @@ export const usePOLineItems = ({
 								itemId: line.item!,
 								poType: resolvedPoType,
 								expenseTypeId: resolvedExpenseTypeId,
+								poId,
 							});
 							if (!result) return;
 							setLineItems((prev) =>
@@ -569,6 +586,7 @@ export const usePOLineItems = ({
 									if (l.id !== line.id) return l;
 									const update: Partial<EditableLineItem> = {
 										validationLogic: result.validation_logic,
+										rowError: result.errors.length ? result.errors.join(" ") : undefined,
 										rowWarning: result.warnings.length ? result.warnings.join(" ") : undefined,
 										minOrderQty: result.min_order_qty ?? undefined,
 									};
@@ -581,6 +599,9 @@ export const usePOLineItems = ({
 									return { ...l, ...update };
 								}),
 							);
+							if (result.errors.length && onValidationError) {
+								onValidationError(line, result.errors);
+							}
 						} catch {
 							// Silently ignore — do not block editing
 						}
@@ -588,8 +609,24 @@ export const usePOLineItems = ({
 				}
 			});
 		},
-		[allowManualEntry, branchId, coId, expenseTypeId, mode, poType, setLineItems],
+		[allowManualEntry, branchId, coId, expenseTypeId, mode, poId, poType, setLineItems],
 	);
+
+	// Backfill HSN codes from cache when item group data loads after indent items were added
+	React.useEffect(() => {
+		if (mode === "view") return;
+		setLineItems((prev) => {
+			let changed = false;
+			const next = prev.map((line) => {
+				if (line.hsnCode || !line.item || !line.itemGroup) return line;
+				const hsn = itemGroupCache[line.itemGroup]?.itemHsnById[line.item];
+				if (!hsn) return line;
+				changed = true;
+				return { ...line, hsnCode: hsn };
+			});
+			return changed ? next : prev;
+		});
+	}, [itemGroupCache, mode, setLineItems]);
 
 	return {
 		lineItems,

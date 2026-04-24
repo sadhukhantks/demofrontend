@@ -301,14 +301,16 @@ export const mapFormValuesToCreatePayload = (
       allowable_moisture: li.allowableMoisture
         ? Number(li.allowableMoisture)
         : null,
+      jute_unit: formValues.juteUnit,
     })),
 });
 
 // Alias functions for page.tsx compatibility
 export const mapFormToCreatePayload = (
   formValues: JutePOFormValues,
-  lineItems: JutePOLineItem[]
-) => mapFormValuesToCreatePayload(formValues, lineItems, 0);
+  lineItems: JutePOLineItem[],
+  coId: number
+) => mapFormValuesToCreatePayload(formValues, lineItems, coId);
 
 export const mapFormToUpdatePayload = (
   formValues: JutePOFormValues,
@@ -339,6 +341,7 @@ export const mapFormToUpdatePayload = (
       allowable_moisture: li.allowableMoisture
         ? Number(li.allowableMoisture)
         : null,
+      jute_unit: formValues.juteUnit,
     })),
 });
 

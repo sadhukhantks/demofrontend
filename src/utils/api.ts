@@ -9,6 +9,7 @@ const apiRoutes ={
     USERLOGINCONSOLE : `${API_URL}/authRoutes/login`,
     PROTECTED : `${API_URL}/authRoutes/protected`,
     VERIFYSESSION : `${API_URL}/authRoutes/verify-session`,
+    VALIDATE_SUBDOMAIN : `${API_URL}/authRoutes/validate-subdomain`,
     MENU_CONSOLE: `${API_URL}/companyAdmin/company_console_menu_items`,
     ROLES_CONSOLE: `${API_URL}/companyRoutes/roles`,
     ROLES_COMP_CONSOLE: `${API_URL}/companyAdmin/roles_tenant_admin`,
@@ -73,6 +74,9 @@ const apiRoutesconsole = {
     CREATE_CO_SETUP: `${API_URL}/companyAdmin/create_co_setup_data`,
     CREATE_CO: `${API_URL}/companyAdmin/create_co_data`,
     EDIT_CO: `${API_URL}/companyAdmin/edit_co_data`,
+    UPLOAD_CO_LOGO: `${API_URL}/companyAdmin/upload_co_logo`,
+    GET_CO_LOGO: `${API_URL}/companyAdmin/get_co_logo`,
+    DELETE_CO_LOGO: `${API_URL}/companyAdmin/delete_co_logo`,
 
     CO_CONFIG: `${API_URL}/companyAdmin/co_config`,
     EDIT_CO_CONFIG: `${API_URL}/companyAdmin/company_config`,
@@ -131,8 +135,48 @@ const apiRoutesPortalMasters = {
     ITEM_MAKE_TABLE: `${API_URL}/itemMaster/item_make_table`,
     ITEM_MAKE_CREATE_SETUP: `${API_URL}/itemMaster/item_make_create_setup`,
     ITEM_MAKE_CREATE: `${API_URL}/itemMaster/item_make_create`,
+    ITEM_SEARCH: `${API_URL}/itemMaster/item_search`,
 
-    
+        // Item BOM Master endpoints
+    BOM_LIST: `${API_URL}/itemBomMaster/get_bom_list`,
+    BOM_TREE: `${API_URL}/itemBomMaster/get_bom_tree`,
+    BOM_CHILDREN: `${API_URL}/itemBomMaster/get_bom_children`,
+    BOM_PARENTS: `${API_URL}/itemBomMaster/get_bom_parents`,
+    BOM_CREATE_SETUP: `${API_URL}/itemBomMaster/bom_create_setup`,
+    BOM_ADD_COMPONENT: `${API_URL}/itemBomMaster/bom_add_component`,
+    BOM_EDIT_COMPONENT: `${API_URL}/itemBomMaster/bom_edit_component`,
+    BOM_REMOVE_COMPONENT: `${API_URL}/itemBomMaster/bom_remove_component`,
+
+    // BOM Costing endpoints
+    BOM_COSTING_LIST: `${API_URL}/bomCosting/bom_costing_list`,
+    BOM_COSTING_DETAIL: `${API_URL}/bomCosting/bom_costing_detail`,
+    BOM_COSTING_CREATE_SETUP: `${API_URL}/bomCosting/bom_costing_create_setup`,
+    BOM_COSTING_CREATE: `${API_URL}/bomCosting/bom_costing_create`,
+    BOM_COSTING_UPDATE: `${API_URL}/bomCosting/bom_costing_update`,
+    BOM_COST_ENTRY_SAVE: `${API_URL}/bomCosting/bom_cost_entry_save`,
+    BOM_COST_ENTRY_BULK_SAVE: `${API_URL}/bomCosting/bom_cost_entry_bulk_save`,
+    BOM_COST_ENTRY_DELETE: `${API_URL}/bomCosting/bom_cost_entry_delete`,
+    BOM_COST_ROLLUP: `${API_URL}/bomCosting/bom_cost_rollup`,
+    BOM_COST_SNAPSHOT_LIST: `${API_URL}/bomCosting/bom_cost_snapshot_list`,
+    BOM_COST_SNAPSHOT_DETAIL: `${API_URL}/bomCosting/bom_cost_snapshot_detail`,
+    BOM_COST_SUMMARY: `${API_URL}/bomCosting/bom_cost_summary`,
+
+    // Cost Element Master endpoints
+    COST_ELEMENT_TREE: `${API_URL}/bomCostElement/cost_element_tree`,
+    COST_ELEMENT_LIST: `${API_URL}/bomCostElement/cost_element_list`,
+    COST_ELEMENT_CREATE: `${API_URL}/bomCostElement/cost_element_create`,
+    COST_ELEMENT_UPDATE: `${API_URL}/bomCostElement/cost_element_update`,
+    COST_ELEMENT_TOGGLE_ACTIVE: `${API_URL}/bomCostElement/cost_element_toggle_active`,
+    COST_ELEMENT_SEED: `${API_URL}/bomCostElement/cost_element_seed`,
+
+    // Standard Rate Card endpoints
+    STD_RATE_CARD_LIST: `${API_URL}/stdRateCard/std_rate_card_list`,
+    STD_RATE_CARD_CURRENT: `${API_URL}/stdRateCard/std_rate_card_current`,
+    STD_RATE_CARD_CREATE: `${API_URL}/stdRateCard/std_rate_card_create`,
+    STD_RATE_CARD_UPDATE: `${API_URL}/stdRateCard/std_rate_card_update`,
+    STD_RATE_CARD_TOGGLE_ACTIVE: `${API_URL}/stdRateCard/std_rate_card_toggle_active`,
+    STD_RATE_CARD_APPLY: `${API_URL}/stdRateCard/std_rate_card_apply`,
+
     DEPT_MASTER_TABLE: `${API_URL}/deptMaster/dept_master_table`,
     DEPT_MASTER_VALIDATE_TABLE: `${API_URL}/deptMaster/dept_master_validate_table`,
     DEPT_MASTER_CREATE_SETUP: `${API_URL}/deptMaster/dept_master_create_setup`,
@@ -383,6 +427,7 @@ const apiRoutesPortalMasters = {
     INWARD_CREATE: `${API_URL}/procurementInward/create_inward`,
     INWARD_UPDATE: `${API_URL}/procurementInward/update_inward`,
     GET_INWARD_BY_ID: `${API_URL}/procurementInward/get_inward_by_id`,
+    INWARD_CANCEL: `${API_URL}/procurementInward/cancel_inward`,
 
     // Material Inspection endpoints
     INSPECTION_PENDING_LIST: `${API_URL}/materialInspection/get_pending_inspection_list`,
@@ -474,6 +519,7 @@ const apiRoutesPortalMasters = {
     SALES_INVOICE_SETUP_1: `${API_URL}/salesInvoice/get_sales_invoice_setup_1`,
     SALES_INVOICE_SETUP_2: `${API_URL}/salesInvoice/get_sales_invoice_setup_2`,
     SALES_INVOICE_DELIVERY_ORDER_LINES: `${API_URL}/salesInvoice/get_delivery_order_lines`,
+    SALES_INVOICE_SALES_ORDER_LINES: `${API_URL}/salesInvoice/get_sales_order_lines`,
     SALES_INVOICE_CREATE: `${API_URL}/salesInvoice/create_sales_invoice`,
     SALES_INVOICE_UPDATE: `${API_URL}/salesInvoice/update_sales_invoice`,
     SALES_INVOICE_OPEN: `${API_URL}/salesInvoice/open_sales_invoice`,
@@ -482,6 +528,7 @@ const apiRoutesPortalMasters = {
     SALES_INVOICE_APPROVE: `${API_URL}/salesInvoice/approve_sales_invoice`,
     SALES_INVOICE_REJECT: `${API_URL}/salesInvoice/reject_sales_invoice`,
     SALES_INVOICE_REOPEN: `${API_URL}/salesInvoice/reopen_sales_invoice`,
+    SALES_INVOICE_TRANSPORTER_BRANCHES: `${API_URL}/salesInvoice/get_transporter_branches`,
 
     // HRMS Employee endpoints
     HRMS_EMPLOYEE_LIST: `${API_URL}/hrms/employee_list`,
@@ -548,6 +595,59 @@ const apiRoutesPortalMasters = {
     CONTRACTOR_CREATE: `${API_URL}/contractorMaster/contractor_create`,
     CONTRACTOR_EDIT: `${API_URL}/contractorMaster/contractor_edit`,
 
+<<<<<<< HEAD
+    // Bank Details Master endpoints
+    BANK_DETAILS_TABLE: `${API_URL}/bankDetailsMaster/get_bank_details_table`,
+    BANK_DETAILS_BY_ID: `${API_URL}/bankDetailsMaster/get_bank_detail_by_id`,
+    BANK_DETAILS_CREATE_SETUP: `${API_URL}/bankDetailsMaster/bank_details_create_setup`,
+    BANK_DETAILS_CREATE: `${API_URL}/bankDetailsMaster/bank_details_create`,
+    BANK_DETAILS_EDIT: `${API_URL}/bankDetailsMaster/bank_details_edit`,
+
+    // =============================================
+    // Accounting Module endpoints
+    // =============================================
+
+    // Setup & Masters
+    ACC_ACTIVATE_COMPANY: `${API_URL}/accounting/activate_company`,
+    ACC_LEDGER_GROUPS: `${API_URL}/accounting/ledger_groups`,
+    ACC_LEDGER_GROUP_CREATE: `${API_URL}/accounting/ledger_groups`,
+    ACC_LEDGERS: `${API_URL}/accounting/ledgers`,
+    ACC_LEDGER_CREATE: `${API_URL}/accounting/ledgers`,
+    ACC_LEDGER_EDIT: `${API_URL}/accounting/ledgers`,
+    ACC_PARTIES_DROPDOWN: `${API_URL}/accounting/parties_dropdown`,
+    ACC_VOUCHER_TYPES: `${API_URL}/accounting/voucher_types`,
+    ACC_FINANCIAL_YEARS: `${API_URL}/accounting/financial_years`,
+    ACC_FINANCIAL_YEAR_CREATE: `${API_URL}/accounting/financial_years`,
+    ACC_ACCOUNT_DETERMINATIONS: `${API_URL}/accounting/account_determinations`,
+    ACC_ACCOUNT_DETERMINATIONS_UPDATE: `${API_URL}/accounting/account_determinations`,
+
+    // Voucher Operations
+    ACC_VOUCHERS: `${API_URL}/accounting/vouchers`,
+    ACC_VOUCHER_CREATE: `${API_URL}/accounting/vouchers`,
+    ACC_VOUCHER_DETAIL: `${API_URL}/accounting/vouchers`,
+    ACC_VOUCHER_OPEN: `${API_URL}/accounting/vouchers`,
+    ACC_VOUCHER_CANCEL: `${API_URL}/accounting/vouchers`,
+    ACC_VOUCHER_SEND_APPROVAL: `${API_URL}/accounting/vouchers`,
+    ACC_VOUCHER_APPROVE: `${API_URL}/accounting/vouchers`,
+    ACC_VOUCHER_REJECT: `${API_URL}/accounting/vouchers`,
+    ACC_VOUCHER_REOPEN: `${API_URL}/accounting/vouchers`,
+    ACC_VOUCHER_REVERSE: `${API_URL}/accounting/vouchers`,
+    ACC_VOUCHER_SETTLE_BILLS: `${API_URL}/accounting/vouchers`,
+
+    // Reports
+    ACC_REPORT_TRIAL_BALANCE: `${API_URL}/accounting/reports/trial_balance`,
+    ACC_REPORT_PROFIT_LOSS: `${API_URL}/accounting/reports/profit_loss`,
+    ACC_REPORT_BALANCE_SHEET: `${API_URL}/accounting/reports/balance_sheet`,
+    ACC_REPORT_LEDGER: `${API_URL}/accounting/reports/ledger_report`,
+    ACC_REPORT_DAY_BOOK: `${API_URL}/accounting/reports/day_book`,
+    ACC_REPORT_CASH_BOOK: `${API_URL}/accounting/reports/cash_book`,
+    ACC_REPORT_PARTY_OUTSTANDING: `${API_URL}/accounting/reports/party_outstanding`,
+    ACC_REPORT_AGEING: `${API_URL}/accounting/reports/ageing_analysis`,
+    ACC_REPORT_GST_SUMMARY: `${API_URL}/accounting/reports/gst_summary`,
+
+    // Opening Balance
+    ACC_OPENING_BILLS_IMPORT: `${API_URL}/accounting/opening_bills/import`,
+=======
     // Shift Master endpoints
     SHIFT_TABLE: `${API_URL}/hrmsMasters/get_shift_table`,
     SHIFT_BY_ID: `${API_URL}/hrmsMasters/get_shift_by_id`,
@@ -574,6 +674,7 @@ const apiRoutesPortalMasters = {
     LEAVE_TYPE_BY_ID: `${API_URL}/hrmsMasters/get_leave_type_by_id`,
     LEAVE_TYPE_CREATE: `${API_URL}/hrmsMasters/leave_type_create`,
     LEAVE_TYPE_EDIT: `${API_URL}/hrmsMasters/leave_type_edit`,
+>>>>>>> tsdevhrms
 };
 
 export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters };

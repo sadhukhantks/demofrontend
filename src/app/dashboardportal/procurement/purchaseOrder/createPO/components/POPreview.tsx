@@ -3,6 +3,7 @@
 import React, { useRef } from "react";
 import { Box, Divider, Stack, Typography } from "@mui/material";
 import { Button } from "@/components/ui/button";
+import { openStyledPrintWindow } from "@/utils/printUtils";
 
 export type POPreviewHeader = {
   poNo?: string;
@@ -19,6 +20,7 @@ export type POPreviewHeader = {
   updatedBy?: string;
   updatedAt?: string;
   companyName?: string;
+  companyLogo?: string;
   contactPerson?: string;
   contactNo?: string;
   taxType?: string;
@@ -26,6 +28,8 @@ export type POPreviewHeader = {
 
 export type POPreviewItem = {
   srNo: number;
+  indentNo?: string;
+  itemCode?: string;
   itemGroup?: string;
   item?: string;
   quantity?: string | number;
@@ -40,6 +44,7 @@ export type POPreviewItem = {
 
 export type POPreviewTotals = {
   netAmount?: number;
+  additionalCharges?: number;
   totalIGST?: number;
   totalCGST?: number;
   totalSGST?: number;
@@ -48,21 +53,32 @@ export type POPreviewTotals = {
   advancePercentage?: number;
 };
 
+export type POPreviewAdditionalCharge = {
+  name: string;
+  qty: number;
+  rate: number;
+  amount: number;
+  taxPct: number;
+  taxAmount: number;
+  remarks?: string;
+};
+
 type POPreviewProps = {
   header: POPreviewHeader;
   items: POPreviewItem[];
   totals?: POPreviewTotals;
+  additionalCharges?: POPreviewAdditionalCharge[];
   remarks?: string;
   onPrint?: () => void;
   onDownload?: () => void;
 };
 
 const FieldRow = ({ label, value }: { label: string; value?: React.ReactNode }) => (
-  <Stack direction="column" spacing={0.25} sx={{ minWidth: 0 }}>
-    <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem" }}>
+  <Stack direction="row" spacing={0.5} alignItems="flex-start" sx={{ minWidth: 0 }}>
+    <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem", whiteSpace: "nowrap", flexShrink: 0 }}>
       {label}:
     </Typography>
-    <Typography variant="body2" sx={{ fontWeight: 400, fontSize: "0.875rem" }}>
+    <Typography variant="body2" sx={{ fontWeight: 400, fontSize: "0.875rem", wordBreak: "break-word" }}>
       {value ?? "-"}
     </Typography>
   </Stack>
@@ -129,38 +145,15 @@ const formatAmount = (value?: number | string) => {
   return num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-const POPreview: React.FC<POPreviewProps> = ({ header, items, totals, remarks, onPrint, onDownload }) => {
+const POPreview: React.FC<POPreviewProps> = ({ header, items, totals, additionalCharges, remarks, onPrint, onDownload }) => {
   const previewRef = useRef<HTMLDivElement>(null);
 
   const buildPrintableWindow = (titleSuffix: string) => {
     const printContent = previewRef.current?.innerHTML || "";
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) {
-      alert("Please allow popups to continue.");
-      return null;
-    }
-
-    printWindow.document.open();
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>Purchase Order - ${titleSuffix}</title></head><body><div id="print-root"></div></body></html>`);
-    printWindow.document.close();
-
-    const styleNodes = document.querySelectorAll("style, link[rel=\"stylesheet\"]");
-    styleNodes.forEach((node) => {
-      printWindow.document.head.appendChild(node.cloneNode(true));
-    });
-
-    const helperStyle = printWindow.document.createElement("style");
-    helperStyle.textContent = `
-      @media print { @page { margin: 12mm; } }
-      body { margin: 0; padding: 20px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      table { width: 100%; border-collapse: collapse; }
-      #preview-left-pane { max-width: 25% !important; flex-basis: 25% !important; word-break: break-word; white-space: normal; }
-    `;
-    printWindow.document.head.appendChild(helperStyle);
-
-    const root = printWindow.document.getElementById("print-root");
-    if (root) root.innerHTML = printContent;
-    return printWindow;
+    return openStyledPrintWindow(
+      printContent,
+      `Purchase Order - ${titleSuffix}`
+    );
   };
 
   const handlePrint = () => {
@@ -203,6 +196,9 @@ const POPreview: React.FC<POPreviewProps> = ({ header, items, totals, remarks, o
               flexBasis: { md: "25%" },
             }}
           >
+            {header.companyLogo && (
+              <img src={header.companyLogo} alt="" style={{ maxHeight: 60, maxWidth: 200, marginBottom: 4 }} />
+            )}
             <Typography variant="body1" sx={{ fontWeight: 600, fontSize: "1rem", wordBreak: "break-word", whiteSpace: "normal" }}>
               {header.companyName || "-"}
             </Typography>
@@ -272,11 +268,11 @@ const POPreview: React.FC<POPreviewProps> = ({ header, items, totals, remarks, o
           <Box component="table" sx={{ width: "100%", borderCollapse: "collapse" }}>
             <Box component="thead" sx={{ backgroundColor: "rgba(12,60,96,0.08)" }}>
               <Box component="tr">
-                {["Sr No", "Item", "Qty", "UOM", "Rate", "Disc.", "Disc. Amt", "Amount", "Remarks"].map((col) => (
+                {["Sr No", "Indent No", "Item Code", "Item Name", "Qty", "UOM", "Rate", "Disc.", "Disc. Amt", "Amount", "Remarks"].map((col) => (
                   <Box
                     key={col}
                     component="th"
-                    sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, textAlign: col === "Remarks" ? "left" : "center" }}
+                    sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, textAlign: col === "Remarks" || col === "Item Name" ? "left" : "center" }}
                   >
                     {col}
                   </Box>
@@ -289,6 +285,12 @@ const POPreview: React.FC<POPreviewProps> = ({ header, items, totals, remarks, o
                   <Box component="tr" key={`po-preview-row-${item.srNo}`}>
                     <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, textAlign: "center" }}>
                       {item.srNo}
+                    </Box>
+                    <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, whiteSpace: "nowrap" }}>
+                      {item.indentNo || "-"}
+                    </Box>
+                    <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, fontFamily: "monospace", whiteSpace: "nowrap" }}>
+                      {item.itemCode || "-"}
                     </Box>
                     <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12 }}>
                       {item.item || "-"}
@@ -318,7 +320,7 @@ const POPreview: React.FC<POPreviewProps> = ({ header, items, totals, remarks, o
                 ))
               ) : (
                 <Box component="tr">
-                  <Box component="td" colSpan={9} sx={{ border: "1px solid", borderColor: "divider", p: 2, fontSize: 12, textAlign: "center" }}>
+                  <Box component="td" colSpan={11} sx={{ border: "1px solid", borderColor: "divider", p: 2, fontSize: 12, textAlign: "center" }}>
                     No line items captured yet.
                   </Box>
                 </Box>
@@ -327,6 +329,44 @@ const POPreview: React.FC<POPreviewProps> = ({ header, items, totals, remarks, o
           </Box>
         </Box>
 
+        {additionalCharges && additionalCharges.length > 0 ? (
+          <>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>Additional Charges</Typography>
+            <Box sx={{ overflowX: "auto" }}>
+              <Box component="table" sx={{ width: "100%", borderCollapse: "collapse" }}>
+                <Box component="thead" sx={{ backgroundColor: "rgba(12,60,96,0.08)" }}>
+                  <Box component="tr">
+                    {["#", "Charge", "Qty", "Rate", "Amount", "Tax %", "Tax Amt", "Remarks"].map((col) => (
+                      <Box
+                        key={col}
+                        component="th"
+                        sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, textAlign: col === "Charge" || col === "Remarks" ? "left" : "center" }}
+                      >
+                        {col}
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+                <Box component="tbody">
+                  {additionalCharges.map((charge, idx) => (
+                    <Box component="tr" key={`po-preview-charge-${idx}`}>
+                      <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, textAlign: "center" }}>{idx + 1}</Box>
+                      <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12 }}>{charge.name || "-"}</Box>
+                      <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, textAlign: "right" }}>{charge.qty}</Box>
+                      <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, textAlign: "right" }}>{formatAmount(charge.rate)}</Box>
+                      <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, textAlign: "right" }}>{formatAmount(charge.amount)}</Box>
+                      <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, textAlign: "center" }}>{charge.taxPct ? `${charge.taxPct}%` : "-"}</Box>
+                      <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12, textAlign: "right" }}>{formatAmount(charge.taxAmount)}</Box>
+                      <Box component="td" sx={{ border: "1px solid", borderColor: "divider", p: 1, fontSize: 12 }}>{charge.remarks || "-"}</Box>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            </Box>
+          </>
+        ) : null}
+
         {totals ? (
           <>
             <Divider sx={{ my: 2 }} />
@@ -334,6 +374,9 @@ const POPreview: React.FC<POPreviewProps> = ({ header, items, totals, remarks, o
               <Box sx={{ minWidth: 280 }}>
                 <Stack spacing={0.75}>
                   <TotalsRow label="Net Amount" value={formatAmount(totals.netAmount)} />
+                  {totals.additionalCharges != null && totals.additionalCharges > 0 && (
+                    <TotalsRow label="Additional Charges" value={formatAmount(totals.additionalCharges)} />
+                  )}
                   <TotalsRow label="IGST" value={formatAmount(totals.totalIGST)} />
                   <TotalsRow label="CGST" value={formatAmount(totals.totalCGST)} />
                   <TotalsRow label="SGST" value={formatAmount(totals.totalSGST)} />

@@ -24,12 +24,14 @@ type Params = {
 	itemGroupLoading: Partial<Record<string, boolean>>;
 	ensureItemGroupData: (groupId: string) => void;
 	itemGroups: ReadonlyArray<ItemGroupRecord>;
+	invoiceTypeId?: string;
 };
 
 export const useDeliveryOrderLineItems = ({
 	mode, partyState, shippingState,
-	itemGroupCache, itemGroupLoading, ensureItemGroupData, itemGroups,
+	itemGroupCache, itemGroupLoading, ensureItemGroupData, itemGroups, invoiceTypeId,
 }: Params) => {
+	const isHessian = invoiceTypeId === "2";
 	const {
 		items: lineItems, setItems: setLineItems, replaceItems, removeItems: removeLineItems,
 	} = useLineItems<EditableLineItem>({
@@ -48,10 +50,12 @@ export const useDeliveryOrderLineItems = ({
 		itemGroup: line.itemGroup ? String(line.itemGroup) : "",
 		item: line.item ?? "",
 		itemCode: line.itemCode,
+		itemName: line.itemName,
 		itemMake: line.itemMake ?? "",
 		quantity: line.quantity != null ? String(line.quantity) : "",
 		rate: line.rate != null ? String(line.rate) : "",
 		uom: line.uom ?? "",
+		uomName: line.uomName,
 		discountType: line.discountType,
 		discountedRate: line.discountedRate,
 		discountAmount: line.discountAmount,
@@ -92,7 +96,7 @@ export const useDeliveryOrderLineItems = ({
 			if (field === "itemGroup") {
 				setLineItems((prev) =>
 					prev.map((item) =>
-						item.id === id ? { ...item, itemGroup: value, item: "", itemMake: "", uom: "", rate: "", hsnCode: "" } : item,
+						item.id === id ? { ...item, itemGroup: value, item: "", itemMake: "", uom: "", uomName: undefined, rate: "", hsnCode: "" } : item,
 					),
 				);
 				if (value && !itemGroupCache[value] && !itemGroupLoading[value]) void ensureItemGroupData(value);
@@ -116,9 +120,10 @@ export const useDeliveryOrderLineItems = ({
 						let nextUom = item.uom;
 						if (defaultUom && uomOptions.some((opt) => opt.value === defaultUom)) nextUom = defaultUom;
 						else if (uomOptions.length) nextUom = uomOptions[0].value;
+						const effectiveRate = isHessian && defaultRate != null ? Math.round(defaultRate) : defaultRate;
 						const updated: EditableLineItem = {
 							...item, item: value, uom: nextUom,
-							rate: defaultRate != null ? String(defaultRate) : item.rate,
+							rate: effectiveRate != null ? String(effectiveRate) : item.rate,
 							taxPercentage: defaultTax,
 						};
 						return recalcLine(updated);
@@ -129,10 +134,13 @@ export const useDeliveryOrderLineItems = ({
 
 			if (field === "quantity" || field === "rate") {
 				const sanitized = value.replace(/[^0-9.]/g, "");
+				const applied = isHessian && field === "rate"
+					? String(Math.round(Number(sanitized) || 0))
+					: sanitized;
 				setLineItems((prev) =>
 					prev.map((item) => {
 						if (item.id !== id) return item;
-						return recalcLine({ ...item, [field]: sanitized });
+						return recalcLine({ ...item, [field]: applied });
 					}),
 				);
 				return;
@@ -174,10 +182,15 @@ export const useDeliveryOrderLineItems = ({
 			}
 
 			setLineItems((prev) =>
-				prev.map((item) => (item.id === id ? { ...item, [field]: value } as EditableLineItem : item)),
+				prev.map((item) => {
+					if (item.id !== id) return item;
+					const update: Partial<EditableLineItem> = { [field]: value };
+					if (field === "uom") update.uomName = undefined;
+					return { ...item, ...update } as EditableLineItem;
+				}),
 			);
 		},
-		[mode, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, recalcLine, partyState, shippingState],
+		[mode, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, recalcLine, isHessian, partyState, shippingState],
 	);
 
 	const handleSalesOrderLinesConfirm = React.useCallback(
@@ -213,11 +226,13 @@ export const useDeliveryOrderLineItems = ({
 						hsnCode: item.hsn_code || "",
 						itemGroup: String(item.item_grp_id),
 						item: String(item.item_id),
-						itemCode: item.item_code,
+						itemCode: item.full_item_code || item.item_code,
+						itemName: item.item_name,
 						itemMake: item.item_make_id ? String(item.item_make_id) : "",
 						quantity: String(qty),
 						rate: String(rate),
 						uom: String(item.uom_id),
+						uomName: item.uom_name,
 						discountType: item.discount_type,
 						discountedRate: item.discounted_rate,
 						discountAmount: item.discount_amount,
@@ -273,5 +288,6 @@ export const useDeliveryOrderLineItems = ({
 		lineItems, setLineItems, replaceItems, removeLineItems,
 		handleLineFieldChange, handleSalesOrderLinesConfirm,
 		mapLineToEditable, filledLineItems, lineItemsValid, itemGroupsFromLineItems,
+		lineHasAnyData,
 	};
 };
