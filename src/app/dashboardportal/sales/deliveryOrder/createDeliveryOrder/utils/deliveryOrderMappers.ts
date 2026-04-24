@@ -112,6 +112,8 @@ export const mapApprovedSalesOrders = (records: unknown[]): ApprovedSalesOrderRe
 				billingToId: data?.billing_to_id != null ? String(data.billing_to_id) : undefined,
 				shippingToId: data?.shipping_to_id != null ? String(data.shipping_to_id) : undefined,
 				transporterId: data?.transporter_id != null ? String(data.transporter_id) : undefined,
+				pcsoNo: data?.pcso_no ?? undefined,
+				pcsoDate: data?.pcso_date ?? undefined,
 			} satisfies ApprovedSalesOrderRecord;
 		})
 		.filter(Boolean) as ApprovedSalesOrderRecord[];

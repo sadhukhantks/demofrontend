@@ -313,12 +313,25 @@ function InwardTransactionPageContent() {
 		[mode, hasBranchAndSupplier]
 	);
 
+	// Lock editing once material inspection is done, or SR status has moved past pending.
+	// Pending = sr_status is null OR 21 (Draft).
+	const isInwardLocked = React.useMemo(() => {
+		if (!inwardDetails) return false;
+		const inspectionDone = inwardDetails.inspection_check === true || inwardDetails.inspection_check === 1;
+		const rawStatusId = inwardDetails.statusId;
+		const statusIdNum = rawStatusId === null || rawStatusId === undefined || rawStatusId === ""
+			? null
+			: Number(rawStatusId);
+		const statusPending = statusIdNum === null || statusIdNum === 21;
+		return inspectionDone || !statusPending;
+	}, [inwardDetails]);
+
 	// Form schema
 	const headerFieldsDisabled = React.useMemo(() => {
 		if (mode === "view") return true;
-		if (mode === "edit") return false;
+		if (mode === "edit") return isInwardLocked;
 		return !branchIdForSetup;
-	}, [mode, branchIdForSetup]);
+	}, [mode, branchIdForSetup, isInwardLocked]);
 
 	const schema = useInwardFormSchema({
 		mode,
@@ -329,7 +342,7 @@ function InwardTransactionPageContent() {
 	});
 
 	// Line item columns — no inline item group / item dropdowns.
-	const canEdit = mode !== "view";
+	const canEdit = mode !== "view" && !isInwardLocked;
 	const lineItemColumns = useInwardLineItemColumns({
 		canEdit,
 		labelResolvers,
@@ -348,6 +361,14 @@ function InwardTransactionPageContent() {
 	const handleFormSubmit = React.useCallback(
 		async (values: Record<string, unknown>) => {
 			if (mode === "view" || pageError || setupError) return;
+			if (mode === "edit" && isInwardLocked) {
+				toast({
+					variant: "destructive",
+					title: "Inward is locked",
+					description: "Changes are not allowed once material inspection is complete or the SR status has advanced past pending.",
+				});
+				return;
+			}
 
 			// Validate challan/invoice requirement
 			if (!validateChallanInvoice(values)) {
@@ -473,7 +494,7 @@ function InwardTransactionPageContent() {
 				setSaving(false);
 			}
 		},
-		[filledLineItems, lineItemsValid, hasRowErrors, firstRowError, mode, pageError, setupError, requestedId, router, validateChallanInvoice]
+		[filledLineItems, lineItemsValid, hasRowErrors, firstRowError, mode, pageError, setupError, isInwardLocked, requestedId, router, validateChallanInvoice]
 	);
 
 	// Handle PO selection
@@ -709,6 +730,7 @@ function InwardTransactionPageContent() {
 	// Primary actions
 	const primaryActions = React.useMemo<TransactionAction[] | undefined>(() => {
 		if (mode === "view" || pageError || setupError) return undefined;
+		if (mode === "edit" && isInwardLocked) return undefined;
 		return [
 			{
 				label: mode === "create" ? "Create Inward" : "Save Changes",
@@ -717,7 +739,7 @@ function InwardTransactionPageContent() {
 				loading: saving,
 			},
 		];
-	}, [mode, pageError, setupError, saving, lineItemsValid, hasRowErrors, setupLoading, formRef]);
+	}, [mode, pageError, setupError, isInwardLocked, saving, lineItemsValid, hasRowErrors, setupLoading, formRef]);
 
 	// Cancel inward handler — only available in edit mode for non-inspected, active inwards
 	const [cancelling, setCancelling] = React.useState(false);
@@ -765,7 +787,13 @@ function InwardTransactionPageContent() {
 	}, [mode, requestedId, inwardDetails?.inspection_check, inwardDetails?.active, handleCancelInward, cancelling, saving]);
 
 	// Alerts
-	const alerts = pageError || setupError ? (
+	const lockedNotice = mode === "edit" && isInwardLocked ? (
+		<div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+			This inward is no longer editable — material inspection has been completed or the SR status has moved past pending.
+		</div>
+	) : null;
+
+	const alerts = pageError || setupError || lockedNotice ? (
 		<div className="space-y-2">
 			{pageError ? (
 				<div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{pageError}</div>
@@ -773,6 +801,7 @@ function InwardTransactionPageContent() {
 			{setupError ? (
 				<div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{setupError}</div>
 			) : null}
+			{lockedNotice}
 		</div>
 	) : null;
 
@@ -845,9 +874,9 @@ function InwardTransactionPageContent() {
 				formRef={formRef}
 				onSubmit={handleFormSubmit}
 				onValuesChange={setFormValues}
-				showPOButton={showFullForm && mode !== "view"}
+				showPOButton={showFullForm && mode !== "view" && !isInwardLocked}
 				onPOSelect={handlePOSelect}
-				poButtonDisabled={!formValues.supplier || setupLoading}
+				poButtonDisabled={!formValues.supplier || setupLoading || isInwardLocked}
 				poRequired={poRequired}
 			/>
 

@@ -3,7 +3,8 @@ import { SearchableSelect } from "@/components/ui/transaction";
 import { Input } from "@/components/ui/input";
 import type { TransactionLineColumn } from "@/components/ui/transaction";
 import type { EditableLineItem, Option, UomConversionEntry } from "../types/deliveryOrderTypes";
-import { computeConvertedRate } from "@/utils/uomConversion";
+import { computeConvertedRate, computeConvertedQty, computeConvertedQtyBales } from "@/utils/uomConversion";
+import { isGovtInvoice, isBalesUomName } from "../utils/deliveryOrderConstants";
 
 type UseDOLineItemColumnsParams = {
 	canEdit: boolean;
@@ -82,19 +83,90 @@ export const useDOLineItemColumns = ({
 				header: "Qty",
 				width: "0.8fr",
 				minWidth: "80px",
-				renderCell: ({ item }) =>
-					canEdit ? (
-						<Input
-							type="text"
-							value={item.quantity}
-							onChange={(e) => handleLineFieldChange(item.id, "quantity", e.target.value)}
-							placeholder="0"
-							className="h-8 text-sm"
-						/>
-					) : (
-						<span className="block truncate text-sm">{item.quantity || "-"}</span>
-					),
-				getTooltip: ({ item }) => (item.quantity ? `Quantity: ${item.quantity}` : undefined),
+				renderCell: ({ item }) => {
+					const isGovtSkg = isGovtInvoice(invoiceTypeId);
+					const isHessian = invoiceTypeId === "2";
+					// Compute bales on-the-fly when the stored bales field is missing (e.g., view mode before back-fill runs)
+					let balesValue = isHessian ? (item.hessianQtyBales ?? "") : (item.govtskgQtyBales ?? "");
+					if ((isGovtSkg || isHessian) && !balesValue && item.quantity && getUomConversions) {
+						const conv = computeConvertedQtyBales(item.quantity, item.uom, getUomConversions(item.itemGroup, item.item));
+						if (conv) balesValue = conv.convertedQty;
+					}
+					const displayValue = (isGovtSkg || isHessian) ? balesValue : item.quantity;
+					const fieldKey: keyof EditableLineItem = isHessian
+						? "hessianQtyBales"
+						: isGovtSkg
+							? "govtskgQtyBales"
+							: "quantity";
+					const govtSkgAnnotation = isGovtSkg && item.quantity && Number(item.quantity)
+						? `= ${Number(item.quantity).toFixed(2)} per 100 pcs`
+						: null;
+					const hessianAnnotation = isHessian && item.quantity && Number(item.quantity)
+						? `= ${Number(item.quantity).toFixed(3)} MT`
+						: null;
+					// Legacy annotation for non-govt, non-hessian lines where UOM conversion exists (rare path)
+					const legacyBalesConv = !isGovtSkg && !isHessian && getUomConversions
+						? computeConvertedQty(item.quantity, item.uom, getUomConversions(item.itemGroup, item.item))
+						: null;
+					const legacyBalesLine = legacyBalesConv && isBalesUomName(legacyBalesConv.otherUomName)
+						? `\u2248 ${legacyBalesConv.convertedQty} ${legacyBalesConv.otherUomName}`
+						: null;
+					const annotation = govtSkgAnnotation || hessianAnnotation || legacyBalesLine;
+
+					if (canEdit) {
+						return (
+							<div className="flex flex-col gap-0.5">
+								<Input
+									type="text"
+									value={displayValue}
+									onChange={(e) => handleLineFieldChange(item.id, fieldKey, e.target.value)}
+									placeholder={(isGovtSkg || isHessian) ? "Bales" : "0"}
+									className="h-8 text-sm"
+								/>
+								{annotation ? (
+									<span className="text-[11px] text-muted-foreground leading-tight truncate">
+										{annotation}
+									</span>
+								) : null}
+							</div>
+						);
+					}
+
+					return (
+						<div className="flex flex-col gap-0.5">
+							<span className="block truncate text-sm">{displayValue || "-"}</span>
+							{annotation ? (
+								<span className="text-[11px] text-muted-foreground leading-tight truncate">
+									{annotation}
+								</span>
+							) : null}
+						</div>
+					);
+				},
+				getTooltip: ({ item }) => {
+					const isGovtSkg = isGovtInvoice(invoiceTypeId);
+					const isHessian = invoiceTypeId === "2";
+					if (isGovtSkg) {
+						const parts: string[] = [];
+						if (item.govtskgQtyBales) parts.push(`Bales: ${item.govtskgQtyBales}`);
+						if (item.quantity) parts.push(`Qty: ${item.quantity} per 100 pcs`);
+						return parts.length ? parts.join("\n") : undefined;
+					}
+					if (isHessian) {
+						const parts: string[] = [];
+						if (item.hessianQtyBales) parts.push(`Bales: ${item.hessianQtyBales}`);
+						if (item.quantity) parts.push(`Qty: ${item.quantity} MT`);
+						return parts.length ? parts.join("\n") : undefined;
+					}
+					if (!item.quantity) return undefined;
+					const balesConv = getUomConversions
+						? computeConvertedQty(item.quantity, item.uom, getUomConversions(item.itemGroup, item.item))
+						: null;
+					if (balesConv && isBalesUomName(balesConv.otherUomName)) {
+						return `Quantity: ${item.quantity} (\u2248 ${balesConv.convertedQty} ${balesConv.otherUomName})`;
+					}
+					return `Quantity: ${item.quantity}`;
+				},
 			},
 			{
 				id: "uom",

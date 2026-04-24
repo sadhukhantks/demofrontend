@@ -14,6 +14,8 @@ export type DOPreviewHeader = {
 	salesOrder?: string;
 	salesOrderNo?: string;
 	salesOrderDate?: string;
+	pcsoNo?: string;
+	pcsoDate?: string;
 	transporter?: string;
 	vehicleNo?: string;
 	driverName?: string;
@@ -28,6 +30,7 @@ export type DOPreviewItem = {
 	item?: string;
 	quantity?: string | number;
 	uom?: string;
+	qtyInBales?: string;
 };
 
 export type DOPreviewTotals = {
@@ -71,20 +74,27 @@ const DeliveryOrderPreview: React.FC<DOPreviewProps> = ({ header, items, remarks
 	const totalQtySummary = React.useMemo(() => {
 		if (!items.length) return "";
 		const uomCounts: Record<string, number> = {};
+		let balesTotal = 0;
 		for (const item of items) {
 			const qty = Number(item.quantity) || 0;
 			const uom = item.uom || "Units";
 			uomCounts[uom] = (uomCounts[uom] || 0) + qty;
+			const bales = Number(item.qtyInBales);
+			if (Number.isFinite(bales)) balesTotal += bales;
 		}
-		return Object.entries(uomCounts)
-			.map(([uom, qty]) => `${qty} ${uom}`)
-			.join(", ");
+		const parts = Object.entries(uomCounts).map(([uom, qty]) => `${qty} ${uom}`);
+		if (balesTotal > 0) {
+			const balesStr = Number.isInteger(balesTotal) ? String(balesTotal) : balesTotal.toFixed(2);
+			parts.push(`${balesStr} Bales`);
+		}
+		return parts.join(", ");
 	}, [items]);
 
-	/* Description lines — each item as "ITEM_CODE ITEM_NAME" */
+	/* Description lines — each item as "ITEM_CODE — ITEM_NAME [— X Bales]" */
 	const descriptionLines = React.useMemo(() => {
 		return items.map((item) => {
 			const parts = [item.itemCode, item.item].filter(Boolean);
+			if (item.qtyInBales) parts.push(`${item.qtyInBales} Bales`);
 			return parts.join(" — ") || "-";
 		});
 	}, [items]);
@@ -151,6 +161,16 @@ const DeliveryOrderPreview: React.FC<DOPreviewProps> = ({ header, items, remarks
 						<td class="header-label">Sale No.</td>
 						<td class="header-colon">:</td>
 						<td class="header-value">${h.salesOrderNo || h.salesOrder || "-"}</td>
+					</tr>` : ""}
+					${h.pcsoNo ? `<tr>
+						<td class="header-label">PCSO No.</td>
+						<td class="header-colon">:</td>
+						<td class="header-value">${h.pcsoNo}</td>
+					</tr>` : ""}
+					${h.pcsoDate ? `<tr>
+						<td class="header-label">PCSO Date</td>
+						<td class="header-colon">:</td>
+						<td class="header-value">${formatDate(h.pcsoDate)}</td>
 					</tr>` : ""}
 					${h.salesOrderDate ? `<tr>
 						<td class="header-label">Date</td>
@@ -288,6 +308,20 @@ const DeliveryOrderPreview: React.FC<DOPreviewProps> = ({ header, items, remarks
 									<Box component="td" sx={{ pr: 0.5, ...labelSx }}>Sale No.</Box>
 									<Box component="td" sx={{ pr: 0.5, ...valueSx }}>:</Box>
 									<Box component="td" sx={valueSx}>{header.salesOrderNo || header.salesOrder}</Box>
+								</Box>
+							) : null}
+							{header.pcsoNo ? (
+								<Box component="tr">
+									<Box component="td" sx={{ pr: 0.5, ...labelSx }}>PCSO No.</Box>
+									<Box component="td" sx={{ pr: 0.5, ...valueSx }}>:</Box>
+									<Box component="td" sx={valueSx}>{header.pcsoNo}</Box>
+								</Box>
+							) : null}
+							{header.pcsoDate ? (
+								<Box component="tr">
+									<Box component="td" sx={{ pr: 0.5, ...labelSx }}>PCSO Date</Box>
+									<Box component="td" sx={{ pr: 0.5, ...valueSx }}>:</Box>
+									<Box component="td" sx={valueSx}>{formatDate(header.pcsoDate)}</Box>
 								</Box>
 							) : null}
 							{header.salesOrderDate ? (

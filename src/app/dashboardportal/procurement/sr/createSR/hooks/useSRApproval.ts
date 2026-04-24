@@ -4,6 +4,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { toast } from "@/hooks/use-toast";
 import type { SRHeader, SRLineItem, SRAdditionalCharge } from "../types/srTypes";
+import type { EditableSRHeader } from "./useSRFormState";
 import { SR_STATUS_IDS } from "../utils/srConstants";
 
 type UseSRApprovalParams = {
@@ -11,6 +12,7 @@ type UseSRApprovalParams = {
 	header: SRHeader | null;
 	srDate: string;
 	srRemarks: string;
+	editableHeader: EditableSRHeader;
 	lineItems: SRLineItem[];
 	additionalCharges?: SRAdditionalCharge[];
 	getChargesToSave?: () => SRAdditionalCharge[];
@@ -21,6 +23,8 @@ type UseSRApprovalReturn = {
 	saving: boolean;
 	canEdit: boolean;
 	isDraft: boolean;
+	isDraftSaved: boolean;
+	isUnsaved: boolean;
 	isOpen: boolean;
 	handleSave: () => Promise<void>;
 	handleOpen: () => Promise<void>;
@@ -36,6 +40,7 @@ export const useSRApproval = ({
 	header,
 	srDate,
 	srRemarks,
+	editableHeader,
 	lineItems,
 	additionalCharges,
 	getChargesToSave,
@@ -45,7 +50,9 @@ export const useSRApproval = ({
 	const [saving, setSaving] = React.useState(false);
 
 	const statusId = header?.sr_status ?? 0;
-	const isDraft = statusId === SR_STATUS_IDS.DRAFT || statusId === 0;
+	const isUnsaved = statusId === 0;
+	const isDraftSaved = statusId === SR_STATUS_IDS.DRAFT;
+	const isDraft = isUnsaved || isDraftSaved;
 	const isOpen = statusId === SR_STATUS_IDS.OPEN;
 	const isApproved = statusId === SR_STATUS_IDS.APPROVED;
 	const isRejected = statusId === SR_STATUS_IDS.REJECTED;
@@ -104,19 +111,42 @@ export const useSRApproval = ({
 				tax_amount: charge.tax_amount,
 			}));
 
-			// Debug: Log payload being sent to API
-			console.log("SR Save Payload:", { 
-				inward_id: Number(inwardId), 
-				sr_date: srDate, 
-				line_items: lineItemsPayload,
-				additional_charges: additionalChargesPayload,
-			});
+			// Normalize editable inward-level header fields: empty string → null
+			// so the server stores NULL rather than an empty string, and parse the
+			// numeric invoice amount.
+			const emptyToNull = (value: string): string | null => {
+				const trimmed = value.trim();
+				return trimmed === "" ? null : trimmed;
+			};
+			const invoiceAmountStr = editableHeader.invoice_amount.trim();
+			const invoiceAmount =
+				invoiceAmountStr === "" ? null : Number(invoiceAmountStr);
+
+			const headerPayload = {
+				invoice_no: emptyToNull(editableHeader.invoice_no),
+				invoice_date: emptyToNull(editableHeader.invoice_date),
+				invoice_amount: Number.isFinite(invoiceAmount as number) ? invoiceAmount : null,
+				invoice_recvd_date: emptyToNull(editableHeader.invoice_recvd_date),
+				challan_no: emptyToNull(editableHeader.challan_no),
+				challan_date: emptyToNull(editableHeader.challan_date),
+				vehicle_number: emptyToNull(editableHeader.vehicle_number),
+				driver_name: emptyToNull(editableHeader.driver_name),
+				driver_contact_no: emptyToNull(editableHeader.driver_contact_no),
+				inspection_date: emptyToNull(editableHeader.inspection_date),
+				consignment_no: emptyToNull(editableHeader.consignment_no),
+				consignment_date: emptyToNull(editableHeader.consignment_date),
+				ewaybillno: emptyToNull(editableHeader.ewaybillno),
+				ewaybill_date: emptyToNull(editableHeader.ewaybill_date),
+				despatch_remarks: emptyToNull(editableHeader.despatch_remarks),
+				receipts_remarks: emptyToNull(editableHeader.receipts_remarks),
+			};
 
 			const url = apiRoutesPortalMasters.SR_SAVE;
 			const { error } = await fetchWithCookie(url, "POST", {
 				inward_id: Number(inwardId),
 				sr_date: srDate,
 				sr_remarks: srRemarks,
+				...headerPayload,
 				line_items: lineItemsPayload,
 				additional_charges: additionalChargesPayload,
 			});
@@ -142,7 +172,7 @@ export const useSRApproval = ({
 		} finally {
 			setSaving(false);
 		}
-	}, [inwardId, srDate, srRemarks, lineItems, getChargesToSave, onRefresh]);
+	}, [inwardId, srDate, srRemarks, editableHeader, lineItems, getChargesToSave, onRefresh]);
 
 	/**
 	 * Open SR for approval.
@@ -262,6 +292,8 @@ export const useSRApproval = ({
 		saving,
 		canEdit,
 		isDraft,
+		isDraftSaved,
+		isUnsaved,
 		isOpen,
 		handleSave,
 		handleOpen,

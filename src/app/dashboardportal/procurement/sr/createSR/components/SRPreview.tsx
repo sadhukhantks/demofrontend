@@ -4,7 +4,7 @@ import * as React from "react";
 import { Box, Divider, Stack, Typography } from "@mui/material";
 import { Button } from "@/components/ui/button";
 import { openStyledPrintWindow } from "@/utils/printUtils";
-import type { SRHeader, SRLineItem, SRTotals } from "../types/srTypes";
+import type { SRAdditionalCharge, SRHeader, SRLineItem, SRTotals } from "../types/srTypes";
 
 /**
  * Format date for display.
@@ -79,6 +79,7 @@ type SRPreviewProps = {
 	lineItems: SRLineItem[];
 	totals: SRTotals;
 	chargesTotals?: AdditionalChargesTotals;
+	additionalCharges?: SRAdditionalCharge[];
 	srDate: string;
 	srRemarks: string;
 	onPrint?: () => void;
@@ -92,10 +93,14 @@ export const SRPreview: React.FC<SRPreviewProps> = ({
 	lineItems,
 	totals,
 	chargesTotals,
+	additionalCharges,
 	srDate,
 	srRemarks,
 	onPrint,
 }) => {
+	const visibleCharges = (additionalCharges ?? []).filter(
+		(c) => c.additional_charges_id > 0 && (c.net_amount || 0) > 0,
+	);
 	const previewRef = React.useRef<HTMLDivElement>(null);
 
 	const handlePrint = () => {
@@ -157,6 +162,8 @@ export const SRPreview: React.FC<SRPreviewProps> = ({
 					<FieldRow label="Supplier" value={header?.supplier_name} />
 					<FieldRow label="Challan No" value={header?.challan_no} />
 					<FieldRow label="Inspection Date" value={formatDate(header?.inspection_date)} />
+					<FieldRow label="Invoice No" value={header?.invoice_no} />
+					<FieldRow label="Invoice Date" value={formatDate(header?.invoice_date)} />
 				</Box>
 
 				<Divider sx={{ my: 2 }} />
@@ -241,6 +248,69 @@ export const SRPreview: React.FC<SRPreviewProps> = ({
 						))}
 					</tbody>
 				</Box>
+
+				{/* Additional Charges Table */}
+				{visibleCharges.length > 0 && (
+					<>
+						<Divider sx={{ my: 2 }} />
+						<Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+							Additional Charges
+						</Typography>
+						<Box
+							component="table"
+							sx={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}
+						>
+							<thead>
+								<tr style={{ backgroundColor: "#f5f5f5" }}>
+									<th style={{ border: "1px solid #ddd", padding: "8px" }}>#</th>
+									<th style={{ border: "1px solid #ddd", padding: "8px" }}>Charge</th>
+									<th style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>Qty</th>
+									<th style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>Rate</th>
+									<th style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>Net Amount</th>
+									<th style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>Tax %</th>
+									<th style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>Tax Amt</th>
+									<th style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>Total</th>
+									<th style={{ border: "1px solid #ddd", padding: "8px" }}>Remarks</th>
+								</tr>
+							</thead>
+							<tbody>
+								{visibleCharges.map((charge, idx) => {
+									const net = charge.net_amount || 0;
+									const tax = charge.tax_amount || 0;
+									return (
+										<tr key={charge.id}>
+											<td style={{ border: "1px solid #ddd", padding: "8px" }}>{idx + 1}</td>
+											<td style={{ border: "1px solid #ddd", padding: "8px" }}>
+												{charge.additional_charges_name || "-"}
+											</td>
+											<td style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>
+												{charge.qty}
+											</td>
+											<td style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>
+												{(charge.rate || 0).toFixed(2)}
+											</td>
+											<td style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>
+												{net.toFixed(2)}
+											</td>
+											<td style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>
+												{(charge.tax_pct || 0)}%
+											</td>
+											<td style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>
+												{tax.toFixed(2)}
+											</td>
+											<td style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right", fontWeight: 600 }}>
+												{(net + tax).toFixed(2)}
+											</td>
+											<td style={{ border: "1px solid #ddd", padding: "8px" }}>
+												{charge.remarks || "-"}
+											</td>
+										</tr>
+									);
+								})}
+							</tbody>
+						</Box>
+					</>
+				)}
 
 				{/* Totals */}
 				<Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end" }}>

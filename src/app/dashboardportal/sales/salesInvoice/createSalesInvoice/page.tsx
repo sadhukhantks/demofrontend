@@ -2,13 +2,18 @@
 
 import React, { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import TransactionWrapper from "@/components/ui/TransactionWrapper";
+import TransactionWrapper, { type TransactionAction } from "@/components/ui/TransactionWrapper";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import type { MuiFormMode } from "@/components/ui/muiform";
 import {
 	useDeferredOptionCache,
 	useTransactionSetup,
 	useTransactionPreview,
+	buildApprovalTransactionActions,
+	useRejectDialog,
+	useUnsavedChanges,
+	AutoResizeTextarea,
 	ItemSelectionDialog,
 	type SelectedItem,
 } from "@/components/ui/transaction";
@@ -30,7 +35,6 @@ import { useCompanyLogo } from "@/hooks/useCompanyLogo";
 
 import { SalesInvoiceHeaderForm } from "./components/SalesInvoiceHeaderForm";
 import { SalesInvoiceFooterForm, SalesInvoiceTotalsDisplay } from "./components/SalesInvoiceFooter";
-import { SalesInvoiceApprovalBar } from "./components/SalesInvoiceApprovalBar";
 import SalesInvoicePreview from "./components/SalesInvoicePreview";
 import { useInvoiceLineItemColumns } from "./components/SalesInvoiceLineItemsTable";
 import { useSalesInvoiceFormState } from "./hooks/useSalesInvoiceFormState";
@@ -55,9 +59,12 @@ import {
 	EMPTY_SETUP_PARAMS,
 	isRawJuteInvoice,
 	isGovtSkgInvoice,
+	isGovtSkgFreightInvoice,
 } from "./utils/salesInvoiceConstants";
+import { GovtSackingFreightForm } from "./components/GovtSackingFreightForm";
 import { AdditionalChargesSection, type AdditionalChargeRow } from "../../salesOrder/createSalesOrder/components/AdditionalChargesSection";
 import { computeGovtskgTransportCharges, mergeTransportCharges } from "../../utils/govtskgTransportCharges";
+import { computeConvertedQtyBales } from "@/utils/uomConversion";
 
 function InvoicePageLoading() {
 	return (
@@ -121,9 +128,9 @@ function InvoiceTransactionPageContent() {
 		if (!branchValue) return branchOptions;
 		const exists = branchOptions.some((opt) => String(opt.value) === String(branchValue));
 		if (exists) return branchOptions;
-		const fallbackLabel = (invoiceDetails?.branch && typeof invoiceDetails.branch === "string" ? invoiceDetails.branch : undefined) || branchValue;
+		const fallbackLabel = (invoiceDetails?.branchId && typeof invoiceDetails.branchId === "string" ? invoiceDetails.branchId : undefined) || branchValue;
 		return [...branchOptions, { label: fallbackLabel, value: branchValue }];
-	}, [branchOptions, branchValue, invoiceDetails?.branch]);
+	}, [branchOptions, branchValue, invoiceDetails?.branchId]);
 
 	const branchIdForSetup = React.useMemo(() => {
 		if (!branchValue || !/^\d+$/.test(branchValue)) return undefined;
@@ -204,16 +211,23 @@ function InvoiceTransactionPageContent() {
 	);
 	const partyBranchId = formValues.party_branch ? String(formValues.party_branch) : undefined;
 	const shippingBranchId = formValues.shipping_to ? String(formValues.shipping_to) : undefined;
-	const partyState = React.useMemo(() => {
-		if (!partyBranchId || !selectedCustomer?.branches) return undefined;
-		return selectedCustomer.branches.find((b) => b.id === partyBranchId)?.stateName;
-	}, [partyBranchId, selectedCustomer]);
-	const shippingState = React.useMemo(() => {
-		if (!shippingBranchId || !selectedCustomer?.branches) return partyState;
-		return selectedCustomer.branches.find((b) => b.id === shippingBranchId)?.stateName ?? partyState;
-	}, [shippingBranchId, selectedCustomer, partyState]);
 
-	// Derive company branch state_code from setup data
+	// Tax split rule: company branch state vs customer's shipping branch state.
+	// Compare by numeric state_id to avoid "Gujarat" vs "GJ" string mismatches.
+	const companyBranchStateId = React.useMemo(() => {
+		if (!setupData?.branches || !branchValue) return undefined;
+		const branch = setupData.branches.find((b) => String(b.branch_id) === branchValue);
+		return branch?.state_id;
+	}, [setupData, branchValue]);
+	const shippingBranchStateId = React.useMemo(() => {
+		if (!selectedCustomer?.branches) return undefined;
+		const ship = shippingBranchId ? selectedCustomer.branches.find((b) => b.id === shippingBranchId) : undefined;
+		if (ship?.stateId != null) return ship.stateId;
+		const bill = partyBranchId ? selectedCustomer.branches.find((b) => b.id === partyBranchId) : undefined;
+		return bill?.stateId;
+	}, [shippingBranchId, partyBranchId, selectedCustomer]);
+
+	// Derive company branch state_code from setup data (used by header auto-fill effect below).
 	const companyBranchStateCode = React.useMemo(() => {
 		if (!setupData?.branches || !branchValue) return undefined;
 		const branch = setupData.branches.find((b) => String(b.branch_id) === branchValue);
@@ -342,13 +356,51 @@ function InvoiceTransactionPageContent() {
 		lineHasAnyData,
 	} = useSalesInvoiceLineItems({
 		mode,
-		partyState,
-		shippingState,
+		companyBranchStateId,
+		shippingBranchStateId,
 		itemGroupCache,
 		itemGroupLoading,
 		ensureItemGroupData,
 		itemGroups,
 		invoiceTypeId: String(formValues.invoice_type ?? ""),
+	});
+
+	// Unsaved changes tracking for unified save/approval button display
+	const getComparableLineData = React.useCallback(
+		(item: EditableLineItem) => ({
+			itemGroup: item.itemGroup,
+			item: item.item,
+			itemMake: item.itemMake,
+			hsnCode: item.hsnCode,
+			quantity: item.quantity,
+			rate: item.rate,
+			uom: item.uom,
+			discountType: item.discountType,
+			remarks: item.remarks,
+			juteClaimAmountDtl: item.juteClaimAmountDtl,
+			juteClaimDesc: item.juteClaimDesc,
+			juteClaimRate: item.juteClaimRate,
+			hessianQtyBales: item.hessianQtyBales,
+			hessianRatePerBale: item.hessianRatePerBale,
+			hessianBillingRateMt: item.hessianBillingRateMt,
+			govtskgPackSheet: item.govtskgPackSheet,
+			govtskgNetWeight: item.govtskgNetWeight,
+			govtskgTotalWeight: item.govtskgTotalWeight,
+			govtskgQtyBales: item.govtskgQtyBales,
+		}),
+		[],
+	);
+
+	const comparableLineItems = React.useMemo(
+		() => lineItems.filter(lineHasAnyData),
+		[lineItems, lineHasAnyData],
+	);
+
+	const { hasUnsavedChanges, resetBaseline, setBaseline } = useUnsavedChanges({
+		formValues,
+		lineItems: comparableLineItems,
+		getComparableLineData,
+		enabled: mode !== "create",
 	});
 
 	const initialLineSeededRef = React.useRef(false);
@@ -625,23 +677,54 @@ function InvoiceTransactionPageContent() {
 		if (!rates.length) return;
 
 		const lineTaxPct = filledLineItems[0]?.taxPercentage;
-		const computed = computeGovtskgTransportCharges(mode_val, totalQty, rates, chargeOptions, lineTaxPct, partyState, shippingState);
+		// computeGovtskgTransportCharges does an equality check on the two state strings.
+		// Feed it company-branch vs shipping-branch state ids (stringified) so the GST
+		// split matches the same rule used by line-item tax.
+		const companyStateKey = companyBranchStateId != null ? String(companyBranchStateId) : undefined;
+		const shippingStateKey = shippingBranchStateId != null ? String(shippingBranchStateId) : undefined;
+		const computed = computeGovtskgTransportCharges(mode_val, totalQty, rates, chargeOptions, lineTaxPct, companyStateKey, shippingStateKey);
 		setAdditionalCharges((prev) => mergeTransportCharges(prev, computed, mode_val));
-	}, [formValues.govtskg_mode_of_transport, filledLineItems, invoiceTypeId, setupData?.transportChargeRates, chargeOptions, partyState, shippingState]);
+	}, [formValues.govtskg_mode_of_transport, filledLineItems, invoiceTypeId, setupData?.transportChargeRates, chargeOptions, companyBranchStateId, shippingBranchStateId]);
 
-	const additionalChargesTotal = React.useMemo(
-		() => additionalCharges.reduce((sum, c) => sum + (parseFloat(c.netAmount) || 0) + (c.gst?.gstTotal ?? 0), 0),
+	const additionalChargesBreakdown = React.useMemo(
+		() => additionalCharges.reduce(
+			(acc, c) => {
+				const net = parseFloat(c.netAmount) || 0;
+				return {
+					net: acc.net + net,
+					igst: acc.igst + (c.gst?.igstAmount ?? 0),
+					cgst: acc.cgst + (c.gst?.cgstAmount ?? 0),
+					sgst: acc.sgst + (c.gst?.sgstAmount ?? 0),
+					gst: acc.gst + (c.gst?.gstTotal ?? 0),
+				};
+			},
+			{ net: 0, igst: 0, cgst: 0, sgst: 0, gst: 0 },
+		),
 		[additionalCharges],
 	);
+	const additionalChargesTotal = additionalChargesBreakdown.net + additionalChargesBreakdown.gst;
 
 	const freightCharges = Number(formValues.freight_charges) || 0;
 	const roundOff = Number(formValues.round_off) || 0;
+	const claimAmount = isRawJuteInvoice(invoiceTypeId)
+		? Number(formValues.jute_claim_amount) || 0
+		: 0;
 	const totals = React.useMemo(
 		() => {
-			const base = calculateInvoiceTotals(filledLineItems, freightCharges, roundOff);
-			return { ...base, netAmount: base.netAmount + additionalChargesTotal, additionalChargesTotal };
+			const base = calculateInvoiceTotals(filledLineItems, freightCharges, roundOff, claimAmount);
+			return {
+				...base,
+				grossAmount: base.grossAmount + additionalChargesBreakdown.net,
+				totalIGST: base.totalIGST + additionalChargesBreakdown.igst,
+				totalCGST: base.totalCGST + additionalChargesBreakdown.cgst,
+				totalSGST: base.totalSGST + additionalChargesBreakdown.sgst,
+				totalGST: base.totalGST + additionalChargesBreakdown.gst,
+				netAmount: base.netAmount + additionalChargesTotal,
+				additionalChargesTotal,
+				additionalChargesNet: additionalChargesBreakdown.net,
+			};
 		},
-		[filledLineItems, freightCharges, roundOff, additionalChargesTotal],
+		[filledLineItems, freightCharges, roundOff, claimAmount, additionalChargesBreakdown, additionalChargesTotal],
 	);
 
 	const detailsFetchKey = React.useMemo(
@@ -715,6 +798,7 @@ function InvoiceTransactionPageContent() {
 				const normalizedLines = (details.lines ?? []).map((line) => mapLineToEditable(line));
 				replaceItems(normalizedLines);
 				linesLoadedFromInvoiceApiRef.current = true;
+				setBaseline(nextValues as Record<string, unknown>, normalizedLines.filter(lineHasAnyData));
 
 				// Load additional charges from invoice details
 				const rawCharges = (details as Record<string, unknown>).additionalCharges;
@@ -761,6 +845,7 @@ function InvoiceTransactionPageContent() {
 		replaceItems, mapLineToEditable,
 		setupEnabled, setupLoading, setupData,
 		branchIdFromUrl, branchValue,
+		setBaseline, lineHasAnyData,
 	]);
 
 	React.useEffect(() => {
@@ -783,6 +868,7 @@ function InvoiceTransactionPageContent() {
 		invoiceTypeOptions, itemGroupOptions, getItemGroupLabel,
 		getItemOptions, getMakeOptions, getUomOptions,
 		getItemLabel, getMakeLabel, getUomLabel, getUomConversions, getOptionLabel,
+		transporterBranchOptions, fetchTransporterBranches,
 	} = useSalesInvoiceSelectOptions({
 		customers,
 		transporters,
@@ -793,7 +879,38 @@ function InvoiceTransactionPageContent() {
 		itemGroupsFromLineItems,
 		itemGroupCache,
 		selectedPartyId,
+		coId: coId ? Number(coId) : undefined,
 	});
+
+	// Fetch transporter branches whenever the selected transporter changes.
+	// Auto-fill branch_id + gst_no when exactly one branch exists.
+	// On edit-mode initial load we preserve the saved branch_id; on explicit
+	// transporter switch (prev non-null → different non-null) we clear it.
+	const prevTransporterRef = React.useRef<number | null>(null);
+	React.useEffect(() => {
+		const tId = formValues.transporter ? Number(formValues.transporter) : null;
+		if (prevTransporterRef.current === tId) return;
+		const wasTransporterSwitch = prevTransporterRef.current !== null && tId !== null;
+		prevTransporterRef.current = tId;
+		if (!tId) return;
+		(async () => {
+			const branches = await fetchTransporterBranches(tId);
+			if (branches.length === 1) {
+				const only = branches[0];
+				setFormValues((prev) => ({
+					...prev,
+					transporter_branch_id: only.id,
+					transporter_gst_no: only.gst_no || undefined,
+				}));
+			} else if (wasTransporterSwitch) {
+				setFormValues((prev) => ({
+					...prev,
+					transporter_branch_id: undefined,
+					transporter_gst_no: undefined,
+				}));
+			}
+		})();
+	}, [formValues.transporter, fetchTransporterBranches, setFormValues]);
 
 	const resolvedCustomerOptions = React.useMemo(() => {
 		const strValue = formValues.party != null ? String(formValues.party)
@@ -858,6 +975,23 @@ function InvoiceTransactionPageContent() {
 		setInvoiceDetails,
 	});
 
+	// Reject dialog hook (replaces the inline dialog inside ApprovalBar)
+	const {
+		rejectDialogOpen,
+		rejectReason,
+		setRejectReason,
+		openRejectDialog,
+		handleRejectConfirm,
+		handleRejectCancel,
+	} = useRejectDialog(handleReject);
+
+	// Reset baseline when invoiceDetails changes (initial load or post-approval refresh)
+	React.useEffect(() => {
+		if (!invoiceDetails || mode === "create") return;
+		const timer = setTimeout(() => resetBaseline(), 0);
+		return () => clearTimeout(timer);
+	}, [invoiceDetails, mode, resetBaseline]);
+
 	const canEdit = mode !== "view";
 
 	// Gate editing on approval permissions (follow PO/Indent pattern)
@@ -877,9 +1011,9 @@ function InvoiceTransactionPageContent() {
 	});
 
 	const branchLabel = React.useMemo(() => {
-		const value = formValues.branch ?? invoiceDetails?.branch;
+		const value = formValues.branch ?? invoiceDetails?.branchId;
 		return getOptionLabel(resolvedBranchOptions, value) ?? (typeof value === "string" ? value : undefined);
-	}, [resolvedBranchOptions, formValues.branch, invoiceDetails?.branch, getOptionLabel]);
+	}, [resolvedBranchOptions, formValues.branch, invoiceDetails?.branchId, getOptionLabel]);
 
 	const customerLabel = React.useMemo(() => {
 		const value = formValues.party ?? invoiceDetails?.party;
@@ -892,9 +1026,9 @@ function InvoiceTransactionPageContent() {
 	}, [formValues.party_branch, invoiceDetails?.partyBranch, customerBranchOptions, getOptionLabel]);
 
 	const deliveryOrderLabel = React.useMemo(() => {
-		const value = formValues.delivery_order ?? invoiceDetails?.deliveryOrder;
+		const value = formValues.delivery_order ?? invoiceDetails?.salesDeliveryOrderId;
 		return getOptionLabel(deliveryOrderOptions, value) ?? invoiceDetails?.deliveryOrderNo ?? (typeof value === "string" ? value : undefined);
-	}, [formValues.delivery_order, invoiceDetails?.deliveryOrder, invoiceDetails?.deliveryOrderNo, deliveryOrderOptions, getOptionLabel]);
+	}, [formValues.delivery_order, invoiceDetails?.salesDeliveryOrderId, invoiceDetails?.deliveryOrderNo, deliveryOrderOptions, getOptionLabel]);
 
 	const transporterLabel = React.useMemo(() => {
 		const value = formValues.transporter ?? invoiceDetails?.transporter;
@@ -926,8 +1060,13 @@ function InvoiceTransactionPageContent() {
 			const parts = [billingBranchRecord.address, billingBranchRecord.stateName].filter(Boolean);
 			return parts.length > 0 ? parts.join(" — ") : billingBranchRecord.address || String(value);
 		}
+		// Last resort: use the snapshot returned inline by the invoice-by-id API.
+		if (invoiceDetails?.billingAddress) {
+			const parts = [invoiceDetails.billingAddress, invoiceDetails.billingStateName].filter(Boolean);
+			return parts.length > 0 ? parts.join(" — ") : invoiceDetails.billingAddress;
+		}
 		return typeof value === "string" ? value : undefined;
-	}, [formValues.billing_to, invoiceDetails?.billingTo, resolvedCustomerBranchOptions, getOptionLabel, billingBranchRecord]);
+	}, [formValues.billing_to, invoiceDetails?.billingTo, invoiceDetails?.billingAddress, invoiceDetails?.billingStateName, resolvedCustomerBranchOptions, getOptionLabel, billingBranchRecord]);
 
 	const shippingToLabel = React.useMemo(() => {
 		const value = formValues.shipping_to ?? invoiceDetails?.shippingTo;
@@ -940,8 +1079,13 @@ function InvoiceTransactionPageContent() {
 			const parts = [shippingBranchRecord.address, shippingBranchRecord.stateName].filter(Boolean);
 			return parts.length > 0 ? parts.join(" — ") : shippingBranchRecord.address || String(value);
 		}
+		// Last resort: use the snapshot returned inline by the invoice-by-id API.
+		if (invoiceDetails?.shippingAddress) {
+			const parts = [invoiceDetails.shippingAddress, invoiceDetails.shippingStateName].filter(Boolean);
+			return parts.length > 0 ? parts.join(" — ") : invoiceDetails.shippingAddress;
+		}
 		return typeof value === "string" ? value : undefined;
-	}, [formValues.shipping_to, invoiceDetails?.shippingTo, resolvedCustomerBranchOptions, getOptionLabel, shippingBranchRecord]);
+	}, [formValues.shipping_to, invoiceDetails?.shippingTo, invoiceDetails?.shippingAddress, invoiceDetails?.shippingStateName, resolvedCustomerBranchOptions, getOptionLabel, shippingBranchRecord]);
 
 	const selectedDeliveryOrderRecord = React.useMemo(() => {
 		const doId = formValues.delivery_order ? String(formValues.delivery_order) : "";
@@ -968,25 +1112,57 @@ function InvoiceTransactionPageContent() {
 			saleNo: invoiceDetails?.saleNo,
 			deliveryOrderNo: invoiceDetails?.deliveryOrderNo || selectedDeliveryOrderRecord?.deliveryOrderNo,
 			deliveryOrderDate: selectedDeliveryOrderRecord?.deliveryOrderDate || invoiceDetails?.challanDate,
-			salesOrderNo: invoiceDetails?.salesOrderNo || (formValues.sales_order_id as string),
+			salesOrderNo: (() => {
+				// Prefer formatted SO no from approvedSalesOrders dropdown (matches backend format_indent_no)
+				const soId = String(formValues.sales_order_id ?? invoiceDetails?.salesOrderId ?? "");
+				if (soId) {
+					const soRecord = approvedSalesOrders.find((s) => s.id === soId);
+					if (soRecord?.salesOrderNo) return soRecord.salesOrderNo;
+				}
+				return invoiceDetails?.salesOrderNo || soId || undefined;
+			})(),
 			salesOrderDate: (formValues.sales_order_date as string) || invoiceDetails?.salesOrderDate,
+			invoiceType: (() => {
+				// Prefer formValues; fall back to invoiceDetails when formValues is empty/"".
+				// `??` alone misses "", which can happen transiently after save → view
+				// before the refetch repopulates formValues.
+				const fromForm = formValues.invoice_type;
+				if (fromForm != null && fromForm !== "") return String(fromForm);
+				if (invoiceDetails?.invoiceType != null) return String(invoiceDetails.invoiceType);
+				return "";
+			})(),
+			pcsoNo: (formValues.govtskg_pcso_no as string) || invoiceDetails?.govtskg?.pcsoNo,
+			pcsoDate: (formValues.govtskg_pcso_date as string) || invoiceDetails?.govtskg?.pcsoDate,
 			branch: branchLabel,
 			customer: customerLabel,
 			customerBranch: customerBranchLabel,
 			deliveryOrder: deliveryOrderLabel,
 			billingTo: billingToLabel,
 			shippingTo: shippingToLabel,
-			billingToName: customerLabel,
-			billingToAddress: billingBranchRecord?.address,
-			billingToState: billingBranchRecord?.stateName,
-			billingToStateCode: billingBranchRecord?.stateCode,
-			billingToGstin: billingBranchRecord?.gstNo,
-			shippingToName: customerLabel,
-			shippingToAddress: shippingBranchRecord?.address,
-			shippingToState: shippingBranchRecord?.stateName,
-			shippingToStateCode: shippingBranchRecord?.stateCode,
-			shippingToGstin: shippingBranchRecord?.gstNo,
+			billingToName: customerLabel ?? invoiceDetails?.partyName,
+			// Prefer the live branch-record lookup (from setup customers), but fall back to
+			// the snapshot the backend stored on the invoice header itself. The backend
+			// returns billingAddress/billingGstNo/etc. inline (see get_sales_invoice_by_id),
+			// which covers us even if `selectedCustomer` fails to resolve transiently
+			// (e.g., right after save → view while refetch is in flight, or when the party
+			// is missing from the current customers dropdown).
+			billingToAddress: billingBranchRecord?.address ?? invoiceDetails?.billingAddress,
+			billingToState: billingBranchRecord?.stateName ?? invoiceDetails?.billingStateName,
+			billingToStateCode: billingBranchRecord?.stateCode
+				?? (invoiceDetails?.billingStateCode != null ? String(invoiceDetails.billingStateCode) : undefined),
+			billingToGstin: billingBranchRecord?.gstNo ?? invoiceDetails?.billingGstNo,
+			shippingToName: customerLabel ?? invoiceDetails?.partyName,
+			shippingToAddress: shippingBranchRecord?.address ?? invoiceDetails?.shippingAddress,
+			shippingToState: shippingBranchRecord?.stateName ?? invoiceDetails?.shippingStateName,
+			shippingToStateCode: shippingBranchRecord?.stateCode
+				?? (invoiceDetails?.shippingStateCode != null ? String(invoiceDetails.shippingStateCode) : undefined),
+			shippingToGstin: shippingBranchRecord?.gstNo ?? invoiceDetails?.shippingGstNo,
 			transporter: transporterLabel,
+			transporterGstNo: (formValues.transporter_gst_no as string) || invoiceDetails?.transporterGstNo,
+			transporterDocNo: (formValues.transporter_doc_no as string) || invoiceDetails?.transporterDocNo,
+			transporterDocDate: (formValues.transporter_doc_date as string) || invoiceDetails?.transporterDocDate,
+			loadingPoint: (formValues.govtskg_loading_point as string) || invoiceDetails?.govtskg?.loadingPoint,
+			modeOfTransport: (formValues.govtskg_mode_of_transport as string) || invoiceDetails?.govtskg?.modeOfTransport,
 			vehicleNo: (formValues.vehicle_no as string) || invoiceDetails?.vehicleNo,
 			ewayBillNo: (formValues.eway_bill_no as string) || invoiceDetails?.ewayBillNo,
 			ewayBillDate: (formValues.eway_bill_date as string) || invoiceDetails?.ewayBillDate,
@@ -1046,20 +1222,36 @@ function InvoiceTransactionPageContent() {
 			status: statusLabel,
 			updatedBy: invoiceDetails?.updatedBy,
 			updatedAt: invoiceDetails?.updatedAt,
+			destination: (() => {
+				const typeId = String(formValues.invoice_type ?? invoiceDetails?.invoiceType ?? "");
+				if (!isGovtSkgInvoice(typeId)) return undefined;
+				const addr = (formValues.govtskg_admin_office_address as string)
+					|| invoiceDetails?.govtskg?.administrativeOfficeAddress
+					|| "";
+				return addr ? String(addr) : undefined;
+			})(),
+			irn: (formValues.irn as string) || invoiceDetails?.irn,
+			ackNo: (formValues.ack_no as string) || invoiceDetails?.ackNo,
+			ackDate: (formValues.ack_date as string) || invoiceDetails?.ackDate,
+			qrCode: (formValues.qr_code as string) || invoiceDetails?.qrCode,
 		}),
 		[
 			invoiceDetails, formValues.date, formValues.challan_no, formValues.challan_date,
-			formValues.vehicle_no, formValues.eway_bill_no, formValues.eway_bill_date,
+			formValues.vehicle_no, formValues.transporter_doc_no, formValues.transporter_doc_date, formValues.transporter_gst_no, formValues.eway_bill_no, formValues.eway_bill_date,
 			formValues.invoice_type, formValues.type_of_sale, formValues.sales_order_id, formValues.sales_order_date,
-			formValues.bank_detail_id,
+			formValues.bank_detail_id, formValues.govtskg_admin_office_address, formValues.govtskg_loading_point,
+			formValues.govtskg_mode_of_transport,
+			formValues.govtskg_pcso_no, formValues.govtskg_pcso_date,
+			formValues.irn, formValues.ack_no, formValues.ack_date, formValues.qr_code,
 			branchLabel, branchValue, customerLabel, customerBranchLabel, deliveryOrderLabel,
 			billingToLabel, shippingToLabel, transporterLabel, companyName, companyLogo, statusLabel,
 			billingBranchRecord, shippingBranchRecord, selectedDeliveryOrderRecord,
-			setupData,
+			setupData, approvedSalesOrders,
 		],
 	);
 
 	const previewItems = React.useMemo(() => {
+		const isGovtSkg = isGovtSkgInvoice(String(formValues.invoice_type ?? ""));
 		return filledLineItems.map((line, index) => {
 			const uomLabel = getUomLabel(line.itemGroup, line.item, line.uom);
 			const discountType = (() => {
@@ -1067,6 +1259,14 @@ function InvoiceTransactionPageContent() {
 				if (line.discountType === 2) return "Amt";
 				return "";
 			})();
+			// Prefer user-entered govtskgQtyBales; fall back to on-the-fly conversion (view mode / pre-backfill)
+			let otherQtyDisplay: string | undefined;
+			if (line.govtskgQtyBales && Number(line.govtskgQtyBales)) {
+				otherQtyDisplay = `${line.govtskgQtyBales} Bales`;
+			} else if (isGovtSkg && line.quantity) {
+				const conv = computeConvertedQtyBales(line.quantity, line.uom, getUomConversions(line.itemGroup, line.item));
+				if (conv) otherQtyDisplay = `${conv.convertedQty} ${conv.otherUomName}`;
+			}
 			return {
 				srNo: index + 1,
 				hsnCode: line.hsnCode,
@@ -1074,6 +1274,7 @@ function InvoiceTransactionPageContent() {
 				item: line.itemName || line.item || "-",
 				netWeight: line.govtskgNetWeight != null ? line.govtskgNetWeight : undefined,
 				quantity: line.quantity || "-",
+				otherQtyDisplay,
 				uom: uomLabel,
 				rate: line.rate,
 				discountType,
@@ -1082,11 +1283,12 @@ function InvoiceTransactionPageContent() {
 				remarks: line.remarks || "-",
 			};
 		});
-	}, [filledLineItems, getUomLabel, itemGroups]);
+	}, [filledLineItems, getUomLabel, getUomConversions, formValues.invoice_type, itemGroups]);
 
 	const previewTotals = React.useMemo(
 		() => ({
 			grossAmount: totals.grossAmount,
+			claimAmount: totals.claimAmount,
 			totalIGST: totals.totalIGST,
 			totalCGST: totals.totalCGST,
 			totalSGST: totals.totalSGST,
@@ -1098,6 +1300,22 @@ function InvoiceTransactionPageContent() {
 			netAmount: totals.netAmount,
 		}),
 		[totals, dominantGstPercents],
+	);
+
+	const previewAdditionalCharges = React.useMemo(
+		() => additionalCharges
+			.filter((c) => (parseFloat(c.netAmount) || 0) > 0 && c.chargeName)
+			.map((c) => {
+				const qty = c.qty ? parseFloat(c.qty) : undefined;
+				const rate = c.rate ? parseFloat(c.rate) : undefined;
+				return {
+					chargeName: c.chargeName,
+					netAmount: parseFloat(c.netAmount) || 0,
+					qty: qty !== undefined && !Number.isNaN(qty) ? qty : undefined,
+					rate: rate !== undefined && !Number.isNaN(rate) ? rate : undefined,
+				};
+			}),
+		[additionalCharges],
 	);
 
 	const previewRemarks = React.useMemo(() => {
@@ -1136,11 +1354,79 @@ function InvoiceTransactionPageContent() {
 		additionalCharges,
 	});
 
-	const primaryActionLabel = mode === "create" ? "Create" : "Save";
-	const handleSaveClick = React.useCallback(() => {
-		if (!formRef.current?.submit) return;
-		void formRef.current.submit();
-	}, [formRef]);
+	// Unified primary actions — shows Create, Save, or Approval buttons in the same location
+	const primaryActions = React.useMemo<TransactionAction[] | undefined>(() => {
+		if (pageError || setupError) return undefined;
+
+		if (mode === "create") {
+			return [
+				{
+					label: "Create Invoice",
+					onClick: () => formRef.current?.submit(),
+					disabled: saving || !isLineItemsReady || setupLoading,
+					loading: saving,
+				},
+			];
+		}
+
+		if (!invoiceDetails) return undefined;
+
+		if (mode === "edit" && approvalPermissions.canSave && hasUnsavedChanges) {
+			return [
+				{
+					label: "Save Changes",
+					onClick: () => formRef.current?.submit(),
+					disabled: saving || !isLineItemsReady || setupLoading,
+					loading: saving,
+				},
+			];
+		}
+
+		const approvalActions = buildApprovalTransactionActions({
+			approvalInfo,
+			permissions: approvalPermissions,
+			handlers: {
+				onOpen: handleOpen,
+				onCancelDraft: handleCancelDraft,
+				onReopen: handleReopen,
+				onSendForApproval: handleSendForApproval,
+				onApprove: handleApprove,
+				onReject: openRejectDialog,
+				onViewApprovalLog: handleViewApprovalLog,
+			},
+			loading: approvalLoading,
+			disabled: saving || loading || setupLoading,
+		});
+
+		return approvalActions.length ? approvalActions : undefined;
+	}, [
+		mode, pageError, setupError, saving, isLineItemsReady, setupLoading,
+		formRef, invoiceDetails, approvalPermissions, hasUnsavedChanges,
+		approvalInfo, approvalLoading, loading,
+		handleOpen, handleCancelDraft, handleReopen, handleSendForApproval,
+		handleApprove, openRejectDialog, handleViewApprovalLog,
+	]);
+
+	const secondaryActions = React.useMemo<TransactionAction[] | undefined>(() => {
+		if (!requestedId || pageError) return undefined;
+		const actions: TransactionAction[] = [];
+		const qs = `?id=${encodeURIComponent(requestedId)}&branch_id=${encodeURIComponent(branchIdFromUrl)}&menu_id=${encodeURIComponent(menuIdFromUrl)}`;
+		if (mode === "view" && approvalPermissions.canSave) {
+			actions.push({
+				label: "Edit",
+				variant: "secondary",
+				onClick: () => router.replace(`${qs}&mode=edit`),
+			});
+		}
+		if (mode === "edit") {
+			actions.push({
+				label: "Cancel",
+				variant: "ghost",
+				onClick: () => router.replace(`${qs}&mode=view`),
+			});
+		}
+		return actions.length ? actions : undefined;
+	}, [mode, requestedId, router, pageError, approvalPermissions.canSave, branchIdFromUrl, menuIdFromUrl]);
 
 	const pageTitle = React.useMemo(() => {
 		if (mode === "create") return "Create Sales Invoice";
@@ -1169,6 +1455,32 @@ function InvoiceTransactionPageContent() {
 
 	if (!mounted) return <InvoicePageLoading />;
 
+	const activeInvoiceTypeId = String(formValues.invoice_type ?? invoiceDetails?.invoiceType ?? "");
+	const isFreightType = isGovtSkgFreightInvoice(activeInvoiceTypeId);
+	if (isFreightType && coId && branchValue) {
+		const freightMode: "create" | "view" = mode === "view" ? "view" : "create";
+		return (
+			<TransactionWrapper
+				title={pageTitle}
+				subtitle={freightMode === "view" ? "Govt Sacking Freight invoice details" : "Create a new Govt Sacking Freight invoice"}
+				metadata={metadata}
+				statusChip={statusChipProps}
+				backAction={{ onClick: () => router.push("/dashboardportal/sales/salesInvoice") }}
+				loading={loading || setupLoading}
+				alerts={pageError ? <div role="alert" aria-live="assertive" className="text-red-600">{pageError}</div> : null}
+			>
+				<GovtSackingFreightForm
+					coId={coId}
+					branchId={branchValue}
+					mode={freightMode}
+					existingInvoice={invoiceDetails ?? undefined}
+					menuId={menuIdFromUrl}
+					setupData={setupData ?? null}
+				/>
+			</TransactionWrapper>
+		);
+	}
+
 	return (
 		<>
 		<TransactionWrapper
@@ -1177,6 +1489,9 @@ function InvoiceTransactionPageContent() {
 			metadata={metadata}
 			statusChip={statusChipProps}
 			backAction={{ onClick: () => router.push("/dashboardportal/sales/salesInvoice") }}
+			primaryActions={primaryActions}
+			secondaryActions={secondaryActions}
+			actionsAfterFooter
 			loading={loading || setupLoading || linesLoading}
 			alerts={pageError ? <div role="alert" aria-live="assertive" className="text-red-600">{pageError}</div> : customerListWarning}
 			preview={
@@ -1184,6 +1499,7 @@ function InvoiceTransactionPageContent() {
 					header={previewHeader}
 					items={previewItems}
 					totals={previewTotals}
+					additionalCharges={previewAdditionalCharges}
 					remarks={previewRemarks}
 					termsConditions={previewTermsConditions}
 				/>
@@ -1221,52 +1537,17 @@ function InvoiceTransactionPageContent() {
 						chargeOptions={chargeOptions}
 						onChange={setAdditionalCharges}
 						disabled={!canSave}
-						billingToState={partyState}
-						shippingToState={shippingState}
+						billingToState={companyBranchStateId != null ? String(companyBranchStateId) : undefined}
+						shippingToState={shippingBranchStateId != null ? String(shippingBranchStateId) : undefined}
 						indiaGst={true}
 					/>
 					<SalesInvoiceTotalsDisplay
 						totals={totals}
-						showGSTBreakdown={Boolean(partyState || shippingState)}
+						showGSTBreakdown={Boolean(companyBranchStateId || shippingBranchStateId)}
 						roundOffInput={(formValues.round_off as string) ?? ""}
 						onRoundOffChange={(value) => setFormValues((prev) => ({ ...prev, round_off: value }))}
 						roundOffEditable={canSave}
 					/>
-					<SalesInvoiceApprovalBar
-						approvalInfo={approvalInfo}
-						permissions={approvalPermissions}
-						loading={approvalLoading}
-						onApprove={handleApprove}
-						onReject={handleReject}
-						onOpen={handleOpen}
-						onCancelDraft={handleCancelDraft}
-						onReopen={handleReopen}
-						onSendForApproval={handleSendForApproval}
-						onViewApprovalLog={handleViewApprovalLog}
-					/>
-					{canSave ? (
-						<div className="flex justify-end gap-2 pt-2">
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => router.replace(`?id=${requestedId}&mode=view&branch_id=${branchIdFromUrl}&menu_id=${menuIdFromUrl}`)}
-							>
-								Cancel
-							</Button>
-							<Button type="button" onClick={handleSaveClick} disabled={saving || setupLoading || !isLineItemsReady}>
-								{saving ? "Processing..." : primaryActionLabel}
-							</Button>
-						</div>
-					) : mode === "view" && approvalPermissions.canSave ? (
-						<div className="flex justify-end pt-2">
-							<Button
-								type="button"
-								onClick={() => router.replace(`?id=${requestedId}&mode=edit&branch_id=${branchIdFromUrl}&menu_id=${menuIdFromUrl}`)}
-							>
-								Edit
-							</Button>
-						</div>
-					) : null}
 				</div>
 			}
 		>
@@ -1283,6 +1564,7 @@ function InvoiceTransactionPageContent() {
 				juteFormRef={juteFormRef}
 				formValues={formValues}
 				isView={!canSave}
+				transporterBranchOptions={transporterBranchOptions}
 			/>
 		</TransactionWrapper>
 
@@ -1295,6 +1577,35 @@ function InvoiceTransactionPageContent() {
 			excludeItemIds={excludeItemIds}
 			title="Select Items for Sales Invoice"
 		/>
+
+		<Dialog open={rejectDialogOpen} onOpenChange={(open) => { if (!open) handleRejectCancel(); }}>
+			<DialogContent className="sm:max-w-125">
+				<DialogHeader>
+					<DialogTitle>Reject Document</DialogTitle>
+					<DialogDescription>Please provide a reason for rejecting this document.</DialogDescription>
+				</DialogHeader>
+				<div className="space-y-4 py-4">
+					<div className="space-y-2">
+						<label htmlFor="reject-reason" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+							Rejection Reason *
+						</label>
+						<AutoResizeTextarea
+							id="reject-reason"
+							placeholder="Enter rejection reason..."
+							value={rejectReason}
+							onChange={(e) => setRejectReason(e.target.value)}
+							className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+							minHeight={80}
+							maxHeight={200}
+						/>
+					</div>
+				</div>
+				<DialogFooter>
+					<Button variant="outline" onClick={handleRejectCancel}>Cancel</Button>
+					<Button variant="destructive" onClick={handleRejectConfirm} disabled={!rejectReason.trim()}>Reject</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 		</>
 	);
 }

@@ -73,6 +73,7 @@ import {
 	isGovtSkgOrder,
 } from "./utils/salesOrderConstants";
 import { computeGovtskgTransportCharges, mergeTransportCharges } from "../../utils/govtskgTransportCharges";
+import { computeSalesOrderTotals } from "./utils/salesOrderTotals";
 
 function SOPageLoading() {
 	return (
@@ -482,19 +483,14 @@ function SalesOrderTransactionPageContent() {
 		setAdditionalCharges((prev) => mergeTransportCharges(prev, computed, mode));
 	}, [formValues.govtskg_mode_of_transport, filledLineItems, invoiceTypeCode, setupData?.transportChargeRates, chargeOptions, billingToState, shippingToState]);
 
-	// Calculate totals
-	const additionalChargesTotal = React.useMemo(
-		() => additionalCharges.reduce((sum, c) => sum + (parseFloat(c.netAmount) || 0) + (c.gst?.gstTotal ?? 0), 0),
-		[additionalCharges],
+	const totals = React.useMemo(
+		() => computeSalesOrderTotals({
+			lineItems: filledLineItems,
+			additionalCharges,
+			freightCharges: Number(formValues.freight_charges) || 0,
+		}),
+		[filledLineItems, additionalCharges, formValues.freight_charges],
 	);
-
-	const totals = React.useMemo(() => {
-		const grossAmount = filledLineItems.reduce((sum, li) => sum + (li.amount ?? 0), 0);
-		const totalTax = filledLineItems.reduce((sum, li) => sum + (li.taxAmount ?? 0), 0);
-		const freightCharges = Number(formValues.freight_charges) || 0;
-		const netAmount = grossAmount + totalTax + freightCharges + additionalChargesTotal;
-		return { grossAmount, totalTax, freightCharges, netAmount, additionalChargesTotal };
-	}, [filledLineItems, formValues.freight_charges, additionalChargesTotal]);
 
 	// Phase A: Fetch details immediately in edit/view mode (no setup dependency)
 	// This breaks the circular dependency: details contain branch_id which is needed to load setup
@@ -579,7 +575,8 @@ function SalesOrderTransactionPageContent() {
 			setLockedBranchId(resolvedBranchValue);
 		}
 
-		const normalizedLines = (soDetails.lines ?? []).map((line) => mapLineToEditable(line));
+		const loadedBrokPct = Number(nextValues.broker_commission_percent) || 0;
+		const normalizedLines = (soDetails.lines ?? []).map((line) => mapLineToEditable(line, loadedBrokPct));
 
 		// Suppress the tax recalculation effect that would fire from billing/shipping state change
 		suppressTaxRecalcRef.current = true;
@@ -779,9 +776,12 @@ function SalesOrderTransactionPageContent() {
 	}, [soDetails, mode, resetBaseline]);
 
 	// Preview data
-	const previewHeader = React.useMemo(
-		() => ({
+	const previewHeader = React.useMemo(() => {
+		const isGovtSkgHeader = isGovtSkgOrder(invoiceTypeCode);
+		return {
 			salesNo: soDetails?.salesNo,
+			pcsoNo: isGovtSkgHeader ? ((formValues.govtskg_pcso_no as string) || undefined) : undefined,
+			pcsoDate: isGovtSkgHeader ? ((formValues.govtskg_pcso_date as string) || undefined) : undefined,
 			salesOrderDate: (formValues.date as string) || soDetails?.salesOrderDate,
 			branch: resolvedBranchOptions.find((o) => String(o.value) === branchValue)?.label ?? branchValue,
 			customerName: customerOptions.find((o) => String(o.value) === String(formValues.party))?.label ?? soDetails?.partyName,
@@ -790,13 +790,13 @@ function SalesOrderTransactionPageContent() {
 			status: statusChipProps?.label ?? soDetails?.status,
 			companyName,
 			companyLogo,
-		}),
-		[
-			soDetails, formValues.date, formValues.party, formValues.broker, formValues.transporter,
-			branchValue, resolvedBranchOptions, customerOptions, brokerOptions, transporterOptions,
-			statusChipProps?.label, companyName, companyLogo,
-		],
-	);
+		};
+	}, [
+		soDetails, formValues.date, formValues.party, formValues.broker, formValues.transporter,
+		formValues.govtskg_pcso_no, formValues.govtskg_pcso_date, invoiceTypeCode,
+		branchValue, resolvedBranchOptions, customerOptions, brokerOptions, transporterOptions,
+		statusChipProps?.label, companyName, companyLogo,
+	]);
 
 	const previewItems = React.useMemo(() => {
 		const isHessian = isHessianOrder(invoiceTypeCode);

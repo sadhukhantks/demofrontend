@@ -52,6 +52,26 @@ export type SRAdditionalCharge = {
 };
 
 /**
+ * Reasons PO additional charges cannot be auto-populated onto an SR.
+ */
+export type PoAdditionalCandidateReason =
+	| "no_po"
+	| "missing_po_on_line"
+	| "multiple_pos"
+	| "incomplete_po_coverage";
+
+/**
+ * Server-computed candidate payload that tells the SR page whether it
+ * can auto-fill additional charges from the originating PO.
+ */
+export type PoAdditionalCandidate = {
+	eligible: boolean;
+	reason: PoAdditionalCandidateReason | null;
+	po_id: number | null;
+	charges: SRAdditionalChargeRaw[];
+};
+
+/**
  * Raw additional charge from API.
  */
 export type SRAdditionalChargeRaw = {
@@ -140,6 +160,7 @@ export type SRHeader = {
 	inspection_date: string;
 	challan_no: string;
 	challan_date: string;
+	invoice_no: string;
 	invoice_date: string;
 	invoice_amount: number;
 	invoice_recvd_date: string;
@@ -233,6 +254,7 @@ export type SRHeaderRaw = {
 	inspection_date?: string;
 	challan_no?: string;
 	challan_date?: string;
+	invoice_no?: string;
 	invoice_date?: string;
 	invoice_amount?: number;
 	invoice_recvd_date?: string;

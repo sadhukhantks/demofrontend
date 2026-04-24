@@ -377,6 +377,9 @@ const apiRoutesPortalMasters = {
     // Jute Reports
     JUTE_REPORT_STOCK: `${API_URL}/juteReports/stock`,
     JUTE_REPORT_BATCH_COST: `${API_URL}/juteReports/batch-cost`,
+    JUTE_REPORT_MR_LIST: `${API_URL}/juteReports/mr-list`,
+    JUTE_REPORT_TALLY_DOWNLOAD: `${API_URL}/juteReports/tally-download`,
+    SALES_REPORT_JUTE_TALLY_DOWNLOAD: `${API_URL}/salesReports/jute-tally-download`,
 
     // Jute SQC - Morrah Weight QC
     MORRAH_WT_TABLE: `${API_URL}/juteSQC/get_morrah_wt_table`,
@@ -529,6 +532,8 @@ const apiRoutesPortalMasters = {
     SALES_INVOICE_REJECT: `${API_URL}/salesInvoice/reject_sales_invoice`,
     SALES_INVOICE_REOPEN: `${API_URL}/salesInvoice/reopen_sales_invoice`,
     SALES_INVOICE_TRANSPORTER_BRANCHES: `${API_URL}/salesInvoice/get_transporter_branches`,
+    SALES_INVOICE_GOVT_SACKING_SOURCE_LIST: `${API_URL}/salesInvoice/govt_sacking_source_list`,
+    SALES_INVOICE_GOVT_SACKING_SOURCE: `${API_URL}/salesInvoice/govt_sacking_source`,
 
     // HRMS Employee endpoints
     HRMS_EMPLOYEE_LIST: `${API_URL}/hrms/employee_list`,

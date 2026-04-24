@@ -43,6 +43,7 @@ type InvoiceTotals = {
 	netAmount: number;
 	freightCharges: number;
 	roundOff: number;
+	claimAmount: number;
 };
 
 type SalesInvoiceTotalsDisplayProps = {
@@ -67,6 +68,13 @@ export function SalesInvoiceTotalsDisplay({
 					<span className="text-slate-600">Gross Amount:</span>
 					<span>{formatCurrency(totals.grossAmount)}</span>
 				</div>
+
+				{totals.claimAmount > 0 && (
+					<div className="flex justify-between text-sm">
+						<span className="text-slate-600">Less: Claim Amount:</span>
+						<span>-{formatCurrency(totals.claimAmount)}</span>
+					</div>
+				)}
 
 				{showGSTBreakdown && (
 					<>

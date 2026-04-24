@@ -8,8 +8,9 @@ import TransactionWrapper from "@/components/ui/TransactionWrapper";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import { toast } from "@/hooks/use-toast";
 
-import type { SRHeader, SRLineItem, SRHeaderRaw, SRLineItemRaw, WarehouseOption, AdditionalChargeOption, SRAdditionalChargeRaw } from "./types/srTypes";
+import type { SRHeader, SRLineItem, SRHeaderRaw, SRLineItemRaw, WarehouseOption, AdditionalChargeOption, SRAdditionalChargeRaw, PoAdditionalCandidate, PoAdditionalCandidateReason } from "./types/srTypes";
 import { mapSRHeader, mapSRLineItems } from "./utils/srMappers";
 import { calculateTotals } from "./utils/srCalculations";
 import { getStatusColor } from "./utils/srConstants";
@@ -22,6 +23,22 @@ import { useSRLineItemColumns } from "./components/SRLineItemsTable";
 import { SRTotalsDisplay } from "./components/SRTotalsDisplay";
 import { SRPreview } from "./components/SRPreview";
 import { SRAdditionalCharges } from "./components/SRAdditionalCharges";
+
+// Reason → user-facing toast description when PO additional charges cannot be auto-filled
+function reasonToMessage(reason: PoAdditionalCandidateReason): string {
+	switch (reason) {
+		case "no_po":
+			return "No PO is linked to this inward.";
+		case "missing_po_on_line":
+			return "One or more line items have no PO reference.";
+		case "multiple_pos":
+			return "Line items span multiple POs.";
+		case "incomplete_po_coverage":
+			return "Not all lines of the PO are included in this inward.";
+		default:
+			return "Unknown reason.";
+	}
+}
 
 // Loading fallback for Suspense
 function SRPageLoading() {
@@ -54,9 +71,20 @@ function SRTransactionPageContent() {
 	const [pageError, setPageError] = React.useState<string | null>(null);
 	const [warehouseOptions, setWarehouseOptions] = React.useState<WarehouseOption[]>([]);
 	const [additionalChargeOptions, setAdditionalChargeOptions] = React.useState<AdditionalChargeOption[]>([]);
+	// Tracks whether there are unsaved edits to the form — used to gate the Approve button
+	// so users can't approve with in-flight changes that would be lost.
+	const [isDirty, setIsDirty] = React.useState(false);
 
 	// Form state hook
-	const { srDate, setSRDate, srRemarks, setSRRemarks, resetFormState } = useSRFormState();
+	const {
+		srDate,
+		setSRDate,
+		srRemarks,
+		setSRRemarks,
+		editableHeader,
+		setEditableHeaderField,
+		resetFormState,
+	} = useSRFormState();
 
 	// Line items hook
 	const { lineItems, setLineItems, handleLineItemChange } = useSRLineItems({ header });
@@ -74,6 +102,45 @@ function SRTransactionPageContent() {
 		totalChargesAmount,
 		chargesTotals,
 	} = useSRAdditionalCharges({ mode, header });
+
+	// Dirty-tracking wrappers around user-driven change handlers. fetchSRData calls
+	// the raw setters (setSRDate via resetFormState, setLineItems, replaceCharges)
+	// directly so a fresh server load does NOT mark the form dirty.
+	const handleSRDateChange = React.useCallback((value: string) => {
+		setSRDate(value);
+		setIsDirty(true);
+	}, [setSRDate]);
+
+	const handleSRRemarksChange = React.useCallback((value: string) => {
+		setSRRemarks(value);
+		setIsDirty(true);
+	}, [setSRRemarks]);
+
+	// Dirty-tracked single-field updater for editable inward header fields.
+	const handleEditableHeaderFieldChange = React.useCallback<typeof setEditableHeaderField>((field, value) => {
+		setEditableHeaderField(field, value);
+		setIsDirty(true);
+	}, [setEditableHeaderField]);
+
+	const handleLineItemChangeDirty = React.useCallback<typeof handleLineItemChange>((...args) => {
+		handleLineItemChange(...args);
+		setIsDirty(true);
+	}, [handleLineItemChange]);
+
+	const handleAddCharge = React.useCallback(() => {
+		addCharge();
+		setIsDirty(true);
+	}, [addCharge]);
+
+	const handleRemoveCharge = React.useCallback((id: string) => {
+		removeCharge(id);
+		setIsDirty(true);
+	}, [removeCharge]);
+
+	const handleUpdateCharge = React.useCallback<typeof updateCharge>((...args) => {
+		updateCharge(...args);
+		setIsDirty(true);
+	}, [updateCharge]);
 
 	// Fetch SR data
 	const fetchSRData = React.useCallback(async () => {
@@ -99,12 +166,13 @@ function SRTransactionPageContent() {
 				throw new Error(error);
 			}
 
-			const result = data as { 
-				header?: SRHeaderRaw; 
-				line_items?: SRLineItemRaw[]; 
+			const result = data as {
+				header?: SRHeaderRaw;
+				line_items?: SRLineItemRaw[];
 				warehouses?: Array<{ warehouse_id: number; warehouse_name: string; warehouse_path?: string; branch_id?: number }>;
 				additional_charges_options?: AdditionalChargeOption[];
 				additional_charges?: SRAdditionalChargeRaw[];
+				po_additional_candidate?: PoAdditionalCandidate;
 			};
 
 			// Map header
@@ -159,10 +227,36 @@ function SRTransactionPageContent() {
 			setAdditionalChargeOptions(result.additional_charges_options ?? []);
 
 			// Map existing additional charges
-			if (result.additional_charges && result.additional_charges.length > 0) {
-				const mappedCharges = mapRawToCharges(result.additional_charges);
+			const hasSavedCharges = (result.additional_charges?.length ?? 0) > 0;
+			if (hasSavedCharges) {
+				const mappedCharges = mapRawToCharges(result.additional_charges!);
 				replaceCharges(mappedCharges);
 			}
+
+			// Auto-populate from PO on first load only:
+			// - SR has no saved charges yet
+			// - SR has never been saved (sr_no is empty)
+			const hasBeenSaved = Boolean(mappedHeader.sr_no);
+			const candidate = result.po_additional_candidate;
+			if (!hasSavedCharges && !hasBeenSaved && candidate) {
+				if (candidate.eligible && candidate.charges.length > 0) {
+					const mapped = mapRawToCharges(candidate.charges);
+					replaceCharges(mapped);
+					toast({
+						title: "Additional charges loaded",
+						description: "Auto-filled from the originating PO. Review before saving.",
+					});
+				} else if (candidate.reason) {
+					toast({
+						title: "Additional charges not auto-filled",
+						description: reasonToMessage(candidate.reason),
+						variant: "destructive",
+					});
+				}
+			}
+
+			// Form state now mirrors the server — clear any pending dirty flag from a prior edit.
+			setIsDirty(false);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Failed to load SR data";
 			setPageError(message);
@@ -180,7 +274,7 @@ function SRTransactionPageContent() {
 	const {
 		saving,
 		canEdit,
-		isDraft,
+		isDraftSaved,
 		isOpen,
 		handleSave,
 		handleOpen,
@@ -191,6 +285,7 @@ function SRTransactionPageContent() {
 		header,
 		srDate,
 		srRemarks,
+		editableHeader,
 		lineItems,
 		additionalCharges,
 		getChargesToSave,
@@ -200,7 +295,7 @@ function SRTransactionPageContent() {
 	// Column definitions
 	const columns = useSRLineItemColumns({
 		canEdit: canEdit && !isViewMode,
-		onLineItemChange: handleLineItemChange,
+		onLineItemChange: handleLineItemChangeDirty,
 		warehouseOptions,
 	});
 
@@ -233,8 +328,9 @@ function SRTransactionPageContent() {
 			});
 		}
 
-		// Open for Approval — only available in Draft
-		if (canEdit && !isViewMode && isDraft) {
+		// Open for Approval — only after the SR has been saved at least once
+		// (isDraftSaved is true only when sr_status === DRAFT, not when 0/unsaved)
+		if (canEdit && !isViewMode && isDraftSaved) {
 			actions.push({
 				label: "Open for Approval",
 				onClick: handleOpen,
@@ -244,7 +340,7 @@ function SRTransactionPageContent() {
 			});
 		}
 
-		// Approve / Reject — only available in Open status
+		// Reject — available whenever the SR is Open (unsaved edits are discarded anyway on reject).
 		if (isOpen) {
 			actions.push({
 				label: "Reject",
@@ -253,6 +349,11 @@ function SRTransactionPageContent() {
 				loading: saving,
 				variant: "destructive" as const,
 			});
+		}
+
+		// Approve — hidden while the form has unsaved edits, since SR_APPROVE does not
+		// persist in-flight field changes and would approve stale values.
+		if (isOpen && !isDirty) {
 			actions.push({
 				label: "Approve",
 				onClick: handleApprove,
@@ -263,7 +364,7 @@ function SRTransactionPageContent() {
 		}
 
 		return actions;
-	}, [canEdit, isViewMode, isDraft, isOpen, saving, handleSave, handleOpen, handleApprove, handleReject]);
+	}, [canEdit, isViewMode, isDraftSaved, isOpen, isDirty, saving, handleSave, handleOpen, handleApprove, handleReject]);
 
 	// Error state
 	if (pageError && !loading) {
@@ -302,6 +403,7 @@ function SRTransactionPageContent() {
 			}}
 			loading={loading}
 			primaryActions={primaryActions}
+			actionsAfterFooter
 			lineItems={{
 				title: "Line Items",
 				subtitle: "Items from inspected Inward",
@@ -318,9 +420,9 @@ function SRTransactionPageContent() {
 						charges={additionalCharges}
 						options={additionalChargeOptions}
 						canEdit={canEdit && !isViewMode}
-						onAddCharge={addCharge}
-						onRemoveCharge={removeCharge}
-						onChargeChange={updateCharge}
+						onAddCharge={handleAddCharge}
+						onRemoveCharge={handleRemoveCharge}
+						onChargeChange={handleUpdateCharge}
 					/>
 					<SRTotalsDisplay totals={totals} chargesTotals={chargesTotals} />
 				</Box>
@@ -331,6 +433,7 @@ function SRTransactionPageContent() {
 					lineItems={lineItems}
 					totals={totals}
 					chargesTotals={chargesTotals}
+					additionalCharges={additionalCharges}
 					srDate={srDate}
 					srRemarks={srRemarks}
 				/>
@@ -340,9 +443,11 @@ function SRTransactionPageContent() {
 				<SRHeaderForm
 					header={header}
 					srDate={srDate}
-					onSRDateChange={setSRDate}
+					onSRDateChange={handleSRDateChange}
 					srRemarks={srRemarks}
-					onSRRemarksChange={setSRRemarks}
+					onSRRemarksChange={handleSRRemarksChange}
+					editableHeader={editableHeader}
+					onEditableHeaderFieldChange={handleEditableHeaderFieldChange}
 					canEdit={canEdit && !isViewMode}
 				/>
 			</Paper>

@@ -56,6 +56,9 @@ export type Field = {
 	render?: (props: CustomFieldRenderProps) => React.ReactNode; // for custom fields
 	customValidate?: (value: unknown, values: Record<string, unknown>) => string | null;
 	isEmpty?: (value: unknown, values: Record<string, unknown>) => boolean;
+	// For custom fields: suppress the outer subtitle label in create/edit mode when the
+	// inner rendered control already has its own label. View-mode caption label is unaffected.
+	hideLabel?: boolean;
 };
 
 export type Schema = {
@@ -442,7 +445,7 @@ export const MuiForm = React.forwardRef(function MuiForm(
 						</Box>
 					) : (
 						<Box>
-							{field.label && (
+							{field.label && !field.hideLabel && (
 								<Typography variant="subtitle2" sx={{ mb: 1 }} color="text.secondary">
 									{field.label}
 								</Typography>

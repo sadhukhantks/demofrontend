@@ -18,7 +18,7 @@ import {
   CircularProgress,
   Snackbar,
 } from "@mui/material";
-import { ArrowLeft, Save, CheckCircle } from "lucide-react";
+import { ArrowLeft, Save, CheckCircle, Printer } from "lucide-react";
 
 import {
   fetchBillPassById,
@@ -30,6 +30,13 @@ import {
   type BillPassSRLine,
   type BillPassDRCRLine,
 } from "@/utils/billPassService";
+import AdditionalChargesTable from "@/components/billPass/AdditionalChargesTable";
+import { openStyledPrintWindow } from "@/utils/printUtils";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import {
+  renderBillPassPreviewHtml,
+  BILL_PASS_PRINT_CSS,
+} from "./components/BillPassPreview";
 
 /**
  * @component BillPassEditPage
@@ -141,6 +148,7 @@ function BillPassEditPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const inwardIdParam = searchParams.get("id");
+  const { selectedCompany } = useSidebarContext();
 
   // State
   const [detail, setDetail] = React.useState<BillPassDetail | null>(null);
@@ -155,6 +163,7 @@ function BillPassEditPageContent() {
 
   // Form state for editable fields
   const [formData, setFormData] = React.useState({
+    invoice_no: "",
     invoice_date: "",
     invoice_amount: "",
     invoice_recvd_date: "",
@@ -180,10 +189,18 @@ function BillPassEditPageContent() {
 
       setDetail(data);
 
-      // Initialize form with existing data
+      // Initialize form with existing data. Invoice amount auto-suggests net_payable
+      // (SR - DR + CR + additional charges) when not yet entered, so the user sees
+      // the full amount including additional charges on first open.
+      const suggestedAmount = data.summary?.net_payable ?? 0;
       setFormData({
+        invoice_no: data.invoice_no ?? "",
         invoice_date: toDateInput(data.invoice_date),
-        invoice_amount: data.invoice_amount ? String(data.invoice_amount) : "",
+        invoice_amount: data.invoice_amount
+          ? String(data.invoice_amount)
+          : suggestedAmount > 0
+            ? suggestedAmount.toFixed(2)
+            : "",
         invoice_recvd_date: toDateInput(data.invoice_recvd_date),
         invoice_due_date: toDateInput(data.invoice_due_date),
         round_off_value: data.round_off_value ? String(data.round_off_value) : "0",
@@ -212,6 +229,7 @@ function BillPassEditPageContent() {
     setSaving(true);
     try {
       const { error } = await updateBillPass(detail.inward_id, {
+        invoice_no: formData.invoice_no || null,
         invoice_date: formData.invoice_date || null,
         invoice_amount: formData.invoice_amount ? parseFloat(formData.invoice_amount) : null,
         invoice_recvd_date: formData.invoice_recvd_date || null,
@@ -254,6 +272,7 @@ function BillPassEditPageContent() {
     setSaving(true);
     try {
       const { error } = await updateBillPass(detail.inward_id, {
+        invoice_no: formData.invoice_no || null,
         invoice_date: formData.invoice_date,
         invoice_amount: parseFloat(formData.invoice_amount),
         invoice_recvd_date: formData.invoice_recvd_date || null,
@@ -291,13 +310,38 @@ function BillPassEditPageContent() {
     return buildDrcrLinesByInwardDtl(detail.debit_notes, detail.credit_notes);
   }, [detail]);
 
-  // Calculate net payable with round-off
+  // Calculate net payable with round-off. Mirrors backend formula:
+  // sr_total - dr_total + cr_total + additional_total + round_off.
   const netPayable = React.useMemo(() => {
     if (!detail) return 0;
     const s = detail.summary;
     const roundOff = parseFloat(formData.round_off_value) || 0;
-    return s.sr_total - s.dr_total + s.cr_total + roundOff;
+    return (
+      (s.sr_total ?? 0) -
+      (s.dr_total ?? 0) +
+      (s.cr_total ?? 0) +
+      (s.additional_total ?? 0) +
+      roundOff
+    );
   }, [detail, formData.round_off_value]);
+
+  const handlePrintPreview = () => {
+    if (!detail) return;
+    const html = renderBillPassPreviewHtml({
+      detail,
+      formData,
+      netPayable,
+      companyName: selectedCompany?.co_name ?? null,
+    });
+    const title = `Bill Pass ${detail.bill_pass_no || "Draft"}`;
+    const printWindow = openStyledPrintWindow(html, title, BILL_PASS_PRINT_CSS);
+    if (!printWindow) return;
+    printWindow.focus();
+    // Defer print so the window's stylesheets (Google Fonts etc.) load first
+    setTimeout(() => {
+      printWindow.print();
+    }, 300);
+  };
 
   // ─── Render States ────────────────────────────────────────────────────────
 
@@ -350,27 +394,36 @@ function BillPassEditPageContent() {
             variant="outlined"
           />
         </Box>
-        {!isComplete && (
-          <Box display="flex" gap={1}>
-            <Button
-              variant="outlined"
-              startIcon={<Save size={16} />}
-              onClick={handleSave}
-              disabled={saving}
-            >
-              Save
-            </Button>
-            <Button
-              variant="contained"
-              color="success"
-              startIcon={<CheckCircle size={16} />}
-              onClick={handleComplete}
-              disabled={saving}
-            >
-              Complete Bill Pass
-            </Button>
-          </Box>
-        )}
+        <Box display="flex" gap={1}>
+          <Button
+            variant="outlined"
+            startIcon={<Printer size={16} />}
+            onClick={handlePrintPreview}
+          >
+            Print Preview
+          </Button>
+          {!isComplete && (
+            <>
+              <Button
+                variant="outlined"
+                startIcon={<Save size={16} />}
+                onClick={handleSave}
+                disabled={saving}
+              >
+                Save
+              </Button>
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={<CheckCircle size={16} />}
+                onClick={handleComplete}
+                disabled={saving}
+              >
+                Complete Bill Pass
+              </Button>
+            </>
+          )}
+        </Box>
       </Box>
 
       {/* ── Header Info (read-only) ──────────────────────────────────────── */}
@@ -556,6 +609,21 @@ function BillPassEditPageContent() {
         </CardContent>
       </Card>
 
+      {/* ── Additional Charges (read-only, inherited from SR) ────────────── */}
+      {(detail.additional_charges?.length ?? 0) > 0 && (
+        <Card sx={{ mb: 2 }}>
+          <CardContent>
+            <Typography variant="subtitle1" fontWeight={600} mb={1}>
+              Additional Charges
+            </Typography>
+            <Typography variant="caption" color="text.secondary" mb={2} display="block">
+              {summary.additional_count} charge(s) captured at SR stage &mdash; read-only here
+            </Typography>
+            <AdditionalChargesTable lines={detail.additional_charges} />
+          </CardContent>
+        </Card>
+      )}
+
       {/* ── Invoice Details + Summary ────────────────────────────────────── */}
       <Grid container spacing={2}>
         {/* Left: Editable Invoice Details */}
@@ -566,6 +634,16 @@ function BillPassEditPageContent() {
                 Invoice Details
               </Typography>
               <Grid container spacing={2}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    label="Invoice No."
+                    value={formData.invoice_no}
+                    onChange={(e) => handleFieldChange("invoice_no", e.target.value)}
+                    fullWidth
+                    size="small"
+                    disabled={isComplete}
+                  />
+                </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     label="Invoice Date *"
@@ -670,6 +748,25 @@ function BillPassEditPageContent() {
                     color="success.main"
                     prefix="+"
                   />
+                )}
+                {summary.additional_count > 0 && (
+                  <>
+                    <SummaryRow
+                      label={`Add: Additional Charges (${summary.additional_count})`}
+                      value={summary.additional_net}
+                      prefix="+"
+                    />
+                    {summary.additional_cgst > 0 && (
+                      <SummaryRow label="Add. CGST" value={summary.additional_cgst} indent />
+                    )}
+                    {summary.additional_sgst > 0 && (
+                      <SummaryRow label="Add. SGST" value={summary.additional_sgst} indent />
+                    )}
+                    {summary.additional_igst > 0 && (
+                      <SummaryRow label="Add. IGST" value={summary.additional_igst} indent />
+                    )}
+                    <SummaryRow label="Additional Total" value={summary.additional_total} bold />
+                  </>
                 )}
                 {parseFloat(formData.round_off_value) !== 0 && (
                   <SummaryRow label="Round Off" value={parseFloat(formData.round_off_value) || 0} />

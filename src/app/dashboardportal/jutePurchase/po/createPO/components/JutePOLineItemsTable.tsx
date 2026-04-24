@@ -19,6 +19,7 @@ type UseJutePOLineItemColumnsParams = {
   getQualityOptions: (itemId: string) => Option[];
   labelResolvers: JutePOLabelResolvers;
   handleLineFieldChange: (id: string, field: keyof JutePOLineItem, value: string) => void;
+  isLegacyPO?: boolean;
 };
 
 export function useJutePOLineItemColumns({
@@ -27,6 +28,7 @@ export function useJutePOLineItemColumns({
   getQualityOptions,
   labelResolvers,
   handleLineFieldChange,
+  isLegacyPO = false,
 }: UseJutePOLineItemColumnsParams): TransactionLineColumn<JutePOLineItem>[] {
   return React.useMemo<TransactionLineColumn<JutePOLineItem>[]>(
     () => [
@@ -125,26 +127,66 @@ export function useJutePOLineItemColumns({
           );
         },
       },
-      {
-        id: "quantity",
-        header: "Qty",
-        width: "0.7fr",
-        renderCell: ({ item }: { item: JutePOLineItem }) => {
-          if (!canEdit) {
-            return <span className="text-xs text-right">{item.quantity || "-"}</span>;
-          }
-          return (
-            <Input
-              type="number"
-              value={item.quantity ?? ""}
-              onChange={(e) => handleLineFieldChange(item.id, "quantity", e.target.value)}
-              placeholder="0"
-              disabled={!canEdit}
-              className="h-8 text-xs text-right"
-            />
-          );
-        },
-      },
+      ...(isLegacyPO
+        ? [
+            {
+              id: "quantity",
+              header: "Qty",
+              width: "0.7fr",
+              renderCell: ({ item }: { item: JutePOLineItem }) => {
+                if (!canEdit) {
+                  return <span className="text-xs text-right">{item.quantity || "-"}</span>;
+                }
+                return (
+                  <Input
+                    type="number"
+                    value={item.quantity ?? ""}
+                    onChange={(e) => handleLineFieldChange(item.id, "quantity", e.target.value)}
+                    placeholder="0"
+                    disabled={!canEdit}
+                    className="h-8 text-xs text-right"
+                  />
+                );
+              },
+            } as TransactionLineColumn<JutePOLineItem>,
+          ]
+        : [
+            {
+              id: "percentage",
+              header: "%",
+              width: "0.7fr",
+              renderCell: ({ item }: { item: JutePOLineItem }) => {
+                if (!canEdit) {
+                  return <span className="text-xs text-right">{item.percentage || "-"}</span>;
+                }
+                return (
+                  <Input
+                    type="number"
+                    value={item.percentage ?? ""}
+                    onChange={(e) => handleLineFieldChange(item.id, "percentage", e.target.value)}
+                    placeholder="0.00"
+                    disabled={!canEdit}
+                    className="h-8 text-xs text-right"
+                    min={0}
+                    max={100}
+                    step={0.01}
+                  />
+                );
+              },
+              getTooltip: ({ item }: { item: JutePOLineItem }) =>
+                item.percentage ? `Share of total vehicle capacity: ${item.percentage}%` : undefined,
+            } as TransactionLineColumn<JutePOLineItem>,
+            {
+              id: "quantity",
+              header: "Qty (Bales/Drums)",
+              width: "0.9fr",
+              renderCell: ({ item }: { item: JutePOLineItem }) => (
+                <span className="text-xs text-right font-medium">{item.quantity || "-"}</span>
+              ),
+              getTooltip: ({ item }: { item: JutePOLineItem }) =>
+                item.quantity ? `Derived quantity: ${item.quantity}` : undefined,
+            } as TransactionLineColumn<JutePOLineItem>,
+          ]),
       {
         id: "rate",
         header: "Rate (per Qtl)",

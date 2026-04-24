@@ -63,7 +63,10 @@ import {
 	EMPTY_ITEM_GROUPS,
 	EMPTY_INVOICE_TYPES,
 	EMPTY_SETUP_PARAMS,
+	isGovtInvoice,
+	isBalesUomName,
 } from "./utils/deliveryOrderConstants";
+import { computeConvertedQtyBales } from "@/utils/uomConversion";
 
 function DOPageLoading() {
 	return (
@@ -638,8 +641,20 @@ function DOTransactionPageContent() {
 		return selectedCustomer.branches.find((b) => b.id === shippingBranchId)?.fullAddress;
 	}, [selectedCustomer, shippingBranchId]);
 
-	const previewHeader = React.useMemo(
-		() => ({
+	const previewHeader = React.useMemo(() => {
+		const isGovtSkg = isGovtInvoice(formValues.invoice_type as string | undefined);
+		let pcsoNo: string | undefined;
+		let pcsoDate: string | undefined;
+		if (isGovtSkg) {
+			const soValue = formValues.sales_order ? String(formValues.sales_order) : undefined;
+			const selectedSO = soValue
+				? approvedSalesOrders.find((so) => String(so.id) === soValue)
+				: undefined;
+			const extGovtskg = doDetails?.soExtensionData?.govtskg as Record<string, unknown> | undefined;
+			pcsoNo = selectedSO?.pcsoNo ?? (extGovtskg?.pcso_no as string | undefined) ?? undefined;
+			pcsoDate = selectedSO?.pcsoDate ?? (extGovtskg?.pcso_date as string | undefined) ?? undefined;
+		}
+		return {
 			doNo: doDetails?.deliveryOrderNo,
 			doDate: (formValues.date as string) || doDetails?.deliveryOrderDate,
 			branch: branchLabel,
@@ -647,35 +662,50 @@ function DOTransactionPageContent() {
 			billingToAddress,
 			shippingToAddress,
 			salesOrder: salesOrderLabel,
+			pcsoNo,
+			pcsoDate,
 			transporter: transporterLabel,
 			vehicleNo: (formValues.vehicle_no as string) || doDetails?.vehicleNo,
 			driverName: (formValues.driver_name as string) || doDetails?.driverName,
 			companyName,
 			companyLogo,
 			status: statusLabel,
-		}),
-		[
-			doDetails, formValues.date,
-			formValues.vehicle_no, formValues.driver_name,
-			branchLabel, customerLabel, billingToAddress, shippingToAddress, salesOrderLabel,
-			transporterLabel, companyName, companyLogo, statusLabel,
-		],
-	);
+		};
+	}, [
+		doDetails, formValues.date, formValues.invoice_type, formValues.sales_order,
+		formValues.vehicle_no, formValues.driver_name, approvedSalesOrders,
+		branchLabel, customerLabel, billingToAddress, shippingToAddress, salesOrderLabel,
+		transporterLabel, companyName, companyLogo, statusLabel,
+	]);
 
+	const isHessianInvoice = String(formValues.invoice_type ?? "") === "2";
+	const showBalesInPreview = isGovtInvoice(formValues.invoice_type as string | undefined) || isHessianInvoice;
 	const previewItems = React.useMemo(() => {
 		return filledLineItems.map((line, index) => {
 			const itemOptions = getItemOptions(line.itemGroup);
 			const itemLabel = itemOptions.find((o) => o.value === line.item)?.label ?? line.itemName ?? "-";
 			const uomLabel = getUomLabel(line.itemGroup, line.item, line.uom, line.uomName);
+			// Prefer the user-entered bales (govtskgQtyBales / hessianQtyBales); fall back to computing from quantity
+			let qtyInBales: string | undefined;
+			if (showBalesInPreview) {
+				const storedBales = isHessianInvoice ? line.hessianQtyBales : line.govtskgQtyBales;
+				if (storedBales && Number(storedBales)) {
+					qtyInBales = storedBales;
+				} else {
+					const balesConv = computeConvertedQtyBales(line.quantity, line.uom, getUomConversions(line.itemGroup, line.item));
+					if (balesConv) qtyInBales = balesConv.convertedQty;
+				}
+			}
 			return {
 				srNo: index + 1,
 				itemCode: line.itemCode || "-",
 				item: itemLabel,
 				quantity: line.quantity || "-",
 				uom: uomLabel,
+				qtyInBales,
 			};
 		});
-	}, [filledLineItems, getItemOptions, getUomLabel]);
+	}, [filledLineItems, getItemOptions, getUomLabel, getUomConversions, showBalesInPreview, isHessianInvoice]);
 
 	const previewTotals = React.useMemo(
 		() => ({

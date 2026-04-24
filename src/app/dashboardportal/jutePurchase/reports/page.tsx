@@ -1,9 +1,12 @@
 "use client";
-import React, { useState, useMemo, useCallback, SyntheticEvent } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   Box,
-  Tabs,
-  Tab,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  SelectChangeEvent,
   TextField,
   Autocomplete,
   Paper,
@@ -12,7 +15,10 @@ import {
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import JuteStockReport from "./_components/JuteStockReport";
 import BatchCostReport from "./_components/BatchCostReport";
+import MrListReport from "./_components/MrListReport";
 import type { BranchOption } from "./types/reportTypes";
+
+type ReportKey = "stock" | "batch" | "mrList";
 
 function getYesterdayDate(): string {
   const d = new Date();
@@ -22,7 +28,7 @@ function getYesterdayDate(): string {
 
 export default function JuteReportsPage() {
   const { selectedCompany } = useSidebarContext();
-  const [activeTab, setActiveTab] = useState(0);
+  const [selectedReport, setSelectedReport] = useState<ReportKey>("stock");
   const [selectedBranch, setSelectedBranch] = useState<BranchOption | null>(
     null,
   );
@@ -38,9 +44,9 @@ export default function JuteReportsPage() {
     [selectedCompany?.branches],
   );
 
-  const handleTabChange = useCallback(
-    (_: SyntheticEvent, newValue: number) => {
-      setActiveTab(newValue);
+  const handleReportChange = useCallback(
+    (e: SelectChangeEvent<ReportKey>) => {
+      setSelectedReport(e.target.value as ReportKey);
     },
     [],
   );
@@ -52,6 +58,8 @@ export default function JuteReportsPage() {
     [],
   );
 
+  const showDateBranchFilters = selectedReport !== "mrList";
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography
@@ -62,29 +70,6 @@ export default function JuteReportsPage() {
       </Typography>
 
       <Paper elevation={1} sx={{ mb: 3 }}>
-        {/* Tabs */}
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          sx={{
-            borderBottom: 1,
-            borderColor: "divider",
-            "& .MuiTab-root": {
-              textTransform: "none",
-              fontWeight: 600,
-            },
-            "& .Mui-selected": {
-              color: "#0C3C60",
-            },
-            "& .MuiTabs-indicator": {
-              backgroundColor: "#0C3C60",
-            },
-          }}
-        >
-          <Tab label="Jute Stock Report" />
-          <Tab label="Batch Cost Report" />
-        </Tabs>
-
         {/* Filters toolbar */}
         <Box
           sx={{
@@ -95,47 +80,71 @@ export default function JuteReportsPage() {
             flexWrap: "wrap",
           }}
         >
-          <Autocomplete
-            options={branchOptions}
-            getOptionLabel={(option) => option.branch_name}
-            isOptionEqualToValue={(option, value) =>
-              option.branch_id === value.branch_id
-            }
-            value={selectedBranch}
-            onChange={(_, newValue) => setSelectedBranch(newValue)}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Branch"
-                size="small"
-                required
+          <FormControl size="small" sx={{ minWidth: 220 }}>
+            <InputLabel id="jute-report-select-label">Report</InputLabel>
+            <Select<ReportKey>
+              labelId="jute-report-select-label"
+              label="Report"
+              value={selectedReport}
+              onChange={handleReportChange}
+            >
+              <MenuItem value="stock">Jute Stock Report</MenuItem>
+              <MenuItem value="batch">Batch Cost Report</MenuItem>
+              <MenuItem value="mrList">MR List</MenuItem>
+            </Select>
+          </FormControl>
+
+          {showDateBranchFilters && (
+            <>
+              <Autocomplete
+                options={branchOptions}
+                getOptionLabel={(option) => option.branch_name}
+                isOptionEqualToValue={(option, value) =>
+                  option.branch_id === value.branch_id
+                }
+                value={selectedBranch}
+                onChange={(_, newValue) => setSelectedBranch(newValue)}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Branch"
+                    size="small"
+                    required
+                  />
+                )}
+                sx={{ minWidth: 240 }}
               />
-            )}
-            sx={{ minWidth: 240 }}
-          />
-          <TextField
-            type="date"
-            label="Report Date"
-            value={reportDate}
-            onChange={handleDateChange}
-            size="small"
-            slotProps={{ inputLabel: { shrink: true } }}
-            sx={{ width: 180 }}
-          />
+              <TextField
+                type="date"
+                label="Report Date"
+                value={reportDate}
+                onChange={handleDateChange}
+                size="small"
+                slotProps={{ inputLabel: { shrink: true } }}
+                sx={{ width: 180 }}
+              />
+            </>
+          )}
         </Box>
       </Paper>
 
       {/* Report content */}
-      {activeTab === 0 && (
+      {selectedReport === "stock" && (
         <JuteStockReport
           branchId={selectedBranch?.branch_id ?? null}
           date={reportDate}
         />
       )}
-      {activeTab === 1 && (
+      {selectedReport === "batch" && (
         <BatchCostReport
           branchId={selectedBranch?.branch_id ?? null}
           date={reportDate}
+        />
+      )}
+      {selectedReport === "mrList" && (
+        <MrListReport
+          coId={selectedCompany?.co_id ?? null}
+          branches={branchOptions}
         />
       )}
     </Box>

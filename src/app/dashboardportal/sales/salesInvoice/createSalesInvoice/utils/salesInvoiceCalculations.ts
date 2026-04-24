@@ -3,16 +3,16 @@ import { isAmountDiscountType, isPercentageDiscountType } from "./salesInvoiceCo
 export const calculateLineTax = (
 	amount: number,
 	taxPercentage: number,
-	partyState: string | undefined,
-	shippingState: string | undefined,
+	companyBranchStateId: number | undefined,
+	shippingBranchStateId: number | undefined,
 ) => {
-	if (!taxPercentage || !partyState || !shippingState) {
+	if (!taxPercentage || !companyBranchStateId || !shippingBranchStateId) {
 		return { igstAmount: 0, igstPercent: 0, cgstAmount: 0, cgstPercent: 0, sgstAmount: 0, sgstPercent: 0, gstTotal: 0 };
 	}
 
 	const taxAmount = (amount * taxPercentage) / 100;
 
-	if (partyState === shippingState) {
+	if (companyBranchStateId === shippingBranchStateId) {
 		const half = taxAmount / 2;
 		return {
 			igstAmount: 0,
@@ -61,10 +61,11 @@ export const calculateLineAmount = (
 	discountType?: number,
 	discountValue?: number,
 ) => {
-	const discountAmount = calculateDiscountAmount(qty, rate, discountType, discountValue);
+	const discountAmountRaw = calculateDiscountAmount(qty, rate, discountType, discountValue);
+	const discountAmount = Number(discountAmountRaw.toFixed(2));
 	const baseAmount = qty * rate;
-	const netAmount = Math.max(0, baseAmount - discountAmount);
-	const discountedRate = qty > 0 ? netAmount / qty : rate;
+	const netAmount = Number(Math.max(0, baseAmount - discountAmount).toFixed(2));
+	const discountedRate = qty > 0 ? Number((netAmount / qty).toFixed(2)) : rate;
 	return { discountAmount, netAmount, discountedRate };
 };
 
@@ -72,6 +73,7 @@ export const calculateInvoiceTotals = (
 	lineItems: Array<{ netAmount?: number; gstTotal?: number }>,
 	freightCharges: number = 0,
 	roundOff: number = 0,
+	claimAmount: number = 0,
 ) => {
 	const grossAmount = lineItems.reduce((sum, line) => sum + (line.netAmount || 0), 0);
 	const totalGST = lineItems.reduce((sum, line) => sum + (line.gstTotal || 0), 0);
@@ -87,6 +89,6 @@ export const calculateInvoiceTotals = (
 		const l = line as { sgstAmount?: number };
 		return sum + (l.sgstAmount || 0);
 	}, 0);
-	const netAmount = grossAmount + totalGST + freightCharges + roundOff;
-	return { grossAmount, totalGST, totalIGST, totalCGST, totalSGST, netAmount, freightCharges, roundOff };
+	const netAmount = grossAmount - claimAmount + totalGST + freightCharges + roundOff;
+	return { grossAmount, totalGST, totalIGST, totalCGST, totalSGST, netAmount, freightCharges, roundOff, claimAmount };
 };
