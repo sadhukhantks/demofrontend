@@ -544,6 +544,10 @@ const apiRoutesPortalMasters = {
     HRMS_EMPLOYEE_LOOKUP_BY_CODE: `${API_URL}/hrms/employee_lookup_by_code`,
     HRMS_CHECK_EMP_CODE_DUPLICATE: `${API_URL}/hrms/check_emp_code_duplicate`,
     HRMS_EMPLOYEE_STATUS_UPDATE: `${API_URL}/hrms/employee_status_update`,
+    HRMS_EMPLOYEE_SALARY_SCHEMES: `${API_URL}/hrms/employee_salary_schemes`,
+    HRMS_EMPLOYEE_SALARY: `${API_URL}/hrms/employee_salary`,
+    HRMS_EMPLOYEE_SALARY_CHECK: `${API_URL}/hrms/employee_salary_check`,
+    HRMS_EMPLOYEE_SALARY_SAVE: `${API_URL}/hrms/employee_salary_save`,
 
     // HRMS Pay Scheme endpoints
     HRMS_PAY_SCHEME_LIST: `${API_URL}/hrms/pay_scheme_list`,
