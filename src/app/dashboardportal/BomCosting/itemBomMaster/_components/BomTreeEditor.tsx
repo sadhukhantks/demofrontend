@@ -29,11 +29,16 @@ import {
   closestCenter,
 } from "@dnd-kit/core";
 import { arrayMove, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { Printer } from "lucide-react";
+import { IconButton, Tooltip } from "@mui/material";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
+import { openStyledPrintWindow } from "@/utils/printUtils";
 import BomTreeNode from "./BomTreeNode";
 import ConfirmDialog from "./ConfirmDialog";
 import InlineBomRow from "./InlineBomRow";
+import BomPrintDialog from "./BomPrintDialog";
+import { buildBomPrintHtml, BomPrintOptions } from "./bomPrintRender";
 import { BomTreeItem, ItemOption, UomOption, getCoId } from "./types";
 
 type BomTreeEditorProps = {
@@ -108,6 +113,8 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
   const [bomStatus, setBomStatus] = useState<BomStatus>("New");
   const [statusSaving, setStatusSaving] = useState(false);
 
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+
   // Shared item/uom options for inline rows (loaded once + debounced re-search)
   const [itemOptions, setItemOptions] = useState<ItemOption[]>([]);
   const [uomOptions, setUomOptions] = useState<UomOption[]>([]);
@@ -173,6 +180,7 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
     setItemOptions([]);
     setUomOptions([]);
     itemSearchRef.current = "";
+    setPrintDialogOpen(false);
   }, []);
 
   useEffect(() => {
@@ -221,6 +229,37 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
       }
     },
     [bomStatus, selectedRootItem, item, onSnackbar]
+  );
+
+  const handlePrintConfirm = useCallback(
+    (opts: BomPrintOptions) => {
+      const root = selectedRootItem ?? item;
+      if (!root) return;
+      const code = (root as ItemOption).full_item_code || (root as ItemOption).item_code || "";
+      const name = (root as ItemOption).item_name || "";
+      let coName: string | undefined;
+      try {
+        const stored = localStorage.getItem("sidebar_selectedCompany");
+        if (stored) coName = JSON.parse(stored)?.co_name;
+      } catch { /* ignore */ }
+
+      const html = buildBomPrintHtml(
+        { item_code: code, item_name: name, bom_status: bomStatus },
+        tree,
+        opts,
+        { printedAt: new Date(), coName }
+      );
+
+      const printWindow = openStyledPrintWindow(html, `BOM_${code || "Print"}`);
+      setPrintDialogOpen(false);
+      if (!printWindow) return;
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 300);
+    },
+    [tree, bomStatus, selectedRootItem, item]
   );
 
   // Debounced item search for the root item picker
@@ -430,19 +469,32 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
         <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
           <span>Item BOM {rootLabel ? `— ${rootLabel}` : ""}</span>
           {!itemPickerMode && (
-            <FormControl size="small" sx={{ minWidth: 200 }} disabled={statusSaving}>
-              <InputLabel id="bom-status-label">Status</InputLabel>
-              <Select
-                labelId="bom-status-label"
-                label="Status"
-                value={bomStatus}
-                onChange={(e) => handleStatusChange(e.target.value as BomStatus)}
-              >
-                {BOM_STATUS_OPTIONS.map((s) => (
-                  <MenuItem key={s} value={s}>{s}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Tooltip title={tree.length === 0 ? "Add components before printing" : "Print BOM"}>
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={() => setPrintDialogOpen(true)}
+                    disabled={loading || tree.length === 0}
+                  >
+                    <Printer size={18} />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <FormControl size="small" sx={{ minWidth: 200 }} disabled={statusSaving}>
+                <InputLabel id="bom-status-label">Status</InputLabel>
+                <Select
+                  labelId="bom-status-label"
+                  label="Status"
+                  value={bomStatus}
+                  onChange={(e) => handleStatusChange(e.target.value as BomStatus)}
+                >
+                  {BOM_STATUS_OPTIONS.map((s) => (
+                    <MenuItem key={s} value={s}>{s}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
           )}
         </DialogTitle>
 
@@ -677,6 +729,13 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
         }
         onConfirm={handleRemoveConfirm}
         onCancel={() => setConfirmRemoveNode(null)}
+      />
+
+      <BomPrintDialog
+        open={printDialogOpen}
+        onClose={() => setPrintDialogOpen(false)}
+        onConfirm={handlePrintConfirm}
+        itemLabel={rootLabel}
       />
     </>
   );
