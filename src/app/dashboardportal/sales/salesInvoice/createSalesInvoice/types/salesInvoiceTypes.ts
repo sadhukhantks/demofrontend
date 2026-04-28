@@ -169,6 +169,7 @@ export type ItemOption = Option & {
 	defaultUomLabel?: string;
 	defaultRate?: number;
 	taxPercentage?: number;
+	rateRounding?: number;
 };
 
 export type ItemGroupCacheEntry = {
@@ -181,6 +182,7 @@ export type ItemGroupCacheEntry = {
 	uomLabelByItemId: Record<string, Record<string, string>>;
 	itemRateById: Record<string, number>;
 	itemTaxById: Record<string, number>;
+	itemRateRoundingById: Record<string, number>;
 	uomConversionsByItemId: Record<string, UomConversionEntry[]>;
 };
 
@@ -212,6 +214,8 @@ export type EditableLineItem = {
 	sgstAmount?: number;
 	sgstPercent?: number;
 	gstTotal?: number;
+	/** Decimals to round `rate` / `discounted_rate` to (from item_mst.rate_rounding; defaults to 2) */
+	rateRounding?: number;
 	// Raw Jute detail fields (invoice_type = 5)
 	juteClaimAmountDtl?: number;
 	juteClaimDesc?: string;
@@ -407,6 +411,7 @@ export type ItemOptionRaw = {
 	uom_name?: string | null;
 	rate?: number | string | null;
 	tax_percentage?: number | string | null;
+	rate_rounding?: number | string | null;
 };
 
 export type ItemMakeOptionRaw = {

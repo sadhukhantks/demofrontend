@@ -90,11 +90,10 @@ const DeliveryOrderPreview: React.FC<DOPreviewProps> = ({ header, items, remarks
 		return parts.join(", ");
 	}, [items]);
 
-	/* Description lines — each item as "ITEM_CODE — ITEM_NAME [— X Bales]" */
+	/* Description lines — "ITEM_CODE — ITEM_NAME"; total qty is rendered separately above. */
 	const descriptionLines = React.useMemo(() => {
 		return items.map((item) => {
 			const parts = [item.itemCode, item.item].filter(Boolean);
-			if (item.qtyInBales) parts.push(`${item.qtyInBales} Bales`);
 			return parts.join(" — ") || "-";
 		});
 	}, [items]);
