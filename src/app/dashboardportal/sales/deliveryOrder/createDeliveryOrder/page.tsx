@@ -685,15 +685,22 @@ function DOTransactionPageContent() {
 			const itemOptions = getItemOptions(line.itemGroup);
 			const itemLabel = itemOptions.find((o) => o.value === line.item)?.label ?? line.itemName ?? "-";
 			const uomLabel = getUomLabel(line.itemGroup, line.item, line.uom, line.uomName);
-			// Prefer the user-entered bales (govtskgQtyBales / hessianQtyBales); fall back to computing from quantity
+			// Prefer the user-entered bales (govtskgQtyBales / hessianQtyBales); fall back to computing from quantity.
+			// Always apply per-item rounding from uom_item_map_mst so legacy unrounded values render correctly.
 			let qtyInBales: string | undefined;
 			if (showBalesInPreview) {
+				const conversions = getUomConversions(line.itemGroup, line.item);
+				const balesConvEntry = conversions?.find((c) =>
+					(c.mapFromId === line.uom && /\bbales?\b/i.test(c.mapToName ?? "")) ||
+					(c.mapToId === line.uom && /\bbales?\b/i.test(c.mapFromName ?? "")),
+				);
+				const rounding = balesConvEntry?.rounding ?? 2;
 				const storedBales = isHessianInvoice ? line.hessianQtyBales : line.govtskgQtyBales;
 				if (storedBales && Number(storedBales)) {
-					qtyInBales = storedBales;
+					qtyInBales = Number(storedBales).toFixed(rounding);
 				} else {
-					const balesConv = computeConvertedQtyBales(line.quantity, line.uom, getUomConversions(line.itemGroup, line.item));
-					if (balesConv) qtyInBales = balesConv.convertedQty;
+					const computed = computeConvertedQtyBales(line.quantity, line.uom, conversions);
+					if (computed) qtyInBales = computed.convertedQty;
 				}
 			}
 			return {

@@ -51,7 +51,7 @@ export const useDeliveryOrderLineItems = ({
 	 * If a known balesUomId is provided, uses that for an exact match first.
 	 */
 	const getBalesConversion = React.useCallback(
-		(groupId: string, itemId: string, billingUomId: string, knownBalesUomId?: string): { factor: number; balesUomId: string } | undefined => {
+		(groupId: string, itemId: string, billingUomId: string, knownBalesUomId?: string): { factor: number; balesUomId: string; rounding: number } | undefined => {
 			const cache = itemGroupCache[groupId];
 			if (!cache) return undefined;
 			const conversions = cache.uomConversionsByItemId[itemId];
@@ -59,16 +59,25 @@ export const useDeliveryOrderLineItems = ({
 			if (knownBalesUomId) {
 				for (const conv of conversions) {
 					if (conv.mapFromId === billingUomId && conv.mapToId === knownBalesUomId && conv.relationValue > 0) {
-						return { factor: conv.relationValue, balesUomId: conv.mapToId };
+						return { factor: conv.relationValue, balesUomId: conv.mapToId, rounding: conv.rounding ?? 2 };
 					}
 				}
 			}
 			for (const conv of conversions) {
 				if (conv.mapFromId === billingUomId && conv.relationValue > 0 && isBalesUomName(conv.mapToName)) {
-					return { factor: conv.relationValue, balesUomId: conv.mapToId };
+					return { factor: conv.relationValue, balesUomId: conv.mapToId, rounding: conv.rounding ?? 2 };
 				}
 			}
 			return undefined;
+		},
+		[itemGroupCache],
+	);
+
+	/** Look up the rate-rounding decimals for an item from the cache. Default 2. */
+	const resolveRateRounding = React.useCallback(
+		(groupId: string, itemId: string): number => {
+			const cache = itemGroupCache[groupId];
+			return cache?.itemRateRoundingById?.[itemId] ?? 2;
 		},
 		[itemGroupCache],
 	);
@@ -77,6 +86,7 @@ export const useDeliveryOrderLineItems = ({
 		const groupId = line.itemGroup ? String(line.itemGroup) : "";
 		const itemId = line.item ?? "";
 		const uomId = line.uom ?? "";
+		const rateRounding = groupId && itemId ? resolveRateRounding(groupId, itemId) : 2;
 		const base: EditableLineItem = {
 			id: line.id ? String(line.id) : generateLineId(),
 			salesOrderDtlId: line.salesOrderDtlId,
@@ -104,6 +114,7 @@ export const useDeliveryOrderLineItems = ({
 			sgstAmount: line.gst?.sgstAmount,
 			sgstPercent: line.gst?.sgstPercent,
 			gstTotal: line.gst?.gstTotal,
+			rateRounding,
 		};
 		// Back-calc bales from stored quantity when the UOM cache is already populated.
 		// (Deferred effect below handles the case where cache loads after line mapping.)
@@ -111,7 +122,7 @@ export const useDeliveryOrderLineItems = ({
 		if (isGovtSkg && qtyPer100 > 0 && groupId && itemId && uomId) {
 			const conv = getBalesConversion(groupId, itemId, uomId);
 			if (conv && conv.factor > 0) {
-				base.govtskgQtyBales = String(qtyPer100 * conv.factor);
+				base.govtskgQtyBales = (qtyPer100 * conv.factor).toFixed(conv.rounding);
 				base.govtskgConversionFactor = conv.factor;
 				base.govtskgBalesUomId = conv.balesUomId;
 			}
@@ -120,13 +131,13 @@ export const useDeliveryOrderLineItems = ({
 		if (isHessian && qtyMt > 0 && groupId && itemId && uomId) {
 			const conv = getBalesConversion(groupId, itemId, uomId);
 			if (conv && conv.factor > 0) {
-				base.hessianQtyBales = String(qtyMt * conv.factor);
+				base.hessianQtyBales = (qtyMt * conv.factor).toFixed(conv.rounding);
 				base.hessianConversionFactor = conv.factor;
 				base.hessianBalesUomId = conv.balesUomId;
 			}
 		}
 		return base;
-	}, [isGovtSkg, isHessian, getBalesConversion]);
+	}, [isGovtSkg, isHessian, getBalesConversion, resolveRateRounding]);
 
 	const recalcLine = React.useCallback((item: EditableLineItem): EditableLineItem => {
 		const qty = Number(item.quantity) || 0;
@@ -177,10 +188,12 @@ export const useDeliveryOrderLineItems = ({
 						if (defaultUom && uomOptions.some((opt) => opt.value === defaultUom)) nextUom = defaultUom;
 						else if (uomOptions.length) nextUom = uomOptions[0].value;
 						const effectiveRate = isHessian && defaultRate != null ? Math.round(defaultRate) : defaultRate;
+						const rateRound = item.itemGroup && value ? resolveRateRounding(item.itemGroup, value) : 2;
 						const updated: EditableLineItem = {
 							...item, item: value, uom: nextUom,
 							rate: effectiveRate != null ? String(effectiveRate) : item.rate,
 							taxPercentage: defaultTax,
+							rateRounding: rateRound,
 						};
 						return recalcLine(updated);
 					});
@@ -327,7 +340,7 @@ export const useDeliveryOrderLineItems = ({
 				}),
 			);
 		},
-		[mode, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, recalcLine, isHessian, isGovtSkg, getBalesConversion, partyState, shippingState],
+		[mode, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, recalcLine, isHessian, isGovtSkg, getBalesConversion, partyState, shippingState, resolveRateRounding],
 	);
 
 	const handleSalesOrderLinesConfirm = React.useCallback(
@@ -357,12 +370,14 @@ export const useDeliveryOrderLineItems = ({
 					const rate = item.rate || 0;
 					const netAmt = item.net_amount ?? qty * rate;
 					const tax = calculateLineTax(netAmt, item.tax_percentage || 0, partyState, shippingState);
+					const groupId = String(item.item_grp_id);
+					const itemId = String(item.item_id);
 					return {
 						id: generateLineId(),
 						salesOrderDtlId: item.sales_order_dtl_id,
 						hsnCode: item.hsn_code || "",
-						itemGroup: String(item.item_grp_id),
-						item: String(item.item_id),
+						itemGroup: groupId,
+						item: itemId,
 						itemCode: item.full_item_code || item.item_code,
 						itemName: item.item_name,
 						itemMake: item.item_make_id ? String(item.item_make_id) : "",
@@ -378,6 +393,7 @@ export const useDeliveryOrderLineItems = ({
 						remarks: item.remarks || "",
 						taxPercentage: item.tax_percentage,
 						hessianQtyBales: item.qty_bales != null ? String(item.qty_bales) : undefined,
+						rateRounding: resolveRateRounding(groupId, itemId),
 						...tax,
 					};
 				});
@@ -392,7 +408,7 @@ export const useDeliveryOrderLineItems = ({
 				return [...filledLines, ...newLines];
 			});
 		},
-		[ensureItemGroupData, itemGroupCache, setLineItems, partyState, shippingState],
+		[ensureItemGroupData, itemGroupCache, setLineItems, partyState, shippingState, resolveRateRounding],
 	);
 
 	// --- Govt SKG: back-fill bales once UOM cache loads ---
@@ -409,15 +425,16 @@ export const useDeliveryOrderLineItems = ({
 					const balesConv = getBalesConversion(line.itemGroup, line.item, line.uom, line.govtskgBalesUomId);
 					if (balesConv) {
 						changed = true;
-						let bales = Number(line.govtskgQtyBales) || 0;
-						if (bales === 0 && Number(line.quantity) > 0) {
-							bales = Number(line.quantity) * balesConv.factor;
+						let balesStr = line.govtskgQtyBales;
+						const existingBales = Number(line.govtskgQtyBales) || 0;
+						if (existingBales === 0 && Number(line.quantity) > 0) {
+							balesStr = (Number(line.quantity) * balesConv.factor).toFixed(balesConv.rounding);
 						}
 						return {
 							...line,
 							govtskgConversionFactor: balesConv.factor,
 							govtskgBalesUomId: balesConv.balesUomId,
-							govtskgQtyBales: bales > 0 ? String(bales) : line.govtskgQtyBales,
+							govtskgQtyBales: balesStr,
 						};
 					}
 				}
@@ -442,15 +459,16 @@ export const useDeliveryOrderLineItems = ({
 					const balesConv = getBalesConversion(line.itemGroup, line.item, line.uom, line.hessianBalesUomId);
 					if (balesConv) {
 						changed = true;
-						let bales = Number(line.hessianQtyBales) || 0;
-						if (bales === 0 && Number(line.quantity) > 0) {
-							bales = Number(line.quantity) * balesConv.factor;
+						let balesStr = line.hessianQtyBales;
+						const existingBales = Number(line.hessianQtyBales) || 0;
+						if (existingBales === 0 && Number(line.quantity) > 0) {
+							balesStr = (Number(line.quantity) * balesConv.factor).toFixed(balesConv.rounding);
 						}
 						return {
 							...line,
 							hessianConversionFactor: balesConv.factor,
 							hessianBalesUomId: balesConv.balesUomId,
-							hessianQtyBales: bales > 0 ? String(bales) : line.hessianQtyBales,
+							hessianQtyBales: balesStr,
 						};
 					}
 				}

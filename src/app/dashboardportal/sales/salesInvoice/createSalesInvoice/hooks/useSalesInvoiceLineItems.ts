@@ -102,10 +102,20 @@ export const useSalesInvoiceLineItems = ({
 		[itemGroupCache],
 	);
 
+	/** Look up the rate-rounding decimals for an item from the cache. Default 2. */
+	const resolveRateRounding = React.useCallback(
+		(groupId: string, itemId: string): number => {
+			const cache = itemGroupCache[groupId];
+			return cache?.itemRateRoundingById?.[itemId] ?? 2;
+		},
+		[itemGroupCache],
+	);
+
 	const mapLineToEditable = React.useCallback((line: InvoiceLine): EditableLineItem => {
 		const groupId = line.itemGroup ? String(line.itemGroup) : "";
 		const itemId = line.item ?? "";
 		const uomId = line.uom ?? "";
+		const rateRounding = groupId && itemId ? resolveRateRounding(groupId, itemId) : 2;
 		const base: EditableLineItem = {
 			id: line.id ? String(line.id) : generateLineId(),
 			deliveryOrderDtlId: line.deliveryOrderDtlId,
@@ -146,6 +156,7 @@ export const useSalesInvoiceLineItems = ({
 			govtskgPackSheet: line.govtskgDtl?.packSheet,
 			govtskgNetWeight: line.govtskgDtl?.netWeight,
 			govtskgTotalWeight: line.govtskgDtl?.totalWeight,
+			rateRounding,
 		};
 		// Back-calc bales from stored quantity when the UOM cache is already populated.
 		// Deferred effect below handles the race where cache loads after line mapping.
@@ -170,7 +181,7 @@ export const useSalesInvoiceLineItems = ({
 			}
 		}
 		return base;
-	}, [isGovtSkg, isHessian, getGovtSkgBalesConversion, getHessianMtConversion]);
+	}, [isGovtSkg, isHessian, getGovtSkgBalesConversion, getHessianMtConversion, resolveRateRounding]);
 
 	const recalcLine = React.useCallback((item: EditableLineItem): EditableLineItem => {
 		const qty = Number(item.quantity) || 0;
@@ -232,10 +243,12 @@ export const useSalesInvoiceLineItems = ({
 								hessianQtyRounding = conv.rounding ?? 3;
 							}
 						}
+						const rateRound = item.itemGroup && value ? resolveRateRounding(item.itemGroup, value) : 2;
 						const updated: EditableLineItem = {
 							...item, item: value, uom: nextUom,
 							rate: effectiveRate != null ? String(effectiveRate) : item.rate,
 							taxPercentage: defaultTax,
+							rateRounding: rateRound,
 							...(isHessian
 								? {
 									hessianConversionFactor: hessianConvFactor ?? item.hessianConversionFactor,

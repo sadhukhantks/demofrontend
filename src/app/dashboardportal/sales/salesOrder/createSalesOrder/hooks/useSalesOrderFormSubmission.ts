@@ -2,6 +2,7 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
 import { createSalesOrder, updateSalesOrder, type CreateSalesOrderRequest } from "@/utils/salesOrderService";
+import { roundAmount, roundAmountOrUndefined, roundRateOrUndefined } from "@/utils/numberRounding";
 import type { EditableLineItem } from "../types/salesOrderTypes";
 import { isHessianOrder, isJuteOrder, isGovtSkgOrder, isJuteYarnOrder } from "../utils/salesOrderConstants";
 
@@ -48,28 +49,36 @@ export const useSalesOrderFormSubmission = ({
 
 			const isHessian = isHessianOrder(invoiceTypeCode);
 
-			const itemsPayload: CreateSalesOrderRequest["items"] = filledLineItems.map((item) => ({
+			const itemsPayload: CreateSalesOrderRequest["items"] = filledLineItems.map((item) => {
+				const rateNum = item.rate ? Number(item.rate) : undefined;
+				const roundedRate = rateNum != null && Number.isFinite(rateNum)
+					? roundRateOrUndefined(rateNum, item.rateRounding) : undefined;
+				const roundedDiscountedRate = roundRateOrUndefined(item.discountAmount, item.rateRounding);
+				const lineNet = roundAmountOrUndefined(item.amount);
+				const lineTotalRaw = (item.amount ?? 0) + (item.taxAmount ?? 0);
+				const lineTotal = lineTotalRaw ? roundAmount(lineTotalRaw) : undefined;
+				return {
 				item: item.item || undefined,
 				item_make: item.itemMake || undefined,
 				quotation_lineitem_id: item.quotationLineitemId ?? undefined,
 				hsn_code: item.hsnCode || undefined,
 				quantity: item.quantity || undefined,
 				qty_uom: item.uom || undefined,
-				rate: item.rate || undefined,
+				rate: roundedRate != null ? String(roundedRate) : (item.rate || undefined),
 				discount_type: item.discountType ?? undefined,
-				discounted_rate: item.discountAmount != null ? Number(item.discountAmount) || undefined : undefined,
-				discount_amount: item.discountAmount ?? undefined,
-				net_amount: item.amount ?? undefined,
-				total_amount: (item.amount ?? 0) + (item.taxAmount ?? 0) || undefined,
+				discounted_rate: roundedDiscountedRate,
+				discount_amount: roundAmountOrUndefined(item.discountAmount),
+				net_amount: lineNet,
+				total_amount: lineTotal,
 				remarks: item.remarks || undefined,
 				gst: {
-					igst_amount: item.igstAmount ?? 0,
+					igst_amount: roundAmount(item.igstAmount ?? 0),
 					igst_percent: item.taxPercentage && item.igstAmount ? item.taxPercentage : 0,
-					cgst_amount: item.cgstAmount ?? 0,
+					cgst_amount: roundAmount(item.cgstAmount ?? 0),
 					cgst_percent: item.taxPercentage && item.cgstAmount ? item.taxPercentage / 2 : 0,
-					sgst_amount: item.sgstAmount ?? 0,
+					sgst_amount: roundAmount(item.sgstAmount ?? 0),
 					sgst_percent: item.taxPercentage && item.sgstAmount ? item.taxPercentage / 2 : 0,
-					gst_total: item.taxAmount ?? 0,
+					gst_total: roundAmount(item.taxAmount ?? 0),
 				},
 				hessian: isHessian && item.qtyBales ? {
 					qty_bales: Number(item.qtyBales) || null,
@@ -91,17 +100,43 @@ export const useSalesOrderFormSubmission = ({
 					net_weight: item.govtskgNetWeight != null && item.govtskgNetWeight !== "" ? Number(item.govtskgNetWeight) : null,
 					total_weight: item.govtskgTotalWeight != null && item.govtskgTotalWeight !== "" ? Number(item.govtskgTotalWeight) : null,
 				} : undefined,
-			}));
+				};
+			});
 
-			// Calculate totals
-			const grossAmount = filledLineItems.reduce((sum, li) => sum + (li.amount ?? 0), 0);
-			const totalTax = filledLineItems.reduce((sum, li) => sum + (li.taxAmount ?? 0), 0);
-			const freightCharges = values.freight_charges ? Number(values.freight_charges) : 0;
-			const additionalChargesTotal = Array.isArray(values.additional_charges)
-				? (values.additional_charges as Array<{ net_amount?: number; gst?: { gst_total?: number } }>).reduce(
-					(sum, c) => sum + (c.net_amount ?? 0) + (c.gst?.gst_total ?? 0), 0)
+			// Round any additional_charges already in `values` to 2 decimals before they
+			// flow into the payload and into total computations below.
+			const roundedAdditionalCharges = Array.isArray(values.additional_charges)
+				? (values.additional_charges as Array<{
+					qty?: number; rate?: number; net_amount?: number;
+					gst?: {
+						igst_amount?: number; cgst_amount?: number; sgst_amount?: number; gst_total?: number;
+						igst_percent?: number; cgst_percent?: number; sgst_percent?: number;
+					};
+					[k: string]: unknown;
+				}>).map((c) => ({
+					...c,
+					qty: c.qty != null ? roundAmount(Number(c.qty)) : c.qty,
+					rate: c.rate != null ? roundAmount(Number(c.rate)) : c.rate,
+					net_amount: c.net_amount != null ? roundAmount(Number(c.net_amount)) : c.net_amount,
+					gst: c.gst ? {
+						...c.gst,
+						igst_amount: c.gst.igst_amount != null ? roundAmount(Number(c.gst.igst_amount)) : c.gst.igst_amount,
+						cgst_amount: c.gst.cgst_amount != null ? roundAmount(Number(c.gst.cgst_amount)) : c.gst.cgst_amount,
+						sgst_amount: c.gst.sgst_amount != null ? roundAmount(Number(c.gst.sgst_amount)) : c.gst.sgst_amount,
+						gst_total: c.gst.gst_total != null ? roundAmount(Number(c.gst.gst_total)) : c.gst.gst_total,
+					} : c.gst,
+				}))
+				: undefined;
+
+			// Calculate totals (rounded to 2 decimals)
+			const grossAmount = roundAmount(filledLineItems.reduce((sum, li) => sum + (li.amount ?? 0), 0));
+			const totalTax = roundAmount(filledLineItems.reduce((sum, li) => sum + (li.taxAmount ?? 0), 0));
+			const freightCharges = values.freight_charges ? roundAmount(Number(values.freight_charges)) : 0;
+			const additionalChargesTotal = roundedAdditionalCharges
+				? roundAmount(roundedAdditionalCharges.reduce(
+					(sum, c) => sum + (Number(c.net_amount) || 0) + (Number(c.gst?.gst_total) || 0), 0))
 				: 0;
-			const netAmount = grossAmount + totalTax + freightCharges + additionalChargesTotal;
+			const netAmount = roundAmount(grossAmount + totalTax + freightCharges + additionalChargesTotal);
 
 			// Build header-level extension data conditionally
 			const juteHeader = isJuteOrder(invoiceTypeCode) ? {
@@ -161,7 +196,7 @@ export const useSalesOrderFormSubmission = ({
 						jute: juteHeader,
 						govtskg: govtskgHeader,
 						juteyarn: juteyarnHeader,
-						additional_charges: values.additional_charges as CreateSalesOrderRequest["additional_charges"],
+						additional_charges: roundedAdditionalCharges as CreateSalesOrderRequest["additional_charges"],
 					};
 					await updateSalesOrder(updatePayload);
 					toast({ title: "Sales order updated" });
@@ -196,7 +231,7 @@ export const useSalesOrderFormSubmission = ({
 					if (juteHeader) payload.jute = juteHeader;
 					if (govtskgHeader) payload.govtskg = govtskgHeader;
 					if (juteyarnHeader) payload.juteyarn = juteyarnHeader;
-					if (values.additional_charges) payload.additional_charges = values.additional_charges as CreateSalesOrderRequest["additional_charges"];
+					if (roundedAdditionalCharges) payload.additional_charges = roundedAdditionalCharges as CreateSalesOrderRequest["additional_charges"];
 					const result = await createSalesOrder(payload);
 					toast({ title: result?.message ?? "Sales order created" });
 					const newId = result?.sales_order_id;
