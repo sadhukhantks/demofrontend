@@ -46,7 +46,14 @@ export function buildFreightCreatePreviewProps(args: FreightCreatePreviewArgs): 
 	const { setupData, branchId, source, invoiceDate, iwBillNo, iwBillDate, containerNo, vehicleNo, freightAmount, balesQty, footerNote } = args;
 
 	const header = source?.header;
-	const tax = computeFreightTax(freightAmount, header?.intra_inter_state);
+	const sourceBranch = setupData?.branches?.find((b) => b.branch_id === header?.branch_id);
+	const sourceBranchStateCode = sourceBranch?.state_code;
+	const sourceShippingStateCode = header?.shipping_state_code;
+	const computedIntraInter =
+		sourceBranchStateCode != null && sourceShippingStateCode != null
+			? (String(sourceBranchStateCode) === String(sourceShippingStateCode) ? "0" : "1")
+			: header?.intra_inter_state;
+	const tax = computeFreightTax(freightAmount, computedIntraInter);
 
 	const selectedBranch = setupData?.branches?.find((b) => String(b.branch_id) === branchId);
 	const company = setupData?.company;

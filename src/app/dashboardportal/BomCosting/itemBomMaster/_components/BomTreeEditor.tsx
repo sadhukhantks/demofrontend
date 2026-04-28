@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -13,12 +13,21 @@ import {
   Autocomplete,
   TextField,
 } from "@mui/material";
+import {
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+} from "@dnd-kit/core";
+import { arrayMove, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import BomTreeNode from "./BomTreeNode";
-import AddComponentDialog from "./AddComponentDialog";
 import ConfirmDialog from "./ConfirmDialog";
-import { BomTreeItem, ItemOption, getCoId } from "./types";
+import InlineBomRow from "./InlineBomRow";
+import { BomTreeItem, ItemOption, UomOption, getCoId } from "./types";
 
 type BomTreeEditorProps = {
   open: boolean;
@@ -27,80 +36,133 @@ type BomTreeEditorProps = {
   onSnackbar: (message: string, severity: "success" | "error") => void;
 };
 
-const initialState = {
-  tree: [] as BomTreeItem[],
-  loading: false,
-  expanded: {} as Record<number, boolean>,
-  addDialogOpen: false,
-  addParentItemId: null as number | null,
-  editingNode: null as BomTreeItem | null,
-  itemPickerMode: false,
-  itemOptions: [] as ItemOption[],
-  selectedRootItem: null as ItemOption | null,
-  itemSearchValue: "",
-  confirmRemoveNode: null as BomTreeItem | null,
-};
+const BOM_GRID_COLUMNS = "60px 320px 1fr 80px 90px 80px 100px";
 
-const BOM_GRID_COLUMNS = "60px 1fr 80px 90px 80px 100px";
+/** Recursively find the sibling list containing both bomId values.
+ *  Returns null if the two ids don't share a parent (cross-parent drag). */
+function findSiblingList(
+  nodes: BomTreeItem[],
+  activeId: number,
+  overId: number
+): { siblings: BomTreeItem[]; parentItemId: number } | null {
+  const ai = nodes.findIndex((n) => n.bom_id === activeId);
+  const oi = nodes.findIndex((n) => n.bom_id === overId);
+  if (ai !== -1 && oi !== -1) {
+    return { siblings: nodes, parentItemId: nodes[ai].parent_item_id };
+  }
+  for (const node of nodes) {
+    if (node.children?.length) {
+      const found = findSiblingList(node.children, activeId, overId);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/** Immutably replace a sibling list in the tree by matching parentItemId. */
+function replaceChildList(
+  nodes: BomTreeItem[],
+  parentItemId: number,
+  newSiblings: BomTreeItem[]
+): BomTreeItem[] {
+  if (nodes.length > 0 && nodes[0].parent_item_id === parentItemId) {
+    return newSiblings;
+  }
+  return nodes.map((n) => {
+    if (!n.children?.length) return n;
+    const replaced = replaceChildList(n.children, parentItemId, newSiblings);
+    if (replaced !== n.children) return { ...n, children: replaced };
+    return n;
+  });
+}
 
 export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTreeEditorProps) {
-  const [tree, setTree] = useState(initialState.tree);
-  const [loading, setLoading] = useState(initialState.loading);
-  const [expanded, setExpanded] = useState(initialState.expanded);
-  const [addDialogOpen, setAddDialogOpen] = useState(initialState.addDialogOpen);
-  const [addParentItemId, setAddParentItemId] = useState(initialState.addParentItemId);
-  const [editingNode, setEditingNode] = useState(initialState.editingNode);
-  const [itemPickerMode, setItemPickerMode] = useState(initialState.itemPickerMode);
-  const [itemOptions, setItemOptions] = useState(initialState.itemOptions);
-  const [selectedRootItem, setSelectedRootItem] = useState(initialState.selectedRootItem);
-  const [itemSearchValue, setItemSearchValue] = useState(initialState.itemSearchValue);
-  const [confirmRemoveNode, setConfirmRemoveNode] = useState(initialState.confirmRemoveNode);
+  const [tree, setTree] = useState<BomTreeItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  const [itemPickerMode, setItemPickerMode] = useState(false);
+  const [selectedRootItem, setSelectedRootItem] = useState<ItemOption | null>(null);
+  const [rootItemSearchValue, setRootItemSearchValue] = useState("");
+  const [rootItemOptions, setRootItemOptions] = useState<ItemOption[]>([]);
+  const [confirmRemoveNode, setConfirmRemoveNode] = useState<BomTreeItem | null>(null);
 
-  const resetState = () => {
-    setTree(initialState.tree);
-    setLoading(initialState.loading);
-    setExpanded(initialState.expanded);
-    setAddDialogOpen(initialState.addDialogOpen);
-    setAddParentItemId(initialState.addParentItemId);
-    setEditingNode(initialState.editingNode);
-    setItemPickerMode(initialState.itemPickerMode);
-    setItemOptions(initialState.itemOptions);
-    setSelectedRootItem(initialState.selectedRootItem);
-    setItemSearchValue(initialState.itemSearchValue);
-    setConfirmRemoveNode(initialState.confirmRemoveNode);
-  };
+  // Inline editing state
+  const [editingBomId, setEditingBomId] = useState<number | null>(null);
+  const [addingUnderParentId, setAddingUnderParentId] = useState<number | null>(null);
 
-  const fetchTree = useCallback(async (itemId: number) => {
-    setLoading(true);
-    try {
-      const co_id = getCoId();
-      const params = new URLSearchParams({ co_id, item_id: String(itemId) });
-      const { data, error } = await fetchWithCookie(
-        `${apiRoutesPortalMasters.BOM_TREE}?${params}`,
-        "GET"
-      );
-      if (error || !data) throw new Error(error || "Failed to fetch BOM tree");
-      setTree(data.data || []);
-      // Auto-expand first level
-      const initialExpanded: Record<number, boolean> = {};
-      (data.data || []).forEach((node: BomTreeItem) => {
-        if (!node.is_leaf) initialExpanded[node.child_item_id] = true;
-      });
-      setExpanded(initialExpanded);
-    } catch (err: any) {
-      onSnackbar(err.message || "Failed to load BOM tree", "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [onSnackbar]);
+  // Shared item/uom options for inline rows (loaded once + debounced re-search)
+  const [itemOptions, setItemOptions] = useState<ItemOption[]>([]);
+  const [uomOptions, setUomOptions] = useState<UomOption[]>([]);
+  const itemSearchRef = useRef<string>("");
+  const itemSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reset and initialize when dialog opens/closes
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  // ── Fetch helpers ─────────────────────────────────────────────────────────
+
+  const fetchTree = useCallback(
+    async (itemId: number) => {
+      setLoading(true);
+      try {
+        const co_id = getCoId();
+        const params = new URLSearchParams({ co_id, item_id: String(itemId) });
+        const { data, error } = await fetchWithCookie(
+          `${apiRoutesPortalMasters.BOM_TREE}?${params}`,
+          "GET"
+        );
+        if (error || !data) throw new Error(error || "Failed to fetch BOM tree");
+        const nodes: BomTreeItem[] = data.data || [];
+        setTree(nodes);
+        // Auto-expand first level
+        const autoExpanded: Record<number, boolean> = {};
+        nodes.forEach((n) => { if (!n.is_leaf) autoExpanded[n.child_item_id] = true; });
+        setExpanded((prev) => ({ ...autoExpanded, ...prev }));
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to load BOM tree";
+        onSnackbar(msg, "error");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [onSnackbar]
+  );
+
+  const fetchSetup = useCallback(async (search: string) => {
+    const co_id = getCoId();
+    const params = new URLSearchParams({ co_id });
+    if (search) params.append("search", search);
+    const { data } = await fetchWithCookie(
+      `${apiRoutesPortalMasters.BOM_CREATE_SETUP}?${params}`,
+      "GET"
+    );
+    if (data?.items) setItemOptions(data.items);
+    if (data?.uoms) setUomOptions(data.uoms);
+  }, []);
+
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+  const resetState = useCallback(() => {
+    setTree([]);
+    setLoading(false);
+    setExpanded({});
+    setItemPickerMode(false);
+    setSelectedRootItem(null);
+    setRootItemSearchValue("");
+    setRootItemOptions([]);
+    setConfirmRemoveNode(null);
+    setEditingBomId(null);
+    setAddingUnderParentId(null);
+    setItemOptions([]);
+    setUomOptions([]);
+    itemSearchRef.current = "";
+  }, []);
+
   useEffect(() => {
     if (open && item) {
       resetState();
-      setItemPickerMode(false);
       setSelectedRootItem(item as ItemOption);
       fetchTree(item.item_id);
+      fetchSetup("");
     } else if (open && !item) {
       resetState();
       setItemPickerMode(true);
@@ -110,38 +172,106 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, item]);
 
-  // Search items for the item picker (debounced)
+  // Debounced item search for the root item picker
   useEffect(() => {
     if (!itemPickerMode || !open) return;
     const searchItems = async () => {
       const co_id = getCoId();
       const params = new URLSearchParams({ co_id });
-      if (itemSearchValue) params.append("search", itemSearchValue);
+      if (rootItemSearchValue) params.append("search", rootItemSearchValue);
       const { data } = await fetchWithCookie(
         `${apiRoutesPortalMasters.BOM_CREATE_SETUP}?${params}`,
         "GET"
       );
-      if (data?.items) setItemOptions(data.items);
+      if (data?.items) setRootItemOptions(data.items);
     };
-    const timeout = setTimeout(searchItems, 300);
-    return () => clearTimeout(timeout);
-  }, [itemPickerMode, itemSearchValue, open]);
+    const t = setTimeout(searchItems, 300);
+    return () => clearTimeout(t);
+  }, [itemPickerMode, rootItemSearchValue, open]);
+
+  // ── Inline row option search (debounced) ──────────────────────────────────
+
+  const handleItemSearchChange = useCallback(
+    (query: string) => {
+      itemSearchRef.current = query;
+      if (itemSearchTimerRef.current) clearTimeout(itemSearchTimerRef.current);
+      itemSearchTimerRef.current = setTimeout(() => {
+        if (itemSearchRef.current === query) fetchSetup(query);
+      }, 300);
+    },
+    [fetchSetup]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (itemSearchTimerRef.current) clearTimeout(itemSearchTimerRef.current);
+    };
+  }, []);
+
+  // ── Toggling ──────────────────────────────────────────────────────────────
 
   const handleToggle = (itemId: number) => {
-    setExpanded(prev => ({ ...prev, [itemId]: !prev[itemId] }));
+    setExpanded((prev) => ({ ...prev, [itemId]: !prev[itemId] }));
   };
 
-  const handleAddChild = (parentItemId: number) => {
-    setAddParentItemId(parentItemId);
-    setEditingNode(null);
-    setAddDialogOpen(true);
-  };
+  // ── Inline edit/add handlers ──────────────────────────────────────────────
 
-  const handleEdit = (node: BomTreeItem) => {
-    setEditingNode(node);
-    setAddParentItemId(null);
-    setAddDialogOpen(true);
-  };
+  const handleStartEdit = useCallback((bomId: number) => {
+    setEditingBomId(bomId);
+    setAddingUnderParentId(null);
+  }, []);
+
+  const handleStartAddChild = useCallback((parentItemId: number) => {
+    setAddingUnderParentId(parentItemId);
+    setEditingBomId(null);
+    // Auto-expand so the blank row is visible
+    setExpanded((prev) => ({ ...prev, [parentItemId]: true }));
+  }, []);
+
+  const handleCancelInline = useCallback(() => {
+    setEditingBomId(null);
+    setAddingUnderParentId(null);
+  }, []);
+
+  const handleSaveNew = useCallback(
+    async (
+      parentItemId: number,
+      payload: { child_item_id: number; qty: number; uom_id: number; sequence_no: number; co_id: number }
+    ) => {
+      const { error, data } = await fetchWithCookie(
+        apiRoutesPortalMasters.BOM_ADD_COMPONENT,
+        "POST",
+        { parent_item_id: parentItemId, ...payload }
+      );
+      if (error) throw new Error(error);
+      onSnackbar(data?.message || "Component added", "success");
+      // Keep addingUnderParentId set → auto-spawn blank row stays open
+      const rootId = selectedRootItem?.item_id ?? item?.item_id;
+      if (rootId) fetchTree(rootId);
+    },
+    [fetchTree, item, onSnackbar, selectedRootItem]
+  );
+
+  const handleSaveEdit = useCallback(
+    async (
+      bomId: number,
+      payload: { qty: number; uom_id: number; sequence_no: number; co_id: number }
+    ) => {
+      const { error } = await fetchWithCookie(
+        apiRoutesPortalMasters.BOM_EDIT_COMPONENT,
+        "POST",
+        { bom_id: bomId, ...payload }
+      );
+      if (error) throw new Error(error);
+      onSnackbar("Component updated", "success");
+      setEditingBomId(null);
+      const rootId = selectedRootItem?.item_id ?? item?.item_id;
+      if (rootId) fetchTree(rootId);
+    },
+    [fetchTree, item, onSnackbar, selectedRootItem]
+  );
+
+  // ── Remove ────────────────────────────────────────────────────────────────
 
   const handleRemoveConfirm = async () => {
     const node = confirmRemoveNode;
@@ -155,28 +285,75 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
       );
       if (error) throw new Error(error);
       onSnackbar("Component removed", "success");
-      if (selectedRootItem) fetchTree(selectedRootItem.item_id);
-    } catch (err: any) {
-      onSnackbar(err.message || "Failed to remove component", "error");
+      const rootId = selectedRootItem?.item_id ?? item?.item_id;
+      if (rootId) fetchTree(rootId);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to remove component";
+      onSnackbar(msg, "error");
     } finally {
       setConfirmRemoveNode(null);
     }
   };
 
-  const handleDialogSubmit = async () => {
-    setAddDialogOpen(false);
-    if (selectedRootItem) fetchTree(selectedRootItem.item_id);
-  };
+  // ── Drag-and-drop ─────────────────────────────────────────────────────────
+
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+
+      const activeId = active.id as number;
+      const overId = over.id as number;
+
+      const result = findSiblingList(tree, activeId, overId);
+      if (!result) return; // Cross-parent drag — reject
+
+      const { siblings, parentItemId } = result;
+      const activeIdx = siblings.findIndex((n) => n.bom_id === activeId);
+      const overIdx = siblings.findIndex((n) => n.bom_id === overId);
+
+      const newSiblings = arrayMove(siblings, activeIdx, overIdx);
+      const reorderedRows = newSiblings.map((n, i) => ({ bom_id: n.bom_id, sequence_no: i + 1 }));
+
+      // Optimistic update
+      const prevTree = tree;
+      setTree((t) => replaceChildList(t, parentItemId, newSiblings));
+
+      try {
+        const co_id = parseInt(getCoId());
+        const { error } = await fetchWithCookie(
+          apiRoutesPortalMasters.BOM_REORDER_SIBLINGS,
+          "POST",
+          { co_id, parent_item_id: parentItemId, rows: reorderedRows }
+        );
+        if (error) throw new Error(error);
+        // Reconcile with server
+        const rootId = selectedRootItem?.item_id ?? item?.item_id;
+        if (rootId) fetchTree(rootId);
+      } catch (err: unknown) {
+        // Revert to pre-drag state
+        setTree(prevTree);
+        const msg = err instanceof Error ? err.message : "Reorder failed";
+        onSnackbar(msg, "error");
+      }
+    },
+    [tree, fetchTree, item, onSnackbar, selectedRootItem]
+  );
+
+  // ── Root item picker ──────────────────────────────────────────────────────
 
   const handleSelectRootItem = (newValue: ItemOption | null) => {
     if (newValue) {
       setSelectedRootItem(newValue);
       setItemPickerMode(false);
-      setItemSearchValue("");
-      setItemOptions([]);
+      setRootItemSearchValue("");
+      setRootItemOptions([]);
       fetchTree(newValue.item_id);
+      fetchSetup("");
     }
   };
+
+  // ── Derived values ────────────────────────────────────────────────────────
 
   const rootItemId = selectedRootItem?.item_id ?? item?.item_id;
   const rootLabel = selectedRootItem
@@ -185,12 +362,24 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
     ? `${item.full_item_code || item.item_code} — ${item.item_name}`
     : "";
 
+  const rootNextSeq = Math.max(0, ...tree.map((n) => n.sequence_no)) + 1;
+
+  // Drag is disabled for root-level rows while any inline row is open
+  const rootDragDisabled = editingBomId !== null || addingUnderParentId !== null;
+
   return (
     <>
-      <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth PaperProps={{ sx: { minHeight: "60vh" } }}>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="xl"
+        fullWidth
+        PaperProps={{ sx: { minHeight: "85vh" } }}
+      >
         <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>Item BOM {rootLabel ? `— ${rootLabel}` : ""}</span>
         </DialogTitle>
+
         <DialogContent dividers>
           {itemPickerMode ? (
             <Box sx={{ py: 2 }}>
@@ -198,16 +387,24 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
                 Select an item to define or view its BOM:
               </Typography>
               <Autocomplete
-                options={itemOptions}
-                getOptionLabel={(opt: ItemOption) => `${opt.full_item_code || opt.item_code} — ${opt.item_name}`}
+                options={rootItemOptions}
+                getOptionLabel={(opt: ItemOption) =>
+                  `${opt.full_item_code || opt.item_code} — ${opt.item_name}`
+                }
                 value={null}
-                inputValue={itemSearchValue}
+                inputValue={rootItemSearchValue}
                 onChange={(_, newValue) => handleSelectRootItem(newValue)}
                 onInputChange={(_, value, reason) => {
-                  if (reason !== "reset") setItemSearchValue(value);
+                  if (reason !== "reset") setRootItemSearchValue(value);
                 }}
                 renderInput={(params) => (
-                  <TextField {...params} label="Search Item" placeholder="Type to search..." size="small" autoFocus />
+                  <TextField
+                    {...params}
+                    label="Search Item"
+                    placeholder="Type to search..."
+                    size="small"
+                    autoFocus
+                  />
                 )}
                 isOptionEqualToValue={(opt, val) => opt.item_id === val.item_id}
               />
@@ -218,12 +415,19 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
             </Box>
           ) : (
             <Box sx={{ py: 1 }}>
-              {tree.length === 0 ? (
+              {tree.length === 0 && addingUnderParentId !== rootItemId ? (
                 <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                   No components defined yet. Click &quot;Add Component&quot; to get started.
                 </Typography>
               ) : (
-                <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, overflow: "hidden" }}>
+                <Box
+                  sx={{
+                    border: "1px solid",
+                    borderColor: "divider",
+                    borderRadius: 1,
+                    overflow: "hidden",
+                  }}
+                >
                   {/* Header row */}
                   <Box
                     sx={{
@@ -237,45 +441,153 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
                       zIndex: 1,
                     }}
                   >
-                    <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", py: 1, textAlign: "center", borderRight: "1px solid", borderColor: "divider" }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        py: 1,
+                        textAlign: "center",
+                        borderRight: "1px solid",
+                        borderColor: "divider",
+                      }}
+                    >
                       Seq
                     </Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", py: 1, px: 1, borderRight: "1px solid", borderColor: "divider" }}>
-                      Item
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        py: 1,
+                        px: 1,
+                        borderRight: "1px solid",
+                        borderColor: "divider",
+                      }}
+                    >
+                      Item Code
                     </Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", py: 1, px: 1, textAlign: "right", borderRight: "1px solid", borderColor: "divider" }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        py: 1,
+                        px: 1,
+                        borderRight: "1px solid",
+                        borderColor: "divider",
+                      }}
+                    >
+                      Item Name
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        py: 1,
+                        px: 1,
+                        textAlign: "right",
+                        borderRight: "1px solid",
+                        borderColor: "divider",
+                      }}
+                    >
                       Qty
                     </Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", py: 1, px: 1, textAlign: "right", borderRight: "1px solid", borderColor: "divider" }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        py: 1,
+                        px: 1,
+                        textAlign: "right",
+                        borderRight: "1px solid",
+                        borderColor: "divider",
+                      }}
+                    >
                       BOM Qty
                     </Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", py: 1, px: 1, textAlign: "right", borderRight: "1px solid", borderColor: "divider" }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        py: 1,
+                        px: 1,
+                        textAlign: "right",
+                        borderRight: "1px solid",
+                        borderColor: "divider",
+                      }}
+                    >
                       UOM
                     </Typography>
                     <Box />
                   </Box>
-                  {/* Tree rows */}
-                  {tree.map((node) => (
-                    <BomTreeNode
-                      key={node.bom_id}
-                      node={node}
+
+                  {/* Top-level tree rows wrapped in DndContext + SortableContext */}
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={tree.map((n) => n.bom_id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {tree.map((node) => (
+                        <BomTreeNode
+                          key={node.bom_id}
+                          node={node}
+                          level={0}
+                          expanded={expanded}
+                          gridColumns={BOM_GRID_COLUMNS}
+                          editingBomId={editingBomId}
+                          addingUnderParentId={addingUnderParentId}
+                          itemOptions={itemOptions}
+                          uomOptions={uomOptions}
+                          dragDisabled={rootDragDisabled}
+                          onToggle={handleToggle}
+                          onStartAddChild={handleStartAddChild}
+                          onStartEdit={handleStartEdit}
+                          onRemove={(n) => setConfirmRemoveNode(n)}
+                          onSaveNew={handleSaveNew}
+                          onSaveEdit={handleSaveEdit}
+                          onCancelInline={handleCancelInline}
+                          onItemSearchChange={handleItemSearchChange}
+                          onSnackbar={onSnackbar}
+                        />
+                      ))}
+                    </SortableContext>
+                  </DndContext>
+
+                  {/* Root-level inline blank row */}
+                  {addingUnderParentId === rootItemId && rootItemId !== undefined && (
+                    <InlineBomRow
                       level={0}
-                      expanded={expanded}
                       gridColumns={BOM_GRID_COLUMNS}
-                      onToggle={handleToggle}
-                      onAddChild={handleAddChild}
-                      onEdit={handleEdit}
-                      onRemove={(node) => setConfirmRemoveNode(node)}
+                      nextSeq={rootNextSeq}
+                      parentItemId={rootItemId}
+                      parentMultiplier={1}
+                      itemOptions={itemOptions}
+                      uomOptions={uomOptions}
+                      onItemSearchChange={handleItemSearchChange}
+                      onSave={handleSaveNew}
+                      onCancel={handleCancelInline}
                     />
-                  ))}
+                  )}
                 </Box>
               )}
+
               {rootItemId && (
                 <Button
                   variant="outlined"
                   size="small"
                   sx={{ mt: 2 }}
-                  onClick={() => handleAddChild(rootItemId)}
+                  onClick={() => {
+                    setAddingUnderParentId(rootItemId);
+                    setEditingBomId(null);
+                  }}
                 >
                   + Add Component
                 </Button>
@@ -283,19 +595,11 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
             </Box>
           )}
         </DialogContent>
+
         <DialogActions>
           <Button onClick={onClose}>Close</Button>
         </DialogActions>
       </Dialog>
-
-      <AddComponentDialog
-        open={addDialogOpen}
-        onClose={() => setAddDialogOpen(false)}
-        onSubmit={handleDialogSubmit}
-        parentItemId={addParentItemId}
-        editNode={editingNode}
-        onSnackbar={onSnackbar}
-      />
 
       <ConfirmDialog
         open={!!confirmRemoveNode}

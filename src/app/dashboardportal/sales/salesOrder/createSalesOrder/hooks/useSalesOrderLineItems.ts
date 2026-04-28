@@ -217,11 +217,18 @@ export const useSalesOrderLineItems = ({
 			}
 			if (!convFactor) return line;
 
+			// Lazily resolve rate rounding from item_mst cache when not yet set.
+			// Items added via the picker dialog may arrive before the group cache loads.
+			if (line.rateRounding == null && line.itemGroup && line.item) {
+				const resolved = resolveRateRounding(line.itemGroup, line.item);
+				if (resolved != null) line = { ...line, rateRounding: resolved };
+			}
+
 			const qtyBales = Number(line.qtyBales) || 0;
 			const rawRateMt = Number(line.rawRateMt) || 0;
 			const brokPct = brokeragePercent ?? 0;
 
-			const h = computeHessianFields(qtyBales, rawRateMt, convFactor, brokPct, line.qtyRounding ?? 3);
+			const h = computeHessianFields(qtyBales, rawRateMt, convFactor, brokPct, line.qtyRounding ?? 3, line.rateRounding ?? 2);
 
 			// Main table values: quantity = MT, rate = billing rate MT
 			const updatedQuantity = String(h.qtyMt);
@@ -247,7 +254,7 @@ export const useSalesOrderLineItems = ({
 				taxAmount: tax.total,
 			};
 		},
-		[brokeragePercent, calculateLineAmount, calculateLineTax, getConversionFactor],
+		[brokeragePercent, calculateLineAmount, calculateLineTax, getConversionFactor, resolveRateRounding],
 	);
 
 	/**
@@ -258,6 +265,11 @@ export const useSalesOrderLineItems = ({
 	 */
 	const applyJuteYarnToLine = React.useCallback(
 		(line: EditableLineItem): EditableLineItem => {
+			// Lazily resolve rate rounding when not yet set (item picker path).
+			if (line.rateRounding == null && line.itemGroup && line.item) {
+				const resolved = resolveRateRounding(line.itemGroup, line.item);
+				if (resolved != null) line = { ...line, rateRounding: resolved };
+			}
 			const rawRate = Number(line.juteYarnRawRate) || 0;
 			const brokPct = brokeragePercent ?? 0;
 			const rateRounding = line.rateRounding ?? 2;
@@ -280,7 +292,7 @@ export const useSalesOrderLineItems = ({
 				taxAmount: tax.total,
 			};
 		},
-		[brokeragePercent, calculateLineAmount, calculateLineTax, roundTo],
+		[brokeragePercent, calculateLineAmount, calculateLineTax, roundTo, resolveRateRounding],
 	);
 
 	const mapLineToEditable = React.useCallback((line: SalesOrderLine, brokPctOverride?: number): EditableLineItem => {

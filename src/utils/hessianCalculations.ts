@@ -20,6 +20,7 @@ const roundTo = (n: number, decimals: number): number => {
  * @param convFactor   Bales per MT from uom_item_map_mst.relation_value
  * @param brokeragePct Broker commission percent from header (e.g. 1.5 = 1.5%)
  * @param qtyRounding  Decimals for qtyMt (default 3; Sales Order passes 4 for legacy parity)
+ * @param rateRounding Decimals for billing rate (post-brokerage) from item_mst.rate_rounding (default 2)
  */
 export function computeHessianFields(
 	qtyBales: number,
@@ -27,6 +28,7 @@ export function computeHessianFields(
 	convFactor: number,
 	brokeragePct: number,
 	qtyRounding: number = 3,
+	rateRounding: number = 2,
 ): HessianComputedFields {
 	const qtyMt = convFactor > 0 ? qtyBales / convFactor : 0;
 	const ratePerBale = convFactor > 0 ? rawRateMt / convFactor : 0;
@@ -35,7 +37,7 @@ export function computeHessianFields(
 	return {
 		qtyMt: roundTo(qtyMt, qtyRounding),
 		ratePerBale: roundTo(ratePerBale, 2),
-		billingRateMt: roundTo(billingRateMt, 2),
-		billingRateBale: roundTo(billingRateBale, 2),
+		billingRateMt: roundTo(billingRateMt, rateRounding),
+		billingRateBale: roundTo(billingRateBale, rateRounding),
 	};
 }
