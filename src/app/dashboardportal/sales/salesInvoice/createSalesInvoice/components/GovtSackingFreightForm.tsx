@@ -144,7 +144,15 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 		[],
 	);
 
-	const intraInter = state.source?.header.intra_inter_state ?? null;
+	const intraInter = React.useMemo<string | number | null>(() => {
+		const src = state.source?.header;
+		if (!src) return null;
+		const branch = setupData?.branches?.find((b) => b.branch_id === src.branch_id);
+		const companyStateCode = branch?.state_code;
+		const shippingStateCode = src.shipping_state_code;
+		if (companyStateCode == null || shippingStateCode == null) return src.intra_inter_state ?? null;
+		return String(companyStateCode) === String(shippingStateCode) ? "0" : "1";
+	}, [state.source, setupData?.branches]);
 	const freightAmountNum = Number(state.freightAmount) || 0;
 	const balesQtyNum = Number(state.balesQty) || 0;
 
