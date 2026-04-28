@@ -17,6 +17,7 @@ type Props = {
 };
 
 type BranchRow = {
+  party_mst_branch_id?: number | string;
   address?: string;
   address_additional?: string;
   zip_code?: number | string;
@@ -137,6 +138,10 @@ export default function CreateParty({ open, onClose, mode = 'create', editId, on
         // if edit, prefill branches from response
         if (mode === 'edit' && data.party_branches) {
           const b = (data.party_branches || []).map((br: any) => ({
+            // Preserve PK so the backend can UPDATE in place instead of
+            // delete-then-insert. Without this, FK refs (e.g. sales_invoice
+            // .transporter_branch_id) would block every save.
+            party_mst_branch_id: br.party_mst_branch_id,
             address: br.address,
             address_additional: br.address_additional,
             zip_code: br.zip_code,
@@ -181,8 +186,21 @@ export default function CreateParty({ open, onClose, mode = 'create', editId, on
     try {
       const selectedCompany = localStorage.getItem('sidebar_selectedCompany');
       const co_id = selectedCompany ? JSON.parse(selectedCompany).co_id : undefined;
-  const payload = { ...values, co_id, branches: branches.filter(b => b && (b.address || b.contact_person || b.contact_no)) } as any;
-  if (mode === 'edit' && editId) (payload as any)['party_id'] = editId;
+      const branchesPayload = branches
+        .filter(b => b && (b.address || b.contact_person || b.contact_no))
+        .map(b => ({
+          party_mst_branch_id: b.party_mst_branch_id,
+          active: b.active,
+          address: b.address,
+          address_additional: b.address_additional,
+          zip_code: b.zip_code,
+          state: b.state,
+          gst_no: b.gst_no,
+          contact_no: b.contact_no,
+          contact_person: b.contact_person,
+        }));
+      const payload = { ...values, co_id, branches: branchesPayload } as any;
+      if (mode === 'edit' && editId) (payload as any)['party_id'] = editId;
 
       const url = mode === 'edit' ? apiRoutesPortalMasters.PARTY_EDIT : apiRoutesPortalMasters.PARTY_CREATE;
       const method = 'POST';

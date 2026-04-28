@@ -32,6 +32,11 @@ export const fetchWithCookie = async <T = any>(
                 const detail = (payload as { detail?: unknown }).detail;
                 if (typeof detail === "string") {
                     message = detail;
+                } else if (detail && typeof detail === "object") {
+                    const detailMessage = (detail as { message?: unknown }).message;
+                    if (typeof detailMessage === "string") {
+                        message = detailMessage;
+                    }
                 }
             }
             if (!message) {
