@@ -12,7 +12,14 @@ import {
   Box,
   Autocomplete,
   TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from "@mui/material";
+
+type BomStatus = "New" | "Certified" | "Under Development" | "Closed";
+const BOM_STATUS_OPTIONS: BomStatus[] = ["New", "Certified", "Under Development", "Closed"];
 import {
   DndContext,
   DragEndEvent,
@@ -32,7 +39,14 @@ import { BomTreeItem, ItemOption, UomOption, getCoId } from "./types";
 type BomTreeEditorProps = {
   open: boolean;
   onClose: () => void;
-  item: { item_id: number; item_code: string; full_item_code?: string; item_name: string } | null;
+  item: {
+    item_id: number;
+    item_code: string;
+    full_item_code?: string;
+    item_name: string;
+    bom_hdr_id?: number | null;
+    bom_status?: BomStatus | null;
+  } | null;
   onSnackbar: (message: string, severity: "success" | "error") => void;
 };
 
@@ -89,6 +103,10 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
   // Inline editing state
   const [editingBomId, setEditingBomId] = useState<number | null>(null);
   const [addingUnderParentId, setAddingUnderParentId] = useState<number | null>(null);
+
+  // Lifecycle status (independent of BOM Costing approval). Persists immediately on change.
+  const [bomStatus, setBomStatus] = useState<BomStatus>("New");
+  const [statusSaving, setStatusSaving] = useState(false);
 
   // Shared item/uom options for inline rows (loaded once + debounced re-search)
   const [itemOptions, setItemOptions] = useState<ItemOption[]>([]);
@@ -161,16 +179,49 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
     if (open && item) {
       resetState();
       setSelectedRootItem(item as ItemOption);
+      setBomStatus((item.bom_status as BomStatus) ?? "New");
       fetchTree(item.item_id);
       fetchSetup("");
     } else if (open && !item) {
       resetState();
+      setBomStatus("New");
       setItemPickerMode(true);
     } else if (!open) {
       resetState();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, item]);
+
+  const handleStatusChange = useCallback(
+    async (next: BomStatus) => {
+      const prev = bomStatus;
+      const targetItemId = selectedRootItem?.item_id ?? item?.item_id;
+      if (!targetItemId) return;
+      setBomStatus(next);
+      setStatusSaving(true);
+      try {
+        const co_id = getCoId();
+        const { error } = await fetchWithCookie(
+          apiRoutesPortalMasters.BOM_UPDATE_STATUS,
+          "POST",
+          { co_id: Number(co_id), item_id: targetItemId, bom_status: next }
+        );
+        if (error) throw new Error(error);
+        onSnackbar(`Status set to ${next}`, "success");
+      } catch (e: any) {
+        setBomStatus(prev);
+        onSnackbar(
+          e?.message?.includes("not found")
+            ? "Add a component first to create the BOM, then set status."
+            : (e?.message || "Failed to update status"),
+          "error"
+        );
+      } finally {
+        setStatusSaving(false);
+      }
+    },
+    [bomStatus, selectedRootItem, item, onSnackbar]
+  );
 
   // Debounced item search for the root item picker
   useEffect(() => {
@@ -376,8 +427,23 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
         fullWidth
         PaperProps={{ sx: { minHeight: "85vh" } }}
       >
-        <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
           <span>Item BOM {rootLabel ? `— ${rootLabel}` : ""}</span>
+          {!itemPickerMode && (
+            <FormControl size="small" sx={{ minWidth: 200 }} disabled={statusSaving}>
+              <InputLabel id="bom-status-label">Status</InputLabel>
+              <Select
+                labelId="bom-status-label"
+                label="Status"
+                value={bomStatus}
+                onChange={(e) => handleStatusChange(e.target.value as BomStatus)}
+              >
+                {BOM_STATUS_OPTIONS.map((s) => (
+                  <MenuItem key={s} value={s}>{s}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
         </DialogTitle>
 
         <DialogContent dividers>
