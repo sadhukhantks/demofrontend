@@ -147,6 +147,7 @@ const apiRoutesPortalMasters = {
     BOM_EDIT_COMPONENT: `${API_URL}/itemBomMaster/bom_edit_component`,
     BOM_REMOVE_COMPONENT: `${API_URL}/itemBomMaster/bom_remove_component`,
     BOM_REORDER_SIBLINGS: `${API_URL}/itemBomMaster/bom_reorder_siblings`,
+    BOM_UPDATE_STATUS: `${API_URL}/itemBomMaster/bom_update_status`,
 
     // BOM Costing endpoints
     BOM_COSTING_LIST: `${API_URL}/bomCosting/bom_costing_list`,
