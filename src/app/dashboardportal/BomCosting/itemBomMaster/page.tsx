@@ -10,20 +10,24 @@ import { useRouter } from "next/navigation";
 import { FileSpreadsheet } from "lucide-react";
 import BomTreeEditor from "@/app/dashboardportal/BomCosting/itemBomMaster/_components/BomTreeEditor";
 
+type BomStatus = "New" | "Certified" | "Under Development" | "Closed";
+
 type BomItem = {
   id: number;
   item_id: number;
   item_code: string;
   full_item_code?: string;
   item_name: string;
-  item_group_name: string;
-  component_count: number;
   bom_hdr_id: number | null;
-  bom_version: number | null;
-  version_label: string | null;
-  costing_status: string | null;
-  total_cost: number | null;
+  bom_status: BomStatus | null;
   [key: string]: any;
+};
+
+const STATUS_COLOR: Record<BomStatus, "info" | "warning" | "success" | "default"> = {
+  "New": "info",
+  "Under Development": "warning",
+  "Certified": "success",
+  "Closed": "default",
 };
 
 export default function ItemBomMasterPage() {
@@ -100,38 +104,22 @@ export default function ItemBomMasterPage() {
       valueGetter: (_value: string, row: BomItem) => row.full_item_code || row.item_code || "-",
     },
     { field: "item_name", headerName: "Item Name", flex: 1.5, minWidth: 180 },
-    { field: "item_group_name", headerName: "Item Group", flex: 1, minWidth: 140 },
-    { field: "component_count", headerName: "Components", flex: 0.5, minWidth: 90, type: "number" },
     {
-      field: "bom_version",
-      headerName: "Cost Ver",
-      flex: 0.4,
-      minWidth: 70,
-      renderCell: (params: GridRenderCellParams<BomItem>) =>
-        params.row.bom_version != null
-          ? `v${params.row.bom_version}${params.row.version_label ? ` (${params.row.version_label})` : ""}`
-          : "-",
-    },
-    {
-      field: "total_cost",
-      headerName: "Total Cost",
+      field: "bom_status",
+      headerName: "Status",
       flex: 0.7,
-      minWidth: 100,
-      type: "number",
-      valueFormatter: (value: number | null) =>
-        value && value > 0 ? `\u20B9 ${value.toLocaleString("en-IN")}` : "-",
-    },
-    {
-      field: "costing_status",
-      headerName: "Costing",
-      flex: 0.5,
-      minWidth: 80,
-      renderCell: (params: GridRenderCellParams<BomItem>) =>
-        params.row.costing_status ? (
-          <Chip label={params.row.costing_status} size="small" sx={{ height: 20, fontSize: "0.7rem" }} />
-        ) : (
-          "-"
-        ),
+      minWidth: 140,
+      renderCell: (params: GridRenderCellParams<BomItem>) => {
+        const status = (params.row.bom_status ?? "New") as BomStatus;
+        return (
+          <Chip
+            label={status}
+            size="small"
+            color={STATUS_COLOR[status]}
+            sx={{ height: 20, fontSize: "0.7rem" }}
+          />
+        );
+      },
     },
     {
       field: "__cost_sheet",
