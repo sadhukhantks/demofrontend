@@ -33,6 +33,7 @@ import {
 import AdditionalChargesTable from "@/components/billPass/AdditionalChargesTable";
 import { openStyledPrintWindow } from "@/utils/printUtils";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import useCompanyHeader from "@/hooks/useCompanyHeader";
 import {
   renderBillPassPreviewHtml,
   BILL_PASS_PRINT_CSS,
@@ -325,6 +326,8 @@ function BillPassEditPageContent() {
     );
   }, [detail, formData.round_off_value]);
 
+  const companyHeader = useCompanyHeader(selectedCompany?.co_id, detail?.branch_id ?? undefined);
+
   const handlePrintPreview = () => {
     if (!detail) return;
     const html = renderBillPassPreviewHtml({
@@ -332,6 +335,9 @@ function BillPassEditPageContent() {
       formData,
       netPayable,
       companyName: selectedCompany?.co_name ?? null,
+      companyAddress: companyHeader.address || null,
+      companyGst: companyHeader.gstNo || null,
+      companyCin: companyHeader.cinNo || null,
     });
     const title = `Bill Pass ${detail.bill_pass_no || "Draft"}`;
     const printWindow = openStyledPrintWindow(html, title, BILL_PASS_PRINT_CSS);

@@ -853,6 +853,8 @@ function POTransactionPageContent() {
       updatedBy: poDetails?.updatedBy,
       updatedAt: poDetails?.updatedAt,
       taxType: (formValues.tax_type as string) || poDetails?.taxType,
+      coId: coId,
+      branchId: branchIdForSetup,
     }),
     [
       poDetails?.poNo,
@@ -877,6 +879,8 @@ function POTransactionPageContent() {
       companyLogo,
       expectedDate,
       statusLabel,
+      coId,
+      branchIdForSetup,
     ],
   );
 
