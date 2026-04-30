@@ -717,6 +717,8 @@ function InwardTransactionPageContent() {
 		updatedAt: inwardDetails?.updatedAt,
 		companyName: companyName,
 		companyLogo: companyLogo,
+		coId: coId,
+		branchId: branchIdForSetup,
 	};
 
 	const { metadata } = useTransactionPreview({

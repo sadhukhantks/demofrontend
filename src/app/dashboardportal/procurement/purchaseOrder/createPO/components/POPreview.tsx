@@ -4,6 +4,7 @@ import React, { useRef } from "react";
 import { Box, Divider, Stack, Typography } from "@mui/material";
 import { Button } from "@/components/ui/button";
 import { openStyledPrintWindow } from "@/utils/printUtils";
+import CompanyHeaderBlock from "@/app/dashboardportal/procurement/_shared/PrintHeader";
 
 export type POPreviewHeader = {
   poNo?: string;
@@ -24,6 +25,8 @@ export type POPreviewHeader = {
   contactPerson?: string;
   contactNo?: string;
   taxType?: string;
+  coId?: string | number | null;
+  branchId?: string | number | null;
 };
 
 export type POPreviewItem = {
@@ -187,25 +190,12 @@ const POPreview: React.FC<POPreviewProps> = ({ header, items, totals, additional
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <Box ref={previewRef} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 3, backgroundColor: "#fff" }}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 3 }}>
-          <Stack
-            id="preview-left-pane"
-            spacing={0.5}
-            sx={{
-              minWidth: 200,
-              maxWidth: { xs: "100%", md: "25%" },
-              flexBasis: { md: "25%" },
-            }}
-          >
-            {header.companyLogo && (
-              <img src={header.companyLogo} alt="" style={{ maxHeight: 60, maxWidth: 200, marginBottom: 4 }} />
-            )}
-            <Typography variant="body1" sx={{ fontWeight: 600, fontSize: "1rem", wordBreak: "break-word", whiteSpace: "normal" }}>
-              {header.companyName || "-"}
-            </Typography>
-            <Typography variant="body2" sx={{ fontSize: "0.875rem", color: "text.secondary", wordBreak: "break-word", whiteSpace: "normal" }}>
-              {header.branch || "-"}
-            </Typography>
-          </Stack>
+          <CompanyHeaderBlock
+            coId={header.coId}
+            branchId={header.branchId}
+            branchLabel={header.branch}
+            maxWidth="30%"
+          />
 
           <Box sx={{ flex: 1, display: "flex", justifyContent: "center" }}>
             <Stack spacing={0.25} alignItems="center">
