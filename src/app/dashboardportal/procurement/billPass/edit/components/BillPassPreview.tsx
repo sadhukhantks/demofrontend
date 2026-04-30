@@ -24,6 +24,12 @@ type BillPassPreviewProps = {
   formData: BillPassPreviewFormData;
   netPayable: number;
   companyName?: string | null;
+  /** Pre-resolved registered address (parent fetches via useCompanyHeader). */
+  companyAddress?: string | null;
+  /** Pre-resolved branch GSTIN. Hidden when empty. */
+  companyGst?: string | null;
+  /** Pre-resolved CIN. Hidden when empty. */
+  companyCin?: string | null;
 };
 
 // ─── Format helpers ───────────────────────────────────────────────────────────
@@ -90,6 +96,9 @@ export const BillPassPreview: React.FC<BillPassPreviewProps> = ({
   formData,
   netPayable,
   companyName,
+  companyAddress,
+  companyGst,
+  companyCin,
 }) => {
   const isComplete = detail.billpass_status === 1;
   const { summary } = detail;
@@ -104,6 +113,9 @@ export const BillPassPreview: React.FC<BillPassPreviewProps> = ({
       {/* ── Header ───────────────────────────────────────────────────── */}
       <div className="bp-header">
         <div className="bp-company">{companyName || "—"}</div>
+        {companyAddress && <div className="bp-address">{companyAddress}</div>}
+        {companyGst && <div className="bp-regn"><span className="bp-lbl">GSTIN:</span> {companyGst}</div>}
+        {companyCin && <div className="bp-regn"><span className="bp-lbl">CIN:</span> {companyCin}</div>}
         <div className="bp-branch">Branch: {detail.branch_name || "—"}</div>
         <div className="bp-title">BILL PASS VOUCHER</div>
         <div className="bp-header-meta">
@@ -419,6 +431,8 @@ export const BILL_PASS_PRINT_CSS = `
   /* Header */
   .bp-header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10pt; margin-bottom: 12pt; }
   .bp-company { font-size: 18pt; font-weight: 700; letter-spacing: 0.5pt; text-transform: uppercase; }
+  .bp-address { font-size: 9pt; color: #555; margin-top: 2pt; }
+  .bp-regn { font-size: 9pt; color: #333; margin-top: 1pt; }
   .bp-branch { font-size: 11pt; font-weight: 500; color: #555; margin-top: 2pt; }
   .bp-title { font-size: 13pt; letter-spacing: 3pt; margin-top: 6pt; color: #333; }
   .bp-header-meta {

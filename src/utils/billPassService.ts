@@ -155,6 +155,7 @@ export type BillPassDetail = {
   invoice_amount: number;
   invoice_recvd_date: string | null;
   invoice_due_date: string | null;
+  branch_id?: number | null;
   branch_name: string;
   sr_status_name: string;
   sr_remarks: string;

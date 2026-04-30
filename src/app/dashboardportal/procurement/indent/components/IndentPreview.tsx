@@ -4,6 +4,7 @@ import React, { useRef } from "react";
 import { Box, Stack, Typography, Divider } from "@mui/material";
 import { Button } from "@/components/ui/button";
 import { openStyledPrintWindow } from "@/utils/printUtils";
+import CompanyHeaderBlock from "@/app/dashboardportal/procurement/_shared/PrintHeader";
 
 export type IndentPreviewHeader = {
   indentNo?: string;
@@ -18,6 +19,8 @@ export type IndentPreviewHeader = {
   updatedAt?: string;
   companyName?: string;
   companyLogo?: string;
+  coId?: string | number | null;
+  branchId?: string | number | null;
 };
 
 export type IndentPreviewItem = {
@@ -125,37 +128,13 @@ const IndentPreview: React.FC<IndentPreviewProps> = ({ header, items, remarks, o
       <Box ref={previewRef} sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 3, backgroundColor: "#fff" }}>
         {/* Top Section: Company/Branch on left, Title centered, Indent No/Date on right */}
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 3 }}>
-          {/* Left: Company Name and Branch */}
-          <Stack
-            id="preview-left-pane"
-            spacing={0.5}
-            sx={{
-              minWidth: 200,
-              maxWidth: { xs: "100%", md: "25%" },
-              flexBasis: { md: "25%" },
-            }}
-          >
-            {header.companyLogo && (
-              <img src={header.companyLogo} alt="" style={{ maxHeight: 60, maxWidth: 200, marginBottom: 4 }} />
-            )}
-            <Typography
-              variant="body1"
-              sx={{
-                fontWeight: 600,
-                fontSize: "1rem",
-                wordBreak: "break-word",
-                whiteSpace: "normal",
-              }}
-            >
-              {header.companyName || "-"}
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{ fontSize: "0.875rem", color: "text.secondary", wordBreak: "break-word", whiteSpace: "normal" }}
-            >
-              {header.branch || "-"}
-            </Typography>
-          </Stack>
+          {/* Left: Company letterhead */}
+          <CompanyHeaderBlock
+            coId={header.coId}
+            branchId={header.branchId}
+            branchLabel={header.branch}
+            maxWidth="30%"
+          />
 
           {/* Center: Purchase Indent Title */}
           <Box sx={{ flex: 1, display: "flex", justifyContent: "center" }}>
