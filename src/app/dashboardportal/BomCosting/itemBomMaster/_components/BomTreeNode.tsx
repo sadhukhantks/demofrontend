@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { memo, useState } from "react";
 import {
   Autocomplete,
   Box,
@@ -28,7 +28,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { BomTreeItem, ItemOption, UomOption, getCoId } from "./types";
-import InlineBomRow from "./InlineBomRow";
+import InlineBomRow, { InlineSavePayload } from "./InlineBomRow";
 
 type BomTreeNodeProps = {
   node: BomTreeItem;
@@ -45,10 +45,7 @@ type BomTreeNodeProps = {
   onStartAddChild: (parentItemId: number) => void;
   onStartEdit: (bomId: number) => void;
   onRemove: (node: BomTreeItem) => void;
-  onSaveNew: (
-    parentItemId: number,
-    payload: { child_item_id: number; qty: number; uom_id: number; sequence_no: number; co_id: number }
-  ) => Promise<void>;
+  onSaveNew: (parentItemId: number, payload: InlineSavePayload) => Promise<void>;
   onSaveEdit: (
     bomId: number,
     payload: { qty: number; uom_id: number; sequence_no: number; co_id: number }
@@ -58,7 +55,7 @@ type BomTreeNodeProps = {
   onSnackbar: (message: string, severity: "success" | "error") => void;
 };
 
-export default function BomTreeNode({
+function BomTreeNode({
   node,
   level,
   expanded,
@@ -477,6 +474,7 @@ export default function BomTreeNode({
               parentMultiplier={bomQty}
               itemOptions={itemOptions}
               uomOptions={uomOptions}
+              excludeItemIds={(node.children ?? []).map((c) => c.child_item_id)}
               onItemSearchChange={onItemSearchChange}
               onSave={onSaveNew}
               onCancel={onCancelInline}
@@ -496,6 +494,7 @@ export default function BomTreeNode({
           parentMultiplier={bomQty}
           itemOptions={itemOptions}
           uomOptions={uomOptions}
+          excludeItemIds={(node.children ?? []).map((c) => c.child_item_id)}
           onItemSearchChange={onItemSearchChange}
           onSave={onSaveNew}
           onCancel={onCancelInline}
@@ -504,3 +503,45 @@ export default function BomTreeNode({
     </div>
   );
 }
+
+/** Custom comparator: only re-render when something that affects THIS row's
+ *  output changes. Children rerender independently via their own memo. */
+function areEqual(prev: BomTreeNodeProps, next: BomTreeNodeProps): boolean {
+  if (prev.node !== next.node) return false;
+  if (prev.level !== next.level) return false;
+  if (prev.gridColumns !== next.gridColumns) return false;
+  if (prev.parentMultiplier !== next.parentMultiplier) return false;
+  if (prev.dragDisabled !== next.dragDisabled) return false;
+
+  // Own expand state — children handle their own
+  if ((prev.expanded[prev.node.child_item_id] || false) !==
+      (next.expanded[next.node.child_item_id] || false)) return false;
+  // Pass new expanded ref through so descendants can re-evaluate own state
+  if (prev.expanded !== next.expanded) return false;
+
+  // Own edit / add flags
+  const prevEditMine = prev.editingBomId === prev.node.bom_id;
+  const nextEditMine = next.editingBomId === next.node.bom_id;
+  if (prevEditMine !== nextEditMine) return false;
+  const prevAddMine = prev.addingUnderParentId === prev.node.child_item_id;
+  const nextAddMine = next.addingUnderParentId === next.node.child_item_id;
+  if (prevAddMine !== nextAddMine) return false;
+
+  // If the editing/adding flag changes anywhere, descendants need the new
+  // primitive — pass-through compare
+  if (prev.editingBomId !== next.editingBomId) return false;
+  if (prev.addingUnderParentId !== next.addingUnderParentId) return false;
+
+  // Options: only re-render if THIS row is in edit/add mode and they changed
+  if (nextEditMine || nextAddMine) {
+    if (prev.itemOptions !== next.itemOptions) return false;
+    if (prev.uomOptions !== next.uomOptions) return false;
+  }
+
+  // Callbacks assumed stable via useCallback in BomTreeEditor
+  return true;
+}
+
+const MemoBomTreeNode = memo(BomTreeNode, areEqual);
+MemoBomTreeNode.displayName = "BomTreeNode";
+export default MemoBomTreeNode;
