@@ -36,10 +36,11 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 import { openStyledPrintWindow } from "@/utils/printUtils";
 import BomTreeNode from "./BomTreeNode";
 import ConfirmDialog from "./ConfirmDialog";
-import InlineBomRow from "./InlineBomRow";
+import InlineBomRow, { InlineSavePayload } from "./InlineBomRow";
 import BomPrintDialog from "./BomPrintDialog";
 import { buildBomPrintHtml, BomPrintOptions } from "./bomPrintRender";
 import { BomTreeItem, ItemOption, UomOption, getCoId } from "./types";
+import { insertChild, updateNode, removeNode } from "./treeOps";
 
 type BomTreeEditorProps = {
   open: boolean;
@@ -300,9 +301,13 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
 
   // ── Toggling ──────────────────────────────────────────────────────────────
 
-  const handleToggle = (itemId: number) => {
+  const handleToggle = useCallback((itemId: number) => {
     setExpanded((prev) => ({ ...prev, [itemId]: !prev[itemId] }));
-  };
+  }, []);
+
+  const handleRemoveOpen = useCallback((node: BomTreeItem) => {
+    setConfirmRemoveNode(node);
+  }, []);
 
   // ── Inline edit/add handlers ──────────────────────────────────────────────
 
@@ -324,22 +329,39 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
   }, []);
 
   const handleSaveNew = useCallback(
-    async (
-      parentItemId: number,
-      payload: { child_item_id: number; qty: number; uom_id: number; sequence_no: number; co_id: number }
-    ) => {
+    async (parentItemId: number, payload: InlineSavePayload) => {
+      const { _meta, ...wirePayload } = payload;
       const { error, data } = await fetchWithCookie(
         apiRoutesPortalMasters.BOM_ADD_COMPONENT,
         "POST",
-        { parent_item_id: parentItemId, ...payload }
+        { parent_item_id: parentItemId, ...wirePayload }
       );
       if (error) throw new Error(error);
+
+      const newBomId = data?.bom_id;
+      const rootId = selectedRootItem?.item_id ?? item?.item_id;
+      if (newBomId && rootId) {
+        const newNode: BomTreeItem = {
+          bom_id: newBomId,
+          parent_item_id: parentItemId,
+          child_item_id: payload.child_item_id,
+          child_item_code: _meta.child_item_code,
+          child_full_item_code: _meta.child_full_item_code,
+          child_item_name: _meta.child_item_name,
+          qty: payload.qty,
+          uom_id: payload.uom_id,
+          uom_name: _meta.uom_name,
+          sequence_no: payload.sequence_no,
+          has_children: false,
+          is_leaf: true,
+          children: [],
+        };
+        setTree((t) => insertChild(t, parentItemId, newNode, rootId));
+      }
       onSnackbar(data?.message || "Component added", "success");
       // Keep addingUnderParentId set → auto-spawn blank row stays open
-      const rootId = selectedRootItem?.item_id ?? item?.item_id;
-      if (rootId) fetchTree(rootId);
     },
-    [fetchTree, item, onSnackbar, selectedRootItem]
+    [item, onSnackbar, selectedRootItem]
   );
 
   const handleSaveEdit = useCallback(
@@ -353,12 +375,18 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
         { bom_id: bomId, ...payload }
       );
       if (error) throw new Error(error);
+
+      const uom = uomOptions.find((u) => u.uom_id === payload.uom_id);
+      setTree((t) => updateNode(t, bomId, {
+        qty: payload.qty,
+        uom_id: payload.uom_id,
+        uom_name: uom?.uom_name ?? "",
+        sequence_no: payload.sequence_no,
+      }));
       onSnackbar("Component updated", "success");
       setEditingBomId(null);
-      const rootId = selectedRootItem?.item_id ?? item?.item_id;
-      if (rootId) fetchTree(rootId);
     },
-    [fetchTree, item, onSnackbar, selectedRootItem]
+    [onSnackbar, uomOptions]
   );
 
   // ── Remove ────────────────────────────────────────────────────────────────
@@ -374,9 +402,8 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
         { bom_id: node.bom_id, co_id: parseInt(co_id) }
       );
       if (error) throw new Error(error);
+      setTree((t) => removeNode(t, node.bom_id));
       onSnackbar("Component removed", "success");
-      const rootId = selectedRootItem?.item_id ?? item?.item_id;
-      if (rootId) fetchTree(rootId);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to remove component";
       onSnackbar(msg, "error");
@@ -417,9 +444,15 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
           { co_id, parent_item_id: parentItemId, rows: reorderedRows }
         );
         if (error) throw new Error(error);
-        // Reconcile with server
-        const rootId = selectedRootItem?.item_id ?? item?.item_id;
-        if (rootId) fetchTree(rootId);
+        // Patch sequence_no locally to match the new order — server is authoritative
+        // for the reorder, so we mirror the change without a full refetch.
+        setTree((t) => {
+          let updated = t;
+          newSiblings.forEach((n, i) => {
+            updated = updateNode(updated, n.bom_id, { sequence_no: i + 1 });
+          });
+          return updated;
+        });
       } catch (err: unknown) {
         // Revert to pre-drag state
         setTree(prevTree);
@@ -427,7 +460,7 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
         onSnackbar(msg, "error");
       }
     },
-    [tree, fetchTree, item, onSnackbar, selectedRootItem]
+    [tree, onSnackbar]
   );
 
   // ── Root item picker ──────────────────────────────────────────────────────
@@ -527,12 +560,24 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
                 isOptionEqualToValue={(opt, val) => opt.item_id === val.item_id}
               />
             </Box>
-          ) : loading ? (
+          ) : loading && tree.length === 0 ? (
             <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
               <CircularProgress />
             </Box>
           ) : (
-            <Box sx={{ py: 1 }}>
+            <Box sx={{ py: 1, position: "relative" }}>
+              {loading && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    top: 8,
+                    right: 8,
+                    zIndex: 2,
+                  }}
+                >
+                  <CircularProgress size={18} />
+                </Box>
+              )}
               {tree.length === 0 && addingUnderParentId !== rootItemId ? (
                 <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                   No components defined yet. Click &quot;Add Component&quot; to get started.
@@ -668,7 +713,7 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
                           onToggle={handleToggle}
                           onStartAddChild={handleStartAddChild}
                           onStartEdit={handleStartEdit}
-                          onRemove={(n) => setConfirmRemoveNode(n)}
+                          onRemove={handleRemoveOpen}
                           onSaveNew={handleSaveNew}
                           onSaveEdit={handleSaveEdit}
                           onCancelInline={handleCancelInline}
@@ -689,6 +734,7 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
                       parentMultiplier={1}
                       itemOptions={itemOptions}
                       uomOptions={uomOptions}
+                      excludeItemIds={tree.map((n) => n.child_item_id)}
                       onItemSearchChange={handleItemSearchChange}
                       onSave={handleSaveNew}
                       onCancel={handleCancelInline}

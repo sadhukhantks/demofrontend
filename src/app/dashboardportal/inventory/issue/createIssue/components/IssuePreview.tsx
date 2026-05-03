@@ -213,6 +213,7 @@ export const IssuePreview: React.FC<IssuePreviewProps> = ({
 							<thead className="bg-slate-100">
 								<tr>
 									<th className="border-b px-2 py-1 text-left">#</th>
+									<th className="border-b px-2 py-1 text-left">Item Code</th>
 									<th className="border-b px-2 py-1 text-left">Item</th>
 									<th className="border-b px-2 py-1 text-left">SR No</th>
 									<th className="border-b px-2 py-1 text-right">Qty</th>
@@ -225,6 +226,7 @@ export const IssuePreview: React.FC<IssuePreviewProps> = ({
 								{details.lineItems.map((line, index) => (
 									<tr key={line.id || index} className="border-b">
 										<td className="px-2 py-1">{index + 1}</td>
+										<td className="px-2 py-1 whitespace-nowrap">{line.itemCode || "-"}</td>
 										<td className="px-2 py-1">{line.itemName || "-"}</td>
 										<td className="px-2 py-1">{line.srNo || "-"}</td>
 										<td className="px-2 py-1 text-right">{line.qty}</td>
