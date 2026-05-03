@@ -1,4 +1,5 @@
 import axios from "axios";
+import { fetchWithCookie } from "./apiClient2";
 import { apiRoutesPortalMasters } from "./api";
 
 export interface FetchSalesJuteTallyParams {
@@ -6,6 +7,38 @@ export interface FetchSalesJuteTallyParams {
   branchId?: number | null;
   dateFrom: string;
   dateTo: string;
+}
+
+export interface SalesJuteMrSummaryRow {
+  invoice_id: number;
+  invoice_no: string;
+  invoice_date: string | null;
+  party_name: string | null;
+  branch_name: string | null;
+  vehicle_no: string | null;
+  challan_no: string | null;
+  mr_number: string | null;
+  total_qty_kg: number | null;
+  invoice_amount: number | null;
+  claim_amount: number | null;
+}
+
+export async function fetchSalesJuteMrSummary(
+  params: FetchSalesJuteTallyParams,
+): Promise<SalesJuteMrSummaryRow[]> {
+  const { coId, branchId, dateFrom, dateTo } = params;
+  const qs = new URLSearchParams();
+  qs.append("co_id", String(coId));
+  if (branchId != null) qs.append("branch_id", String(branchId));
+  qs.append("date_from", dateFrom);
+  qs.append("date_to", dateTo);
+
+  const url = `${apiRoutesPortalMasters.SALES_REPORT_JUTE_MR_SUMMARY}?${qs.toString()}`;
+  const result = await fetchWithCookie<{ data: SalesJuteMrSummaryRow[] }>(url);
+  if (result.error || !result.data) {
+    throw new Error(result.error ?? "Failed to fetch sales jute MR summary");
+  }
+  return result.data.data ?? [];
 }
 
 export async function fetchSalesJuteTallyDownload(

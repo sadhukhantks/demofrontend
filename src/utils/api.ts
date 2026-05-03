@@ -129,6 +129,8 @@ const apiRoutesPortalMasters = {
     GET_ITEM_TABLE: `${API_URL}/itemMaster/get_item_table`,
     ITEM_CREATE_SETUP: `${API_URL}/itemMaster/item_create_setup`,
     ITEM_CREATE: `${API_URL}/itemMaster/item_create`,
+    ITEM_BULK_VALIDATE: `${API_URL}/itemMaster/item_bulk_validate`,
+    ITEM_BULK_CREATE: `${API_URL}/itemMaster/item_bulk_create`,
     ITEM_EDIT_SETUP: `${API_URL}/itemMaster/item_edit_setup`,
     ITEM_EDIT: `${API_URL}/itemMaster/item_edit`,
     ITEM_VIEW: `${API_URL}/itemMaster/item_view`,
@@ -381,6 +383,7 @@ const apiRoutesPortalMasters = {
     JUTE_REPORT_MR_LIST: `${API_URL}/juteReports/mr-list`,
     JUTE_REPORT_TALLY_DOWNLOAD: `${API_URL}/juteReports/tally-download`,
     SALES_REPORT_JUTE_TALLY_DOWNLOAD: `${API_URL}/salesReports/jute-tally-download`,
+    SALES_REPORT_JUTE_MR_SUMMARY: `${API_URL}/salesReports/jute-mr-summary`,
 
     // Jute SQC - Morrah Weight QC
     MORRAH_WT_TABLE: `${API_URL}/juteSQC/get_morrah_wt_table`,

@@ -11,10 +11,52 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
-import { fetchSalesJuteTallyDownload } from "@/utils/salesReportService";
+import {
+  fetchSalesJuteMrSummary,
+  fetchSalesJuteTallyDownload,
+  type SalesJuteMrSummaryRow,
+} from "@/utils/salesReportService";
 import { saveAs } from "file-saver";
 import type { BranchOption } from "@/app/dashboardportal/jutePurchase/reports/types/reportTypes";
+
+function fmtNum(value: unknown): string {
+  if (value == null) return "";
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toFixed(2) : "";
+}
+
+const summaryColumns: GridColDef<SalesJuteMrSummaryRow>[] = [
+  { field: "invoice_no", headerName: "Invoice #", width: 180 },
+  { field: "invoice_date", headerName: "Date", width: 110 },
+  { field: "party_name", headerName: "Party", flex: 1, minWidth: 180 },
+  { field: "branch_name", headerName: "Branch", width: 160 },
+  { field: "mr_number", headerName: "MR #", width: 140 },
+  { field: "vehicle_no", headerName: "Vehicle", width: 120 },
+  { field: "challan_no", headerName: "Challan #", width: 120 },
+  {
+    field: "total_qty_kg",
+    headerName: "Qty (Kg)",
+    type: "number",
+    width: 120,
+    valueFormatter: (value: unknown) => fmtNum(value),
+  },
+  {
+    field: "invoice_amount",
+    headerName: "Invoice Amt",
+    type: "number",
+    width: 130,
+    valueFormatter: (value: unknown) => fmtNum(value),
+  },
+  {
+    field: "claim_amount",
+    headerName: "Claim Amt",
+    type: "number",
+    width: 120,
+    valueFormatter: (value: unknown) => fmtNum(value),
+  },
+];
 
 /** Returns {from, to} as YYYY-MM-DD for the first and last day of the current month. */
 function currentMonthRange(): { from: string; to: string } {
@@ -50,6 +92,10 @@ export default function SalesJuteTallyDownloadPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState<string | null>(null);
 
+  const [summaryRows, setSummaryRows] = useState<SalesJuteMrSummaryRow[]>([]);
+  const [loadingSummary, setLoadingSummary] = useState<boolean>(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+
   const branchOptions: BranchOption[] = useMemo(
     () =>
       (selectedCompany?.branches ?? []).map((b) => ({
@@ -60,6 +106,35 @@ export default function SalesJuteTallyDownloadPage() {
   );
 
   const coId = selectedCompany?.co_id ?? null;
+
+  const handleLoad = useCallback(async () => {
+    if (coId == null) return;
+    if (!dateFrom || !dateTo) {
+      setSnackbar("From and To dates are required.");
+      return;
+    }
+    setLoadingSummary(true);
+    setSummaryError(null);
+    try {
+      const rows = await fetchSalesJuteMrSummary({
+        coId,
+        branchId: branch?.branch_id ?? null,
+        dateFrom,
+        dateTo,
+      });
+      setSummaryRows(rows);
+      if (rows.length === 0) {
+        setSnackbar("No invoices found for the selected range.");
+      }
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to load summary.";
+      setSummaryError(message);
+      setSummaryRows([]);
+    } finally {
+      setLoadingSummary(false);
+    }
+  }, [coId, branch, dateFrom, dateTo]);
 
   const handleDownload = useCallback(async () => {
     if (coId == null) return;
@@ -161,6 +236,23 @@ export default function SalesJuteTallyDownloadPage() {
           />
           <Button
             variant="contained"
+            onClick={handleLoad}
+            disabled={coId == null || !dateFrom || !dateTo || loadingSummary}
+            startIcon={
+              loadingSummary ? (
+                <CircularProgress size={18} sx={{ color: "white" }} />
+              ) : undefined
+            }
+            sx={{
+              backgroundColor: "#0C3C60",
+              "&:hover": { backgroundColor: "#092d47" },
+              textTransform: "none",
+            }}
+          >
+            {loadingSummary ? "Loading..." : "Load"}
+          </Button>
+          <Button
+            variant="contained"
             onClick={handleDownload}
             disabled={coId == null || !dateFrom || !dateTo || downloading}
             startIcon={
@@ -188,6 +280,57 @@ export default function SalesJuteTallyDownloadPage() {
           </Alert>
         )}
       </Paper>
+
+      <Box sx={{ position: "relative", width: "100%", mt: 2 }}>
+        {summaryError && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSummaryError(null)}>
+            {summaryError}
+          </Alert>
+        )}
+        {loadingSummary && (
+          <Box
+            sx={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              bgcolor: "rgba(255,255,255,0.7)",
+              zIndex: 10,
+            }}
+          >
+            <CircularProgress />
+          </Box>
+        )}
+        <Box sx={{ height: 520, width: "100%" }}>
+          <DataGrid
+            rows={summaryRows}
+            columns={summaryColumns}
+            getRowId={(row) => row.invoice_id}
+            pageSizeOptions={[25, 50, 100]}
+            initialState={{
+              pagination: { paginationModel: { page: 0, pageSize: 50 } },
+              sorting: {
+                sortModel: [{ field: "invoice_date", sort: "desc" }],
+              },
+            }}
+            disableRowSelectionOnClick
+            sx={{
+              "& .MuiDataGrid-columnHeader": {
+                backgroundColor: "#3ea6da",
+                color: "white",
+                fontWeight: "bold",
+              },
+              "& .MuiDataGrid-columnHeaderTitle": {
+                fontWeight: "bold",
+              },
+            }}
+          />
+        </Box>
+      </Box>
 
       <Snackbar
         open={snackbar != null}

@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Snackbar, Alert } from "@mui/material";
 import CreateItem from "./createItem";
+import BulkCreateItem from "./bulkCreateItem";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
 import { fetchWithCookie } from "@/utils/apiClient2";
@@ -31,6 +32,7 @@ export default function ItemMasterPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editItemData, setEditItemData] = useState<any>(null);
   const [editItemId, setEditItemId] = useState<number | null>(null);
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
 
   // Fetch items from API with pagination and search
   const fetchItems = async () => {
@@ -94,6 +96,12 @@ export default function ItemMasterPage() {
   const closeCreateDialog = () => {
     setCreateDialogOpen(false);
     fetchItems();
+  };
+
+  const openBulkDialog = () => setBulkDialogOpen(true);
+  const closeBulkDialog = (didCreate: boolean) => {
+    setBulkDialogOpen(false);
+    if (didCreate) fetchItems();
   };
 
   const fetchItemSetup = async (itemId: number) => {
@@ -165,8 +173,14 @@ export default function ItemMasterPage() {
       createAction={{ onClick: openCreateDialog }}
       onView={handleView}
       onEdit={handleEdit}
+      toolbarContent={
+        <Button onClick={openBulkDialog} variant="outline" size="sm">
+          Bulk Create
+        </Button>
+      }
     >
       <CreateItem open={createDialogOpen} onClose={closeCreateDialog} />
+      <BulkCreateItem open={bulkDialogOpen} onClose={closeBulkDialog} />
 
       <CreateItem
         open={viewDialogOpen}
