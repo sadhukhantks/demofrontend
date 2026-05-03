@@ -436,6 +436,7 @@ function SRTransactionPageContent() {
 					additionalCharges={additionalCharges}
 					srDate={srDate}
 					srRemarks={srRemarks}
+					coId={coId}
 				/>
 			}
 		>
