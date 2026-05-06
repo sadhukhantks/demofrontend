@@ -159,7 +159,12 @@ export function buildFreightCreatePreviewProps(args: FreightCreatePreviewArgs): 
 	};
 
 	// Surface IW Bill + Container in remarks so they visibly appear on the print.
-	const iwBillSegment = iwBillNo ? `IW Bill No.${iwBillNo}${iwBillDate ? ` Date:${iwBillDate}` : ""}` : "";
+	// When the source invoice's mode_of_transport is "RAIL" (case-insensitive), the
+	// IW Bill No is actually a Railway Receipt — relabel accordingly.
+	const isRailSource = !!header?.mode_of_transport
+		&& String(header.mode_of_transport).toUpperCase().trim() === "RAIL";
+	const iwBillLabel = isRailSource ? "RR No." : "IW Bill No.";
+	const iwBillSegment = iwBillNo ? `${iwBillLabel}${iwBillNo}${iwBillDate ? ` Date:${iwBillDate}` : ""}` : "";
 	const containerSegment = containerNo ? `Container No.${containerNo}` : "";
 	// Reference to the source Govt Sacking invoice — mirrors view-mode behavior in
 	// buildFreightPreviewProps so the freight invoice always visibly cites the source.

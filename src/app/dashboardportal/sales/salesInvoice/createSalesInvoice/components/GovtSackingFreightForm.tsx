@@ -12,9 +12,12 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import {
 	createInvoice,
+	updateInvoice,
 	sendInvoiceForApproval,
+	fetchGovtSackingSource,
 	type InvoiceDetails,
 	type CreateInvoiceRequest,
+	type SaveInvoiceRequest,
 } from "@/utils/salesInvoiceService";
 import type {
 	GovtSackingSourceDetail,
@@ -31,7 +34,10 @@ import { buildFreightCreatePreviewProps } from "../utils/buildFreightCreatePrevi
 
 const FOOTER_NOTES_MAX = 252;
 
-type Mode = "create" | "view";
+type Mode = "create" | "view" | "edit";
+
+const isRailMode = (modeStr?: string | null): boolean =>
+	!!modeStr && String(modeStr).toUpperCase().trim() === "RAIL";
 
 type Props = {
 	coId: string;
@@ -70,25 +76,30 @@ const buildFooterNotes = (state: FreightFormState): string => {
 	const pcsoNo = state.source.header.pcso_no;
 	const pcsoDate = state.source.header.pcso_date;
 	if (pcsoNo) segments.push(`PCSO No.${pcsoNo}${pcsoDate ? ` Date:${pcsoDate}` : ""}`);
-	if (state.iwBillNo) segments.push(`IW Bill No.${state.iwBillNo}${state.iwBillDate ? ` Date:${state.iwBillDate}` : ""}`);
+	if (state.iwBillNo) {
+		const iwLabel = isRailMode(state.source.header.mode_of_transport) ? "RR No." : "IW Bill No.";
+		segments.push(`${iwLabel}${state.iwBillNo}${state.iwBillDate ? ` Date:${state.iwBillDate}` : ""}`);
+	}
 	if (state.containerNo) segments.push(`Container No.${state.containerNo}`);
 	const joined = segments.join(" | ");
 	if (joined.length <= FOOTER_NOTES_MAX) return joined;
 	return `${joined.slice(0, FOOTER_NOTES_MAX)}...`;
 };
 
-function buildViewState(invoice: InvoiceDetails): FreightFormState {
+function buildHydratedState(invoice: InvoiceDetails): FreightFormState {
 	const freight = invoice.freight ?? null;
+	const firstLine = invoice.lines?.[0];
+	const freightAmountSource = firstLine?.netAmount ?? firstLine?.totalAmount;
 	return {
 		source: null,
 		sourceRow: null,
 		invoiceDate: invoice.invoiceDate ?? "",
 		iwBillNo: freight?.iwBillNo ?? "",
 		iwBillDate: freight?.iwBillDate ?? "",
-		containerNo: "",
-		vehicleNo: "",
-		freightAmount: "",
-		balesQty: "",
+		containerNo: invoice.containerNo ?? "",
+		vehicleNo: invoice.vehicleNo ?? "",
+		freightAmount: freightAmountSource != null ? String(freightAmountSource) : "",
+		balesQty: firstLine?.quantity != null ? String(firstLine.quantity) : "",
 	};
 }
 
@@ -100,7 +111,7 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 	}, []);
 
 	const [state, setState] = React.useState<FreightFormState>(() => {
-		if (mode === "view" && existingInvoice) return buildViewState(existingInvoice);
+		if ((mode === "view" || mode === "edit") && existingInvoice) return buildHydratedState(existingInvoice);
 		const today = todayISO();
 		return {
 			source: null,
@@ -117,6 +128,27 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 
 	const [errors, setErrors] = React.useState<Errors>({});
 	const [submitting, setSubmitting] = React.useState(false);
+
+	// Re-fetch the source Govt Sacking detail in view/edit modes so tax computation
+	// (intra/inter-state) and the source preview block render. The saved invoice
+	// only carries the source ID + a thin reference; we need the full header/lines.
+	React.useEffect(() => {
+		if (mode === "create") return;
+		const srcId = existingInvoice?.freight?.source?.invoice_id ?? existingInvoice?.freight?.sourceInvoiceId;
+		if (!srcId || !coId) return;
+		let cancelled = false;
+		fetchGovtSackingSource(srcId, coId)
+			.then((res) => {
+				if (cancelled) return;
+				setState((prev) => ({ ...prev, source: res?.data ?? null }));
+			})
+			.catch(() => {
+				/* silent — preview will fall back to stored govtskg fields */
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [mode, existingInvoice, coId]);
 
 	const handleSourceSelect = React.useCallback(
 		(detail: GovtSackingSourceDetail | null, row: GovtSackingSourceRow | null) => {
@@ -231,11 +263,15 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 			}
 			setSubmitting(true);
 			try {
-				const result = await createInvoice(buildPayload());
-				const invoiceId = result?.invoice_id;
+				const isEditSubmit = mode === "edit" && existingInvoice?.id;
+				const payload: SaveInvoiceRequest = isEditSubmit
+					? { ...buildPayload(), id: String(existingInvoice!.id) }
+					: buildPayload();
+				const result = isEditSubmit ? await updateInvoice(payload) : await createInvoice(payload);
+				const invoiceId = result?.invoice_id ?? (isEditSubmit ? existingInvoice!.id : undefined);
 				if (!invoiceId) throw new Error("Backend did not return an invoice ID");
 
-				if (alsoSendForApproval) {
+				if (alsoSendForApproval && !isEditSubmit) {
 					try {
 						await sendInvoiceForApproval(String(invoiceId));
 					} catch (err) {
@@ -247,7 +283,9 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 					}
 				}
 
-				toast({ title: result?.message ?? "Govt Sacking Freight invoice created" });
+				toast({
+					title: result?.message ?? (isEditSubmit ? "Govt Sacking Freight invoice updated" : "Govt Sacking Freight invoice created"),
+				});
 				const params = new URLSearchParams();
 				params.set("mode", "view");
 				params.set("id", String(invoiceId));
@@ -257,26 +295,36 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 			} catch (error) {
 				toast({
 					variant: "destructive",
-					title: "Unable to create freight invoice",
+					title: mode === "edit" ? "Unable to update freight invoice" : "Unable to create freight invoice",
 					description: error instanceof Error ? error.message : "Please try again.",
 				});
 			} finally {
 				setSubmitting(false);
 			}
 		},
-		[validate, buildPayload, branchId, menuId, router],
+		[validate, buildPayload, branchId, menuId, router, mode, existingInvoice],
 	);
 
 	if (!mounted) return null;
 
 	const isView = mode === "view";
-	const sourceReady = isView ? Boolean(existingInvoice) : Boolean(state.source);
-	const fieldDisabled = isView || submitting || !sourceReady;
+	const isEdit = mode === "edit";
+	const isCreate = mode === "create";
+	const sourceReady = (isView || isEdit) ? Boolean(existingInvoice) : Boolean(state.source);
+	const editableFieldDisabled = isView || submitting || (!isEdit && !sourceReady);
+	const lockedFieldDisabled = isView || isEdit || submitting || !sourceReady;
 	const actionsDisabled = submitting || !sourceReady;
+
+	const sourceModeOfTransport = state.source?.header?.mode_of_transport
+		?? existingInvoice?.govtskg?.modeOfTransport
+		?? null;
+	const isRail = isRailMode(sourceModeOfTransport);
+	const iwBillNoLabel = isRail ? "RR No" : "IW Bill No";
+	const iwBillDateLabel = isRail ? "RR Date" : "IW Bill Date";
 
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-			{!isView ? (
+			{isCreate ? (
 				<Box>
 					<GovtSackingSourcePicker
 						coId={coId}
@@ -293,7 +341,7 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 				</Box>
 			) : null}
 
-			{isView && existingInvoice?.freight?.source ? (
+			{(isView || isEdit) && existingInvoice?.freight?.source ? (
 				<Paper variant="outlined" sx={{ p: 2, bgcolor: "action.hover" }}>
 					<Typography variant="subtitle2">Source Govt Sacking Invoice</Typography>
 					<Divider sx={{ my: 1 }} />
@@ -312,7 +360,7 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 					Freight Details
 				</Typography>
 				<Divider sx={{ mb: 2 }} />
-				{!sourceReady && !isView ? (
+				{!sourceReady && isCreate ? (
 					<Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
 						Select a source Govt Sacking invoice above to enable these fields.
 					</Typography>
@@ -329,12 +377,12 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 							error={Boolean(errors.invoiceDate)}
 							helperText={errors.invoiceDate}
 							InputLabelProps={{ shrink: true }}
-							disabled={fieldDisabled}
+							disabled={lockedFieldDisabled}
 						/>
 					</Grid>
 					<Grid size={{ xs: 12, md: 4 }}>
 						<TextField
-							label="IW Bill No"
+							label={iwBillNoLabel}
 							fullWidth
 							required
 							inputProps={{ maxLength: 100 }}
@@ -342,12 +390,12 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 							onChange={(e) => setState((prev) => ({ ...prev, iwBillNo: e.target.value }))}
 							error={Boolean(errors.iwBillNo)}
 							helperText={errors.iwBillNo}
-							disabled={fieldDisabled}
+							disabled={editableFieldDisabled}
 						/>
 					</Grid>
 					<Grid size={{ xs: 12, md: 4 }}>
 						<TextField
-							label="IW Bill Date"
+							label={iwBillDateLabel}
 							type="date"
 							fullWidth
 							required
@@ -356,7 +404,7 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 							error={Boolean(errors.iwBillDate)}
 							helperText={errors.iwBillDate}
 							InputLabelProps={{ shrink: true }}
-							disabled={fieldDisabled}
+							disabled={editableFieldDisabled}
 						/>
 					</Grid>
 					<Grid size={{ xs: 12, md: 4 }}>
@@ -369,7 +417,7 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 							onChange={(e) => setState((prev) => ({ ...prev, containerNo: e.target.value }))}
 							error={Boolean(errors.containerNo)}
 							helperText={errors.containerNo}
-							disabled={fieldDisabled}
+							disabled={editableFieldDisabled}
 						/>
 					</Grid>
 					<Grid size={{ xs: 12, md: 4 }}>
@@ -382,7 +430,7 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 							onChange={(e) => setState((prev) => ({ ...prev, vehicleNo: e.target.value }))}
 							error={Boolean(errors.vehicleNo)}
 							helperText={errors.vehicleNo}
-							disabled={fieldDisabled}
+							disabled={editableFieldDisabled}
 						/>
 					</Grid>
 					<Grid size={{ xs: 12, md: 4 }}>
@@ -396,7 +444,7 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 							onChange={(e) => setState((prev) => ({ ...prev, freightAmount: e.target.value }))}
 							error={Boolean(errors.freightAmount)}
 							helperText={errors.freightAmount}
-							disabled={fieldDisabled}
+							disabled={lockedFieldDisabled}
 						/>
 					</Grid>
 					<Grid size={{ xs: 12, md: 4 }}>
@@ -410,13 +458,13 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 							onChange={(e) => setState((prev) => ({ ...prev, balesQty: e.target.value }))}
 							error={Boolean(errors.balesQty)}
 							helperText={errors.balesQty}
-							disabled={fieldDisabled}
+							disabled={lockedFieldDisabled}
 						/>
 					</Grid>
 				</Grid>
 			</Paper>
 
-			{!isView ? (
+			{isCreate ? (
 				<Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, pt: 1 }}>
 					<Button
 						type="button"
@@ -444,13 +492,50 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 				</Box>
 			) : null}
 
-			{!isView && state.source ? (
+			{isEdit ? (
+				<Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, pt: 1 }}>
+					<Button
+						type="button"
+						variant="outline"
+						onClick={() => {
+							const params = new URLSearchParams();
+							params.set("mode", "view");
+							if (existingInvoice?.id) params.set("id", String(existingInvoice.id));
+							if (branchId) params.set("branch_id", branchId);
+							if (menuId) params.set("menu_id", menuId);
+							router.replace(`/dashboardportal/sales/salesInvoice/createSalesInvoice?${params.toString()}`);
+						}}
+						disabled={submitting}
+					>
+						Cancel
+					</Button>
+					<Button
+						type="button"
+						onClick={() => void submit(false)}
+						disabled={submitting || !state.source}
+					>
+						{submitting ? "Updating..." : !state.source ? "Loading source..." : "Update"}
+					</Button>
+				</Box>
+			) : null}
+
+			{isCreate && state.source ? (
 				<Paper variant="outlined" sx={{ p: 3, mt: 2 }}>
 					<Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
 						Printable Preview ({String(intraInter ?? "") === "0" ? "Intra-state" : "Inter-state"} @ {FREIGHT_GST_PERCENT}%) — Grand Total: ₹{grandTotal.toFixed(2)}
 					</Typography>
 					<Divider sx={{ mb: 2 }} />
 					<SalesInvoicePreview {...createPreviewProps} />
+				</Paper>
+			) : null}
+
+			{isEdit && existingInvoice ? (
+				<Paper variant="outlined" sx={{ p: 3, mt: 2 }}>
+					<Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+						Printable Preview
+					</Typography>
+					<Divider sx={{ mb: 2 }} />
+					<SalesInvoicePreview {...buildFreightPreviewProps(existingInvoice)} />
 				</Paper>
 			) : null}
 
