@@ -6,7 +6,10 @@ import type {
 	InvoicePreviewTotals,
 } from "../components/SalesInvoicePreview";
 import { computeFreightTax, FREIGHT_HSN } from "./freightTax";
-import { GOVT_SKG_FREIGHT_INVOICE_TYPE_ID } from "./salesInvoiceConstants";
+import { GOVT_SKG_FREIGHT_INVOICE_TYPE_ID, INVOICE_STATUS_LABELS } from "./salesInvoiceConstants";
+
+const isRailModeOfTransport = (modeStr?: string | null): boolean =>
+	!!modeStr && String(modeStr).toUpperCase().trim() === "RAIL";
 
 export type FreightPreviewProps = {
 	header: InvoicePreviewHeader;
@@ -72,10 +75,22 @@ export function buildFreightPreviewProps(invoice: InvoiceDetails): FreightPrevie
 
 	const sourceInvoiceLabel = invoice.freight?.source?.invoice_no_formatted
 		|| (invoice.freight?.source?.invoice_no != null ? String(invoice.freight.source.invoice_no) : "");
+	// Reconstruct the footer/remarks from structured fields so the IW/RR relabel
+	// applies even to legacy invoices whose stored `footerNote` was saved with the
+	// pre-relabel wording. Fields are fully recoverable from the response payload.
+	const isRail = isRailModeOfTransport(invoice.govtskg?.modeOfTransport);
+	const iwLabel = isRail ? "RR No." : "IW Bill No.";
+	const pcsoSeg = invoice.govtskg?.pcsoNo
+		? `PCSO No.${invoice.govtskg.pcsoNo}${invoice.govtskg.pcsoDate ? ` Date:${invoice.govtskg.pcsoDate}` : ""}`
+		: "";
+	const iwSeg = invoice.freight?.iwBillNo
+		? `${iwLabel}${invoice.freight.iwBillNo}${invoice.freight.iwBillDate ? ` Date:${invoice.freight.iwBillDate}` : ""}`
+		: "";
+	const containerSeg = invoice.containerNo ? `Container No.${invoice.containerNo}` : "";
 	const referenceNote = sourceInvoiceLabel
 		? `Ref Invoice- ${sourceInvoiceLabel}${invoice.freight?.source?.invoice_date ? ` dated ${invoice.freight.source.invoice_date}` : ""}`
 		: "";
-	const footerText = [invoice.footerNote, referenceNote].filter(Boolean).join(" | ");
+	const footerText = [pcsoSeg, iwSeg, containerSeg, referenceNote].filter(Boolean).join(" | ");
 
 	const header: InvoicePreviewHeader = {
 		invoiceNo: invoice.invoiceNo,
@@ -89,7 +104,9 @@ export function buildFreightPreviewProps(invoice: InvoiceDetails): FreightPrevie
 		loadingPoint: invoice.govtskg?.loadingPoint ?? undefined,
 		invoiceType: GOVT_SKG_FREIGHT_INVOICE_TYPE_ID,
 		transactionType: invoice.typeOfSale,
-		status: invoice.status,
+		status: (invoice.statusId != null && INVOICE_STATUS_LABELS[invoice.statusId])
+			? INVOICE_STATUS_LABELS[invoice.statusId]
+			: invoice.status,
 		companyName: invoice.companyName,
 		companyAddress: joinAddress(invoice.companyAddress1, invoice.companyAddress2, invoice.companyZipcode, invoice.companyStateName),
 		companyStateCode: invoice.companyStateCode,

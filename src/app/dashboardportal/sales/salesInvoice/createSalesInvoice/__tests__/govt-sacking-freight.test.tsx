@@ -247,3 +247,194 @@ describe("buildFreightPreviewProps — view-mode totals normalization", () => {
 		expect(props.totals.grossAmount).toBe(50000);
 	});
 });
+
+describe("Govt Sacking Freight — RAIL relabel", () => {
+	const railSource = (): GovtSackingSourceDetail => ({
+		header: {
+			invoice_id: 1,
+			invoice_no: 1,
+			invoice_date: "2026-01-01",
+			invoice_type: 3,
+			party_id: 1,
+			party_name: "P",
+			billing_to_id: 1,
+			shipping_to_id: 1,
+			billing_state_code: 10,
+			shipping_state_code: 10,
+			intra_inter_state: 0,
+			branch_id: 5,
+			co_id: 1,
+			sales_order_id: 1,
+			sales_order_no: 1,
+			sales_delivery_order_id: null,
+			delivery_order_no: null,
+			transporter_id: 1,
+			transporter_name: null,
+			transporter_address: null,
+			transporter_state_code: null,
+			transporter_state_name: null,
+			transporter_branch_id: null,
+			transporter_doc_no: null,
+			transporter_doc_date: null,
+			buyer_order_no: null,
+			buyer_order_date: null,
+			vehicle_no: null,
+			container_no: null,
+			pcso_no: "PCSO/1",
+			pcso_date: "2026-01-01",
+			administrative_office_address: null,
+			destination_rail_head: null,
+			loading_point: null,
+			mode_of_transport: "RAIL",
+		},
+		lines: [],
+	});
+
+	it("create-mode preview: 'IW Bill No' → 'RR No' when source mode_of_transport === RAIL", () => {
+		const result = buildFreightCreatePreviewProps({
+			setupData: null,
+			branchId: "5",
+			source: railSource(),
+			invoiceDate: "2026-04-20",
+			iwBillNo: "RR12345",
+			iwBillDate: "2026-04-19",
+			containerNo: "",
+			vehicleNo: "",
+			freightAmount: 1000,
+			balesQty: 10,
+			footerNote: "",
+		});
+		expect(result.remarks).toContain("RR No.RR12345");
+		expect(result.remarks).not.toContain("IW Bill No.");
+	});
+
+	it("create-mode preview: keeps 'IW Bill No' label for non-rail modes (e.g. Road)", () => {
+		const src = railSource();
+		src.header.mode_of_transport = "Road";
+		const result = buildFreightCreatePreviewProps({
+			setupData: null,
+			branchId: "5",
+			source: src,
+			invoiceDate: "2026-04-20",
+			iwBillNo: "IW/2026/77",
+			iwBillDate: "2026-04-19",
+			containerNo: "",
+			vehicleNo: "",
+			freightAmount: 1000,
+			balesQty: 10,
+			footerNote: "",
+		});
+		expect(result.remarks).toContain("IW Bill No.IW/2026/77");
+		expect(result.remarks).not.toContain("RR No.");
+	});
+
+	it("create-mode RAIL match is case-insensitive ('rail', ' Rail ')", () => {
+		const cases = ["rail", "Rail", " RAIL ", "raIL"];
+		for (const m of cases) {
+			const src = railSource();
+			src.header.mode_of_transport = m;
+			const result = buildFreightCreatePreviewProps({
+				setupData: null,
+				branchId: "5",
+				source: src,
+				invoiceDate: "2026-04-20",
+				iwBillNo: "X",
+				iwBillDate: "",
+				containerNo: "",
+				vehicleNo: "",
+				freightAmount: 1,
+				balesQty: 1,
+				footerNote: "",
+			});
+			expect(result.remarks).toContain("RR No.X");
+		}
+	});
+
+	it("view-mode preview: rebuilds remarks with 'RR No.' for RAIL invoices and ignores stored footerNote wording", () => {
+		const invoice = {
+			id: "10",
+			invoiceNo: "X",
+			invoiceDate: "2026-05-05",
+			branchId: "5",
+			party: "P",
+			intraInterState: 0,
+			containerNo: "CNTR-1",
+			footerNote: "PCSO No.PCSO/1 | IW Bill No.RR777 | Container No.CNTR-1",
+			govtskg: { pcsoNo: "PCSO/1", pcsoDate: "2026-01-01", modeOfTransport: "RAIL" },
+			freight: {
+				sourceInvoiceId: 1,
+				iwBillNo: "RR777",
+				iwBillDate: "2026-05-04",
+				source: { invoice_id: 1, invoice_no: 1, invoice_no_formatted: "VOW/X/1", invoice_date: "2026-01-01", pcso_no: "PCSO/1" },
+			},
+			lines: [{ netAmount: 1000, totalAmount: 1180, gst: { igstAmount: 180, igstPercent: 18 } }],
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		} as unknown as InvoiceDetails;
+		const props = buildFreightPreviewProps(invoice);
+		expect(props.remarks).toContain("RR No.RR777");
+		expect(props.remarks).not.toContain("IW Bill No.");
+		expect(props.remarks).toContain("Container No.CNTR-1");
+		expect(props.remarks).toContain("Ref Invoice- VOW/X/1");
+	});
+
+	it("view-mode preview: preserves 'IW Bill No.' for non-rail modes", () => {
+		const invoice = {
+			id: "11",
+			invoiceNo: "X",
+			invoiceDate: "2026-05-05",
+			branchId: "5",
+			party: "P",
+			intraInterState: 0,
+			containerNo: "CNTR-2",
+			govtskg: { pcsoNo: "PCSO/2", pcsoDate: "2026-01-01", modeOfTransport: "Road" },
+			freight: {
+				sourceInvoiceId: 1,
+				iwBillNo: "IW/2026/77",
+				iwBillDate: "2026-05-04",
+				source: { invoice_id: 1, invoice_no: 1, invoice_no_formatted: "VOW/X/1", invoice_date: "2026-01-01", pcso_no: "PCSO/2" },
+			},
+			lines: [{ netAmount: 1000, totalAmount: 1180, gst: { igstAmount: 180, igstPercent: 18 } }],
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		} as unknown as InvoiceDetails;
+		const props = buildFreightPreviewProps(invoice);
+		expect(props.remarks).toContain("IW Bill No.IW/2026/77");
+		expect(props.remarks).not.toContain("RR No.");
+	});
+});
+
+describe("Govt Sacking Freight — view-mode status label", () => {
+	const baseInvoice = (overrides: Partial<InvoiceDetails> = {}): InvoiceDetails => ({
+		id: "999",
+		invoiceNo: "X",
+		invoiceDate: "2026-05-05",
+		branchId: "5",
+		party: "P",
+		intraInterState: 0,
+		lines: [],
+		...overrides,
+	} as unknown as InvoiceDetails);
+
+	it("maps statusId=3 (Approved) to label 'Approved' instead of falling back to invoice.status='Drafted'", () => {
+		const invoice = baseInvoice({ statusId: 3, status: "Drafted" });
+		const props = buildFreightPreviewProps(invoice);
+		expect(props.header.status).toBe("Approved");
+	});
+
+	it("maps statusId=20 (Pending Approval) to 'Pending Approval'", () => {
+		const invoice = baseInvoice({ statusId: 20, status: "Drafted" });
+		const props = buildFreightPreviewProps(invoice);
+		expect(props.header.status).toBe("Pending Approval");
+	});
+
+	it("maps statusId=21 (Draft) to 'Draft'", () => {
+		const invoice = baseInvoice({ statusId: 21, status: "Drafted" });
+		const props = buildFreightPreviewProps(invoice);
+		expect(props.header.status).toBe("Draft");
+	});
+
+	it("falls back to raw invoice.status when statusId is missing", () => {
+		const invoice = baseInvoice({ statusId: undefined, status: "Some Custom" });
+		const props = buildFreightPreviewProps(invoice);
+		expect(props.header.status).toBe("Some Custom");
+	});
+});

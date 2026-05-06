@@ -312,6 +312,7 @@ const apiRoutesPortalMasters = {
     JUTE_PO_REJECT: `${API_URL}/jutePO/reject_jute_po`,
     JUTE_PO_CANCEL_DRAFT: `${API_URL}/jutePO/cancel_draft_jute_po`,
     JUTE_PO_REOPEN: `${API_URL}/jutePO/reopen_jute_po`,
+    JUTE_PO_DOWNLOAD: `${API_URL}/jutePO/download_po_table`,
 
     // Jute Gate Entry endpoints
     JUTE_GATE_ENTRY_TABLE: `${API_URL}/juteGateEntry/get_jute_gate_entry_table`,
@@ -322,6 +323,7 @@ const apiRoutesPortalMasters = {
     JUTE_GATE_ENTRY_PARTIES_BY_SUPPLIER: `${API_URL}/juteGateEntry/get_parties_by_supplier`,
     JUTE_GATE_ENTRY_QUALITIES_BY_ITEM: `${API_URL}/juteGateEntry/get_qualities_by_item`,
     JUTE_GATE_ENTRY_PO_DETAILS: `${API_URL}/juteGateEntry/get_po_details`,
+    JUTE_GATE_ENTRY_DOWNLOAD: `${API_URL}/juteGateEntry/download_gate_entry_table`,
 
     // Jute Material Inspection endpoints
     JUTE_MATERIAL_INSPECTION_TABLE: `${API_URL}/juteMaterialInspection/get_inspection_table`,
@@ -331,6 +333,7 @@ const apiRoutesPortalMasters = {
     JUTE_MATERIAL_INSPECTION_COMPLETE: `${API_URL}/juteMaterialInspection/complete_inspection`,
     JUTE_MATERIAL_INSPECTION_MR_LINE: `${API_URL}/juteMaterialInspection/get_mr_line_item`,
     JUTE_MATERIAL_INSPECTION_SAVE_MOISTURE: `${API_URL}/juteMaterialInspection/save_moisture_readings`,
+    JUTE_MATERIAL_INSPECTION_DOWNLOAD: `${API_URL}/juteMaterialInspection/download_inspection_table`,
 
     // Jute MR endpoints
     JUTE_MR_TABLE: `${API_URL}/juteMR/get_mr_table`,
@@ -352,6 +355,7 @@ const apiRoutesPortalMasters = {
     JUTE_BILL_PASS_BY_ID: `${API_URL}/juteBillPass/get_bill_pass_by_id`,
     JUTE_BILL_PASS_LINE_ITEMS: `${API_URL}/juteBillPass/get_bill_pass_line_items`,
     JUTE_BILL_PASS_UPDATE: `${API_URL}/juteBillPass/update_bill_pass`,
+    JUTE_BILL_PASS_DOWNLOAD: `${API_URL}/juteBillPass/download_bill_pass_list`,
 
     // Jute Issue endpoints
     JUTE_ISSUE_TABLE: `${API_URL}/juteIssue/get_issue_table`,
@@ -366,6 +370,7 @@ const apiRoutesPortalMasters = {
     JUTE_ISSUE_OPEN: `${API_URL}/juteIssue/open_issues`,
     JUTE_ISSUE_APPROVE: `${API_URL}/juteIssue/approve_issues`,
     JUTE_ISSUE_REJECT: `${API_URL}/juteIssue/reject_issues`,
+    JUTE_ISSUE_DOWNLOAD: `${API_URL}/juteIssue/download_issue_table`,
 
     // Batch Daily Assign
     BATCH_DAILY_ASSIGN_TABLE: `${API_URL}/batchDailyAssign/get_assign_table`,
@@ -377,6 +382,7 @@ const apiRoutesPortalMasters = {
     BATCH_DAILY_ASSIGN_OPEN: `${API_URL}/batchDailyAssign/open_assigns`,
     BATCH_DAILY_ASSIGN_APPROVE: `${API_URL}/batchDailyAssign/approve_assigns`,
     BATCH_DAILY_ASSIGN_REJECT: `${API_URL}/batchDailyAssign/reject_assigns`,
+    BATCH_DAILY_ASSIGN_DOWNLOAD: `${API_URL}/batchDailyAssign/download_assign_table`,
 
     // Jute Reports
     JUTE_REPORT_STOCK: `${API_URL}/juteReports/stock`,
@@ -385,6 +391,10 @@ const apiRoutesPortalMasters = {
     JUTE_REPORT_TALLY_DOWNLOAD: `${API_URL}/juteReports/tally-download`,
     SALES_REPORT_JUTE_TALLY_DOWNLOAD: `${API_URL}/salesReports/jute-tally-download`,
     SALES_REPORT_JUTE_MR_SUMMARY: `${API_URL}/salesReports/jute-mr-summary`,
+    SALES_REPORT_SALES_ORDER_LIST: `${API_URL}/salesReports/sales-order-list`,
+    SALES_REPORT_SALES_ORDER_LIST_DOWNLOAD: `${API_URL}/salesReports/sales-order-list-download`,
+    SALES_REPORT_INVOICE_LIST: `${API_URL}/salesReports/invoice-list`,
+    SALES_REPORT_INVOICE_LIST_DOWNLOAD: `${API_URL}/salesReports/invoice-list-download`,
 
     // Jute SQC - Morrah Weight QC
     MORRAH_WT_TABLE: `${API_URL}/juteSQC/get_morrah_wt_table`,

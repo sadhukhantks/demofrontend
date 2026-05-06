@@ -6,8 +6,11 @@ import type { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import IndexWrapper from "@/components/ui/IndexWrapper";
+import DateRangeToolbar from "@/components/ui/DateRangeToolbar";
 import { useRouter } from "next/navigation";
 import { createStatusBasedEditCheck } from "@/utils/editability";
+import { useExcelDownload } from "@/hooks/useExcelDownload";
+import { fetchExcelBlob } from "@/utils/fetchExcelBlob";
 
 /**
  * @component JutePOIndexPage
@@ -67,7 +70,31 @@ export default function JutePOIndexPage() {
 	const [loading, setLoading] = React.useState(false);
 	const [paginationModel, setPaginationModel] = React.useState<GridPaginationModel>({ page: 0, pageSize: 10 });
 	const [searchValue, setSearchValue] = React.useState("");
+	const [fromDate, setFromDate] = React.useState("");
+	const [toDate, setToDate] = React.useState("");
 	const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+	const [coIdState, setCoIdState] = React.useState<string>("");
+	const [mounted, setMounted] = React.useState(false);
+	React.useEffect(() => {
+		setMounted(true);
+	}, []);
+
+	const downloadFetcher = React.useCallback(
+		(p: { coId: string; search: string; fromDate: string; toDate: string }) =>
+			fetchExcelBlob(apiRoutesPortalMasters.JUTE_PO_DOWNLOAD, {
+				coId: p.coId,
+				search: p.search,
+				fromDate: p.fromDate || null,
+				toDate: p.toDate || null,
+			}),
+		[]
+	);
+	const {
+		download,
+		downloading,
+		error: downloadError,
+		clearError: clearDownloadError,
+	} = useExcelDownload(downloadFetcher, "jute_po");
 
 	const columns = React.useMemo<GridColDef<JutePORow>[]>(
 		() => [
@@ -156,6 +183,7 @@ export default function JutePOIndexPage() {
 			} catch {
 				co_id = "";
 			}
+			setCoIdState(co_id);
 
 			const query = new URLSearchParams({
 				page: String(paginationModel.page + 1),
@@ -164,6 +192,8 @@ export default function JutePOIndexPage() {
 			if (co_id) query.set("co_id", co_id);
 			const trimmedSearch = searchValue.trim();
 			if (trimmedSearch) query.set("search", trimmedSearch);
+			if (fromDate) query.set("from_date", fromDate);
+			if (toDate) query.set("to_date", toDate);
 
 			const url = `${apiRoutesPortalMasters.JUTE_PO_TABLE}?${query.toString()}`;
 			const { data, error } = await fetchWithCookie(url, "GET");
@@ -207,7 +237,7 @@ export default function JutePOIndexPage() {
 		} finally {
 			setLoading(false);
 		}
-	}, [paginationModel.page, paginationModel.pageSize, searchValue]);
+	}, [paginationModel.page, paginationModel.pageSize, searchValue, fromDate, toDate]);
 
 	React.useEffect(() => {
 		fetchJutePOs();
@@ -222,6 +252,26 @@ export default function JutePOIndexPage() {
 		setPaginationModel((prev) => ({ ...prev, page: 0 }));
 		setSearchValue(value);
 	}, []);
+
+	const handleFromDateChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+		setPaginationModel((prev) => ({ ...prev, page: 0 }));
+		setFromDate(event.target.value);
+	}, []);
+
+	const handleToDateChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+		setPaginationModel((prev) => ({ ...prev, page: 0 }));
+		setToDate(event.target.value);
+	}, []);
+
+	const handleClearDates = React.useCallback(() => {
+		setPaginationModel((prev) => ({ ...prev, page: 0 }));
+		setFromDate("");
+		setToDate("");
+	}, []);
+
+	const handleDownload = React.useCallback(() => {
+		download({ coId: coIdState, search: searchValue, fromDate, toDate });
+	}, [download, coIdState, searchValue, fromDate, toDate]);
 
 	const handleCreateJutePO = React.useCallback(() => {
 		router.push("/dashboardportal/jutePurchase/po/createPO");
@@ -273,6 +323,19 @@ export default function JutePOIndexPage() {
 				debounceDelayMs: 500,
 			}}
 			createAction={{ onClick: handleCreateJutePO, label: "Create Jute PO" }}
+			toolbarContent={
+				<DateRangeToolbar
+					fromDate={fromDate}
+					toDate={toDate}
+					onFromDateChange={handleFromDateChange}
+					onToDateChange={handleToDateChange}
+					onClearDates={handleClearDates}
+					onDownload={handleDownload}
+					downloading={downloading}
+					downloadDisabled={!coIdState || loading}
+					mounted={mounted}
+				/>
+			}
 			onView={handleView}
 			onEdit={handleEdit}
 			isRowEditable={isRowEditable}
@@ -280,6 +343,11 @@ export default function JutePOIndexPage() {
 			{errorMessage ? (
 				<Alert severity="error" sx={{ mt: 2 }}>
 					{errorMessage}
+				</Alert>
+			) : null}
+			{downloadError ? (
+				<Alert severity="error" sx={{ mt: 2 }} onClose={clearDownloadError}>
+					{downloadError}
 				</Alert>
 			) : null}
 		</IndexWrapper>
