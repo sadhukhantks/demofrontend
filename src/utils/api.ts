@@ -344,6 +344,7 @@ const apiRoutesPortalMasters = {
     JUTE_MR_APPROVE: `${API_URL}/juteMR/approve_mr`,
     JUTE_MR_REJECT: `${API_URL}/juteMR/reject_mr`,
     JUTE_MR_CANCEL: `${API_URL}/juteMR/cancel_mr`,
+    JUTE_MR_DOWNLOAD: `${API_URL}/juteMR/download_mr_table`,
     JUTE_MATERIAL_INSPECTION_UPDATE_LINE: `${API_URL}/juteMaterialInspection/update_line_item`,
 
     // Jute Bill Pass endpoints
