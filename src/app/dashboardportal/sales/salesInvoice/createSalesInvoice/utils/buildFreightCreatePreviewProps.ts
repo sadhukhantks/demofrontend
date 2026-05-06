@@ -163,8 +163,11 @@ export function buildFreightCreatePreviewProps(args: FreightCreatePreviewArgs): 
 	const containerSegment = containerNo ? `Container No.${containerNo}` : "";
 	// Reference to the source Govt Sacking invoice — mirrors view-mode behavior in
 	// buildFreightPreviewProps so the freight invoice always visibly cites the source.
-	const referenceSegment = header?.invoice_no != null
-		? `Ref: Source Govt Sacking Invoice No ${header.invoice_no}${header.invoice_date ? ` dated ${header.invoice_date}` : ""}`
+	// Prefer the FY-formatted invoice number (e.g. "EJM/F/SI/25-26/41") so the print
+	// matches how invoice numbers are displayed elsewhere in the app.
+	const sourceInvoiceLabel = header?.invoice_no_formatted || (header?.invoice_no != null ? String(header.invoice_no) : "");
+	const referenceSegment = sourceInvoiceLabel
+		? `Ref Invoice- ${sourceInvoiceLabel}${header?.invoice_date ? ` dated ${header.invoice_date}` : ""}`
 		: "";
 	const autoRemarksSegments = [footerNote, referenceSegment, iwBillSegment, containerSegment].filter(Boolean);
 	// De-dup — footerNote may already include the IW/container pieces.

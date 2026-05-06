@@ -7,7 +7,9 @@ import {
 	hasTypeSpecificLineItems,
 } from "../utils/salesInvoiceConstants";
 import { buildFreightCreatePreviewProps } from "../utils/buildFreightCreatePreviewProps";
+import { buildFreightPreviewProps } from "../utils/buildFreightPreviewProps";
 import type { GovtSackingSourceDetail } from "../types/salesInvoiceTypes";
+import type { InvoiceDetails } from "@/utils/salesInvoiceService";
 
 describe("Govt Sacking Freight - constants & predicates", () => {
 	it("declares the type id as '7'", () => {
@@ -87,6 +89,7 @@ describe("buildFreightCreatePreviewProps — header parity with Govt Sacking (ty
 			eway_bill_date: "2025-12-15",
 			sales_order_no_formatted: "VOW/KOL/SO/25-26/169",
 			sales_order_date: "2025-06-10",
+			invoice_no_formatted: "VOW/KOL/SI/25-26/452",
 			...overrides,
 		},
 		lines: [
@@ -157,10 +160,18 @@ describe("buildFreightCreatePreviewProps — header parity with Govt Sacking (ty
 		expect(result.header.ewayBillNo).toBe("EWB1234567890");
 	});
 
-	it("auto-appends a reference to the source Govt Sacking invoice in remarks", () => {
+	it("auto-appends a reference to the source Govt Sacking invoice in remarks using the formatted invoice no.", () => {
 		const result = buildFreightCreatePreviewProps({ ...baseArgs, source: makeSource() });
-		expect(result.remarks).toContain("Ref: Source Govt Sacking Invoice No 452");
+		expect(result.remarks).toContain("Ref Invoice- VOW/KOL/SI/25-26/452");
 		expect(result.remarks).toContain("dated 2025-12-15");
+	});
+
+	it("falls back to the raw invoice_no when no formatted value is supplied", () => {
+		const result = buildFreightCreatePreviewProps({
+			...baseArgs,
+			source: makeSource({ invoice_no_formatted: null }),
+		});
+		expect(result.remarks).toContain("Ref Invoice- 452");
 	});
 
 	it("preserves user footer note alongside auto-appended reference and IW/container segments", () => {
@@ -169,8 +180,70 @@ describe("buildFreightCreatePreviewProps — header parity with Govt Sacking (ty
 			footerNote: "Manual note",
 			source: makeSource(),
 		});
-		expect(result.remarks).toMatch(/Manual note.*Ref: Source Govt Sacking Invoice No 452/);
+		expect(result.remarks).toMatch(/Manual note.*Ref Invoice- VOW\/KOL\/SI\/25-26\/452/);
 		expect(result.remarks).toContain("IW Bill No.IW/2026/77");
 		expect(result.remarks).toContain("Container No.CNTR-9999");
+	});
+});
+
+describe("buildFreightPreviewProps — view-mode totals normalization", () => {
+	const baseInvoice = (overrides: Partial<InvoiceDetails> = {}): InvoiceDetails => ({
+		id: "55555",
+		invoiceNo: "EJM/F/SO/26-27/46",
+		invoiceDate: "2026-05-05",
+		branchId: "5",
+		party: "MP State Civil Supplies",
+		intraInterState: 1, // inter-state → IGST
+		lines: [
+			{
+				invoice_line_item_id: 70001,
+				item_id: 9001,
+				itemName: "Freight Charges",
+				hsnCode: "996519",
+				quantity: 48,
+				uom: "BALES",
+				rate: 1437.98,
+				netAmount: 69023,
+				totalAmount: 81447.14,
+				remarks: "PRINTED TYPE-A JUTE BAG(580GMS) — 48 bales",
+				gst: {
+					cgstAmount: 0,
+					sgstAmount: 0,
+					igstAmount: 12424.14,
+					cgstPercent: 0,
+					sgstPercent: 0,
+					igstPercent: 18,
+				},
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			} as any,
+		],
+		...overrides,
+	} as unknown as InvoiceDetails);
+
+	it("post-fix BE shape: pre-tax grossAmount renders Total = freight, Grand Total = freight + IGST", () => {
+		const invoice = baseInvoice({ grossAmount: 69023 });
+		const props = buildFreightPreviewProps(invoice);
+		expect(props.totals.grossAmount).toBe(69023);
+		expect(props.totals.totalIGST).toBe(12424.14);
+		expect(props.totals.netAmount).toBe(81447.14);
+	});
+
+	it("legacy post-tax BE shape: defensive normalization strips IGST from grossAmount", () => {
+		// Pre-fix BE stored invoice_amount = freight + tax (81447.14). FE must detect
+		// and normalize so the printed Total still shows 69023 and Grand Total 81447.14.
+		const invoice = baseInvoice({ grossAmount: 81447.14 });
+		const props = buildFreightPreviewProps(invoice);
+		expect(props.totals.grossAmount).toBe(69023);
+		expect(props.totals.totalIGST).toBe(12424.14);
+		expect(props.totals.netAmount).toBe(81447.14);
+	});
+
+	it("does NOT normalize when grossAmount and lineNet+tax disagree (real edit scenario)", () => {
+		// If grossAmount (50000) does not match lineNet (69023) + tax (12424.14) within
+		// rounding, leave grossAmount alone — the discrepancy means it is not a legacy
+		// post-tax artifact and we should not silently rewrite it.
+		const invoice = baseInvoice({ grossAmount: 50000 });
+		const props = buildFreightPreviewProps(invoice);
+		expect(props.totals.grossAmount).toBe(50000);
 	});
 });

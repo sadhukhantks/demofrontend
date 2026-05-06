@@ -169,6 +169,7 @@ export type InvoiceDetails = {
     source?: {
       invoice_id: number;
       invoice_no: number | string | null;
+      invoice_no_formatted?: string | null;
       invoice_date: string | null;
       pcso_no: string | null;
     };

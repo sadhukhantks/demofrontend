@@ -3,6 +3,8 @@ import type {
 	CustomerRecordRaw,
 	CustomerBranchRecord,
 	CustomerBranchRecordRaw,
+	CompanyBranchRecord,
+	CompanyBranchRecordRaw,
 	TransporterRecord,
 	TransporterRecordRaw,
 	BrokerRecord,
@@ -151,6 +153,25 @@ export const mapInvoiceTypeRecords = (records: unknown[]): InvoiceTypeRecord[] =
 		})
 		.filter(Boolean) as InvoiceTypeRecord[];
 
+export const mapCompanyBranchRecords = (records: unknown[]): CompanyBranchRecord[] =>
+	records
+		.map((row) => {
+			const data = row as CompanyBranchRecordRaw;
+			const id = data?.branch_id;
+			if (id == null) return null;
+			return {
+				id: String(id),
+				name: data?.branch_name,
+				address1: data?.branch_address1,
+				address2: data?.branch_address2,
+				zipcode: data?.branch_zipcode != null ? String(data.branch_zipcode) : undefined,
+				stateName: data?.state_name,
+				stateCode: data?.state_code,
+				gstNo: data?.gst_no,
+			} satisfies CompanyBranchRecord;
+		})
+		.filter(Boolean) as CompanyBranchRecord[];
+
 export const mapDOSetupResponse = (response: unknown): DOSetupData => {
 	try {
 		const result = response as DOSetup1ResponseRaw;
@@ -161,6 +182,7 @@ export const mapDOSetupResponse = (response: unknown): DOSetupData => {
 			approvedSalesOrders: mapApprovedSalesOrders(result?.approved_sales_orders ?? []),
 			itemGroups: mapItemGroupRecords(result?.item_groups ?? []),
 			invoiceTypes: mapInvoiceTypeRecords(result?.invoice_types ?? []),
+			branches: mapCompanyBranchRecords(result?.branches ?? []),
 		} satisfies DOSetupData;
 	} catch (error) {
 		console.error("Failed to map DO setup response", error);

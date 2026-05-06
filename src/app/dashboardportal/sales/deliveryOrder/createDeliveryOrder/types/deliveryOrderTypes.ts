@@ -65,6 +65,30 @@ export type ItemGroupRecord = {
 	label: string;
 };
 
+export type CompanyBranchRecord = {
+	id: string;
+	name?: string;
+	address1?: string;
+	address2?: string;
+	zipcode?: string;
+	stateName?: string;
+	stateCode?: string;
+	gstNo?: string;
+};
+
+export type CompanyBranchRecordRaw = {
+	branch_id?: string | number;
+	branch_name?: string;
+	branch_address1?: string;
+	branch_address2?: string;
+	branch_zipcode?: string | number;
+	state_id?: number;
+	state_code?: string;
+	state_name?: string;
+	gst_no?: string;
+	contact_no?: string;
+};
+
 export type ItemOption = Option & {
 	defaultUomId?: string;
 	defaultUomLabel?: string;
@@ -137,6 +161,7 @@ export type DOSetupData = {
 	approvedSalesOrders: ApprovedSalesOrderRecord[];
 	itemGroups: ItemGroupRecord[];
 	invoiceTypes: InvoiceTypeRecord[];
+	branches: CompanyBranchRecord[];
 };
 
 // Raw API response types
