@@ -48,7 +48,13 @@ type BomTreeNodeProps = {
   onSaveNew: (parentItemId: number, payload: InlineSavePayload) => Promise<void>;
   onSaveEdit: (
     bomId: number,
-    payload: { qty: number; uom_id: number; sequence_no: number; co_id: number }
+    payload: {
+      qty: number;
+      uom_id: number;
+      sequence_no: number;
+      co_id: number;
+      additional_description?: string | null;
+    }
   ) => Promise<void>;
   onCancelInline: () => void;
   onItemSearchChange: (query: string) => void;
@@ -85,6 +91,7 @@ function BomTreeNode({
   const [editQty, setEditQty] = useState<string>(String(node.qty));
   const [editSeq, setEditSeq] = useState<string>(String(node.sequence_no));
   const [editUom, setEditUom] = useState<UomOption | null>({ uom_id: node.uom_id, uom_name: node.uom_name });
+  const [editAdditionalDescription, setEditAdditionalDescription] = useState<string>(node.additional_description ?? "");
   const [editQtyError, setEditQtyError] = useState(false);
   const [editUomError, setEditUomError] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
@@ -95,10 +102,11 @@ function BomTreeNode({
       setEditQty(String(node.qty));
       setEditSeq(String(node.sequence_no));
       setEditUom({ uom_id: node.uom_id, uom_name: node.uom_name });
+      setEditAdditionalDescription(node.additional_description ?? "");
       setEditQtyError(false);
       setEditUomError(false);
     }
-  }, [isEditMode, node.qty, node.sequence_no, node.uom_id, node.uom_name]);
+  }, [isEditMode, node.qty, node.sequence_no, node.uom_id, node.uom_name, node.additional_description]);
 
   // Drag-and-drop sortable (only for read-only rows)
   const {
@@ -143,6 +151,7 @@ function BomTreeNode({
         uom_id: editUom!.uom_id,
         sequence_no: parseInt(editSeq) || node.sequence_no,
         co_id,
+        additional_description: editAdditionalDescription.trim() || null,
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Update failed";
@@ -294,6 +303,46 @@ function BomTreeNode({
           >
             {node.child_item_name}
           </Typography>
+        </Box>
+
+        {/* ── Additional Description cell ───────────────────────────────── */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            px: 1,
+            py: isEditMode ? 0.5 : 0.75,
+            borderRight: "1px solid",
+            borderColor: "divider",
+            overflow: "hidden",
+          }}
+        >
+          {isEditMode ? (
+            <TextField
+              size="small"
+              value={editAdditionalDescription}
+              onChange={(e) => setEditAdditionalDescription(e.target.value)}
+              placeholder="Notes…"
+              sx={{ width: "100%" }}
+            />
+          ) : node.additional_description ? (
+            <Tooltip title={node.additional_description} placement="top-start">
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  width: "100%",
+                }}
+              >
+                {node.additional_description}
+              </Typography>
+            </Tooltip>
+          ) : (
+            <Typography variant="body2" color="text.disabled">—</Typography>
+          )}
         </Box>
 
         {/* ── Qty cell ──────────────────────────────────────────────────── */}
@@ -474,7 +523,6 @@ function BomTreeNode({
               parentMultiplier={bomQty}
               itemOptions={itemOptions}
               uomOptions={uomOptions}
-              excludeItemIds={(node.children ?? []).map((c) => c.child_item_id)}
               onItemSearchChange={onItemSearchChange}
               onSave={onSaveNew}
               onCancel={onCancelInline}
@@ -494,7 +542,6 @@ function BomTreeNode({
           parentMultiplier={bomQty}
           itemOptions={itemOptions}
           uomOptions={uomOptions}
-          excludeItemIds={(node.children ?? []).map((c) => c.child_item_id)}
           onItemSearchChange={onItemSearchChange}
           onSave={onSaveNew}
           onCancel={onCancelInline}

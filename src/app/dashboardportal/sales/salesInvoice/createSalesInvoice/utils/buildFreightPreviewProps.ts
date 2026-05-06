@@ -59,8 +59,21 @@ export function buildFreightPreviewProps(invoice: InvoiceDetails): FreightPrevie
 	const sgstPercent = Number(firstLine?.gst?.sgstPercent ?? (totalSGST > 0 ? 9 : 0));
 	const igstPercent = Number(firstLine?.gst?.igstPercent ?? (totalIGST > 0 ? 18 : 0));
 
-	const referenceNote = invoice.freight?.source?.invoice_no
-		? `Ref: Source Govt Sacking Invoice No ${invoice.freight.source.invoice_no}${invoice.freight.source.invoice_date ? ` dated ${invoice.freight.source.invoice_date}` : ""}`
+	// Defensive: legacy type-7 rows may have stored invoice_amount post-tax (BE bug fixed
+	// in salesInvoice.py — pre-fix rows still have grossAmount = freight + tax). If the
+	// header grossAmount matches lineNet + totalTax within rounding, treat it as post-tax
+	// and normalize to pre-tax. Idempotent against the post-fix shape.
+	const totalTax = totalCGST + totalSGST + totalIGST;
+	const lineNet = Number(firstLine?.netAmount ?? firstLine?.totalAmount ?? 0);
+	const normalizedGross = (lineNet > 0 && totalTax > 0
+			&& Math.abs(grossFallback - (lineNet + totalTax)) < 0.5)
+		? lineNet
+		: grossFallback;
+
+	const sourceInvoiceLabel = invoice.freight?.source?.invoice_no_formatted
+		|| (invoice.freight?.source?.invoice_no != null ? String(invoice.freight.source.invoice_no) : "");
+	const referenceNote = sourceInvoiceLabel
+		? `Ref Invoice- ${sourceInvoiceLabel}${invoice.freight?.source?.invoice_date ? ` dated ${invoice.freight.source.invoice_date}` : ""}`
 		: "";
 	const footerText = [invoice.footerNote, referenceNote].filter(Boolean).join(" | ");
 
@@ -118,7 +131,7 @@ export function buildFreightPreviewProps(invoice: InvoiceDetails): FreightPrevie
 	const items: InvoicePreviewItem[] = firstLine ? [lineToItem(firstLine, 1)] : [];
 
 	const totals: InvoicePreviewTotals = {
-		grossAmount: grossFallback,
+		grossAmount: normalizedGross,
 		totalCGST,
 		totalSGST,
 		totalIGST,
@@ -126,7 +139,7 @@ export function buildFreightPreviewProps(invoice: InvoiceDetails): FreightPrevie
 		sgstPercent,
 		igstPercent,
 		roundOff: invoice.roundOff,
-		netAmount: invoice.netAmount ?? +(grossFallback + totalCGST + totalSGST + totalIGST).toFixed(2),
+		netAmount: invoice.netAmount ?? +(normalizedGross + totalCGST + totalSGST + totalIGST).toFixed(2),
 	};
 
 	return {

@@ -85,6 +85,7 @@ export type GovtSackingSourceHeader = {
 	sales_order_date?: string | null;
 	co_prefix?: string | null;
 	branch_prefix?: string | null;
+	invoice_no_formatted?: string | null;
 };
 
 export type GovtSackingSourceDetail = {

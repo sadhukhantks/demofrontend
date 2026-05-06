@@ -20,6 +20,7 @@ export type InlineSavePayload = {
   uom_id: number;
   sequence_no: number;
   co_id: number;
+  additional_description?: string | null;
   _meta: {
     child_item_code: string;
     child_full_item_code?: string;
@@ -37,8 +38,6 @@ export type InlineBomRowProps = {
   parentMultiplier: number;
   itemOptions: ItemOption[];
   uomOptions: UomOption[];
-  /** Already-picked child_item_ids in this sibling list — filtered out of options. */
-  excludeItemIds?: number[];
   onItemSearchChange: (query: string) => void;
   onSave: (parentItemId: number, payload: InlineSavePayload) => Promise<void>;
   onCancel: () => void;
@@ -52,13 +51,13 @@ export default function InlineBomRow({
   parentMultiplier,
   itemOptions,
   uomOptions,
-  excludeItemIds,
   onItemSearchChange,
   onSave,
   onCancel,
 }: InlineBomRowProps) {
   const [selectedItem, setSelectedItem] = useState<ItemOption | null>(null);
   const [itemInputValue, setItemInputValue] = useState("");
+  const [additionalDescription, setAdditionalDescription] = useState<string>("");
   const [qty, setQty] = useState<string>("1");
   const [selectedUom, setSelectedUom] = useState<UomOption | null>(null);
   const [saving, setSaving] = useState(false);
@@ -79,6 +78,7 @@ export default function InlineBomRow({
   const resetRow = () => {
     setSelectedItem(null);
     setItemInputValue("");
+    setAdditionalDescription("");
     setQty("1");
     setSelectedUom(null);
     setItemError(false);
@@ -103,6 +103,7 @@ export default function InlineBomRow({
         uom_id: selectedUom!.uom_id,
         sequence_no: nextSeq,
         co_id,
+        additional_description: additionalDescription.trim() || null,
         _meta: {
           child_item_code: selectedItem!.item_code,
           child_full_item_code: selectedItem!.full_item_code,
@@ -117,10 +118,6 @@ export default function InlineBomRow({
       setSaving(false);
     }
   };
-
-  const filteredItemOptions = excludeItemIds && excludeItemIds.length > 0
-    ? itemOptions.filter((o) => !excludeItemIds.includes(o.item_id))
-    : itemOptions;
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") { e.preventDefault(); handleSave(); }
@@ -152,7 +149,7 @@ export default function InlineBomRow({
       <Box sx={{ gridColumn: "span 2", pl: level * 3 + 1, pr: 1, py: 0.5, borderRight: "1px solid", borderColor: "divider" }}>
         <Autocomplete
           size="small"
-          options={filteredItemOptions}
+          options={itemOptions}
           getOptionLabel={(opt) => `${opt.full_item_code || opt.item_code} — ${opt.item_name}`}
           value={selectedItem}
           inputValue={itemInputValue}
@@ -181,6 +178,17 @@ export default function InlineBomRow({
               helperText={itemError ? "Required" : undefined}
             />
           )}
+        />
+      </Box>
+
+      {/* Additional description */}
+      <Box sx={{ px: 1, py: 0.5, borderRight: "1px solid", borderColor: "divider" }}>
+        <TextField
+          size="small"
+          value={additionalDescription}
+          onChange={(e) => setAdditionalDescription(e.target.value)}
+          placeholder="Notes…"
+          sx={{ width: "100%" }}
         />
       </Box>
 

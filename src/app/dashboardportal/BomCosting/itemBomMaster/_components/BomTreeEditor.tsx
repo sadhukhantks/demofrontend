@@ -56,7 +56,7 @@ type BomTreeEditorProps = {
   onSnackbar: (message: string, severity: "success" | "error") => void;
 };
 
-const BOM_GRID_COLUMNS = "60px 320px 1fr 80px 90px 80px 100px";
+const BOM_GRID_COLUMNS = "60px 320px 1fr 220px 80px 90px 80px 100px";
 
 /** Recursively find the sibling list containing both bomId values.
  *  Returns null if the two ids don't share a parent (cross-parent drag). */
@@ -348,6 +348,7 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
           child_item_code: _meta.child_item_code,
           child_full_item_code: _meta.child_full_item_code,
           child_item_name: _meta.child_item_name,
+          additional_description: payload.additional_description ?? null,
           qty: payload.qty,
           uom_id: payload.uom_id,
           uom_name: _meta.uom_name,
@@ -367,7 +368,13 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
   const handleSaveEdit = useCallback(
     async (
       bomId: number,
-      payload: { qty: number; uom_id: number; sequence_no: number; co_id: number }
+      payload: {
+        qty: number;
+        uom_id: number;
+        sequence_no: number;
+        co_id: number;
+        additional_description?: string | null;
+      }
     ) => {
       const { error } = await fetchWithCookie(
         apiRoutesPortalMasters.BOM_EDIT_COMPONENT,
@@ -382,6 +389,7 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
         uom_id: payload.uom_id,
         uom_name: uom?.uom_name ?? "",
         sequence_no: payload.sequence_no,
+        additional_description: payload.additional_description ?? null,
       }));
       onSnackbar("Component updated", "success");
       setEditingBomId(null);
@@ -650,6 +658,19 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
                         textTransform: "uppercase",
                         py: 1,
                         px: 1,
+                        borderRight: "1px solid",
+                        borderColor: "divider",
+                      }}
+                    >
+                      Addl. Desc
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        py: 1,
+                        px: 1,
                         textAlign: "right",
                         borderRight: "1px solid",
                         borderColor: "divider",
@@ -734,7 +755,6 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
                       parentMultiplier={1}
                       itemOptions={itemOptions}
                       uomOptions={uomOptions}
-                      excludeItemIds={tree.map((n) => n.child_item_id)}
                       onItemSearchChange={handleItemSearchChange}
                       onSave={handleSaveNew}
                       onCancel={handleCancelInline}

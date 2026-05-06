@@ -62,6 +62,7 @@ import {
 	EMPTY_APPROVED_SALES_ORDERS,
 	EMPTY_ITEM_GROUPS,
 	EMPTY_INVOICE_TYPES,
+	EMPTY_COMPANY_BRANCHES,
 	EMPTY_SETUP_PARAMS,
 	isGovtInvoice,
 	isBalesUomName,
@@ -174,6 +175,7 @@ function DOTransactionPageContent() {
 	const approvedSalesOrders = setupData?.approvedSalesOrders ?? EMPTY_APPROVED_SALES_ORDERS;
 	const itemGroups = setupData?.itemGroups ?? EMPTY_ITEM_GROUPS;
 	const invoiceTypes = setupData?.invoiceTypes ?? EMPTY_INVOICE_TYPES;
+	const companyBranches = setupData?.branches ?? EMPTY_COMPANY_BRANCHES;
 
 	const fetchItemGroupDetail = React.useCallback(async (itemGroupId: string) => {
 		if (!itemGroupId || !/^\d+$/.test(itemGroupId)) {
@@ -573,6 +575,15 @@ function DOTransactionPageContent() {
 		return getOptionLabel(resolvedBranchOptions, value) ?? (typeof value === "string" ? value : undefined);
 	}, [resolvedBranchOptions, formValues.branch, doDetails?.branch, getOptionLabel]);
 
+	const branchAddress = React.useMemo(() => {
+		const value = formValues.branch ?? doDetails?.branch;
+		if (value == null || value === "") return undefined;
+		const match = companyBranches.find((b) => b.id === String(value));
+		if (!match) return undefined;
+		const parts = [match.address1, match.address2, match.stateName, match.zipcode].filter(Boolean);
+		return parts.length > 0 ? parts.join(", ") : undefined;
+	}, [companyBranches, formValues.branch, doDetails?.branch]);
+
 	const customerLabel = React.useMemo(() => {
 		const value = formValues.party ?? doDetails?.party;
 		return getOptionLabel(customerOptions, value) ?? (typeof value === "string" ? value : undefined);
@@ -658,6 +669,7 @@ function DOTransactionPageContent() {
 			doNo: doDetails?.deliveryOrderNo,
 			doDate: (formValues.date as string) || doDetails?.deliveryOrderDate,
 			branch: branchLabel,
+			branchAddress,
 			customer: customerLabel,
 			billingToAddress,
 			shippingToAddress,
@@ -674,7 +686,7 @@ function DOTransactionPageContent() {
 	}, [
 		doDetails, formValues.date, formValues.invoice_type, formValues.sales_order,
 		formValues.vehicle_no, formValues.driver_name, approvedSalesOrders,
-		branchLabel, customerLabel, billingToAddress, shippingToAddress, salesOrderLabel,
+		branchLabel, branchAddress, customerLabel, billingToAddress, shippingToAddress, salesOrderLabel,
 		transporterLabel, companyName, companyLogo, statusLabel,
 	]);
 
