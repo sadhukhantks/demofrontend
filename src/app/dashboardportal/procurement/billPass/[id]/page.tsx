@@ -255,6 +255,7 @@ export default function BillPassViewPage() {
   const handlePrintPreview = () => {
     if (!detail) return;
     const formData: BillPassPreviewFormData = {
+      invoice_no: detail.invoice_no ?? "",
       invoice_date: detail.invoice_date?.slice(0, 10) ?? "",
       invoice_amount: detail.invoice_amount != null ? String(detail.invoice_amount) : "",
       invoice_recvd_date: detail.invoice_recvd_date?.slice(0, 10) ?? "",

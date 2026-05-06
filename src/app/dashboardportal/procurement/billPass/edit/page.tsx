@@ -37,6 +37,7 @@ import useCompanyHeader from "@/hooks/useCompanyHeader";
 import {
   renderBillPassPreviewHtml,
   BILL_PASS_PRINT_CSS,
+  splitItemNameMake,
 } from "./components/BillPassPreview";
 
 /**
@@ -538,9 +539,27 @@ function BillPassEditPageContent() {
                             </Typography>
                           </Box>
                           <Box component="td" sx={{ p: 1, fontSize: "0.75rem" }}>
-                            <Typography variant="caption" fontWeight={600}>
-                              {line.item_name || "-"}
-                            </Typography>
+                            {(() => {
+                              const { name, make } = splitItemNameMake(line.item_name);
+                              return (
+                                <>
+                                  <Typography variant="caption" fontWeight={600} display="block">
+                                    {name}
+                                  </Typography>
+                                  {make && (
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                      fontStyle="italic"
+                                      display="block"
+                                      sx={{ fontSize: "0.65rem" }}
+                                    >
+                                      {make}
+                                    </Typography>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </Box>
                           <Box component="td" sx={{ p: 1, fontSize: "0.75rem" }}>
                             {line.hsn_code || "-"}

@@ -6,8 +6,11 @@ import type { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import IndexWrapper from "@/components/ui/IndexWrapper";
+import DateRangeToolbar from "@/components/ui/DateRangeToolbar";
 import { useRouter } from "next/navigation";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import { useExcelDownload } from "@/hooks/useExcelDownload";
+import { fetchExcelBlob } from "@/utils/fetchExcelBlob";
 
 /**
  * @component BatchPlanIndexPage
@@ -65,7 +68,31 @@ export default function BatchPlanIndexPage() {
 	const [loading, setLoading] = React.useState(false);
 	const [paginationModel, setPaginationModel] = React.useState<GridPaginationModel>({ page: 0, pageSize: 10 });
 	const [searchValue, setSearchValue] = React.useState("");
+	const [fromDate, setFromDate] = React.useState("");
+	const [toDate, setToDate] = React.useState("");
 	const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+	const [branchIdState, setBranchIdState] = React.useState<string>("");
+	const [mounted, setMounted] = React.useState(false);
+	React.useEffect(() => {
+		setMounted(true);
+	}, []);
+
+	const downloadFetcher = React.useCallback(
+		(p: { branchId: string; search: string; fromDate: string; toDate: string }) =>
+			fetchExcelBlob(apiRoutesPortalMasters.BATCH_DAILY_ASSIGN_DOWNLOAD, {
+				branchId: p.branchId,
+				search: p.search,
+				fromDate: p.fromDate || null,
+				toDate: p.toDate || null,
+			}),
+		[]
+	);
+	const {
+		download,
+		downloading,
+		error: downloadError,
+		clearError: clearDownloadError,
+	} = useExcelDownload(downloadFetcher, "batch_daily_assign");
 
 	const columns = React.useMemo<GridColDef<BatchAssignSummaryRow>[]>(
 		() => [
@@ -136,6 +163,7 @@ export default function BatchPlanIndexPage() {
 		} catch {
 			// ignore parse errors — branchId remains undefined
 		}
+		setBranchIdState(branchId ?? "");
 
 		setLoading(true);
 		setErrorMessage(null);
@@ -149,6 +177,8 @@ export default function BatchPlanIndexPage() {
 			if (branchId) query.set("branch_id", branchId);
 			const trimmedSearch = searchValue.trim();
 			if (trimmedSearch) query.set("search", trimmedSearch);
+			if (fromDate) query.set("from_date", fromDate);
+			if (toDate) query.set("to_date", toDate);
 
 			const url = `${apiRoutesPortalMasters.BATCH_DAILY_ASSIGN_TABLE}?${query.toString()}`;
 			const { data, error } = await fetchWithCookie(url, "GET");
@@ -191,7 +221,7 @@ export default function BatchPlanIndexPage() {
 		} finally {
 			setLoading(false);
 		}
-	}, [coId, paginationModel.page, paginationModel.pageSize, searchValue]);
+	}, [coId, paginationModel.page, paginationModel.pageSize, searchValue, fromDate, toDate]);
 
 	React.useEffect(() => {
 		if (coId) {
@@ -208,6 +238,26 @@ export default function BatchPlanIndexPage() {
 		setPaginationModel((prev) => ({ ...prev, page: 0 }));
 		setSearchValue(value);
 	}, []);
+
+	const handleFromDateChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+		setPaginationModel((prev) => ({ ...prev, page: 0 }));
+		setFromDate(event.target.value);
+	}, []);
+
+	const handleToDateChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+		setPaginationModel((prev) => ({ ...prev, page: 0 }));
+		setToDate(event.target.value);
+	}, []);
+
+	const handleClearDates = React.useCallback(() => {
+		setPaginationModel((prev) => ({ ...prev, page: 0 }));
+		setFromDate("");
+		setToDate("");
+	}, []);
+
+	const handleDownload = React.useCallback(() => {
+		download({ branchId: branchIdState, search: searchValue, fromDate, toDate });
+	}, [download, branchIdState, searchValue, fromDate, toDate]);
 
 	const handleView = React.useCallback(
 		(row: BatchAssignSummaryRow) => {
@@ -250,6 +300,19 @@ export default function BatchPlanIndexPage() {
 				placeholder: "Search by date or branch",
 				debounceDelayMs: 500,
 			}}
+			toolbarContent={
+				<DateRangeToolbar
+					fromDate={fromDate}
+					toDate={toDate}
+					onFromDateChange={handleFromDateChange}
+					onToDateChange={handleToDateChange}
+					onClearDates={handleClearDates}
+					onDownload={handleDownload}
+					downloading={downloading}
+					downloadDisabled={!branchIdState || loading}
+					mounted={mounted}
+				/>
+			}
 			onView={handleView}
 			onEdit={handleEdit}
 			createAction={{
@@ -260,6 +323,11 @@ export default function BatchPlanIndexPage() {
 			{errorMessage ? (
 				<Alert severity="error" sx={{ mt: 2 }}>
 					{errorMessage}
+				</Alert>
+			) : null}
+			{downloadError ? (
+				<Alert severity="error" sx={{ mt: 2 }} onClose={clearDownloadError}>
+					{downloadError}
 				</Alert>
 			) : null}
 		</IndexWrapper>
