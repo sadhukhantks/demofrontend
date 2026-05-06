@@ -1,14 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Chip, Typography } from "@mui/material";
+import { Alert, Button, Chip, CircularProgress, TextField, Typography } from "@mui/material";
 import type { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui/x-data-grid";
+import { saveAs } from "file-saver";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { useRouter } from "next/navigation";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { createStatusBasedEditCheck } from "@/utils/editability";
+import { fetchJuteMRDownload } from "./utils/mrService";
 
 /**
  * @component JuteMRIndexPage
@@ -72,7 +74,15 @@ export default function JuteMRIndexPage() {
 	const [loading, setLoading] = React.useState(false);
 	const [paginationModel, setPaginationModel] = React.useState<GridPaginationModel>({ page: 0, pageSize: 10 });
 	const [searchValue, setSearchValue] = React.useState("");
+	const [fromDate, setFromDate] = React.useState("");
+	const [toDate, setToDate] = React.useState("");
 	const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+	const [downloading, setDownloading] = React.useState(false);
+	const [downloadError, setDownloadError] = React.useState<string | null>(null);
+	const [mounted, setMounted] = React.useState(false);
+	React.useEffect(() => {
+		setMounted(true);
+	}, []);
 
 	const columns = React.useMemo<GridColDef<JuteMRRow>[]>(
 		() => [
@@ -202,6 +212,8 @@ export default function JuteMRIndexPage() {
 			});
 			const trimmedSearch = searchValue.trim();
 			if (trimmedSearch) query.set("search", trimmedSearch);
+			if (fromDate) query.set("from_date", fromDate);
+			if (toDate) query.set("to_date", toDate);
 
 			const url = `${apiRoutesPortalMasters.JUTE_MR_TABLE}?${query.toString()}`;
 			const { data, error } = await fetchWithCookie(url, "GET");
@@ -249,7 +261,7 @@ export default function JuteMRIndexPage() {
 		} finally {
 			setLoading(false);
 		}
-	}, [coId, paginationModel.page, paginationModel.pageSize, searchValue]);
+	}, [coId, paginationModel.page, paginationModel.pageSize, searchValue, fromDate, toDate]);
 
 	React.useEffect(() => {
 		if (coId) {
@@ -266,6 +278,55 @@ export default function JuteMRIndexPage() {
 		setPaginationModel((prev) => ({ ...prev, page: 0 }));
 		setSearchValue(value);
 	}, []);
+
+	const handleFromDateChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+		const value = event.target.value;
+		setPaginationModel((prev) => ({ ...prev, page: 0 }));
+		setFromDate(value);
+	}, []);
+
+	const handleToDateChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+		const value = event.target.value;
+		setPaginationModel((prev) => ({ ...prev, page: 0 }));
+		setToDate(value);
+	}, []);
+
+	const handleClearDates = React.useCallback(() => {
+		setPaginationModel((prev) => ({ ...prev, page: 0 }));
+		setFromDate("");
+		setToDate("");
+	}, []);
+
+	const handleDownload = React.useCallback(async () => {
+		if (!coId) {
+			setDownloadError("Company ID not available");
+			return;
+		}
+		setDownloading(true);
+		setDownloadError(null);
+		try {
+			const blob = await fetchJuteMRDownload({
+				coId,
+				search: searchValue,
+				fromDate,
+				toDate,
+			});
+			if (!blob || blob.size === 0) {
+				setDownloadError("No data for the selected filters.");
+				return;
+			}
+			const suffixParts: string[] = [];
+			if (fromDate) suffixParts.push(fromDate);
+			if (toDate) suffixParts.push(toDate);
+			const suffix = suffixParts.length > 0 ? suffixParts.join("_") : "all";
+			saveAs(blob, `jute_mr_${suffix}.xlsx`);
+		} catch (err) {
+			const message = err instanceof Error ? err.message : "Failed to download Excel";
+			setDownloadError(message);
+		} finally {
+			setDownloading(false);
+		}
+	}, [coId, searchValue, fromDate, toDate]);
 
 	const handleView = React.useCallback(
 		(row: JuteMRRow) => {
@@ -309,9 +370,45 @@ export default function JuteMRIndexPage() {
 			search={{
 				value: searchValue,
 				onChange: handleSearchChange,
-				placeholder: "Search by MR number, supplier, party, challan, vehicle, or gate entry no.",
+				placeholder: "Search by MR no, supplier, party, challan, vehicle, gate entry, mukam, or branch.",
 				debounceDelayMs: 500,
 			}}
+			toolbarContent={
+				<>
+					<TextField
+						size="small"
+						type="date"
+						label="From"
+						value={fromDate}
+						onChange={handleFromDateChange}
+						InputLabelProps={{ shrink: true }}
+					/>
+					<TextField
+						size="small"
+						type="date"
+						label="To"
+						value={toDate}
+						onChange={handleToDateChange}
+						InputLabelProps={{ shrink: true }}
+					/>
+					{(fromDate || toDate) ? (
+						<Button size="small" variant="outlined" onClick={handleClearDates}>
+							Clear dates
+						</Button>
+					) : null}
+					{mounted ? (
+						<Button
+							size="small"
+							variant="outlined"
+							onClick={handleDownload}
+							disabled={!coId || downloading || loading}
+							startIcon={downloading ? <CircularProgress size={16} /> : undefined}
+						>
+							{downloading ? "Downloading..." : "Download Excel"}
+						</Button>
+					) : null}
+				</>
+			}
 			onView={handleView}
 			onEdit={handleEdit}
 			isRowEditable={isRowEditable}
@@ -319,6 +416,11 @@ export default function JuteMRIndexPage() {
 			{errorMessage ? (
 				<Alert severity="error" sx={{ mt: 2 }}>
 					{errorMessage}
+				</Alert>
+			) : null}
+			{downloadError ? (
+				<Alert severity="error" sx={{ mt: 2 }} onClose={() => setDownloadError(null)}>
+					{downloadError}
 				</Alert>
 			) : null}
 		</IndexWrapper>
