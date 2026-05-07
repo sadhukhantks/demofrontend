@@ -116,11 +116,10 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
 
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
-  // Shared item/uom options for inline rows (loaded once + debounced re-search)
+  // Shared item/uom options for inline rows (debounce lives in InlineBomRow)
   const [itemOptions, setItemOptions] = useState<ItemOption[]>([]);
   const [uomOptions, setUomOptions] = useState<UomOption[]>([]);
-  const itemSearchRef = useRef<string>("");
-  const itemSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const itemFetchSeqRef = useRef<number>(0);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -157,10 +156,13 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
     const co_id = getCoId();
     const params = new URLSearchParams({ co_id });
     if (search) params.append("search", search);
+    const seq = ++itemFetchSeqRef.current;
     const { data } = await fetchWithCookie(
       `${apiRoutesPortalMasters.BOM_CREATE_SETUP}?${params}`,
       "GET"
     );
+    // Ignore stale responses (a newer fetch superseded this one)
+    if (seq !== itemFetchSeqRef.current) return;
     if (data?.items) setItemOptions(data.items);
     if (data?.uoms) setUomOptions(data.uoms);
   }, []);
@@ -180,7 +182,6 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
     setAddingUnderParentId(null);
     setItemOptions([]);
     setUomOptions([]);
-    itemSearchRef.current = "";
     setPrintDialogOpen(false);
   }, []);
 
@@ -284,20 +285,10 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
 
   const handleItemSearchChange = useCallback(
     (query: string) => {
-      itemSearchRef.current = query;
-      if (itemSearchTimerRef.current) clearTimeout(itemSearchTimerRef.current);
-      itemSearchTimerRef.current = setTimeout(() => {
-        if (itemSearchRef.current === query) fetchSetup(query);
-      }, 300);
+      fetchSetup(query);
     },
     [fetchSetup]
   );
-
-  useEffect(() => {
-    return () => {
-      if (itemSearchTimerRef.current) clearTimeout(itemSearchTimerRef.current);
-    };
-  }, []);
 
   // ── Toggling ──────────────────────────────────────────────────────────────
 
@@ -547,9 +538,18 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
               </Typography>
               <Autocomplete
                 options={rootItemOptions}
+                filterOptions={(x) => x}
                 getOptionLabel={(opt: ItemOption) =>
                   `${opt.full_item_code || opt.item_code} — ${opt.item_name}`
                 }
+                renderOption={(props, opt) => {
+                  const { key: _ignore, ...rest } = props as { key?: React.Key } & React.HTMLAttributes<HTMLLIElement>;
+                  return (
+                    <li {...rest} key={opt.item_id}>
+                      {`${opt.full_item_code || opt.item_code} — ${opt.item_name}`}
+                    </li>
+                  );
+                }}
                 value={null}
                 inputValue={rootItemSearchValue}
                 onChange={(_, newValue) => handleSelectRootItem(newValue)}
