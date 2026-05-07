@@ -27,10 +27,12 @@ import type {
 import { GovtSackingSourcePicker } from "./GovtSackingSourcePicker";
 import { GovtSackingSourcePreview } from "./GovtSackingSourcePreview";
 import SalesInvoicePreview from "./SalesInvoicePreview";
+import { SalesInvoiceApprovalBar } from "./SalesInvoiceApprovalBar";
 import { GOVT_SKG_FREIGHT_INVOICE_TYPE_ID } from "../utils/salesInvoiceConstants";
 import { computeFreightTax, FREIGHT_GST_PERCENT } from "../utils/freightTax";
 import { buildFreightPreviewProps } from "../utils/buildFreightPreviewProps";
 import { buildFreightCreatePreviewProps } from "../utils/buildFreightCreatePreviewProps";
+import { useSalesInvoiceApproval } from "../hooks/useSalesInvoiceApproval";
 
 const FOOTER_NOTES_MAX = 252;
 
@@ -46,6 +48,9 @@ type Props = {
 	existingInvoice?: InvoiceDetails | null;
 	menuId?: string;
 	setupData?: InvoiceSetupData | null;
+	requestedId?: string;
+	setInvoiceDetails?: React.Dispatch<React.SetStateAction<InvoiceDetails | null>>;
+	getMenuId?: () => string;
 };
 
 type FreightFormState = {
@@ -103,7 +108,7 @@ function buildHydratedState(invoice: InvoiceDetails): FreightFormState {
 	};
 }
 
-export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, menuId, setupData }: Props) {
+export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, menuId, setupData, requestedId, setInvoiceDetails, getMenuId: getMenuIdProp }: Props) {
 	const router = useRouter();
 	const [mounted, setMounted] = React.useState(false);
 	React.useEffect(() => {
@@ -128,6 +133,52 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 
 	const [errors, setErrors] = React.useState<Errors>({});
 	const [submitting, setSubmitting] = React.useState(false);
+
+	const baselineRef = React.useRef<FreightFormState | null>(null);
+	React.useEffect(() => {
+		if ((mode === "edit" || mode === "view") && existingInvoice) {
+			baselineRef.current = buildHydratedState(existingInvoice);
+		}
+	}, [mode, existingInvoice]);
+
+	const hasUnsavedChanges = React.useMemo(() => {
+		const b = baselineRef.current;
+		if (!b) return false;
+		return b.invoiceDate !== state.invoiceDate
+			|| b.iwBillNo !== state.iwBillNo
+			|| b.iwBillDate !== state.iwBillDate
+			|| b.containerNo !== state.containerNo
+			|| b.vehicleNo !== state.vehicleNo
+			|| b.freightAmount !== state.freightAmount
+			|| b.balesQty !== state.balesQty;
+	}, [state]);
+
+	const formValuesForApproval = React.useMemo(() => ({ branch: branchId }), [branchId]);
+	const getMenuIdCb = React.useCallback(() => {
+		if (getMenuIdProp) return getMenuIdProp();
+		return menuId ?? "";
+	}, [getMenuIdProp, menuId]);
+	const noopSetInvoice = React.useCallback<React.Dispatch<React.SetStateAction<InvoiceDetails | null>>>(() => {}, []);
+	const {
+		approvalLoading,
+		approvalInfo,
+		approvalPermissions,
+		handleApprove,
+		handleReject,
+		handleOpen,
+		handleCancelDraft,
+		handleReopen,
+		handleSendForApproval,
+		handleViewApprovalLog,
+	} = useSalesInvoiceApproval({
+		mode,
+		requestedId: requestedId ?? "",
+		formValues: formValuesForApproval,
+		invoiceDetails: existingInvoice ?? null,
+		coId,
+		getMenuId: getMenuIdCb,
+		setInvoiceDetails: setInvoiceDetails ?? noopSetInvoice,
+	});
 
 	// Re-fetch the source Govt Sacking detail in view/edit modes so tax computation
 	// (intra/inter-state) and the source preview block render. The saved invoice
@@ -271,6 +322,10 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 				const invoiceId = result?.invoice_id ?? (isEditSubmit ? existingInvoice!.id : undefined);
 				if (!invoiceId) throw new Error("Backend did not return an invoice ID");
 
+				if (isEditSubmit) {
+					baselineRef.current = { ...state };
+				}
+
 				if (alsoSendForApproval && !isEditSubmit) {
 					try {
 						await sendInvoiceForApproval(String(invoiceId));
@@ -324,6 +379,21 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+			{(isView || isEdit) && existingInvoice ? (
+				<SalesInvoiceApprovalBar
+					approvalInfo={approvalInfo}
+					permissions={approvalPermissions}
+					loading={approvalLoading}
+					onApprove={handleApprove}
+					onReject={handleReject}
+					onOpen={handleOpen}
+					onCancelDraft={handleCancelDraft}
+					onReopen={handleReopen}
+					onSendForApproval={handleSendForApproval}
+					onViewApprovalLog={handleViewApprovalLog}
+				/>
+			) : null}
+
 			{isCreate ? (
 				<Box>
 					<GovtSackingSourcePicker
@@ -509,13 +579,15 @@ export function GovtSackingFreightForm({ coId, branchId, mode, existingInvoice, 
 					>
 						Cancel
 					</Button>
-					<Button
-						type="button"
-						onClick={() => void submit(false)}
-						disabled={submitting || !state.source}
-					>
-						{submitting ? "Updating..." : !state.source ? "Loading source..." : "Update"}
-					</Button>
+					{approvalPermissions.canSave && hasUnsavedChanges ? (
+						<Button
+							type="button"
+							onClick={() => void submit(false)}
+							disabled={submitting || !state.source}
+						>
+							{submitting ? "Updating..." : !state.source ? "Loading source..." : "Update"}
+						</Button>
+					) : null}
 				</Box>
 			) : null}
 

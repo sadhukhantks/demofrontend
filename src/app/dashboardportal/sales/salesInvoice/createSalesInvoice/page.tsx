@@ -1481,6 +1481,9 @@ function InvoiceTransactionPageContent() {
 					existingInvoice={invoiceDetails ?? undefined}
 					menuId={menuIdFromUrl}
 					setupData={setupData ?? null}
+					requestedId={requestedId}
+					setInvoiceDetails={setInvoiceDetails}
+					getMenuId={getMenuId}
 				/>
 			</TransactionWrapper>
 		);
