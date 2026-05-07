@@ -68,12 +68,23 @@ export default function InlineBomRow({
   const [uomError, setUomError] = useState(false);
 
   const itemRef = useRef<HTMLInputElement>(null);
+  const lastSearchRef = useRef<string>("");
 
   // Auto-focus the item field when this row mounts
   useEffect(() => {
     const timeout = setTimeout(() => itemRef.current?.focus(), 50);
     return () => clearTimeout(timeout);
   }, []);
+
+  // Debounced server search: fire 300ms after the user stops typing
+  useEffect(() => {
+    if (itemInputValue === lastSearchRef.current) return;
+    const t = setTimeout(() => {
+      lastSearchRef.current = itemInputValue;
+      onItemSearchChange(itemInputValue);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [itemInputValue, onItemSearchChange]);
 
   const resetRow = () => {
     setSelectedItem(null);
@@ -150,7 +161,16 @@ export default function InlineBomRow({
         <Autocomplete
           size="small"
           options={itemOptions}
+          filterOptions={(x) => x}
           getOptionLabel={(opt) => `${opt.full_item_code || opt.item_code} — ${opt.item_name}`}
+          renderOption={(props, opt) => {
+            const { key: _ignore, ...rest } = props as { key?: React.Key } & React.HTMLAttributes<HTMLLIElement>;
+            return (
+              <li {...rest} key={opt.item_id}>
+                {`${opt.full_item_code || opt.item_code} — ${opt.item_name}`}
+              </li>
+            );
+          }}
           value={selectedItem}
           inputValue={itemInputValue}
           onChange={(_, newValue) => {
@@ -164,7 +184,6 @@ export default function InlineBomRow({
           onInputChange={(_, value, reason) => {
             if (reason !== "reset") {
               setItemInputValue(value);
-              onItemSearchChange(value);
             }
           }}
           isOptionEqualToValue={(opt, val) => opt.item_id === val.item_id}
