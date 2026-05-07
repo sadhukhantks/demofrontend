@@ -579,11 +579,11 @@ function areEqual(prev: BomTreeNodeProps, next: BomTreeNodeProps): boolean {
   if (prev.editingBomId !== next.editingBomId) return false;
   if (prev.addingUnderParentId !== next.addingUnderParentId) return false;
 
-  // Options: only re-render if THIS row is in edit/add mode and they changed
-  if (nextEditMine || nextAddMine) {
-    if (prev.itemOptions !== next.itemOptions) return false;
-    if (prev.uomOptions !== next.uomOptions) return false;
-  }
+  // Options must propagate to deeply-nested edit/add rows; ancestor nodes
+  // (where nextEditMine/nextAddMine are false) still need to re-render so the
+  // child receives the fresh prop.
+  if (prev.itemOptions !== next.itemOptions) return false;
+  if (prev.uomOptions !== next.uomOptions) return false;
 
   // Callbacks assumed stable via useCallback in BomTreeEditor
   return true;
