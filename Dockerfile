@@ -87,7 +87,7 @@ COPY package.json ./
 
 # Install pnpm and dependencies
 RUN apk add --no-cache curl \
-  && npm install -g pnpm@latest \
+  && npm install -g pnpm@9.15.4 \
   && pnpm install
 
 # Copy the rest of the application code
