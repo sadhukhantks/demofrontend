@@ -172,7 +172,23 @@ export type InvoiceDetails = {
       invoice_no_formatted?: string | null;
       invoice_date: string | null;
       pcso_no: string | null;
+      delivery_order_no?: number | string | null;
+      delivery_order_no_formatted?: string | null;
+      delivery_order_date?: string | null;
     };
+    sources?: Array<{
+      invoice_id: number;
+      invoice_no: number | string | null;
+      invoice_no_formatted?: string | null;
+      invoice_date: string | null;
+      party_name?: string | null;
+      pcso_no?: string | null;
+      pcso_date?: string | null;
+      delivery_order_no?: number | string | null;
+      delivery_order_no_formatted?: string | null;
+      delivery_order_date?: string | null;
+      bales_qty?: number | null;
+    }>;
   } | null;
   transporterBranchId?: number;
   transporterGstNo?: string;
@@ -353,10 +369,15 @@ export type CreateInvoiceRequest = {
     total_weight?: number;
   };
   freight?: {
-    source_invoice_id: number;
+    // Legacy single-source key. Kept for back-compat with pre-multi-source
+    // clients; the array below is preferred when both are present.
+    source_invoice_id?: number;
+    source_invoice_ids?: number[];
     iw_bill_no: string;
     iw_bill_date: string;
-    container_no: string;
+    // Optional — Govt Sacking Freight invoices may be dispatched by truck
+    // without a container. Backend stores `null` when absent.
+    container_no?: string | null;
     vehicle_no: string;
     freight_amount: number;
     bales_qty: number;
