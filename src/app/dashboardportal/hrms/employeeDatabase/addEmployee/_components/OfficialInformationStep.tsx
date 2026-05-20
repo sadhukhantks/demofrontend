@@ -9,6 +9,7 @@ import type { OfficialDetails, BankDetails } from "../../types/employeeTypes";
 import type { useEmployeeSetup } from "../../hooks/useEmployeeSetup";
 import OfficialStep from "./OfficialStep";
 import BankStep from "./BankStep";
+import SalaryStructureStep from "./SalaryStructureStep";
 
 interface OfficialInformationStepProps {
   data: {
@@ -18,6 +19,7 @@ interface OfficialInformationStepProps {
   disabled: boolean;
   setup: ReturnType<typeof useEmployeeSetup>;
   sidebarBranchId: string;
+  ebId: number | null;
   saving: boolean;
   onBack: () => void;
   onSave: () => void;
@@ -25,13 +27,14 @@ interface OfficialInformationStepProps {
   onBankChange: (data: Partial<BankDetails>) => void;
 }
 
-const SUB_TABS = ["Work Details", "Bank Details"] as const;
+const SUB_TABS = ["Work Details", "Salary Structure", "Bank Details"] as const;
 
 export default function OfficialInformationStep({
   data,
   disabled,
   setup,
   sidebarBranchId,
+  ebId,
   saving,
   onBack,
   onSave,
@@ -77,9 +80,12 @@ export default function OfficialInformationStep({
       {/* Tab content */}
       <Box className="rounded-lg border bg-white p-6 shadow-sm">
         {activeTab === 0 && (
-          <OfficialStep data={data.official} onChange={onOfficialChange} disabled={disabled} setup={setup} sidebarBranchId={sidebarBranchId} />
+          <OfficialStep data={data.official} onChange={onOfficialChange} disabled={disabled} setup={setup} sidebarBranchId={sidebarBranchId} ebId={ebId} />
         )}
         {activeTab === 1 && (
+          <SalaryStructureStep ebId={ebId} branchId={sidebarBranchId} disabled={disabled} saving={saving} />
+        )}
+        {activeTab === 2 && (
           <BankStep data={data.bank} onChange={onBankChange} disabled={disabled} />
         )}
       </Box>
