@@ -11,7 +11,7 @@ import { computeFreightTax, FREIGHT_HSN } from "./freightTax";
 export type FreightCreatePreviewArgs = {
 	setupData: InvoiceSetupData | null;
 	branchId: string;
-	source: GovtSackingSourceDetail | null;
+	sources: GovtSackingSourceDetail[];
 	invoiceDate: string;
 	iwBillNo: string;
 	iwBillDate: string;
@@ -43,8 +43,9 @@ const joinAddress = (...parts: Array<string | number | null | undefined>): strin
  * builds for types 1–6 so the tally layout is visually identical to Govt Sacking (type 3).
  */
 export function buildFreightCreatePreviewProps(args: FreightCreatePreviewArgs): FreightCreatePreviewProps {
-	const { setupData, branchId, source, invoiceDate, iwBillNo, iwBillDate, containerNo, vehicleNo, freightAmount, balesQty, footerNote } = args;
+	const { setupData, branchId, sources, invoiceDate, iwBillNo, iwBillDate, containerNo, vehicleNo, freightAmount, balesQty, footerNote } = args;
 
+	const source = sources[0] ?? null;
 	const header = source?.header;
 	const sourceBranch = setupData?.branches?.find((b) => b.branch_id === header?.branch_id);
 	const sourceBranchStateCode = sourceBranch?.state_code;
@@ -87,8 +88,9 @@ export function buildFreightCreatePreviewProps(args: FreightCreatePreviewArgs): 
 	const previewHeader: InvoicePreviewHeader = {
 		invoiceNo: undefined, // not minted yet in draft
 		invoiceDate,
-		saleNo: formattedSalesOrderNo,
-		deliveryOrderNo: header?.delivery_order_no != null ? String(header.delivery_order_no) : undefined,
+		deliveryOrderNo: header?.delivery_order_no_formatted
+			|| (header?.delivery_order_no != null ? String(header.delivery_order_no) : undefined),
+		deliveryOrderDate: header?.delivery_order_date ?? undefined,
 		salesOrderNo: formattedSalesOrderNo,
 		salesOrderDate: header?.sales_order_date ?? undefined,
 		pcsoNo: header?.pcso_no ?? undefined,
@@ -166,16 +168,22 @@ export function buildFreightCreatePreviewProps(args: FreightCreatePreviewArgs): 
 	const iwBillLabel = isRailSource ? "RR No." : "IW Bill No.";
 	const iwBillSegment = iwBillNo ? `${iwBillLabel}${iwBillNo}${iwBillDate ? ` Date:${iwBillDate}` : ""}` : "";
 	const containerSegment = containerNo ? `Container No.${containerNo}` : "";
-	// Reference to the source Govt Sacking invoice — mirrors view-mode behavior in
-	// buildFreightPreviewProps so the freight invoice always visibly cites the source.
-	// Prefer the FY-formatted invoice number (e.g. "EJM/F/SI/25-26/41") so the print
-	// matches how invoice numbers are displayed elsewhere in the app.
-	const sourceInvoiceLabel = header?.invoice_no_formatted || (header?.invoice_no != null ? String(header.invoice_no) : "");
-	const referenceSegment = sourceInvoiceLabel
-		? `Ref Invoice- ${sourceInvoiceLabel}${header?.invoice_date ? ` dated ${header.invoice_date}` : ""}`
+	// Reference to every selected source Govt Sacking invoice. All sources share
+	// shared "order-identity" fields (party/billing/PCSO/DO/mode), so only the
+	// invoice number + date varies per row.
+	const sourceLabels = sources.map((s) => {
+		const inv = s.header.invoice_no_formatted || (s.header.invoice_no != null ? String(s.header.invoice_no) : "");
+		return s.header.invoice_date ? `${inv} dated ${s.header.invoice_date}` : inv;
+	}).filter(Boolean);
+	const referenceSegment = sourceLabels.length > 0
+		? `Source Invoices: ${sourceLabels.join(", ")}`
 		: "";
-	const autoRemarksSegments = [footerNote, referenceSegment, iwBillSegment, containerSegment].filter(Boolean);
-	// De-dup — footerNote may already include the IW/container pieces.
+	const doFmt = header?.delivery_order_no_formatted
+		|| (header?.delivery_order_no != null ? String(header.delivery_order_no) : "");
+	const doSegment = doFmt ? `DO ${doFmt}` : "";
+	const autoRemarksSegments = [footerNote, referenceSegment, doSegment, iwBillSegment, containerSegment].filter(Boolean);
+	// De-dup — footerNote may already include the segments above; downstream
+	// rendering compresses repeats. Join is informational, not source of truth.
 	const remarks = autoRemarksSegments.join(" | ");
 
 	return {

@@ -48,6 +48,7 @@ export type GovtSackingSourceHeader = {
 	sales_order_no: number | string | null;
 	sales_delivery_order_id: number | null;
 	delivery_order_no: number | string | null;
+	delivery_order_date?: string | null;
 	transporter_id: number | null;
 	transporter_name: string | null;
 	transporter_address: string | null;
@@ -86,6 +87,7 @@ export type GovtSackingSourceHeader = {
 	co_prefix?: string | null;
 	branch_prefix?: string | null;
 	invoice_no_formatted?: string | null;
+	delivery_order_no_formatted?: string | null;
 };
 
 export type GovtSackingSourceDetail = {

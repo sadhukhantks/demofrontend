@@ -94,18 +94,12 @@ describe("buildFreightCreatePreviewProps — header parity with Govt Sacking (ty
 		},
 		lines: [
 			{
-				invoice_line_item_id: 5001,
-				invoice_id: 12345,
 				item_id: 201,
 				item_name: "PRINTED TYPE-A JUTE BAG(580GMS)",
 				hsn_code: "63051040",
 				quantity: 500,
 				uom_id: 17,
 				uom_name: "Bale",
-				rate: 850,
-				amount_without_tax: 425000,
-				total_amount: 501500,
-				remarks: null,
 				pack_sheet: null,
 				net_weight: null,
 				total_weight: null,
@@ -127,7 +121,7 @@ describe("buildFreightCreatePreviewProps — header parity with Govt Sacking (ty
 	};
 
 	it("joins billing/shipping branch address parts into a single line", () => {
-		const result = buildFreightCreatePreviewProps({ ...baseArgs, source: makeSource() });
+		const result = buildFreightCreatePreviewProps({ ...baseArgs, sources: [makeSource()] });
 		expect(result.header.billingToAddress).toBe(
 			"Gandhi Maidan Road, Near Collectorate, 800001, Bihar",
 		);
@@ -139,21 +133,21 @@ describe("buildFreightCreatePreviewProps — header parity with Govt Sacking (ty
 	});
 
 	it("uses the FY-formatted sales order number when the backend provides one", () => {
-		const result = buildFreightCreatePreviewProps({ ...baseArgs, source: makeSource() });
+		const result = buildFreightCreatePreviewProps({ ...baseArgs, sources: [makeSource()] });
 		expect(result.header.salesOrderNo).toBe("VOW/KOL/SO/25-26/169");
-		expect(result.header.saleNo).toBe("VOW/KOL/SO/25-26/169");
+		expect(result.header.saleNo).toBeUndefined();
 	});
 
 	it("falls back to the raw sales_order_no when no formatted value is supplied", () => {
 		const result = buildFreightCreatePreviewProps({
 			...baseArgs,
-			source: makeSource({ sales_order_no_formatted: null }),
+			sources: [makeSource({ sales_order_no_formatted: null })],
 		});
 		expect(result.header.salesOrderNo).toBe("169");
 	});
 
 	it("surfaces mode of transport, transporter GST, and e-way bill on the preview header", () => {
-		const result = buildFreightCreatePreviewProps({ ...baseArgs, source: makeSource() });
+		const result = buildFreightCreatePreviewProps({ ...baseArgs, sources: [makeSource()] });
 		expect(result.header.modeOfTransport).toBe("Road");
 		expect(result.header.transporterGstNo).toBe("19AAACT0000B1Z9");
 		expect(result.header.transporterDocNo).toBe("TD/99/2025");
@@ -161,28 +155,74 @@ describe("buildFreightCreatePreviewProps — header parity with Govt Sacking (ty
 	});
 
 	it("auto-appends a reference to the source Govt Sacking invoice in remarks using the formatted invoice no.", () => {
-		const result = buildFreightCreatePreviewProps({ ...baseArgs, source: makeSource() });
-		expect(result.remarks).toContain("Ref Invoice- VOW/KOL/SI/25-26/452");
+		const result = buildFreightCreatePreviewProps({ ...baseArgs, sources: [makeSource()] });
+		expect(result.remarks).toContain("Source Invoices: VOW/KOL/SI/25-26/452");
 		expect(result.remarks).toContain("dated 2025-12-15");
 	});
 
 	it("falls back to the raw invoice_no when no formatted value is supplied", () => {
 		const result = buildFreightCreatePreviewProps({
 			...baseArgs,
-			source: makeSource({ invoice_no_formatted: null }),
+			sources: [makeSource({ invoice_no_formatted: null })],
 		});
-		expect(result.remarks).toContain("Ref Invoice- 452");
+		expect(result.remarks).toContain("Source Invoices: 452");
 	});
 
 	it("preserves user footer note alongside auto-appended reference and IW/container segments", () => {
 		const result = buildFreightCreatePreviewProps({
 			...baseArgs,
 			footerNote: "Manual note",
-			source: makeSource(),
+			sources: [makeSource()],
 		});
-		expect(result.remarks).toMatch(/Manual note.*Ref Invoice- VOW\/KOL\/SI\/25-26\/452/);
+		expect(result.remarks).toMatch(/Manual note.*Source Invoices: VOW\/KOL\/SI\/25-26\/452/);
 		expect(result.remarks).toContain("IW Bill No.IW/2026/77");
 		expect(result.remarks).toContain("Container No.CNTR-9999");
+	});
+
+	it("multi-source: footer lists every selected source invoice; PCSO and DO appear once each", () => {
+		const a = makeSource({
+			invoice_no: 452,
+			invoice_no_formatted: "VOW/KOL/SI/25-26/452",
+			invoice_date: "2025-12-15",
+			delivery_order_no: 77,
+			delivery_order_no_formatted: "VOW/KOL/DO/25-26/77",
+		});
+		const b = makeSource({
+			invoice_id: 12346,
+			invoice_no: 453,
+			invoice_no_formatted: "VOW/KOL/SI/25-26/453",
+			invoice_date: "2025-12-16",
+			delivery_order_no: 77,
+			delivery_order_no_formatted: "VOW/KOL/DO/25-26/77",
+		});
+		const result = buildFreightCreatePreviewProps({ ...baseArgs, sources: [a, b] });
+		expect(result.remarks).toContain("Source Invoices: VOW/KOL/SI/25-26/452 dated 2025-12-15, VOW/KOL/SI/25-26/453 dated 2025-12-16");
+		// DO segment appears exactly once with the formatted DO from the primary source
+		expect(result.remarks).toContain("DO VOW/KOL/DO/25-26/77");
+		const doMatches = (result.remarks?.match(/DO VOW\/KOL\/DO\/25-26\/77/g) ?? []).length;
+		expect(doMatches).toBe(1);
+	});
+
+	it("optional container: empty containerNo omits the 'Container No.' segment from remarks", () => {
+		const result = buildFreightCreatePreviewProps({
+			...baseArgs,
+			containerNo: "",
+			sources: [makeSource()],
+		});
+		expect(result.remarks).not.toContain("Container No.");
+		expect(result.remarks).toContain("IW Bill No.IW/2026/77");
+	});
+
+	it("source DO is rendered in the printable header (deliveryOrderNo) using the formatted value", () => {
+		const result = buildFreightCreatePreviewProps({
+			...baseArgs,
+			sources: [makeSource({
+				delivery_order_no: 77,
+				delivery_order_no_formatted: "VOW/KOL/DO/25-26/77",
+			})],
+		});
+		expect(result.header.deliveryOrderNo).toBe("VOW/KOL/DO/25-26/77");
+		expect(result.remarks).toContain("DO VOW/KOL/DO/25-26/77");
 	});
 });
 
@@ -294,7 +334,7 @@ describe("Govt Sacking Freight — RAIL relabel", () => {
 		const result = buildFreightCreatePreviewProps({
 			setupData: null,
 			branchId: "5",
-			source: railSource(),
+			sources: [railSource()],
 			invoiceDate: "2026-04-20",
 			iwBillNo: "RR12345",
 			iwBillDate: "2026-04-19",
@@ -314,7 +354,7 @@ describe("Govt Sacking Freight — RAIL relabel", () => {
 		const result = buildFreightCreatePreviewProps({
 			setupData: null,
 			branchId: "5",
-			source: src,
+			sources: [src],
 			invoiceDate: "2026-04-20",
 			iwBillNo: "IW/2026/77",
 			iwBillDate: "2026-04-19",
@@ -336,7 +376,7 @@ describe("Govt Sacking Freight — RAIL relabel", () => {
 			const result = buildFreightCreatePreviewProps({
 				setupData: null,
 				branchId: "5",
-				source: src,
+				sources: [src],
 				invoiceDate: "2026-04-20",
 				iwBillNo: "X",
 				iwBillDate: "",
@@ -374,7 +414,7 @@ describe("Govt Sacking Freight — RAIL relabel", () => {
 		expect(props.remarks).toContain("RR No.RR777");
 		expect(props.remarks).not.toContain("IW Bill No.");
 		expect(props.remarks).toContain("Container No.CNTR-1");
-		expect(props.remarks).toContain("Ref Invoice- VOW/X/1");
+		expect(props.remarks).toContain("Source Invoices: VOW/X/1");
 	});
 
 	it("view-mode preview: preserves 'IW Bill No.' for non-rail modes", () => {
