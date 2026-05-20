@@ -25,9 +25,11 @@ interface PaySchemeRow {
   updated_date_time: string | null;
 }
 
+type PaySchemeGridRow = PaySchemeRow & { id: number };
+
 export default function PaySchemeCreationPage() {
   const router = useRouter();
-  const [rows, setRows] = useState<PaySchemeRow[]>([]);
+  const [rows, setRows] = useState<PaySchemeGridRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalRows, setTotalRows] = useState(0);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
@@ -58,9 +60,7 @@ export default function PaySchemeCreationPage() {
 
       if (error || !data) throw new Error(error || "Failed to fetch");
 
-      setRows(
-        (data.data || []).map((r) => ({ ...r, id: r.payscheme_id })) as (PaySchemeRow & { id: number })[]
-      );
+      setRows((data.data || []).map((r) => ({ ...r, id: r.payscheme_id })));
       setTotalRows(data.total || 0);
     } catch (err: unknown) {
       setSnackbar({
@@ -120,7 +120,7 @@ export default function PaySchemeCreationPage() {
   ];
 
   const handleEdit = useCallback(
-    (row: PaySchemeRow & { id: number }) => {
+    (row: PaySchemeGridRow) => {
       router.push(
         `/dashboardadmin/paySchemeCreation/create?id=${row.payscheme_id}`
       );
@@ -146,6 +146,7 @@ export default function PaySchemeCreationPage() {
         </div>
 
         <IndexWrapper
+          title="Pay Scheme"
           rows={rows}
           columns={columns}
           rowCount={totalRows}

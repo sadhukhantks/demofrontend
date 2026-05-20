@@ -35,7 +35,7 @@ type CommonGridProps<RowType extends GridValidRowModel> = {
 };
 
 type IndexWrapperProps<RowType extends GridValidRowModel & { id?: string | number }> = CommonGridProps<RowType> & {
-  title: string;
+  title?: string;
   subtitle?: string;
   search?: IndexWrapperSearchConfig;
   createAction?: CreateActionConfig;
@@ -225,16 +225,20 @@ function IndexWrapper<RowType extends GridValidRowModel & { id?: string | number
   return (
     <div className={`min-h-screen bg-gray-50 p-8 ${className ?? ""}`}>
       <div className={`mx-auto ${contentClassName ?? "max-w-7xl"}`}>
-        <div className="mb-6 flex flex-col gap-2">
-          <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
-            {title}
-          </Typography>
-          {subtitle ? (
-            <Typography variant="body2" color="text.secondary">
-              {subtitle}
-            </Typography>
-          ) : null}
-        </div>
+        {(title || subtitle) ? (
+          <div className="mb-6 flex flex-col gap-2">
+            {title ? (
+              <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
+                {title}
+              </Typography>
+            ) : null}
+            {subtitle ? (
+              <Typography variant="body2" color="text.secondary">
+                {subtitle}
+              </Typography>
+            ) : null}
+          </div>
+        ) : null}
 
         {(search || createAllowed || toolbarContent) && (
           <Box className="mb-6 flex flex-col-reverse gap-3 md:flex-row md:items-center md:justify-between">
