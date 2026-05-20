@@ -131,6 +131,49 @@ export const lookupEmployeeByCode = async (coId: string, empCode: string) =>
     "GET",
   );
 
+// ─── Employee Salary Structure ─────────────────────────────────────
+
+export const fetchEmployeeSalarySchemes = async (coId: string) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_EMPLOYEE_SALARY_SCHEMES}?co_id=${coId}`,
+    "GET",
+  );
+
+export const fetchEmployeeSalary = async (
+  coId: string,
+  ebId: number,
+  branchId: string,
+) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_EMPLOYEE_SALARY}/${ebId}?co_id=${coId}&branch_id=${branchId}`,
+    "GET",
+  );
+
+export const checkEmployeeSalary = async (
+  coId: string,
+  payload: { pay_scheme_id: number; input_values: Record<string, number> },
+) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_EMPLOYEE_SALARY_CHECK}?co_id=${coId}`,
+    "POST",
+    payload,
+  );
+
+export const saveEmployeeSalary = async (
+  coId: string,
+  payload: {
+    eb_id: number;
+    pay_scheme_id: number;
+    effective_date: string | null;
+    input_values: { component_id: number; amount: number }[];
+  },
+) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_EMPLOYEE_SALARY_SAVE}?co_id=${coId}`,
+    "POST",
+    payload,
+  );
+
 // ─── Pay Scheme ────────────────────────────────────────────────────
 
 export const fetchPaySchemeList = async (
@@ -303,6 +346,237 @@ export const fetchPayRegisterSalary = async (
   qs.set("pay_period_id", String(params.pay_period_id));
   return fetchWithCookie(
     `${apiRoutesPortalMasters.HRMS_PAY_REGISTER_SALARY}?${qs.toString()}`,
+    "GET",
+  );
+};
+
+// ─── Pay Roll (pay_components_custom) ──────────────────────────────
+
+export const fetchPayRollSetup = async (coId: string) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_PAY_ROLL_SETUP}?co_id=${coId}`,
+    "GET",
+  );
+
+export const fetchPayRollData = async (
+  coId: string,
+  payload: {
+    from_date: string;
+    to_date: string;
+    branch_id: number;
+    pay_scheme_id?: number;
+    dept_id?: number;
+    emp_category_id?: number;
+  },
+) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_PAY_ROLL_DATA}?co_id=${coId}`,
+    "POST",
+    payload,
+  );
+
+export const savePayRollData = async (
+  coId: string,
+  payload: {
+    from_date: string;
+    to_date: string;
+    pay_period_id?: number | null;
+    employees: {
+      eb_id: number;
+      pay_comp_values: Record<string, number>;
+    }[];
+  },
+) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_PAY_ROLL_SAVE}?co_id=${coId}`,
+    "POST",
+    payload,
+  );
+
+export const fetchPayRollAttendance = async (
+  coId: string,
+  params: { from_date: string; to_date: string },
+) => {
+  const qs = new URLSearchParams({
+    co_id: coId,
+    from_date: params.from_date,
+    to_date: params.to_date,
+  });
+  return fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_PAY_ROLL_FETCH_ATTENDANCE}?${qs.toString()}`,
+    "GET",
+  );
+};
+
+export const fetchPayRollGeneric = async (
+  coId: string,
+  params: { from_date: string; to_date: string },
+) => {
+  const qs = new URLSearchParams({
+    co_id: coId,
+    from_date: params.from_date,
+    to_date: params.to_date,
+  });
+  return fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_PAY_ROLL_FETCH_GENERIC}?${qs.toString()}`,
+    "GET",
+  );
+};
+
+export const fetchPayRollCumulative = async (
+  coId: string,
+  params: { from_date: string; to_date: string },
+) => {
+  const qs = new URLSearchParams({
+    co_id: coId,
+    from_date: params.from_date,
+    to_date: params.to_date,
+  });
+  return fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_PAY_ROLL_FETCH_CUMULATIVE}?${qs.toString()}`,
+    "GET",
+  );
+};
+
+export const uploadPayRollExcel = async (
+  coId: string,
+  file: File,
+  params: { from_date: string; to_date: string },
+) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("from_date", params.from_date);
+  formData.append("to_date", params.to_date);
+  try {
+    const response = await axios.post(
+      `${apiRoutesPortalMasters.HRMS_PAY_ROLL_UPLOAD}?co_id=${coId}`,
+      formData,
+      { withCredentials: true },
+    );
+    return { data: response.data, error: null, status: response.status };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { data: null, error: message, status: 0 };
+  }
+};
+
+export const downloadPayRollTemplate = async (
+  coId: string,
+  payload: {
+    branch_id: number;
+    pay_scheme_id?: number;
+    dept_id?: number;
+    emp_category_id?: number;
+  },
+) => {
+  try {
+    const response = await axios.post(
+      `${apiRoutesPortalMasters.HRMS_PAY_ROLL_DOWNLOAD_TEMPLATE}?co_id=${coId}`,
+      payload,
+      { withCredentials: true, responseType: "blob" },
+    );
+    return { data: response.data as Blob, error: null, status: response.status };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { data: null, error: message, status: 0 };
+  }
+};
+
+// ─── Leave Request (transaction) ───────────────────────────────────
+
+export const fetchLeaveRequestList = async (
+  coId: string,
+  params?: {
+    page?: number;
+    page_size?: number;
+    search?: string;
+    leave_type_id?: number | string;
+    eb_no?: string;
+    status_id?: number | string;
+  },
+) => {
+  const qs = new URLSearchParams({ co_id: coId });
+  if (params?.page) qs.set("page", String(params.page));
+  if (params?.page_size) qs.set("page_size", String(params.page_size));
+  if (params?.search) qs.set("search", params.search);
+  if (params?.leave_type_id) qs.set("leave_type_id", String(params.leave_type_id));
+  if (params?.eb_no) qs.set("eb_no", params.eb_no);
+  if (params?.status_id) qs.set("status_id", String(params.status_id));
+  return fetchWithCookie(
+    `${apiRoutesPortalMasters.LEAVE_REQUEST_TABLE}?${qs.toString()}`,
+    "GET",
+  );
+};
+
+export const fetchLeaveRequestById = async (id: number | string) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.LEAVE_REQUEST_BY_ID}/${id}`,
+    "GET",
+  );
+
+export const createLeaveRequest = async (payload: {
+  co_id: string | number;
+  eb_id: number;
+  leave_type_id: number;
+  leave_from_date: string;
+  leave_to_date: string;
+  leave_purpose: string;
+}) =>
+  fetchWithCookie(apiRoutesPortalMasters.LEAVE_REQUEST_CREATE, "POST", payload);
+
+export const updateLeaveRequest = async (
+  id: number | string,
+  payload: {
+    co_id: string | number;
+    eb_id: number;
+    leave_type_id: number;
+    leave_from_date: string;
+    leave_to_date: string;
+    leave_purpose: string;
+  },
+) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.LEAVE_REQUEST_EDIT}/${id}`,
+    "PUT",
+    payload,
+  );
+
+export const approveLeaveRequest = async (
+  id: number | string,
+  payload: { co_id: string | number; remarks?: string },
+) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.LEAVE_REQUEST_APPROVE}/${id}`,
+    "PUT",
+    payload,
+  );
+
+export const rejectLeaveRequest = async (
+  id: number | string,
+  payload: { co_id: string | number; remarks?: string },
+) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.LEAVE_REQUEST_REJECT}/${id}`,
+    "PUT",
+    payload,
+  );
+
+export const fetchLeaveLedgerByEb = async (coId: string, ebNo: string) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.LEAVE_LEDGER_BY_EB}/${ebNo}?co_id=${coId}`,
+    "GET",
+  );
+
+export const fetchWorkerByEbNo = async (coId: string, ebNo: string) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.WORKER_BY_EB_NO}/${ebNo}?co_id=${coId}`,
+    "GET",
+  );
+
+export const fetchLeaveTypeOptions = async (coId: string) => {
+  const qs = new URLSearchParams({ co_id: coId, page: "1", limit: "200" });
+  return fetchWithCookie(
+    `${apiRoutesPortalMasters.LEAVE_TYPE_TABLE}?${qs.toString()}`,
     "GET",
   );
 };

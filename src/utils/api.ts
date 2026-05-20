@@ -583,6 +583,16 @@ const apiRoutesPortalMasters = {
     HRMS_PAY_REGISTER_SALARY: `${API_URL}/hrms/pay_register_salary`,
     HRMS_PAY_REGISTER_PROCESS: `${API_URL}/hrms/pay_register_process`,
 
+    // HRMS Pay Roll (pay_components_custom) endpoints
+    HRMS_PAY_ROLL_SETUP: `${API_URL}/hrms/pay_roll_setup`,
+    HRMS_PAY_ROLL_DATA: `${API_URL}/hrms/pay_roll_data`,
+    HRMS_PAY_ROLL_SAVE: `${API_URL}/hrms/pay_roll_save`,
+    HRMS_PAY_ROLL_FETCH_ATTENDANCE: `${API_URL}/hrms/pay_roll_fetch_attendance`,
+    HRMS_PAY_ROLL_FETCH_GENERIC: `${API_URL}/hrms/pay_roll_fetch_generic`,
+    HRMS_PAY_ROLL_FETCH_CUMULATIVE: `${API_URL}/hrms/pay_roll_fetch_cumulative`,
+    HRMS_PAY_ROLL_UPLOAD: `${API_URL}/hrms/pay_roll_upload`,
+    HRMS_PAY_ROLL_DOWNLOAD_TEMPLATE: `${API_URL}/hrms/pay_roll_download_template`,
+
     // Designation Master endpoints
     DESIGNATION_TABLE: `${API_URL}/hrmsMasters/get_designation_table`,
     DESIGNATION_BY_ID: `${API_URL}/hrmsMasters/get_designation_by_id`,
@@ -682,6 +692,16 @@ const apiRoutesPortalMasters = {
     LEAVE_TYPE_BY_ID: `${API_URL}/hrmsMasters/get_leave_type_by_id`,
     LEAVE_TYPE_CREATE: `${API_URL}/hrmsMasters/leave_type_create`,
     LEAVE_TYPE_EDIT: `${API_URL}/hrmsMasters/leave_type_edit`,
+
+    // HRMS Leave Request (transaction) endpoints
+    LEAVE_REQUEST_TABLE: `${API_URL}/hrms/leave_request_list`,
+    LEAVE_REQUEST_BY_ID: `${API_URL}/hrms/leave_request_by_id`,
+    LEAVE_REQUEST_CREATE: `${API_URL}/hrms/leave_request_create`,
+    LEAVE_REQUEST_EDIT: `${API_URL}/hrms/leave_request_edit`,
+    LEAVE_REQUEST_APPROVE: `${API_URL}/hrms/leave_request_approve`,
+    LEAVE_REQUEST_REJECT: `${API_URL}/hrms/leave_request_reject`,
+    LEAVE_LEDGER_BY_EB: `${API_URL}/hrms/leave_ledger`,
+    WORKER_BY_EB_NO: `${API_URL}/hrms/worker_by_eb_no`,
 };
 
 export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters };

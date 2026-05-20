@@ -9,6 +9,7 @@ import type { OfficialDetails, BankDetails } from "../../types/employeeTypes";
 import type { useEmployeeSetup } from "../../hooks/useEmployeeSetup";
 import OfficialStep from "./OfficialStep";
 import BankStep from "./BankStep";
+import SalaryStructureStep from "./SalaryStructureStep";
 
 interface OfficialInformationStepProps {
   data: {
@@ -26,7 +27,7 @@ interface OfficialInformationStepProps {
   onBankChange: (data: Partial<BankDetails>) => void;
 }
 
-const SUB_TABS = ["Work Details", "Bank Details"] as const;
+const SUB_TABS = ["Work Details", "Salary Structure", "Bank Details"] as const;
 
 export default function OfficialInformationStep({
   data,
@@ -82,6 +83,9 @@ export default function OfficialInformationStep({
           <OfficialStep data={data.official} onChange={onOfficialChange} disabled={disabled} setup={setup} sidebarBranchId={sidebarBranchId} ebId={ebId} />
         )}
         {activeTab === 1 && (
+          <SalaryStructureStep ebId={ebId} branchId={sidebarBranchId} disabled={disabled} saving={saving} />
+        )}
+        {activeTab === 2 && (
           <BankStep data={data.bank} onChange={onBankChange} disabled={disabled} />
         )}
       </Box>

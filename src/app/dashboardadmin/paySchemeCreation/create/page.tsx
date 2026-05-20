@@ -46,6 +46,8 @@ interface PayComponent {
   type: number;
   default_value: number | null;
   type_label: string;
+  roundof?: number | null;
+  roundof_type?: number | null;
 }
 
 interface SchemeDropdown {
@@ -65,6 +67,8 @@ interface DetailItem {
   status: number;
   default_value: number | null;
   value?: number | string;
+  roundof?: number | null;
+  roundof_type?: number | null;
 }
 
 interface SchemeData {
@@ -285,6 +289,8 @@ export default function CreatePaySchemePage() {
         selectedComponent.type === 0
           ? parseFloat(defaultValueOverride || String(selectedComponent.default_value ?? "0"))
           : null,
+      roundof: selectedComponent.roundof ?? null,
+      roundof_type: selectedComponent.roundof_type ?? null,
     };
 
     switch (selectedComponent.type) {
@@ -335,53 +341,139 @@ export default function CreatePaySchemePage() {
   };
 
   // ─── Check Calculation ────────────────────────────────────────
+  // Iterative substitution-based evaluator (mirrors legacy backend):
+  // - Inputs supply literal values keyed by component_code.
+  // - Each unresolved formula has known component_codes substituted with
+  //   their numeric values, then is evaluated.
+  // - Repeat until everything resolves or no further progress is made
+  //   (handles forward references like Basic -> C_1_GROSS_ -> Gross1).
+  // - Final value rounded per the component's ROUNDOF / ROUNDOF_TYPE:
+  //   type 1 = nearest, type 2 = down (truncate), type 3 = up (ceiling).
   const handleCheckCalculation = () => {
-    const ctx: Record<string, number> = {};
+    const cooked: Record<string, number> = {};
+    const formulas: Record<string, string> = {};
+    const rounding: Record<string, { digits: number; type: number }> = {};
 
     for (const iv of inputValues.filter((iv) => iv.status !== 0)) {
-      if (iv.component_code) ctx[iv.component_code] = parseFloat(iv.formula) || 0;
+      if (!iv.component_code) continue;
+      const n = parseFloat(iv.formula);
+      cooked[iv.component_code] = isNaN(n) ? 0 : n;
     }
 
-    const evaluate = (formula: string): number => {
-      try {
-        const varNames = Object.keys(ctx);
-        const varValues = varNames.map((k) => ctx[k]);
-        try {
-          // eslint-disable-next-line no-new-func
-          const fn = new Function(...varNames, `return (${formula});`);
-          const r = fn(...varValues);
-          if (typeof r === "number" && !isNaN(r)) return r;
-        } catch { /* fall through to statement eval */ }
-        // eslint-disable-next-line no-new-func
-        const fn = new Function(...varNames, `${formula}\nreturn typeof result !== 'undefined' ? Number(result) : 0;`);
-        return Number(fn(...varValues)) || 0;
-      } catch {
-        return 0;
+    const collectFormula = (item: DetailItem) => {
+      if (item.status === 0 || !item.component_code) return;
+      formulas[item.component_code] = item.formula ?? "";
+      rounding[item.component_code] = {
+        digits: item.roundof ?? 0,
+        type: item.roundof_type ?? 0,
+      };
+    };
+    earningList.forEach(collectFormula);
+    deductionList.forEach(collectFormula);
+    summaryList.forEach(collectFormula);
+
+    const applyRound = (val: number, code: string): number => {
+      const r = rounding[code];
+      if (!r) return val;
+      const digits = Math.max(0, Math.min(10, r.digits | 0));
+      const factor = Math.pow(10, digits);
+      // type 1 = nearest, 2 = down (truncate toward 0), 3 = up (away from 0),
+      // 0/null = default nearest (matches legacy processScriptValue fallback)
+      switch (r.type) {
+        case 2:
+          return Math.trunc(val * factor) / factor;
+        case 3:
+          return (val >= 0 ? Math.ceil(val * factor) : Math.floor(val * factor)) / factor;
+        case 1:
+        default:
+          return Math.round(val * factor) / factor;
       }
     };
 
-    const processEarnings = earningList.map((item) => {
-      if (item.status === 0) return item;
-      const val = evaluate(item.formula);
-      if (item.component_code) ctx[item.component_code] = val;
-      return { ...item, value: val };
-    });
+    const evalFormula = (formula: string): number | null => {
+      const f = formula.trim();
+      if (!f) return 0;
+      // Try as expression first (e.g. "A*B/100")
+      try {
+        // eslint-disable-next-line no-new-func
+        const r = new Function(`return (${f});`)();
+        if (typeof r === "number" && isFinite(r)) return r;
+      } catch { /* fall through to statement form */ }
+      // Try as statement block (e.g. "var result=0; if(...) result=...;")
+      try {
+        // eslint-disable-next-line no-new-func
+        const r = new Function(`${f}\nreturn typeof result !== 'undefined' ? Number(result) : NaN;`)();
+        if (typeof r === "number" && isFinite(r)) return r;
+      } catch { /* unresolved */ }
+      return null;
+    };
 
-    const processDeductions = deductionList.map((item) => {
-      if (item.status === 0) return item;
-      const val = evaluate(item.formula);
-      if (item.component_code) ctx[item.component_code] = val;
-      return { ...item, value: val };
-    });
+    const allCodes = Object.keys(formulas);
+    const MAX_ITER = 100;
 
-    const processSummary = summaryList.map((item) => {
-      if (item.status === 0) return item;
-      return { ...item, value: evaluate(item.formula) };
-    });
+    for (let iter = 0; iter < MAX_ITER; iter++) {
+      let progress = false;
 
-    setEarningList(processEarnings);
-    setDeductionList(processDeductions);
-    setSummaryList(processSummary);
+      for (const code of allCodes) {
+        if (code in cooked) continue;
+
+        let f = formulas[code];
+
+        // If the raw formula is already a plain number, accept it
+        const direct = parseFloat(f);
+        if (!isNaN(direct) && /^-?\d+(\.\d+)?$/.test(f.trim())) {
+          cooked[code] = applyRound(direct, code);
+          progress = true;
+          continue;
+        }
+
+        // Substitute known codes (longest first so longer codes win over
+        // any that happen to be a prefix substring of another)
+        const knownCodes = Object.keys(cooked).sort((a, b) => b.length - a.length);
+        for (const refCode of knownCodes) {
+          if (refCode === code) continue;
+          if (f.indexOf(refCode) === -1) continue;
+          f = f.split(refCode).join(String(cooked[refCode]));
+        }
+
+        const val = evalFormula(f);
+        if (val !== null) {
+          cooked[code] = applyRound(val, code);
+          progress = true;
+        }
+      }
+
+      if (allCodes.every((c) => c in cooked)) break;
+      if (!progress) break; // Can't resolve any further this pass
+    }
+
+    // Final pass: any code still unresolved has formula references to
+    // component codes that don't exist in this scheme (or form a cycle).
+    // Substitute remaining C_xxx tokens with 0 and evaluate — matches
+    // the legacy behavior of dangling refs degrading to 0.
+    for (const code of allCodes) {
+      if (code in cooked) continue;
+      let f = formulas[code];
+      const knownCodes = Object.keys(cooked).sort((a, b) => b.length - a.length);
+      for (const refCode of knownCodes) {
+        if (refCode === code) continue;
+        if (f.indexOf(refCode) === -1) continue;
+        f = f.split(refCode).join(String(cooked[refCode]));
+      }
+      f = f.replace(/\bC_[A-Za-z0-9_]*/g, "0");
+      const val = evalFormula(f);
+      cooked[code] = applyRound(val !== null ? val : 0, code);
+    }
+
+    const applyValue = (item: DetailItem): DetailItem => {
+      if (item.status === 0) return item;
+      const v = item.component_code ? cooked[item.component_code] : undefined;
+      return { ...item, value: v !== undefined ? v : 0 };
+    };
+
+    setEarningList((prev) => prev.map(applyValue));
+    setDeductionList((prev) => prev.map(applyValue));
+    setSummaryList((prev) => prev.map(applyValue));
   };
 
   // ─── Save / Update ─────────────────────────────────────────────
@@ -664,13 +756,19 @@ export default function CreatePaySchemePage() {
           <div>
             <h2 className="mb-2 text-lg font-bold text-[#0C3C60]">Earnings</h2>
             <div className="overflow-hidden rounded border border-[#00b7c2]">
-              <table className="w-full text-sm">
+              <table className="w-full table-fixed text-sm">
+                <colgroup>
+                  <col className="w-[22%]" />
+                  <col className="w-[48%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[12%]" />
+                </colgroup>
                 <thead>
                   <tr className="bg-[#00b7c2] text-white">
                     <th className="px-3 py-2 text-left font-semibold">Component</th>
                     <th className="px-3 py-2 text-left font-semibold">Formula</th>
                     <th className="px-3 py-2 text-left font-semibold">Value</th>
-                    <th className="w-16 px-3 py-2 text-left font-semibold">Action</th>
+                    <th className="px-3 py-2 text-left font-semibold">Action</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white">
@@ -678,9 +776,9 @@ export default function CreatePaySchemePage() {
                     .filter((e) => e.status !== 0)
                     .map((item, idx) => (
                       <tr key={idx} className="border-b border-gray-100">
-                        <td className="px-3 py-2">{item.component_name}</td>
-                        <td className="px-3 py-2">{item.formula}</td>
-                        <td className="px-3 py-2">{item.value !== undefined ? item.value : (item.default_value ?? "")}</td>
+                        <td className="px-3 py-2 wrap-break-word">{item.component_name}</td>
+                        <td className="px-3 py-2 whitespace-pre-wrap break-all">{item.formula}</td>
+                        <td className="px-3 py-2 wrap-break-word">{item.value !== undefined ? item.value : (item.default_value ?? "")}</td>
                         <td className="px-3 py-2">
                           {!isLocked && !isDeactivated && (
                             <IconButton
@@ -707,13 +805,19 @@ export default function CreatePaySchemePage() {
           <div>
             <h2 className="mb-2 text-lg font-bold text-[#0C3C60]">Deductions</h2>
             <div className="overflow-hidden rounded border border-[#00b7c2]">
-              <table className="w-full text-sm">
+              <table className="w-full table-fixed text-sm">
+                <colgroup>
+                  <col className="w-[22%]" />
+                  <col className="w-[48%]" />
+                  <col className="w-[18%]" />
+                  <col className="w-[12%]" />
+                </colgroup>
                 <thead>
                   <tr className="bg-[#00b7c2] text-white">
                     <th className="px-3 py-2 text-left font-semibold">Component</th>
                     <th className="px-3 py-2 text-left font-semibold">Formula</th>
                     <th className="px-3 py-2 text-left font-semibold">Value</th>
-                    <th className="w-16 px-3 py-2 text-left font-semibold">Action</th>
+                    <th className="px-3 py-2 text-left font-semibold">Action</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white">
@@ -721,9 +825,9 @@ export default function CreatePaySchemePage() {
                     .filter((d) => d.status !== 0)
                     .map((item, idx) => (
                       <tr key={idx} className="border-b border-gray-100">
-                        <td className="px-3 py-2">{item.component_name}</td>
-                        <td className="px-3 py-2">{item.formula}</td>
-                        <td className="px-3 py-2">{item.value !== undefined ? item.value : (item.default_value ?? "")}</td>
+                        <td className="px-3 py-2 wrap-break-word">{item.component_name}</td>
+                        <td className="px-3 py-2 whitespace-pre-wrap break-all">{item.formula}</td>
+                        <td className="px-3 py-2 wrap-break-word">{item.value !== undefined ? item.value : (item.default_value ?? "")}</td>
                         <td className="px-3 py-2">
                           {!isLocked && !isDeactivated && (
                             <IconButton
