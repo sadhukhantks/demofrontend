@@ -58,10 +58,16 @@ export function GovtSackingSourcePreview({ source }: Props) {
 				</Grid>
 
 				<Grid size={{ xs: 12, md: 4 }}>
-					<Field label="Sale No" value={header.sales_order_no} />
+					<Field
+						label="Sale No / Date"
+						value={`${header.sales_order_no_formatted ?? header.sales_order_no ?? "—"} / ${header.sales_order_date ?? "—"}`}
+					/>
 				</Grid>
 				<Grid size={{ xs: 12, md: 4 }}>
-					<Field label="Delivery Order No" value={header.delivery_order_no} />
+					<Field
+						label="Delivery Order No / Date"
+						value={`${header.delivery_order_no_formatted ?? header.delivery_order_no ?? "—"} / ${header.delivery_order_date ?? "—"}`}
+					/>
 				</Grid>
 				<Grid size={{ xs: 12, md: 4 }}>
 					<Field label="PCSO No / Date" value={`${header.pcso_no ?? "—"} / ${header.pcso_date ?? "—"}`} />

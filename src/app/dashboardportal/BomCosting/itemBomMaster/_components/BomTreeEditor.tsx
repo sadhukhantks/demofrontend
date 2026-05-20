@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -37,6 +37,7 @@ import { openStyledPrintWindow } from "@/utils/printUtils";
 import BomTreeNode from "./BomTreeNode";
 import ConfirmDialog from "./ConfirmDialog";
 import InlineBomRow, { InlineSavePayload } from "./InlineBomRow";
+import BulkAddComponentsDialog, { BulkComponentPayload } from "./BulkAddComponentsDialog";
 import BomPrintDialog from "./BomPrintDialog";
 import { buildBomPrintHtml, BomPrintOptions } from "./bomPrintRender";
 import { BomTreeItem, ItemOption, UomOption, getCoId } from "./types";
@@ -79,6 +80,18 @@ function findSiblingList(
   return null;
 }
 
+function computeMaxDepth(nodes: BomTreeItem[]): number {
+  if (!nodes || nodes.length === 0) return 0;
+  let max = 1;
+  for (const n of nodes) {
+    if (n.children && n.children.length > 0) {
+      const d = 1 + computeMaxDepth(n.children);
+      if (d > max) max = d;
+    }
+  }
+  return max;
+}
+
 /** Immutably replace a sibling list in the tree by matching parentItemId. */
 function replaceChildList(
   nodes: BomTreeItem[],
@@ -115,6 +128,7 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
   const [statusSaving, setStatusSaving] = useState(false);
 
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [bulkAddOpen, setBulkAddOpen] = useState(false);
 
   // Shared item/uom options for inline rows (debounce lives in InlineBomRow)
   const [itemOptions, setItemOptions] = useState<ItemOption[]>([]);
@@ -183,6 +197,7 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
     setItemOptions([]);
     setUomOptions([]);
     setPrintDialogOpen(false);
+    setBulkAddOpen(false);
   }, []);
 
   useEffect(() => {
@@ -356,6 +371,62 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
     [item, onSnackbar, selectedRootItem]
   );
 
+  const handleBulkSave = useCallback(
+    async (payload: BulkComponentPayload[]) => {
+      const rootId = selectedRootItem?.item_id ?? item?.item_id;
+      if (!rootId) throw new Error("No parent item selected");
+
+      const co_id = parseInt(getCoId());
+      const components = payload.map((p) => ({
+        child_item_id: p.child_item_id,
+        qty: p.qty,
+        uom_id: p.uom_id,
+        sequence_no: p.sequence_no,
+        additional_description: p.additional_description ?? null,
+      }));
+
+      const { error, data } = await fetchWithCookie(
+        apiRoutesPortalMasters.BOM_ADD_COMPONENTS_BULK,
+        "POST",
+        { parent_item_id: rootId, co_id, components }
+      );
+      if (error) {
+        onSnackbar(error, "error");
+        throw new Error(error);
+      }
+
+      const bomIds: number[] = data?.bom_ids ?? [];
+      setTree((t) => {
+        let updated = t;
+        payload.forEach((p, i) => {
+          const newBomId = bomIds[i];
+          if (!newBomId) return;
+          const newNode: BomTreeItem = {
+            bom_id: newBomId,
+            parent_item_id: rootId,
+            child_item_id: p.child_item_id,
+            child_item_code: p._meta.child_item_code,
+            child_full_item_code: p._meta.child_full_item_code,
+            child_item_name: p._meta.child_item_name,
+            additional_description: p.additional_description ?? null,
+            qty: p.qty,
+            uom_id: p.uom_id,
+            uom_name: p._meta.uom_name,
+            sequence_no: p.sequence_no,
+            has_children: false,
+            is_leaf: true,
+            children: [],
+          };
+          updated = insertChild(updated, rootId, newNode, rootId);
+        });
+        return updated;
+      });
+
+      onSnackbar(data?.message || `${payload.length} component(s) added`, "success");
+    },
+    [item, onSnackbar, selectedRootItem]
+  );
+
   const handleSaveEdit = useCallback(
     async (
       bomId: number,
@@ -486,6 +557,8 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
 
   const rootNextSeq = Math.max(0, ...tree.map((n) => n.sequence_no)) + 1;
 
+  const maxDepth = useMemo(() => computeMaxDepth(tree), [tree]);
+
   // Drag is disabled for root-level rows while any inline row is open
   const rootDragDisabled = editingBomId !== null || addingUnderParentId !== null;
 
@@ -537,6 +610,7 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
                 Select an item to define or view its BOM:
               </Typography>
               <Autocomplete
+                autoHighlight
                 options={rootItemOptions}
                 filterOptions={(x) => x}
                 getOptionLabel={(opt: ItemOption) =>
@@ -764,17 +838,25 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
               )}
 
               {rootItemId && (
-                <Button
-                  variant="outlined"
-                  size="small"
-                  sx={{ mt: 2 }}
-                  onClick={() => {
-                    setAddingUnderParentId(rootItemId);
-                    setEditingBomId(null);
-                  }}
-                >
-                  + Add Component
-                </Button>
+                <Box sx={{ mt: 2, display: "flex", gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => {
+                      setAddingUnderParentId(rootItemId);
+                      setEditingBomId(null);
+                    }}
+                  >
+                    + Add Component
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setBulkAddOpen(true)}
+                  >
+                    + Bulk Add
+                  </Button>
+                </Box>
               )}
             </Box>
           )}
@@ -802,6 +884,18 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
         onClose={() => setPrintDialogOpen(false)}
         onConfirm={handlePrintConfirm}
         itemLabel={rootLabel}
+        maxDepth={maxDepth}
+      />
+
+      <BulkAddComponentsDialog
+        open={bulkAddOpen}
+        onClose={() => setBulkAddOpen(false)}
+        parentItemId={rootItemId}
+        nextSeqStart={rootNextSeq}
+        itemOptions={itemOptions}
+        uomOptions={uomOptions}
+        onItemSearchChange={handleItemSearchChange}
+        onBulkSave={handleBulkSave}
       />
     </>
   );

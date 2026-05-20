@@ -19,13 +19,12 @@ import {
 import { Printer } from "lucide-react";
 import { BomPrintOptions } from "./bomPrintRender";
 
-const MAX_BOM_DEPTH = 15;
-
 type BomPrintDialogProps = {
   open: boolean;
   onClose: () => void;
   onConfirm: (opts: BomPrintOptions) => void;
   itemLabel: string;
+  maxDepth: number;
 };
 
 export default function BomPrintDialog({
@@ -33,6 +32,7 @@ export default function BomPrintDialog({
   onClose,
   onConfirm,
   itemLabel,
+  maxDepth,
 }: BomPrintDialogProps) {
   const [depth, setDepth] = useState<number | "all">(1);
   const [includeQtyUom, setIncludeQtyUom] = useState(true);
@@ -74,13 +74,13 @@ export default function BomPrintDialog({
                 setDepth(v === "all" ? "all" : Number(v));
               }}
             >
-              {Array.from({ length: MAX_BOM_DEPTH }, (_, i) => i + 1).map((n) => (
+              <MenuItem value="all">All levels</MenuItem>
+              {Array.from({ length: Math.max(1, maxDepth) }, (_, i) => i + 1).map((n) => (
                 <MenuItem key={n} value={String(n)}>
                   Level {n}
                   {n === 1 ? " (top components only)" : ""}
                 </MenuItem>
               ))}
-              <MenuItem value="all">All levels</MenuItem>
             </Select>
           </FormControl>
 

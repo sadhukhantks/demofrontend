@@ -73,8 +73,32 @@ export function buildFreightPreviewProps(invoice: InvoiceDetails): FreightPrevie
 		? lineNet
 		: grossFallback;
 
-	const sourceInvoiceLabel = invoice.freight?.source?.invoice_no_formatted
-		|| (invoice.freight?.source?.invoice_no != null ? String(invoice.freight.source.invoice_no) : "");
+	// Build a list of every linked source invoice. Prefer the new multi-source
+	// `sources[]` array (always present after the multi-source migration);
+	// fall back to the legacy single `source` for pre-migration rows.
+	const sourceList = invoice.freight?.sources && invoice.freight.sources.length > 0
+		? invoice.freight.sources
+		: (invoice.freight?.source
+			? [{
+				invoice_id: invoice.freight.source.invoice_id,
+				invoice_no: invoice.freight.source.invoice_no,
+				invoice_no_formatted: invoice.freight.source.invoice_no_formatted,
+				invoice_date: invoice.freight.source.invoice_date,
+				delivery_order_no: invoice.freight.source.delivery_order_no,
+				delivery_order_no_formatted: invoice.freight.source.delivery_order_no_formatted,
+			}]
+			: []);
+	const sourceLabels = sourceList.map((s) => {
+		const inv = s.invoice_no_formatted || (s.invoice_no != null ? String(s.invoice_no) : "");
+		return s.invoice_date ? `${inv} dated ${s.invoice_date}` : inv;
+	}).filter(Boolean);
+	const referenceNote = sourceLabels.length > 0
+		? `Source Invoices: ${sourceLabels.join(", ")}`
+		: "";
+	const primarySource = sourceList[0];
+	const primaryDo = primarySource?.delivery_order_no_formatted
+		|| (primarySource?.delivery_order_no != null ? String(primarySource.delivery_order_no) : "");
+	const doSeg = primaryDo ? `DO ${primaryDo}` : "";
 	// Reconstruct the footer/remarks from structured fields so the IW/RR relabel
 	// applies even to legacy invoices whose stored `footerNote` was saved with the
 	// pre-relabel wording. Fields are fully recoverable from the response payload.
@@ -87,16 +111,14 @@ export function buildFreightPreviewProps(invoice: InvoiceDetails): FreightPrevie
 		? `${iwLabel}${invoice.freight.iwBillNo}${invoice.freight.iwBillDate ? ` Date:${invoice.freight.iwBillDate}` : ""}`
 		: "";
 	const containerSeg = invoice.containerNo ? `Container No.${invoice.containerNo}` : "";
-	const referenceNote = sourceInvoiceLabel
-		? `Ref Invoice- ${sourceInvoiceLabel}${invoice.freight?.source?.invoice_date ? ` dated ${invoice.freight.source.invoice_date}` : ""}`
-		: "";
-	const footerText = [pcsoSeg, iwSeg, containerSeg, referenceNote].filter(Boolean).join(" | ");
+	const footerText = [referenceNote, pcsoSeg, doSeg, iwSeg, containerSeg].filter(Boolean).join(" | ");
 
 	const header: InvoicePreviewHeader = {
 		invoiceNo: invoice.invoiceNo,
 		invoiceDate: invoice.invoiceDate,
-		saleNo: invoice.saleNo,
-		deliveryOrderNo: invoice.deliveryOrderNo,
+		// Prefer the source's FY-formatted DO so the print matches the picker.
+		deliveryOrderNo: primaryDo || invoice.deliveryOrderNo,
+		deliveryOrderDate: primarySource?.delivery_order_date ?? undefined,
 		salesOrderNo: invoice.salesOrderNo,
 		salesOrderDate: invoice.salesOrderDate,
 		pcsoNo: invoice.govtskg?.pcsoNo ?? invoice.freight?.source?.pcso_no ?? undefined,

@@ -146,6 +146,7 @@ const apiRoutesPortalMasters = {
     BOM_PARENTS: `${API_URL}/itemBomMaster/get_bom_parents`,
     BOM_CREATE_SETUP: `${API_URL}/itemBomMaster/bom_create_setup`,
     BOM_ADD_COMPONENT: `${API_URL}/itemBomMaster/bom_add_component`,
+    BOM_ADD_COMPONENTS_BULK: `${API_URL}/itemBomMaster/bom_add_components_bulk`,
     BOM_EDIT_COMPONENT: `${API_URL}/itemBomMaster/bom_edit_component`,
     BOM_REMOVE_COMPONENT: `${API_URL}/itemBomMaster/bom_remove_component`,
     BOM_REORDER_SIBLINGS: `${API_URL}/itemBomMaster/bom_reorder_siblings`,

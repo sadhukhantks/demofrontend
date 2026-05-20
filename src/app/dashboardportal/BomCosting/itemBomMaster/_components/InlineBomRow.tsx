@@ -131,7 +131,14 @@ export default function InlineBomRow({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") { e.preventDefault(); handleSave(); }
+    if (e.key === "Enter") {
+      // Autocomplete calls preventDefault() when committing a highlighted option.
+      // Skip handleSave in that case so the same Enter that picked an option
+      // does not also try to submit a half-filled row.
+      if (e.defaultPrevented) return;
+      e.preventDefault();
+      handleSave();
+    }
     if (e.key === "Escape") { e.preventDefault(); onCancel(); }
   };
 
@@ -160,6 +167,7 @@ export default function InlineBomRow({
       <Box sx={{ gridColumn: "span 2", pl: level * 3 + 1, pr: 1, py: 0.5, borderRight: "1px solid", borderColor: "divider" }}>
         <Autocomplete
           size="small"
+          autoHighlight
           options={itemOptions}
           filterOptions={(x) => x}
           getOptionLabel={(opt) => `${opt.full_item_code || opt.item_code} — ${opt.item_name}`}
@@ -236,6 +244,7 @@ export default function InlineBomRow({
       <Box sx={{ px: 1, py: 0.5, borderRight: "1px solid", borderColor: "divider" }}>
         <Autocomplete
           size="small"
+          autoHighlight
           options={uomOptions}
           getOptionLabel={(opt) => opt.uom_name}
           value={selectedUom}
