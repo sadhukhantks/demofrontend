@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { Suspense, useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -102,7 +102,7 @@ const OPERATORS = [
   { label: "result", value: "result" },
 ];
 
-export default function CreatePaySchemePage() {
+function CreatePaySchemePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("id");
@@ -1128,5 +1128,13 @@ export default function CreatePaySchemePage() {
         </Alert>
       </Snackbar>
     </div>
+  );
+}
+
+export default function CreatePaySchemePage() {
+  return (
+    <Suspense fallback={null}>
+      <CreatePaySchemePageContent />
+    </Suspense>
   );
 }

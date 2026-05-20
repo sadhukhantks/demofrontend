@@ -177,10 +177,11 @@ export const saveEmployeeSalary = async (
 // ─── Pay Scheme ────────────────────────────────────────────────────
 
 export const fetchPaySchemeList = async (
-  params?: { co_id?: string; page?: number; page_size?: number; search?: string },
+  coId: string,
+  params?: { page?: number; page_size?: number; search?: string },
 ) => {
   const qs = new URLSearchParams();
-  if (params?.co_id) qs.set("co_id", params.co_id);
+  if (coId) qs.set("co_id", coId);
   if (params?.page) qs.set("page", String(params.page));
   if (params?.page_size) qs.set("page_size", String(params.page_size));
   if (params?.search) qs.set("search", params.search);
@@ -190,11 +191,14 @@ export const fetchPaySchemeList = async (
   );
 };
 
-export const fetchPaySchemeById = async (id: string) =>
-  fetchWithCookie(
-    `${apiRoutesPortalMasters.HRMS_PAY_SCHEME_BY_ID}/${id}`,
+export const fetchPaySchemeById = async (coId: string, id: string) => {
+  const qs = new URLSearchParams();
+  if (coId) qs.set("co_id", coId);
+  return fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_PAY_SCHEME_BY_ID}/${id}?${qs.toString()}`,
     "GET",
   );
+};
 
 export const fetchPaySchemeCreateSetup = async (coId?: string) => {
   const qs = new URLSearchParams();
@@ -205,21 +209,25 @@ export const fetchPaySchemeCreateSetup = async (coId?: string) => {
   );
 };
 
-export const createPayScheme = async (data: Record<string, unknown>) =>
+export const createPayScheme = async (
+  coId: string,
+  data: Record<string, unknown>,
+) =>
   fetchWithCookie(
     `${apiRoutesPortalMasters.HRMS_PAY_SCHEME_CREATE}`,
     "POST",
-    data,
+    { ...data, co_id: coId },
   );
 
 export const updatePayScheme = async (
+  coId: string,
   id: string,
   data: Record<string, unknown>,
 ) =>
   fetchWithCookie(
     `${apiRoutesPortalMasters.HRMS_PAY_SCHEME_UPDATE}/${id}`,
     "PUT",
-    data,
+    { ...data, co_id: coId },
   );
 
 // ─── Pay Param / Period ────────────────────────────────────────────
