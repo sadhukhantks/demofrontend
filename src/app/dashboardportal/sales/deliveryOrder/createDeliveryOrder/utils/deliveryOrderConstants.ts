@@ -6,6 +6,7 @@ import type {
 	ApprovedSalesOrderRecord,
 	InvoiceTypeRecord,
 	ItemGroupRecord,
+	CompanyBranchRecord,
 	Option,
 	EditableLineItem,
 } from "../types/deliveryOrderTypes";
@@ -43,6 +44,7 @@ export const EMPTY_BROKERS: ReadonlyArray<BrokerRecord> = Object.freeze([]);
 export const EMPTY_APPROVED_SALES_ORDERS: ReadonlyArray<ApprovedSalesOrderRecord> = Object.freeze([]);
 export const EMPTY_ITEM_GROUPS: ReadonlyArray<ItemGroupRecord> = Object.freeze([]);
 export const EMPTY_INVOICE_TYPES: ReadonlyArray<InvoiceTypeRecord> = Object.freeze([]);
+export const EMPTY_COMPANY_BRANCHES: ReadonlyArray<CompanyBranchRecord> = Object.freeze([]);
 export const EMPTY_OPTIONS: ReadonlyArray<Option> = Object.freeze([]);
 export const EMPTY_LINE_ITEMS: ReadonlyArray<EditableLineItem> = Object.freeze([]);
 

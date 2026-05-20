@@ -3,6 +3,8 @@ import type {
 	CustomerRecordRaw,
 	CustomerBranchRecord,
 	CustomerBranchRecordRaw,
+	CompanyBranchRecord,
+	CompanyBranchRecordRaw,
 	TransporterRecord,
 	TransporterRecordRaw,
 	BrokerRecord,
@@ -151,6 +153,25 @@ export const mapInvoiceTypeRecords = (records: unknown[]): InvoiceTypeRecord[] =
 		})
 		.filter(Boolean) as InvoiceTypeRecord[];
 
+export const mapCompanyBranchRecords = (records: unknown[]): CompanyBranchRecord[] =>
+	records
+		.map((row) => {
+			const data = row as CompanyBranchRecordRaw;
+			const id = data?.branch_id;
+			if (id == null) return null;
+			return {
+				id: String(id),
+				name: data?.branch_name,
+				address1: data?.branch_address1,
+				address2: data?.branch_address2,
+				zipcode: data?.branch_zipcode != null ? String(data.branch_zipcode) : undefined,
+				stateName: data?.state_name,
+				stateCode: data?.state_code,
+				gstNo: data?.gst_no,
+			} satisfies CompanyBranchRecord;
+		})
+		.filter(Boolean) as CompanyBranchRecord[];
+
 export const mapDOSetupResponse = (response: unknown): DOSetupData => {
 	try {
 		const result = response as DOSetup1ResponseRaw;
@@ -161,6 +182,7 @@ export const mapDOSetupResponse = (response: unknown): DOSetupData => {
 			approvedSalesOrders: mapApprovedSalesOrders(result?.approved_sales_orders ?? []),
 			itemGroups: mapItemGroupRecords(result?.item_groups ?? []),
 			invoiceTypes: mapInvoiceTypeRecords(result?.invoice_types ?? []),
+			branches: mapCompanyBranchRecords(result?.branches ?? []),
 		} satisfies DOSetupData;
 	} catch (error) {
 		console.error("Failed to map DO setup response", error);
@@ -196,6 +218,7 @@ export const mapItemGroupDetailResponse = (response: unknown): ItemGroupCacheEnt
 				defaultUomLabel: data?.uom_name ? String(data.uom_name) : undefined,
 				defaultRate: data?.rate != null ? Number(data.rate) : undefined,
 				taxPercentage: data?.tax_percentage != null ? Number(data.tax_percentage) : undefined,
+				rateRounding: data?.rate_rounding != null ? Number(data.rate_rounding) : undefined,
 			};
 		})
 		.filter(Boolean) as ItemOption[];
@@ -213,6 +236,7 @@ export const mapItemGroupDetailResponse = (response: unknown): ItemGroupCacheEnt
 	const uomLabelByItemId: Record<string, Record<string, string>> = {};
 	const itemRateById: Record<string, number> = {};
 	const itemTaxById: Record<string, number> = {};
+	const itemRateRoundingById: Record<string, number> = {};
 
 	uomsRaw.forEach((row) => {
 		const data = row as ItemUomOptionRaw;
@@ -273,6 +297,7 @@ export const mapItemGroupDetailResponse = (response: unknown): ItemGroupCacheEnt
 		}
 		if (item.defaultRate != null) itemRateById[item.value] = item.defaultRate;
 		if (item.taxPercentage != null) itemTaxById[item.value] = item.taxPercentage;
+		if (item.rateRounding != null) itemRateRoundingById[item.value] = item.rateRounding;
 	});
 
 	const itemLabelById: Record<string, string> = {};
@@ -281,7 +306,7 @@ export const mapItemGroupDetailResponse = (response: unknown): ItemGroupCacheEnt
 	const makeLabelById: Record<string, string> = {};
 	makes.forEach((make) => { makeLabelById[make.value] = make.label; });
 
-	return { groupLabel, items, makes, uomsByItemId, itemLabelById, makeLabelById, uomLabelByItemId, itemRateById, itemTaxById, uomConversionsByItemId };
+	return { groupLabel, items, makes, uomsByItemId, itemLabelById, makeLabelById, uomLabelByItemId, itemRateById, itemTaxById, itemRateRoundingById, uomConversionsByItemId };
 };
 
 const toStringValue = (value: unknown): string => {

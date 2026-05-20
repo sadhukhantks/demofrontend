@@ -1458,11 +1458,16 @@ function InvoiceTransactionPageContent() {
 	const activeInvoiceTypeId = String(formValues.invoice_type ?? invoiceDetails?.invoiceType ?? "");
 	const isFreightType = isGovtSkgFreightInvoice(activeInvoiceTypeId);
 	if (isFreightType && coId && branchValue) {
-		const freightMode: "create" | "view" = mode === "view" ? "view" : "create";
+		const freightMode: "create" | "view" | "edit" =
+			mode === "view" ? "view" : mode === "edit" ? "edit" : "create";
+		const freightSubtitle =
+			freightMode === "view" ? "Govt Sacking Freight invoice details"
+				: freightMode === "edit" ? "Edit Govt Sacking Freight invoice"
+					: "Create a new Govt Sacking Freight invoice";
 		return (
 			<TransactionWrapper
 				title={pageTitle}
-				subtitle={freightMode === "view" ? "Govt Sacking Freight invoice details" : "Create a new Govt Sacking Freight invoice"}
+				subtitle={freightSubtitle}
 				metadata={metadata}
 				statusChip={statusChipProps}
 				backAction={{ onClick: () => router.push("/dashboardportal/sales/salesInvoice") }}
@@ -1476,6 +1481,9 @@ function InvoiceTransactionPageContent() {
 					existingInvoice={invoiceDetails ?? undefined}
 					menuId={menuIdFromUrl}
 					setupData={setupData ?? null}
+					requestedId={requestedId}
+					setInvoiceDetails={setInvoiceDetails}
+					getMenuId={getMenuId}
 				/>
 			</TransactionWrapper>
 		);

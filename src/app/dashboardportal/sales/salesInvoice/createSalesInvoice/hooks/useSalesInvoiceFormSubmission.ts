@@ -2,6 +2,7 @@ import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
 import { createInvoice, updateInvoice, type SaveInvoiceRequest } from "@/utils/salesInvoiceService";
+import { roundAmount, roundAmountOrUndefined, roundRateOrUndefined } from "@/utils/numberRounding";
 import type { EditableLineItem } from "../types/salesInvoiceTypes";
 import { isRawJuteInvoice, isHessianInvoice, isGovtSkgInvoice } from "../utils/salesInvoiceConstants";
 
@@ -79,7 +80,11 @@ export const useSalesInvoiceFormSubmission = ({
 			const hessian = isHessianInvoice(invoiceTypeId);
 			const govtSkg = isGovtSkgInvoice(invoiceTypeId);
 
-			const itemsPayload = filledLineItems.map((item) => ({
+			const itemsPayload = filledLineItems.map((item) => {
+				const rateNum = item.rate ? Number(item.rate) : undefined;
+				const roundedRate = rateNum != null && Number.isFinite(rateNum)
+					? roundRateOrUndefined(rateNum, item.rateRounding) : undefined;
+				return {
 				item: item.item || "",
 				item_make: item.itemMake || undefined,
 				delivery_order_dtl_id: item.deliveryOrderDtlId,
@@ -87,23 +92,23 @@ export const useSalesInvoiceFormSubmission = ({
 				hsn_code: item.hsnCode || undefined,
 				quantity: item.quantity || "0",
 				uom: item.uom || "",
-				rate: item.rate || undefined,
+				rate: roundedRate != null ? String(roundedRate) : (item.rate || undefined),
 				discount_type: item.discountType,
-				discounted_rate: item.discountedRate,
-				discount_amount: item.discountAmount,
-				net_amount: item.netAmount,
-				total_amount: item.totalAmount,
+				discounted_rate: roundRateOrUndefined(item.discountedRate, item.rateRounding),
+				discount_amount: roundAmountOrUndefined(item.discountAmount),
+				net_amount: roundAmountOrUndefined(item.netAmount),
+				total_amount: roundAmountOrUndefined(item.totalAmount),
 				remarks: item.remarks || undefined,
 				gst: {
-					igst_amount: item.igstAmount || 0,
+					igst_amount: roundAmount(item.igstAmount || 0),
 					igst_percent: item.igstPercent || 0,
-					cgst_amount: item.cgstAmount || 0,
+					cgst_amount: roundAmount(item.cgstAmount || 0),
 					cgst_percent: item.cgstPercent || 0,
-					sgst_amount: item.sgstAmount || 0,
+					sgst_amount: roundAmount(item.sgstAmount || 0),
 					sgst_percent: item.sgstPercent || 0,
-					gst_total: item.gstTotal || 0,
+					gst_total: roundAmount(item.gstTotal || 0),
 					tax_percentage: item.taxPercentage || 0,
-					tax_amount: item.gstTotal || 0,
+					tax_amount: roundAmount(item.gstTotal || 0),
 				},
 				...(rawJute ? {
 					jute_dtl: {
@@ -138,16 +143,17 @@ export const useSalesInvoiceFormSubmission = ({
 						total_weight: Number(item.govtskgTotalWeight) || undefined,
 					},
 				} : {}),
-			}));
+				};
+			});
 
-			const freightCharges = Number(values.freight_charges ?? formValues.freight_charges) || 0;
-			const roundOff = Number(values.round_off ?? formValues.round_off) || 0;
-			const grossAmount = filledLineItems.reduce((sum, l) => sum + (l.netAmount || 0), 0);
-			const totalGST = filledLineItems.reduce((sum, l) => sum + (l.gstTotal || 0), 0);
-			const addlChargesTotal = (additionalCharges ?? []).reduce(
+			const freightCharges = roundAmount(Number(values.freight_charges ?? formValues.freight_charges) || 0);
+			const roundOff = roundAmount(Number(values.round_off ?? formValues.round_off) || 0);
+			const grossAmount = roundAmount(filledLineItems.reduce((sum, l) => sum + (l.netAmount || 0), 0));
+			const totalGST = roundAmount(filledLineItems.reduce((sum, l) => sum + (l.gstTotal || 0), 0));
+			const addlChargesTotal = roundAmount((additionalCharges ?? []).reduce(
 				(sum, c) => sum + (parseFloat(c.netAmount) || 0) + (c.gst?.gstTotal ?? 0), 0,
-			);
-			const netAmount = grossAmount + totalGST + freightCharges + roundOff + addlChargesTotal;
+			));
+			const netAmount = roundAmount(grossAmount + totalGST + freightCharges + roundOff + addlChargesTotal);
 
 			const payload: SaveInvoiceRequest = {
 				branch: String(values.branch ?? formValues.branch ?? ""),
@@ -223,24 +229,24 @@ export const useSalesInvoiceFormSubmission = ({
 				};
 			}
 
-			// Add additional charges to payload
+			// Add additional charges to payload (rounded to 2 decimals — non-item rate also at 2)
 			if (additionalCharges && additionalCharges.length > 0) {
 				payload.additional_charges = additionalCharges
 					.filter((c) => c.additionalChargesId && (parseFloat(c.netAmount) || 0) > 0)
 					.map((c) => ({
 						additional_charges_id: c.additionalChargesId,
-						qty: parseFloat(c.qty) || 0,
-						rate: parseFloat(c.rate) || 0,
-						net_amount: parseFloat(c.netAmount) || 0,
+						qty: roundAmount(parseFloat(c.qty) || 0),
+						rate: roundAmount(parseFloat(c.rate) || 0),
+						net_amount: roundAmount(parseFloat(c.netAmount) || 0),
 						remarks: c.remarks || undefined,
 						gst: c.gst ? {
-							igst_amount: c.gst.igstAmount,
+							igst_amount: roundAmountOrUndefined(c.gst.igstAmount),
 							igst_percent: c.gst.igstPercent,
-							cgst_amount: c.gst.cgstAmount,
+							cgst_amount: roundAmountOrUndefined(c.gst.cgstAmount),
 							cgst_percent: c.gst.cgstPercent,
-							sgst_amount: c.gst.sgstAmount,
+							sgst_amount: roundAmountOrUndefined(c.gst.sgstAmount),
 							sgst_percent: c.gst.sgstPercent,
-							gst_total: c.gst.gstTotal,
+							gst_total: roundAmountOrUndefined(c.gst.gstTotal),
 						} : undefined,
 					}));
 			}

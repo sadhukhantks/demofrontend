@@ -36,6 +36,19 @@ export type IssueDetails = {
 	date?: string;
 	branchId?: number;
 	branchName?: string;
+	branchAddress1?: string;
+	branchAddress2?: string;
+	branchZipcode?: string | number;
+	branchGstNo?: string;
+	coId?: number;
+	coName?: string;
+	coLogo?: string;
+	coAddress1?: string;
+	coAddress2?: string;
+	coZipcode?: string | number;
+	coCinNo?: string;
+	coPanNo?: string;
+	coEmailId?: string;
 	deptId?: number;
 	deptName?: string;
 	projectId?: number;
@@ -201,6 +214,19 @@ export const getIssueById = async (
 		date: data.issue_date,
 		branchId: data.branch_id,
 		branchName: data.branch_name,
+		branchAddress1: data.branch_address1,
+		branchAddress2: data.branch_address2,
+		branchZipcode: data.branch_zipcode,
+		branchGstNo: data.branch_gst_no,
+		coId: data.co_id,
+		coName: data.co_name,
+		coLogo: data.co_logo,
+		coAddress1: data.co_address1,
+		coAddress2: data.co_address2,
+		coZipcode: data.co_zipcode,
+		coCinNo: data.co_cin_no,
+		coPanNo: data.co_pan_no,
+		coEmailId: data.co_email_id,
 		deptId: data.dept_id,
 		deptName: data.dept_name ?? data.department ?? data.dept_desc,
 		projectId: data.project_id,

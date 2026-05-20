@@ -272,6 +272,7 @@ export const mapItemGroupDetailResponse = (response: unknown): ItemGroupCacheEnt
 				defaultUomLabel: data?.uom_name ? String(data.uom_name) : undefined,
 				defaultRate: data?.rate != null ? Number(data.rate) : undefined,
 				taxPercentage: data?.tax_percentage != null ? Number(data.tax_percentage) : undefined,
+				rateRounding: data?.rate_rounding != null ? Number(data.rate_rounding) : undefined,
 			};
 		})
 		.filter(Boolean) as ItemOption[];
@@ -289,6 +290,7 @@ export const mapItemGroupDetailResponse = (response: unknown): ItemGroupCacheEnt
 	const uomLabelByItemId: Record<string, Record<string, string>> = {};
 	const itemRateById: Record<string, number> = {};
 	const itemTaxById: Record<string, number> = {};
+	const itemRateRoundingById: Record<string, number> = {};
 
 	uomsRaw.forEach((row) => {
 		const data = row as ItemUomOptionRaw;
@@ -349,6 +351,7 @@ export const mapItemGroupDetailResponse = (response: unknown): ItemGroupCacheEnt
 		}
 		if (item.defaultRate != null) itemRateById[item.value] = item.defaultRate;
 		if (item.taxPercentage != null) itemTaxById[item.value] = item.taxPercentage;
+		if (item.rateRounding != null) itemRateRoundingById[item.value] = item.rateRounding;
 	});
 
 	const itemLabelById: Record<string, string> = {};
@@ -357,7 +360,7 @@ export const mapItemGroupDetailResponse = (response: unknown): ItemGroupCacheEnt
 	const makeLabelById: Record<string, string> = {};
 	makes.forEach((make) => { makeLabelById[make.value] = make.label; });
 
-	return { groupLabel, items, makes, uomsByItemId, itemLabelById, makeLabelById, uomLabelByItemId, itemRateById, itemTaxById, uomConversionsByItemId };
+	return { groupLabel, items, makes, uomsByItemId, itemLabelById, makeLabelById, uomLabelByItemId, itemRateById, itemTaxById, itemRateRoundingById, uomConversionsByItemId };
 };
 
 const toStringValue = (value: unknown): string => {

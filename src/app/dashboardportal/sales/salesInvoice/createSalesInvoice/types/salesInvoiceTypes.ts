@@ -48,6 +48,7 @@ export type GovtSackingSourceHeader = {
 	sales_order_no: number | string | null;
 	sales_delivery_order_id: number | null;
 	delivery_order_no: number | string | null;
+	delivery_order_date?: string | null;
 	transporter_id: number | null;
 	transporter_name: string | null;
 	transporter_address: string | null;
@@ -85,6 +86,8 @@ export type GovtSackingSourceHeader = {
 	sales_order_date?: string | null;
 	co_prefix?: string | null;
 	branch_prefix?: string | null;
+	invoice_no_formatted?: string | null;
+	delivery_order_no_formatted?: string | null;
 };
 
 export type GovtSackingSourceDetail = {
@@ -169,6 +172,7 @@ export type ItemOption = Option & {
 	defaultUomLabel?: string;
 	defaultRate?: number;
 	taxPercentage?: number;
+	rateRounding?: number;
 };
 
 export type ItemGroupCacheEntry = {
@@ -181,6 +185,7 @@ export type ItemGroupCacheEntry = {
 	uomLabelByItemId: Record<string, Record<string, string>>;
 	itemRateById: Record<string, number>;
 	itemTaxById: Record<string, number>;
+	itemRateRoundingById: Record<string, number>;
 	uomConversionsByItemId: Record<string, UomConversionEntry[]>;
 };
 
@@ -212,6 +217,8 @@ export type EditableLineItem = {
 	sgstAmount?: number;
 	sgstPercent?: number;
 	gstTotal?: number;
+	/** Decimals to round `rate` / `discounted_rate` to (from item_mst.rate_rounding; defaults to 2) */
+	rateRounding?: number;
 	// Raw Jute detail fields (invoice_type = 5)
 	juteClaimAmountDtl?: number;
 	juteClaimDesc?: string;
@@ -407,6 +414,7 @@ export type ItemOptionRaw = {
 	uom_name?: string | null;
 	rate?: number | string | null;
 	tax_percentage?: number | string | null;
+	rate_rounding?: number | string | null;
 };
 
 export type ItemMakeOptionRaw = {

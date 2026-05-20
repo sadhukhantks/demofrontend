@@ -6,8 +6,11 @@ import type { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import IndexWrapper from "@/components/ui/IndexWrapper";
+import DateRangeToolbar from "@/components/ui/DateRangeToolbar";
 import { useRouter } from "next/navigation";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import { useExcelDownload } from "@/hooks/useExcelDownload";
+import { fetchExcelBlob } from "@/utils/fetchExcelBlob";
 
 /**
  * @component JuteIssueIndexPage
@@ -66,7 +69,30 @@ export default function JuteIssueIndexPage() {
 	const [loading, setLoading] = React.useState(false);
 	const [paginationModel, setPaginationModel] = React.useState<GridPaginationModel>({ page: 0, pageSize: 10 });
 	const [searchValue, setSearchValue] = React.useState("");
+	const [fromDate, setFromDate] = React.useState("");
+	const [toDate, setToDate] = React.useState("");
 	const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+	const [mounted, setMounted] = React.useState(false);
+	React.useEffect(() => {
+		setMounted(true);
+	}, []);
+
+	const downloadFetcher = React.useCallback(
+		(p: { coId: string; search: string; fromDate: string; toDate: string }) =>
+			fetchExcelBlob(apiRoutesPortalMasters.JUTE_ISSUE_DOWNLOAD, {
+				coId: p.coId,
+				search: p.search,
+				fromDate: p.fromDate || null,
+				toDate: p.toDate || null,
+			}),
+		[]
+	);
+	const {
+		download,
+		downloading,
+		error: downloadError,
+		clearError: clearDownloadError,
+	} = useExcelDownload(downloadFetcher, "jute_issue");
 
 	const columns = React.useMemo<GridColDef<JuteIssueSummaryRow>[]>(
 		() => [
@@ -136,6 +162,8 @@ export default function JuteIssueIndexPage() {
 			});
 			const trimmedSearch = searchValue.trim();
 			if (trimmedSearch) query.set("search", trimmedSearch);
+			if (fromDate) query.set("from_date", fromDate);
+			if (toDate) query.set("to_date", toDate);
 
 			const url = `${apiRoutesPortalMasters.JUTE_ISSUE_TABLE}?${query.toString()}`;
 			const { data, error } = await fetchWithCookie(url, "GET");
@@ -179,7 +207,7 @@ export default function JuteIssueIndexPage() {
 		} finally {
 			setLoading(false);
 		}
-	}, [coId, paginationModel.page, paginationModel.pageSize, searchValue]);
+	}, [coId, paginationModel.page, paginationModel.pageSize, searchValue, fromDate, toDate]);
 
 	React.useEffect(() => {
 		if (coId) {
@@ -196,6 +224,26 @@ export default function JuteIssueIndexPage() {
 		setPaginationModel((prev) => ({ ...prev, page: 0 }));
 		setSearchValue(value);
 	}, []);
+
+	const handleFromDateChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+		setPaginationModel((prev) => ({ ...prev, page: 0 }));
+		setFromDate(event.target.value);
+	}, []);
+
+	const handleToDateChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+		setPaginationModel((prev) => ({ ...prev, page: 0 }));
+		setToDate(event.target.value);
+	}, []);
+
+	const handleClearDates = React.useCallback(() => {
+		setPaginationModel((prev) => ({ ...prev, page: 0 }));
+		setFromDate("");
+		setToDate("");
+	}, []);
+
+	const handleDownload = React.useCallback(() => {
+		download({ coId: String(coId ?? ""), search: searchValue, fromDate, toDate });
+	}, [download, coId, searchValue, fromDate, toDate]);
 
 	const handleView = React.useCallback(
 		(row: JuteIssueSummaryRow) => {
@@ -238,6 +286,19 @@ export default function JuteIssueIndexPage() {
 				placeholder: "Search by date",
 				debounceDelayMs: 500,
 			}}
+			toolbarContent={
+				<DateRangeToolbar
+					fromDate={fromDate}
+					toDate={toDate}
+					onFromDateChange={handleFromDateChange}
+					onToDateChange={handleToDateChange}
+					onClearDates={handleClearDates}
+					onDownload={handleDownload}
+					downloading={downloading}
+					downloadDisabled={!coId || loading}
+					mounted={mounted}
+				/>
+			}
 			onView={handleView}
 			onEdit={handleEdit}
 			createAction={{
@@ -248,6 +309,11 @@ export default function JuteIssueIndexPage() {
 			{errorMessage ? (
 				<Alert severity="error" sx={{ mt: 2 }}>
 					{errorMessage}
+				</Alert>
+			) : null}
+			{downloadError ? (
+				<Alert severity="error" sx={{ mt: 2 }} onClose={clearDownloadError}>
+					{downloadError}
 				</Alert>
 			) : null}
 		</IndexWrapper>

@@ -33,9 +33,11 @@ import {
 import AdditionalChargesTable from "@/components/billPass/AdditionalChargesTable";
 import { openStyledPrintWindow } from "@/utils/printUtils";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import useCompanyHeader from "@/hooks/useCompanyHeader";
 import {
   renderBillPassPreviewHtml,
   BILL_PASS_PRINT_CSS,
+  splitItemNameMake,
 } from "./components/BillPassPreview";
 
 /**
@@ -325,6 +327,8 @@ function BillPassEditPageContent() {
     );
   }, [detail, formData.round_off_value]);
 
+  const companyHeader = useCompanyHeader(selectedCompany?.co_id, detail?.branch_id ?? undefined);
+
   const handlePrintPreview = () => {
     if (!detail) return;
     const html = renderBillPassPreviewHtml({
@@ -332,6 +336,9 @@ function BillPassEditPageContent() {
       formData,
       netPayable,
       companyName: selectedCompany?.co_name ?? null,
+      companyAddress: companyHeader.address || null,
+      companyGst: companyHeader.gstNo || null,
+      companyCin: companyHeader.cinNo || null,
     });
     const title = `Bill Pass ${detail.bill_pass_no || "Draft"}`;
     const printWindow = openStyledPrintWindow(html, title, BILL_PASS_PRINT_CSS);
@@ -532,9 +539,27 @@ function BillPassEditPageContent() {
                             </Typography>
                           </Box>
                           <Box component="td" sx={{ p: 1, fontSize: "0.75rem" }}>
-                            <Typography variant="caption" fontWeight={600}>
-                              {line.item_name || "-"}
-                            </Typography>
+                            {(() => {
+                              const { name, make } = splitItemNameMake(line.item_name);
+                              return (
+                                <>
+                                  <Typography variant="caption" fontWeight={600} display="block">
+                                    {name}
+                                  </Typography>
+                                  {make && (
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                      fontStyle="italic"
+                                      display="block"
+                                      sx={{ fontSize: "0.65rem" }}
+                                    >
+                                      {make}
+                                    </Typography>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </Box>
                           <Box component="td" sx={{ p: 1, fontSize: "0.75rem" }}>
                             {line.hsn_code || "-"}

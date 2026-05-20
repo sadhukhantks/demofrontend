@@ -2,6 +2,7 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
 import { createDO, updateDO, type SaveDORequest } from "@/utils/deliveryOrderService";
+import { roundAmount, roundAmountOrUndefined, roundRateOrUndefined } from "@/utils/numberRounding";
 import type { EditableLineItem } from "../types/deliveryOrderTypes";
 
 type Params = {
@@ -29,36 +30,41 @@ export const useDeliveryOrderFormSubmission = ({
 				return;
 			}
 
-			const itemsPayload = filledLineItems.map((item) => ({
-				item: item.item || "",
-				item_make: item.itemMake || undefined,
-				sales_order_dtl_id: item.salesOrderDtlId,
-				hsn_code: item.hsnCode || undefined,
-				quantity: item.quantity || "0",
-				uom: item.uom || "",
-				rate: item.rate || undefined,
-				discount_type: item.discountType,
-				discounted_rate: item.discountedRate,
-				discount_amount: item.discountAmount,
-				net_amount: item.netAmount,
-				total_amount: item.totalAmount,
-				remarks: item.remarks || undefined,
-				gst: {
-					igst_amount: item.igstAmount || 0,
-					igst_percent: item.igstPercent || 0,
-					cgst_amount: item.cgstAmount || 0,
-					cgst_percent: item.cgstPercent || 0,
-					sgst_amount: item.sgstAmount || 0,
-					sgst_percent: item.sgstPercent || 0,
-					gst_total: item.gstTotal || 0,
-				},
-			}));
+			const itemsPayload = filledLineItems.map((item) => {
+				const rateNum = item.rate ? Number(item.rate) : undefined;
+				const roundedRate = rateNum != null && Number.isFinite(rateNum)
+					? roundRateOrUndefined(rateNum, item.rateRounding) : undefined;
+				return {
+					item: item.item || "",
+					item_make: item.itemMake || undefined,
+					sales_order_dtl_id: item.salesOrderDtlId,
+					hsn_code: item.hsnCode || undefined,
+					quantity: item.quantity || "0",
+					uom: item.uom || "",
+					rate: roundedRate != null ? String(roundedRate) : (item.rate || undefined),
+					discount_type: item.discountType,
+					discounted_rate: roundRateOrUndefined(item.discountedRate, item.rateRounding),
+					discount_amount: roundAmountOrUndefined(item.discountAmount),
+					net_amount: roundAmountOrUndefined(item.netAmount),
+					total_amount: roundAmountOrUndefined(item.totalAmount),
+					remarks: item.remarks || undefined,
+					gst: {
+						igst_amount: roundAmount(item.igstAmount || 0),
+						igst_percent: item.igstPercent || 0,
+						cgst_amount: roundAmount(item.cgstAmount || 0),
+						cgst_percent: item.cgstPercent || 0,
+						sgst_amount: roundAmount(item.sgstAmount || 0),
+						sgst_percent: item.sgstPercent || 0,
+						gst_total: roundAmount(item.gstTotal || 0),
+					},
+				};
+			});
 
-			const freightCharges = Number(values.freight_charges ?? formValues.freight_charges) || 0;
-			const roundOffValue = Number(values.round_off_value ?? formValues.round_off_value) || 0;
-			const grossAmount = filledLineItems.reduce((sum, l) => sum + (l.netAmount || 0), 0);
-			const totalGST = filledLineItems.reduce((sum, l) => sum + (l.gstTotal || 0), 0);
-			const netAmount = grossAmount + totalGST + freightCharges + roundOffValue;
+			const freightCharges = roundAmount(Number(values.freight_charges ?? formValues.freight_charges) || 0);
+			const roundOffValue = roundAmount(Number(values.round_off_value ?? formValues.round_off_value) || 0);
+			const grossAmount = roundAmount(filledLineItems.reduce((sum, l) => sum + (l.netAmount || 0), 0));
+			const totalGST = roundAmount(filledLineItems.reduce((sum, l) => sum + (l.gstTotal || 0), 0));
+			const netAmount = roundAmount(grossAmount + totalGST + freightCharges + roundOffValue);
 
 			const payload: SaveDORequest = {
 				branch: String(values.branch ?? formValues.branch ?? ""),
