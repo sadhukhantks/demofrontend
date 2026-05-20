@@ -7,7 +7,6 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import CreateDesignationPage from "./CreateDesignationPage";
-import type { MuiFormMode } from "@/components/ui/muiform";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 
 type DesignationRow = {
@@ -38,10 +37,8 @@ export default function DesignationMasterPage() {
 		severity: "success" | "error";
 	}>({ open: false, message: "", severity: "success" });
 
-	// Dialog state
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [selectedId, setSelectedId] = useState<number | undefined>(undefined);
-	const [dialogMode, setDialogMode] = useState<MuiFormMode>("create");
 
 	const fetchDesignations = useCallback(async () => {
 		setLoading(true);
@@ -112,19 +109,11 @@ export default function DesignationMasterPage() {
 
 	const handleCreate = useCallback(() => {
 		setSelectedId(undefined);
-		setDialogMode("create");
-		setDialogOpen(true);
-	}, []);
-
-	const handleView = useCallback((row: DesignationRow) => {
-		setSelectedId(row.designation_id);
-		setDialogMode("view");
 		setDialogOpen(true);
 	}, []);
 
 	const handleEdit = useCallback((row: DesignationRow) => {
 		setSelectedId(row.designation_id);
-		setDialogMode("edit");
 		setDialogOpen(true);
 	}, []);
 
@@ -193,7 +182,7 @@ export default function DesignationMasterPage() {
 				label: "Create Designation",
 				onClick: handleCreate,
 			}}
-			onView={handleView}
+			onView={handleEdit}
 			onEdit={handleEdit}
 		>
 			<CreateDesignationPage
@@ -201,7 +190,6 @@ export default function DesignationMasterPage() {
 				onClose={handleDialogClose}
 				onSaved={handleSaved}
 				editId={selectedId}
-				initialMode={dialogMode}
 			/>
 			<Snackbar
 				open={snackbar.open}

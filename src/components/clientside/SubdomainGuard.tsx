@@ -19,11 +19,11 @@ export default function SubdomainGuard() {
       try {
         const hostname = window.location.hostname;
         let subdomain: string;
+        const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('.localhost');
 
         if (hostname.includes('.localhost')) {
           subdomain = hostname.split('.localhost')[0];
         } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
-          // Plain localhost without subdomain — allow through
           setChecked(true);
           return;
         } else {
@@ -31,6 +31,7 @@ export default function SubdomainGuard() {
         }
 
         if (!subdomain) {
+          if (isLocalhost) { setChecked(true); return; }
           window.location.href = 'https://vowerp.com';
           return;
         }
@@ -42,16 +43,19 @@ export default function SubdomainGuard() {
         if (res.ok) {
           const data = await res.json();
           if (!data?.valid) {
+            if (isLocalhost) { setChecked(true); return; }
             window.location.href = 'https://vowerp.com';
             return;
           }
         } else {
-          // API returned an error — fail closed
+          if (isLocalhost) { setChecked(true); return; }
           window.location.href = 'https://vowerp.com';
           return;
         }
       } catch {
-        // Network error — fail closed
+        const hostname = window.location.hostname;
+        const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('.localhost');
+        if (isLocalhost) { setChecked(true); return; }
         window.location.href = 'https://vowerp.com';
         return;
       }
