@@ -359,6 +359,12 @@ const apiRoutesPortalMasters = {
     JUTE_BILL_PASS_UPDATE: `${API_URL}/juteBillPass/update_bill_pass`,
     JUTE_BILL_PASS_DOWNLOAD: `${API_URL}/juteBillPass/download_bill_pass_list`,
 
+    // Generic File Attachment endpoints (S3-backed)
+    ATTACHMENT_UPLOAD:   `${API_URL}/attachments/upload`,
+    ATTACHMENT_LIST:     `${API_URL}/attachments/`,
+    ATTACHMENT_DOWNLOAD: `${API_URL}/attachments`,   // append `/${id}/download` at call site
+    ATTACHMENT_DELETE:   `${API_URL}/attachments`,   // append `/${id}` at call site
+
     // Jute Issue endpoints
     JUTE_ISSUE_TABLE: `${API_URL}/juteIssue/get_issue_table`,
     JUTE_ISSUE_BY_ID: `${API_URL}/juteIssue/get_issue_by_id`,
