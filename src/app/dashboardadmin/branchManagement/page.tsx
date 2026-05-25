@@ -184,7 +184,14 @@ export default function BranchManagement() {
           <Button
             className="bg-[#95C11F] hover:bg-[#85ad1b] text-white"
             onClick={() => {
-              window.location.href = "/dashboardadmin/branchManagement/createBranch";
+              const selectedCompany = companies.find(
+                (c) => c.co_id.toString() === selectedCompanyId
+              );
+              const params = new URLSearchParams();
+              if (selectedCompanyId) params.set("companyId", selectedCompanyId);
+              if (selectedCompany?.co_name) params.set("companyName", selectedCompany.co_name);
+              const qs = params.toString();
+              window.location.href = `/dashboardadmin/branchManagement/createBranch${qs ? `?${qs}` : ""}`;
             }}
           >
             + Create Branch
