@@ -39,6 +39,7 @@ import {
   BILL_PASS_PRINT_CSS,
   splitItemNameMake,
 } from "./components/BillPassPreview";
+import AttachmentUploader from "@/components/AttachmentUploader";
 
 /**
  * @component BillPassEditPage
@@ -739,6 +740,37 @@ function BillPassEditPageContent() {
                     disabled={isComplete}
                   />
                 </Grid>
+                {detail.inward_id && selectedCompany?.co_id && (
+                  <>
+                    <Grid size={{ xs: 12 }}>
+                      <Divider sx={{ my: 1 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          DOCUMENTS
+                        </Typography>
+                      </Divider>
+                    </Grid>
+                    <Grid size={{ xs: 12 }}>
+                      <AttachmentUploader
+                        module="proc_billpass"
+                        entityId={detail.inward_id}
+                        fileType="invoice"
+                        coId={Number(selectedCompany.co_id)}
+                        disabled={isComplete}
+                        label="Invoice"
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12 }}>
+                      <AttachmentUploader
+                        module="proc_billpass"
+                        entityId={detail.inward_id}
+                        fileType="ewaybill"
+                        coId={Number(selectedCompany.co_id)}
+                        disabled={isComplete}
+                        label="E-Waybill / Delivery Note"
+                      />
+                    </Grid>
+                  </>
+                )}
               </Grid>
             </CardContent>
           </Card>
