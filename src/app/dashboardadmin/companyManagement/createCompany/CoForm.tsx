@@ -80,9 +80,10 @@ const CoForm: React.FC<CoFormProps> = ({
 
   const { handleSubmit, watch, control, reset, setValue } = methods;
   const watchedCountry = watch("country_id");
-  
+
   // States for filtered options
   const [filteredStates, setFilteredStates] = useState<any[]>([]);
+  const prevCountryRef = useRef<string>("");
 
   // Logo upload state
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -152,38 +153,31 @@ const CoForm: React.FC<CoFormProps> = ({
     }
   };
   
-  // Effect to update states when country changes
+  // Effect to update states when country changes.
+  // Only clear state_id when the user actually changes country — not on initial hydration.
   useEffect(() => {
-    if (watchedCountry) {
-      console.log(`Country selected: ${watchedCountry}`);
-      
-      // Filter states for the selected country
-      const filtered = states.filter(state => 
-        state.country_id.toString() === watchedCountry
-      );
-      
-      setFilteredStates(filtered);
-      
-      // Reset state when country changes
+    if (!watchedCountry) return;
+
+    const filtered = states.filter(
+      (state) => state.country_id.toString() === watchedCountry
+    );
+    setFilteredStates(filtered);
+
+    if (prevCountryRef.current && prevCountryRef.current !== watchedCountry) {
       setValue("state_id", "");
     }
+    prevCountryRef.current = watchedCountry;
   }, [watchedCountry, states, setValue]);
-  
+
   // Handle initial values loading
   useEffect(() => {
     if (initialValues && !loading) {
-      console.log("Setting form values from initialValues:", initialValues);
+      // Seed the prev-country ref so the watch effect treats this as hydration,
+      // not a user-initiated change (prevents state_id from being wiped).
+      prevCountryRef.current = initialValues.country_id || "";
       reset(initialValues);
-      
-      // If we have a country from initial values, load the associated states
-      if (initialValues.country_id) {
-        const filtered = states.filter(state => 
-          state.country_id.toString() === initialValues.country_id
-        );
-        setFilteredStates(filtered);
-      }
     }
-  }, [initialValues, reset, loading, states]);
+  }, [initialValues, reset, loading]);
 
   if (loading) return <CircularProgress />;
 
