@@ -725,6 +725,38 @@ const apiRoutesPortalMasters = {
     LEAVE_REQUEST_REJECT: `${API_URL}/hrms/leave_request_reject`,
     LEAVE_LEDGER_BY_EB: `${API_URL}/hrms/leave_ledger`,
     WORKER_BY_EB_NO: `${API_URL}/hrms/worker_by_eb_no`,
+
+    // ============================================================
+    // Jute Production — Spreader workflow
+    // ============================================================
+    SPREADER_ENTRY_CREATE_SETUP: `${API_URL}/spreaderProd/entry_create_setup`,
+    SPREADER_ENTRY_BIN_STATE: `${API_URL}/spreaderProd/entry_bin_state`,
+    SPREADER_ENTRY_CREATE: `${API_URL}/spreaderProd/entry_create`,
+    SPREADER_ENTRIES_BY_DATE: `${API_URL}/spreaderProd/entries_by_date`,
+    SPREADER_ENTRY_EDIT: `${API_URL}/spreaderProd/entry_edit`,
+    SPREADER_ENTRY_DELETE: `${API_URL}/spreaderProd/entry_delete`,
+    SPREADER_ISSUE_CREATE_SETUP: `${API_URL}/spreaderProd/issue_create_setup`,
+    SPREADER_ISSUE_AVAILABLE_WEIGHTS: `${API_URL}/spreaderProd/issue_available_weights`,
+    SPREADER_ISSUE_CREATE: `${API_URL}/spreaderProd/issue_create`,
+    SPREADER_ISSUES_BY_DATE: `${API_URL}/spreaderProd/issues_by_date`,
+    SPREADER_ISSUE_EDIT: `${API_URL}/spreaderProd/issue_edit`,
+    SPREADER_ISSUE_DELETE: `${API_URL}/spreaderProd/issue_delete`,
+    SPREADER_ROLL_STOCK: `${API_URL}/spreaderProd/roll_stock`,
+    SPREADER_ROLL_STOCK_QUALITY_SUMMARY: `${API_URL}/spreaderProd/roll_stock_quality_summary`,
+    JUTE_PROD_MATURITY_REPORT: `${API_URL}/juteProductionReports/maturity_time_report`,
+    JUTE_PROD_SPREADER_SUMMARY: `${API_URL}/juteProductionReports/spreader_production_summary`,
+
+    SPREADER_BIN_LIST: `${API_URL}/spreaderMasters/bin_list`,
+    SPREADER_BIN_CREATE: `${API_URL}/spreaderMasters/bin_create`,
+    SPREADER_BIN_EDIT: `${API_URL}/spreaderMasters/bin_edit`,
+    ITEM_MATURITY_CREATE_SETUP: `${API_URL}/spreaderMasters/item_maturity_create_setup`,
+    ITEM_MATURITY_LIST: `${API_URL}/spreaderMasters/item_maturity_list`,
+    ITEM_MATURITY_CREATE: `${API_URL}/spreaderMasters/item_maturity_create`,
+    ITEM_MATURITY_EDIT: `${API_URL}/spreaderMasters/item_maturity_edit`,
+    SPREADER_MACHINE_WT_CREATE_SETUP: `${API_URL}/spreaderMasters/spreader_machine_wt_create_setup`,
+    SPREADER_MACHINE_WT_LIST: `${API_URL}/spreaderMasters/spreader_machine_wt_list`,
+    SPREADER_MACHINE_WT_CREATE: `${API_URL}/spreaderMasters/spreader_machine_wt_create`,
+    SPREADER_MACHINE_WT_EDIT: `${API_URL}/spreaderMasters/spreader_machine_wt_edit`,
 };
 
 export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters };
