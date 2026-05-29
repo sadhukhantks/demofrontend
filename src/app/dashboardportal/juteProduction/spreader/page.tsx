@@ -17,6 +17,9 @@ import { todayISO } from "./utils/shift";
 const TABS = ["Production", "Issue", "Stock View"] as const;
 
 export default function SpreaderPage() {
+	const [mounted, setMounted] = React.useState(false);
+	React.useEffect(() => { setMounted(true); }, []);
+
 	const { coId } = useSelectedCompanyCoId();
 	const [tab, setTab] = React.useState(0);
 
@@ -50,6 +53,8 @@ export default function SpreaderPage() {
 		refreshIssueSetup();
 		refreshStock();
 	}, [refreshIssues, refreshIssueSetup, refreshStock]);
+
+	if (!mounted) return null;
 
 	if (!coId) {
 		return (
