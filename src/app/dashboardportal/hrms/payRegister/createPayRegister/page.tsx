@@ -6,6 +6,7 @@ import { Box, Typography, Paper, Snackbar, Alert } from "@mui/material";
 import { Button } from "@/components/ui/button";
 import MuiForm, { type Schema, type Field, type MuiFormHandle } from "@/components/ui/muiform";
 import { useSelectedCompanyCoId } from "@/hooks/use-selected-company-coid";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import {
   fetchPayRegisterCreateSetup,
   createPayRegister,
@@ -15,7 +16,11 @@ import type { PayRegisterSetupData, Option } from "../types/payRegisterTypes";
 function CreatePayRegisterContent() {
   const router = useRouter();
   const { coId } = useSelectedCompanyCoId();
+  const { selectedBranches, selectedCompany } = useSidebarContext();
   const formRef = useRef<MuiFormHandle>(null);
+
+  // Branch is driven by the branch selected in the left sidebar.
+  const sidebarBranchId = selectedBranches.length > 0 ? String(selectedBranches[0]) : "";
 
   const [formValues, setFormValues] = useState({
     from_date: "",
@@ -36,7 +41,8 @@ function CreatePayRegisterContent() {
     (async () => {
       try {
         const res = await fetchPayRegisterCreateSetup(coId);
-        if (!cancelled && res?.data) setSetupData(res.data as PayRegisterSetupData);
+        const setup = (res?.data as { data?: PayRegisterSetupData } | null)?.data;
+        if (!cancelled && setup) setSetupData(setup);
       } catch {
         /* silent */
       }
@@ -45,7 +51,26 @@ function CreatePayRegisterContent() {
   }, [coId]);
 
   const paySchemeOptions = useMemo<Option[]>(() => setupData?.pay_schemes ?? [], [setupData]);
-  const branchOptions = useMemo<Option[]>(() => setupData?.branches ?? [], [setupData]);
+
+  // Branch options come from the sidebar-selected company's branches (which carry
+  // their names), so the field is populated with the branch the user picked in the
+  // left sidebar rather than depending on the setup endpoint.
+  const branchOptions = useMemo<Option[]>(
+    () =>
+      (selectedCompany?.branches ?? []).map((b) => ({
+        label: b.branch_name,
+        value: String(b.branch_id),
+      })),
+    [selectedCompany],
+  );
+
+  // Push the sidebar-selected branch into the form once branch options are available
+  // (the Autocomplete can only display a value present in its options).
+  useEffect(() => {
+    if (!sidebarBranchId) return;
+    formRef.current?.setValue("branch_id", sidebarBranchId);
+    setFormValues((prev) => (prev.branch_id === sidebarBranchId ? prev : { ...prev, branch_id: sidebarBranchId }));
+  }, [sidebarBranchId, branchOptions]);
 
   const schema = useMemo<Schema>(() => ({
     fields: [
@@ -83,12 +108,23 @@ function CreatePayRegisterContent() {
       const payload = {
         from_date: formValues.from_date,
         to_date: formValues.to_date,
-        pay_scheme_id: Number(formValues.pay_scheme_id),
+        // Backend (pay_register_create) reads `payscheme_id`, not `pay_scheme_id`.
+        payscheme_id: Number(formValues.pay_scheme_id),
         branch_id: Number(formValues.branch_id),
       };
       const res = await createPayRegister(coId, payload);
       if (res?.error) throw new Error(res.error);
-      setSnackbar({ open: true, message: "Pay register created successfully", severity: "success" });
+      // Creation also runs payroll processing; surface the outcome.
+      const data = (res?.data as { data?: { processing?: { records_created?: number }; processing_error?: string } } | null)?.data;
+      const recordsCreated = data?.processing?.records_created;
+      const processingError = data?.processing_error;
+      if (processingError) {
+        setSnackbar({ open: true, message: `Pay register created, but payroll processing failed: ${processingError}`, severity: "error" });
+      } else if (typeof recordsCreated === "number") {
+        setSnackbar({ open: true, message: `Pay register created — ${recordsCreated} salary record${recordsCreated === 1 ? "" : "s"} generated`, severity: "success" });
+      } else {
+        setSnackbar({ open: true, message: "Pay register created successfully", severity: "success" });
+      }
       router.push("/dashboardportal/hrms/payRegister");
     } catch (err: unknown) {
       setSnackbar({ open: true, message: err instanceof Error ? err.message : "Failed to create pay register", severity: "error" });
@@ -98,10 +134,18 @@ function CreatePayRegisterContent() {
   }, [coId, formValues, router]);
 
   return (
-    <Box className="flex flex-col gap-6 p-4">
-      <Box className="flex items-center justify-between">
-        <Typography variant="h5">Create Pay Register</Typography>
-        <Box className="flex gap-2">
+    <Box className="flex min-h-screen flex-col gap-6 bg-gray-50 p-8">
+      <Box className="flex flex-col gap-1">
+        <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
+          Create Pay Register
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Create a new pay register period
+        </Typography>
+      </Box>
+
+      <Box className="flex flex-col-reverse gap-3 md:flex-row md:items-center md:justify-end">
+        <Box className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Button variant="outline" onClick={() => router.push("/dashboardportal/hrms/payRegister")}>
             Cancel
           </Button>

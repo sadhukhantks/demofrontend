@@ -29,12 +29,10 @@ import MuiForm, {
   type Schema,
 } from "@/components/ui/muiform";
 import { useSelectedCompanyCoId } from "@/hooks/use-selected-company-coid";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import {
   downloadPayRollTemplate,
-  fetchPayRollAttendance,
-  fetchPayRollCumulative,
   fetchPayRollData,
-  fetchPayRollGeneric,
   fetchPayRollSetup,
   savePayRollData,
   uploadPayRollExcel,
@@ -62,11 +60,25 @@ const INITIAL_FILTERS: PayRollFilterValues = {
 
 function PayRollContent() {
   const { coId } = useSelectedCompanyCoId();
+  const { selectedBranches, selectedCompany } = useSidebarContext();
   const formRef = useRef<MuiFormHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Branch is driven by the branch selected in the left sidebar (defaults to the
+  // only branch when a single one is available, since the sidebar pre-selects it).
+  const sidebarBranchId = selectedBranches.length > 0 ? String(selectedBranches[0]) : "";
+
   const [setupData, setSetupData] = useState<PayRollSetupData | null>(null);
+  // Seed the form WITHOUT the sidebar branch so the first client render matches
+  // the server-rendered HTML. `sidebarBranchId` is derived from localStorage (via
+  // the sidebar context), which is empty during SSR but populated on the client's
+  // first render — seeding it here would shrink the Branch field's label on the
+  // client only and trigger a hydration mismatch. The post-mount effect below
+  // pushes the resolved branch into the form after hydration instead.
   const [filters, setFilters] = useState<PayRollFilterValues>(INITIAL_FILTERS);
+  // Tracks the branch currently reflected in the form so we can cascade-reset
+  // the branch-scoped filters (department, category) whenever it changes.
+  const prevBranchRef = useRef<string>(sidebarBranchId);
 
   const [payComponents, setPayComponents] = useState<PayComponentMeta[]>([]);
   const [employees, setEmployees] = useState<EmployeePaySchemeRow[]>([]);
@@ -95,14 +107,16 @@ function PayRollContent() {
     [],
   );
 
-  // Load setup (pay schemes, branches, departments, categories)
+  // Load setup (pay schemes, branches). Departments and categories are scoped to
+  // the selected branch, so re-fetch whenever the branch changes.
   useEffect(() => {
     if (!coId) return;
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetchPayRollSetup(coId);
-        if (!cancelled && res?.data) setSetupData(res.data as PayRollSetupData);
+        const res = await fetchPayRollSetup(coId, filters.branch_id || undefined);
+        const setup = (res?.data as { data?: PayRollSetupData } | null)?.data;
+        if (!cancelled && setup) setSetupData(setup);
       } catch {
         /* silent */
       }
@@ -110,15 +124,25 @@ function PayRollContent() {
     return () => {
       cancelled = true;
     };
-  }, [coId]);
+  }, [coId, filters.branch_id]);
 
   const paySchemeOptions = useMemo<Option[]>(
     () => setupData?.pay_schemes ?? EMPTY_OPTIONS,
     [setupData],
   );
+  // Branch options are limited to the branches selected in the left sidebar
+  // (their names come from the sidebar-selected company), so the field only ever
+  // offers/holds the branch(es) the user picked in the left menu — not every
+  // company branch.
   const branchOptions = useMemo<Option[]>(
-    () => setupData?.branches ?? EMPTY_OPTIONS,
-    [setupData],
+    () =>
+      (selectedCompany?.branches ?? [])
+        .filter((b) => selectedBranches.includes(b.branch_id))
+        .map((b) => ({
+        label: b.branch_name,
+        value: String(b.branch_id),
+      })),
+    [selectedCompany, selectedBranches],
   );
   const departmentOptions = useMemo<Option[]>(
     () => setupData?.departments ?? EMPTY_OPTIONS,
@@ -128,6 +152,29 @@ function PayRollContent() {
     () => setupData?.categories ?? EMPTY_OPTIONS,
     [setupData],
   );
+
+  // The Branch is populated solely from the branch selected in the left sidebar.
+  // It is only used once that branch exists in the loaded branch options, since
+  // the Autocomplete can only display a value present in its options.
+  const effectiveBranchId = useMemo<string>(() => {
+    if (sidebarBranchId && branchOptions.some((o) => String(o.value) === sidebarBranchId)) {
+      return sidebarBranchId;
+    }
+    return "";
+  }, [sidebarBranchId, branchOptions]);
+
+  // Push the resolved branch into the form. This is re-asserted when branchOptions
+  // load because the Autocomplete can only display a value present in its options.
+  // Dependent filters (department, category) are cascade-reset on a real change.
+  useEffect(() => {
+    if (!effectiveBranchId) return;
+    formRef.current?.setValue("branch_id", effectiveBranchId);
+    if (effectiveBranchId !== prevBranchRef.current) {
+      prevBranchRef.current = effectiveBranchId;
+      formRef.current?.setValue("dept_id", "");
+      formRef.current?.setValue("emp_category_id", "");
+    }
+  }, [effectiveBranchId, branchOptions]);
 
   const filterSchema = useMemo<Schema>(
     () => ({
@@ -181,7 +228,17 @@ function PayRollContent() {
   );
 
   const handleFilterChange = useCallback((vals: Record<string, unknown>) => {
-    setFilters((prev) => ({ ...prev, ...(vals as Partial<PayRollFilterValues>) }));
+    const incoming = vals as Partial<PayRollFilterValues>;
+    setFilters((prev) => ({ ...prev, ...incoming }));
+
+    // When the branch changes, clear the branch-scoped selections so a stale
+    // department/category from another branch is never submitted.
+    const incomingBranch = incoming.branch_id;
+    if (typeof incomingBranch === "string" && incomingBranch !== prevBranchRef.current) {
+      prevBranchRef.current = incomingBranch;
+      formRef.current?.setValue("dept_id", "");
+      formRef.current?.setValue("emp_category_id", "");
+    }
   }, []);
 
   const validateDateRange = useCallback((): boolean => {
@@ -240,7 +297,7 @@ function PayRollContent() {
         emp_category_id: filters.emp_category_id ? Number(filters.emp_category_id) : undefined,
       });
       if (res?.error || !res?.data) throw new Error(res?.error || "Failed to fetch payroll data");
-      const data = res.data as PayRollDataResponse;
+      const data = ((res.data as { data?: PayRollDataResponse } | null)?.data ?? {}) as PayRollDataResponse;
       const comps = data.pay_components ?? [];
       const emps = data.emp_pay_scheme_list ?? [];
       setPayComponents(comps);
@@ -254,37 +311,6 @@ function PayRollContent() {
       setSearching(false);
     }
   }, [coId, filters, validateDateRange, buildGridRows, notify]);
-
-  const runHelperFetch = useCallback(
-    async (fn: typeof fetchPayRollAttendance, label: string) => {
-      if (!coId) return;
-      if (!validateDateRange()) return;
-      setActionLoading(true);
-      try {
-        const res = await fn(coId, { from_date: filters.from_date, to_date: filters.to_date });
-        if (res?.error) throw new Error(res.error);
-        notify(`${label} fetched successfully`, "success");
-      } catch (err: unknown) {
-        notify(err instanceof Error ? err.message : `Failed to fetch ${label}`, "error");
-      } finally {
-        setActionLoading(false);
-      }
-    },
-    [coId, filters.from_date, filters.to_date, validateDateRange, notify],
-  );
-
-  const handleFetchAttendance = useCallback(
-    () => runHelperFetch(fetchPayRollAttendance, "Attendance"),
-    [runHelperFetch],
-  );
-  const handleFetchPaygeneric = useCallback(
-    () => runHelperFetch(fetchPayRollGeneric, "Pay Generic"),
-    [runHelperFetch],
-  );
-  const handleFetchCumulative = useCallback(
-    () => runHelperFetch(fetchPayRollCumulative, "Cumulative"),
-    [runHelperFetch],
-  );
 
   const handleDownloadTemplate = useCallback(async () => {
     if (!coId) return;
@@ -431,9 +457,15 @@ function PayRollContent() {
   }, [payComponents]);
 
   return (
-    <Box className="flex flex-col gap-6 p-4">
-      <Box className="flex items-center justify-between">
-        <Typography variant="h5">Upload Payroll Data</Typography>
+    <Box className="flex min-h-screen flex-col gap-6 bg-gray-50 p-8">
+      {/* Page header — same title/subtitle convention as pay register (IndexWrapper) */}
+      <Box className="flex flex-col gap-1">
+        <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
+          Payroll Data
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Upload Payroll Data
+        </Typography>
       </Box>
 
       {/* Filters */}
@@ -448,22 +480,11 @@ function PayRollContent() {
           hideSubmit
         />
 
-        <Box className="mt-4 flex flex-wrap items-center justify-center gap-2">
+        <Box className="mt-4 flex flex-wrap items-center justify-center gap-4">
           <Button onClick={handleSearchAttendance} disabled={searching}>
             {searching ? "Searching..." : "Search Attendance"}
           </Button>
-          <Button variant="outline" onClick={handleFetchAttendance} disabled={actionLoading}>
-            Fetch Attendance
-          </Button>
-          <Button variant="outline" onClick={handleFetchPaygeneric} disabled={actionLoading}>
-            Fetch Paygeneric
-          </Button>
-          <Button variant="outline" onClick={handleFetchCumulative} disabled={actionLoading}>
-            Fetch Cumulative
-          </Button>
-        </Box>
 
-        <Box className="mt-4 flex flex-wrap items-center justify-center gap-6">
           <Button
             variant="outline"
             onClick={handleDownloadTemplate}

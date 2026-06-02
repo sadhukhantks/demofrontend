@@ -41,7 +41,15 @@ export const CompanyHeaderBlock: React.FC<CompanyHeaderBlockProps> = ({
 				<img
 					src={logoBase64}
 					alt=""
-					style={{ maxHeight: 60, maxWidth: 200, marginBottom: 4 }}
+					style={{
+						maxHeight: 60,
+						maxWidth: 200,
+						width: "auto",
+						height: "auto",
+						objectFit: "contain",
+						alignSelf: "flex-start",
+						marginBottom: 4,
+					}}
 				/>
 			)}
 			<Typography
