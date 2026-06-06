@@ -27,6 +27,8 @@ type JuteMRRow = {
 	party_name: string | null;
 	challan_no: string | null;
 	gate_entry_no: string | null;
+	gate_entry_date: string;
+	gate_entry_date_raw?: string;
 	mukam: string | null;
 	vehicle_no: string | null;
 	mr_weight: number | null;
@@ -151,6 +153,16 @@ export default function JuteMRIndexPage() {
 				),
 			},
 			{
+				field: "gate_entry_date",
+				headerName: "Gate Entry Date",
+				minWidth: 130,
+				renderCell: (params: GridRenderCellParams<JuteMRRow, string>) => (
+					<Typography component="span" variant="body2">
+						{params.value || formatDate(params.row.gate_entry_date_raw) || "-"}
+					</Typography>
+				),
+			},
+			{
 				field: "mukam",
 				headerName: "Mukam",
 				minWidth: 120,
@@ -232,6 +244,8 @@ export default function JuteMRIndexPage() {
 			const mappedRows: JuteMRRow[] = rawRows.map((r: Record<string, unknown>) => {
 				const rawDate = (r.jute_mr_date ?? "") as string;
 				const normalizedRaw = typeof rawDate === "string" ? rawDate : rawDate ? String(rawDate) : "";
+				const rawGate = (r.jute_gate_entry_date ?? "") as string;
+				const normalizedGate = typeof rawGate === "string" ? rawGate : rawGate ? String(rawGate) : "";
 
 				return {
 					id: (r.jute_mr_id ?? `jute-mr-${Math.random().toString(36).slice(2, 8)}`) as string | number,
@@ -243,6 +257,8 @@ export default function JuteMRIndexPage() {
 					party_name: (r.party_name ?? null) as string | null,
 					challan_no: (r.challan_no ?? null) as string | null,
 					gate_entry_no: (r.gate_entry_no ?? null) as string | null,
+					gate_entry_date_raw: normalizedGate,
+					gate_entry_date: formatDate(normalizedGate),
 					mukam: (r.mukam ?? null) as string | null,
 					vehicle_no: (r.vehicle_no ?? null) as string | null,
 					mr_weight: (r.mr_weight ?? null) as number | null,

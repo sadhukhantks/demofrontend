@@ -14,12 +14,19 @@ export const fetchWithCookie = async <T = any>(
     body?: unknown,
 ): Promise<FetchResult<T>> => {
     try {
+        const isFormData =
+            typeof FormData !== "undefined" && body instanceof FormData;
         const response: AxiosResponse<T> = await axios({
             url,
             method,
-            headers: {
-                "Content-Type": "application/json",
-            },
+            // For FormData, omit Content-Type so the browser sets the
+            // correct multipart/form-data boundary automatically.
+            // Axios passes FormData through untouched (do NOT stringify).
+            headers: isFormData
+                ? undefined
+                : {
+                      "Content-Type": "application/json",
+                  },
             withCredentials: true,
             data: body,
             validateStatus: (status) => status >= 200 && status < 500,

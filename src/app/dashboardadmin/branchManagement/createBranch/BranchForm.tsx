@@ -160,18 +160,27 @@ const BranchForm: React.FC<BranchFormProps> = ({
   useEffect(() => {
     if (watchedCountry) {
       console.log(`Country selected: ${watchedCountry}`);
-      
+
       // Filter states for the selected country
-      const filtered = states.filter(state => 
+      const filtered = states.filter(state =>
         state.country_id.toString() === watchedCountry
       );
-      
+
       setFilteredStates(filtered);
-      
-      // Reset state when country changes
-      setValue("state_id", "");
+
+      // Only clear state_id if the current selection does NOT belong to the
+      // newly selected country. Preserves the pre-filled state on edit-load
+      // where reset(initialValues) sets country_id and state_id together —
+      // this effect previously wiped state_id immediately after.
+      const currentStateId = getValues("state_id");
+      const stillValid = currentStateId
+        ? filtered.some(s => s.state_id.toString() === currentStateId)
+        : true;
+      if (!stillValid) {
+        setValue("state_id", "");
+      }
     }
-  }, [watchedCountry, states, setValue]);
+  }, [watchedCountry, states, setValue, getValues]);
     // Effect to trigger debounced branch name validation
   useEffect(() => {
     // Only validate if we have a branch name and company

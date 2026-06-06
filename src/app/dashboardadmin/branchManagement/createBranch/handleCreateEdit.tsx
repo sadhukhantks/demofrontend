@@ -76,13 +76,13 @@ const HandleCreateEditBranch = () => {  const router = useRouter();
         const { data } = await fetchWithCookie(apiRoutesconsole.CREATE_BRANCH_SETUP);
         if (data) {
           console.log("Create branch setup data:", data);
-          
+
           // Map branches to their companies for validation
           const companyData = data.company || [];
           const branchesData = data.branches || [];
-          
+
           // Add branches array to each company for validation purposes
-          const enhancedCompanies = companyData.map((company: any) => {
+          let enhancedCompanies = companyData.map((company: any) => {
             // Find all branches for this company
             const companyBranches = branchesData.filter((branch: any) => branch.co_id === company.co_id);
             return {
@@ -90,13 +90,45 @@ const HandleCreateEditBranch = () => {  const router = useRouter();
               branches: companyBranches
             };
           });
-          
+
+          // Defensive injection — mirror edit-flow pattern. If the company
+          // from URL isn't in the setup response, append it so the dropdown
+          // can still render the pre-selected value.
+          if (companyId && companyName) {
+            const exists = enhancedCompanies.some(
+              (c: any) => c.co_id.toString() === companyId
+            );
+            if (!exists) {
+              enhancedCompanies = [
+                ...enhancedCompanies,
+                { co_id: Number(companyId), co_name: companyName, branches: [] },
+              ];
+            }
+          }
+
           console.log("Enhanced companies with branches:", enhancedCompanies);
-          
+
           setCompanies(enhancedCompanies);
           setCountries(data.countries || []);
           setStates(data.states || []);
-          setInitialValues(null); // BranchForm will use its own default values
+
+          if (companyId) {
+            setInitialValues({
+              co_id: companyId,
+              branch_name: "",
+              branch_prefix: "",
+              branch_address1: "",
+              branch_address2: "",
+              branch_zipcode: "",
+              branch_email: "",
+              contact_no: "",
+              country_id: "",
+              state_id: "",
+              active: true,
+            });
+          } else {
+            setInitialValues(null); // BranchForm will use its own default values
+          }
         }
       }
       setLoading(false);
