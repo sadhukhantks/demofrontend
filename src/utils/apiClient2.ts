@@ -47,10 +47,21 @@ export const fetchWithCookie = async <T = any>(
 
         return { data: response.data ?? null, error: null, status: response.status };
     } catch (err: unknown) {
-        // Normalize error to string
-        const message = err instanceof Error ? err.message : String(err);
+        // Axios rejects for 5xx (validateStatus caps at < 500), so the real
+        // backend error lands on err.response.data.detail — surface it instead
+        // of the opaque "Request failed with status code 500".
+        let message: string;
+        let status = 0;
+        if (axios.isAxiosError(err)) {
+            status = err.response?.status ?? 0;
+            const detail = (err.response?.data as { detail?: unknown } | undefined)
+                ?.detail;
+            message = typeof detail === "string" ? detail : err.message;
+        } else {
+            message = err instanceof Error ? err.message : String(err);
+        }
         console.error(`Error in fetchWithCookie for ${url}:`, message);
-        return { data: null, error: message, status: 0 };
+        return { data: null, error: message, status };
     }
 };
 

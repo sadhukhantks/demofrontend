@@ -496,7 +496,7 @@ export const downloadPayRollTemplate = async (
 // ─── Leave Request (transaction) ───────────────────────────────────
 
 export const fetchLeaveRequestList = async (
-  coId: string,
+  branchId: string | number,
   params?: {
     page?: number;
     page_size?: number;
@@ -506,7 +506,7 @@ export const fetchLeaveRequestList = async (
     status_id?: number | string;
   },
 ) => {
-  const qs = new URLSearchParams({ co_id: coId });
+  const qs = new URLSearchParams({ branch_id: String(branchId) });
   if (params?.page) qs.set("page", String(params.page));
   if (params?.page_size) qs.set("page_size", String(params.page_size));
   if (params?.search) qs.set("search", params.search);
@@ -526,11 +526,12 @@ export const fetchLeaveRequestById = async (id: number | string) =>
   );
 
 export const createLeaveRequest = async (payload: {
-  co_id: string | number;
+  branch_id: string | number;
   eb_id: number;
   leave_type_id: number;
   leave_from_date: string;
   leave_to_date: string;
+  non_working_days: number;
   leave_purpose: string;
 }) =>
   fetchWithCookie(apiRoutesPortalMasters.LEAVE_REQUEST_CREATE, "POST", payload);
@@ -538,11 +539,12 @@ export const createLeaveRequest = async (payload: {
 export const updateLeaveRequest = async (
   id: number | string,
   payload: {
-    co_id: string | number;
+    branch_id: string | number;
     eb_id: number;
     leave_type_id: number;
     leave_from_date: string;
     leave_to_date: string;
+    non_working_days: number;
     leave_purpose: string;
   },
 ) =>
@@ -554,7 +556,7 @@ export const updateLeaveRequest = async (
 
 export const approveLeaveRequest = async (
   id: number | string,
-  payload: { co_id: string | number; remarks?: string },
+  payload: { branch_id?: string | number; remarks?: string },
 ) =>
   fetchWithCookie(
     `${apiRoutesPortalMasters.LEAVE_REQUEST_APPROVE}/${id}`,
@@ -564,7 +566,7 @@ export const approveLeaveRequest = async (
 
 export const rejectLeaveRequest = async (
   id: number | string,
-  payload: { co_id: string | number; remarks?: string },
+  payload: { branch_id?: string | number; remarks?: string },
 ) =>
   fetchWithCookie(
     `${apiRoutesPortalMasters.LEAVE_REQUEST_REJECT}/${id}`,
@@ -572,15 +574,21 @@ export const rejectLeaveRequest = async (
     payload,
   );
 
-export const fetchLeaveLedgerByEb = async (coId: string, ebNo: string) =>
+export const fetchLeaveLedgerByEb = async (
+  branchId: string | number,
+  ebNo: string,
+) =>
   fetchWithCookie(
-    `${apiRoutesPortalMasters.LEAVE_LEDGER_BY_EB}/${ebNo}?co_id=${coId}`,
+    `${apiRoutesPortalMasters.LEAVE_LEDGER_BY_EB}/${ebNo}?branch_id=${branchId}`,
     "GET",
   );
 
-export const fetchWorkerByEbNo = async (coId: string, ebNo: string) =>
+export const fetchWorkerByEbNo = async (
+  branchId: string | number,
+  ebNo: string,
+) =>
   fetchWithCookie(
-    `${apiRoutesPortalMasters.WORKER_BY_EB_NO}/${ebNo}?co_id=${coId}`,
+    `${apiRoutesPortalMasters.WORKER_BY_EB_NO}/${ebNo}?branch_id=${branchId}`,
     "GET",
   );
 

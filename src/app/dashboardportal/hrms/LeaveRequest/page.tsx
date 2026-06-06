@@ -37,6 +37,16 @@ const formatDDMMYYYY = (value: unknown): string => {
   return `${dd}-${mm}-${yyyy}`;
 };
 
+// Actual leave days = inclusive date span minus non-working days.
+const computeLeaveDays = (row: LeaveRequestListRow): number => {
+  const from = new Date(row.leave_from_date);
+  const to = new Date(row.leave_to_date);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return 0;
+  const spanDays = Math.round((to.getTime() - from.getTime()) / 86_400_000) + 1;
+  const days = spanDays - (row.non_working_days ?? 0);
+  return days > 0 ? days : 0;
+};
+
 export default function LeaveRequestPage() {
   const router = useRouter();
   const { coId } = useSelectedCompanyCoId();
@@ -162,7 +172,24 @@ export default function LeaveRequestPage() {
         renderCell: (params) => formatDDMMYYYY(params.value),
       },
       { field: "leave_type", headerName: "Leave Type", flex: 0.9 },
-      { field: "leave_ledger", headerName: "Leave Ledger", flex: 0.8 },
+      {
+        field: "non_working_days",
+        headerName: "Non Working Days",
+        flex: 0.8,
+        type: "number",
+        headerAlign: "left",
+        align: "left",
+      },
+      {
+        field: "leave_days",
+        headerName: "No of Leave Days",
+        flex: 0.8,
+        type: "number",
+        headerAlign: "left",
+        align: "left",
+        sortable: false,
+        valueGetter: (_value, row) => computeLeaveDays(row),
+      },
       {
         field: "status",
         headerName: "Status",
@@ -186,7 +213,7 @@ export default function LeaveRequestPage() {
   const handleView = useCallback(
     (row: LeaveRequestListRow) =>
       router.push(
-        `/dashboardportal/hrms/hrmsmasters/leaveRequest/createLeaveRequest?mode=view&id=${row.id}`,
+        `/dashboardportal/hrms/LeaveRequest/createLeaveRequest?mode=view&id=${row.id}`,
       ),
     [router],
   );
@@ -194,7 +221,7 @@ export default function LeaveRequestPage() {
   const handleEdit = useCallback(
     (row: LeaveRequestListRow) =>
       router.push(
-        `/dashboardportal/hrms/hrmsmasters/leaveRequest/createLeaveRequest?mode=edit&id=${row.id}`,
+        `/dashboardportal/hrms/LeaveRequest/createLeaveRequest?mode=edit&id=${row.id}`,
       ),
     [router],
   );
@@ -202,7 +229,7 @@ export default function LeaveRequestPage() {
   const handleCreate = useCallback(
     () =>
       router.push(
-        "/dashboardportal/hrms/hrmsmasters/leaveRequest/createLeaveRequest?mode=create",
+        "/dashboardportal/hrms/LeaveRequest/createLeaveRequest?mode=create",
       ),
     [router],
   );

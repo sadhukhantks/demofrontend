@@ -26,6 +26,7 @@ const blankValues: LeaveRequestFormValues = {
   leave_type_id: 0,
   leave_from_date: "",
   leave_to_date: "",
+  non_working_days: 0,
   leave_purpose: "",
 };
 
@@ -43,6 +44,9 @@ export function useLeaveRequestForm(params: {
   }));
   const [statusId, setStatusId] = useState<number>(21);
   const [workerName, setWorkerName] = useState<string>("");
+  // True when the last emp-code lookup failed to resolve an active worker; the
+  // UI uses this to flag the worker-name field as invalid.
+  const [workerInvalid, setWorkerInvalid] = useState(false);
   const [empStatus, setEmpStatus] = useState<number | null>(null);
   const [leaveTypeOptions, setLeaveTypeOptions] = useState<LeaveTypeOption[]>([]);
   const [ledger, setLedger] = useState<LeaveLedgerEntry[]>([]);
@@ -103,6 +107,7 @@ export function useLeaveRequestForm(params: {
           leave_type_id: h.leave_type_id,
           leave_from_date: h.leave_from_date ?? "",
           leave_to_date: h.leave_to_date ?? "",
+          non_working_days: h.non_working_days ?? 0,
           leave_purpose: h.leave_purpose ?? "",
         });
         setStatusId(Number(h.status));
@@ -122,27 +127,44 @@ export function useLeaveRequestForm(params: {
     };
   }, [coId, id, mode]);
 
+  // Marks the current emp code as unresolved: clears the worker name, flags it
+  // invalid, and drops any stale eb_id / ledger tied to a previous lookup.
+  const markWorkerInvalid = useCallback(() => {
+    setWorkerName("");
+    setWorkerInvalid(true);
+    setValues((prev) => ({ ...prev, eb_id: 0 }));
+    setLedger([]);
+  }, []);
+
   const lookupWorker = useCallback(async () => {
     if (!values.branch_id) {
       setError("Select a branch first");
       return;
     }
-    if (!values.eb_no) return;
+    if (!values.eb_no) {
+      // Empty code (e.g. blurred after clearing): reset to a neutral state.
+      setWorkerName("");
+      setWorkerInvalid(false);
+      setValues((prev) => ({ ...prev, eb_id: 0 }));
+      setLedger([]);
+      return;
+    }
     try {
       const { data, error: err } = await fetchWorkerByEbNo(
         values.branch_id,
         values.eb_no,
       );
       if (err || !data?.data) {
-        setError(err || "Employee not found in the selected branch");
+        markWorkerInvalid();
         return;
       }
       const w = data.data as WorkerLookupResult;
       if (w.emp_status !== ACTIVE_EMP_STATUS) {
-        setError("Employee is not active");
+        markWorkerInvalid();
         return;
       }
       setWorkerName(w.worker_name);
+      setWorkerInvalid(false);
       setEmpStatus(w.emp_status);
       setValues((prev) => ({ ...prev, eb_id: w.eb_id }));
       setError(null);
@@ -157,15 +179,16 @@ export function useLeaveRequestForm(params: {
             ?.ledgers ?? []) as LeaveLedgerEntry[];
         setLedger(ledgerData);
       }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Lookup failed");
+    } catch {
+      markWorkerInvalid();
     }
-  }, [values.branch_id, values.eb_no]);
+  }, [values.branch_id, values.eb_no, markWorkerInvalid]);
 
   const reset = useCallback(() => {
     setValues({ ...blankValues, branch_id: defaultBranchId });
     setStatusId(21);
     setWorkerName("");
+    setWorkerInvalid(false);
     setEmpStatus(null);
     setLedger([]);
     setApproveButton(false);
@@ -187,6 +210,7 @@ export function useLeaveRequestForm(params: {
     updateField,
     statusId,
     workerName,
+    workerInvalid,
     empStatus,
     leaveTypeOptions,
     ledger,

@@ -46,8 +46,8 @@ export interface LeaveRequestListRow {
   leave_type: string;
   leave_from_date: string;
   leave_to_date: string;
+  non_working_days: number | null;
   leave_purpose: string | null;
-  leave_ledger: string | null;
   status: number;
   status_label?: string;
 }
@@ -70,6 +70,7 @@ export interface LeaveRequestHeader {
   leave_type: string;
   leave_from_date: string;
   leave_to_date: string;
+  non_working_days: number | null;
   leave_purpose: string | null;
   status: number;
   updated_by: number | null;
