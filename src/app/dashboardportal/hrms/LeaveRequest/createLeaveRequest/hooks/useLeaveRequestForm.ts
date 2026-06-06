@@ -20,6 +20,7 @@ export type FormMode = "create" | "edit" | "view";
 const ACTIVE_EMP_STATUS = 35;
 
 const blankValues: LeaveRequestFormValues = {
+  branch_id: 0,
   eb_no: "",
   eb_id: 0,
   leave_type_id: 0,
@@ -30,12 +31,16 @@ const blankValues: LeaveRequestFormValues = {
 
 export function useLeaveRequestForm(params: {
   coId: string;
+  defaultBranchId: number;
   mode: FormMode;
   id: string | null;
 }) {
-  const { coId, mode, id } = params;
+  const { coId, defaultBranchId, mode, id } = params;
 
-  const [values, setValues] = useState<LeaveRequestFormValues>(blankValues);
+  const [values, setValues] = useState<LeaveRequestFormValues>(() => ({
+    ...blankValues,
+    branch_id: defaultBranchId,
+  }));
   const [statusId, setStatusId] = useState<number>(21);
   const [workerName, setWorkerName] = useState<string>("");
   const [empStatus, setEmpStatus] = useState<number | null>(null);
@@ -92,6 +97,7 @@ export function useLeaveRequestForm(params: {
         const detail = data.data as LeaveRequestDetail;
         const h = detail.header;
         setValues({
+          branch_id: h.branch_id ?? defaultBranchId,
           eb_no: h.eb_no ?? "",
           eb_id: h.eb_id,
           leave_type_id: h.leave_type_id,
@@ -117,11 +123,18 @@ export function useLeaveRequestForm(params: {
   }, [coId, id, mode]);
 
   const lookupWorker = useCallback(async () => {
-    if (!coId || !values.eb_no) return;
+    if (!values.branch_id) {
+      setError("Select a branch first");
+      return;
+    }
+    if (!values.eb_no) return;
     try {
-      const { data, error: err } = await fetchWorkerByEbNo(coId, values.eb_no);
+      const { data, error: err } = await fetchWorkerByEbNo(
+        values.branch_id,
+        values.eb_no,
+      );
       if (err || !data?.data) {
-        setError(err || "Employee not found");
+        setError(err || "Employee not found in the selected branch");
         return;
       }
       const w = data.data as WorkerLookupResult;
@@ -134,7 +147,10 @@ export function useLeaveRequestForm(params: {
       setValues((prev) => ({ ...prev, eb_id: w.eb_id }));
       setError(null);
 
-      const ledgerRes = await fetchLeaveLedgerByEb(coId, values.eb_no);
+      const ledgerRes = await fetchLeaveLedgerByEb(
+        values.branch_id,
+        values.eb_no,
+      );
       if (!ledgerRes.error && ledgerRes.data) {
         const ledgerData =
           ((ledgerRes.data.data as { ledgers?: LeaveLedgerEntry[] })
@@ -144,10 +160,10 @@ export function useLeaveRequestForm(params: {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Lookup failed");
     }
-  }, [coId, values.eb_no]);
+  }, [values.branch_id, values.eb_no]);
 
   const reset = useCallback(() => {
-    setValues(blankValues);
+    setValues({ ...blankValues, branch_id: defaultBranchId });
     setStatusId(21);
     setWorkerName("");
     setEmpStatus(null);
@@ -155,7 +171,15 @@ export function useLeaveRequestForm(params: {
     setApproveButton(false);
     setRejectButton(false);
     setError(null);
-  }, []);
+  }, [defaultBranchId]);
+
+  // Apply the sidebar's default branch once it becomes available (create mode).
+  useEffect(() => {
+    if (mode !== "create" || !defaultBranchId) return;
+    setValues((prev) =>
+      prev.branch_id ? prev : { ...prev, branch_id: defaultBranchId },
+    );
+  }, [defaultBranchId, mode]);
 
   return {
     values,

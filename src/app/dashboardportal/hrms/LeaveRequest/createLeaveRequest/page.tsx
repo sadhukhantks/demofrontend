@@ -22,6 +22,7 @@ import {
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSelectedCompanyCoId } from "@/hooks/use-selected-company-coid";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import {
   approveLeaveRequest,
   createLeaveRequest,
@@ -42,12 +43,25 @@ function CreateLeaveRequestContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { coId } = useSelectedCompanyCoId();
+  const { selectedCompany, selectedBranches } = useSidebarContext();
 
   const mode = (searchParams.get("mode") ?? "create") as FormMode;
   const id = searchParams.get("id");
 
+  // Branch dropdown options = branches active in the left sidebar; the first
+  // sidebar-selected branch is the default for a new leave request.
+  const branchOptions = useMemo(
+    () =>
+      (selectedCompany?.branches ?? []).filter((b) =>
+        selectedBranches.includes(b.branch_id),
+      ),
+    [selectedCompany, selectedBranches],
+  );
+  const defaultBranchId = selectedBranches[0] ?? 0;
+
   const {
     values,
+    setValues,
     updateField,
     statusId,
     workerName,
@@ -59,7 +73,7 @@ function CreateLeaveRequestContent() {
     error,
     setError,
     lookupWorker,
-  } = useLeaveRequestForm({ coId: coId ?? "", mode, id });
+  } = useLeaveRequestForm({ coId: coId ?? "", defaultBranchId, mode, id });
 
   const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState<{
@@ -88,19 +102,15 @@ function CreateLeaveRequestContent() {
       showSnack(firstError, "error");
       return null;
     }
-    if (!coId) {
-      showSnack("Company not selected", "error");
-      return null;
-    }
     return {
-      co_id: coId,
+      branch_id: parsed.data.branch_id,
       eb_id: parsed.data.eb_id,
       leave_type_id: parsed.data.leave_type_id,
       leave_from_date: parsed.data.leave_from_date,
       leave_to_date: parsed.data.leave_to_date,
       leave_purpose: parsed.data.leave_purpose,
     };
-  }, [coId, values, showSnack]);
+  }, [values, showSnack]);
 
   const handleSave = useCallback(async () => {
     const payload = validateAndGetPayload();
@@ -126,10 +136,10 @@ function CreateLeaveRequestContent() {
   }, [validateAndGetPayload, mode, id, router, showSnack]);
 
   const handleApprove = useCallback(async () => {
-    if (!coId || !id) return;
+    if (!id) return;
     setSaving(true);
     try {
-      const res = await approveLeaveRequest(id, { co_id: coId });
+      const res = await approveLeaveRequest(id, { branch_id: values.branch_id });
       if (res?.error) throw new Error(res.error);
       showSnack("Leave request approved", "success");
       router.push(LIST_PATH);
@@ -138,13 +148,13 @@ function CreateLeaveRequestContent() {
     } finally {
       setSaving(false);
     }
-  }, [coId, id, router, showSnack]);
+  }, [id, values.branch_id, router, showSnack]);
 
   const handleReject = useCallback(async () => {
-    if (!coId || !id) return;
+    if (!id) return;
     setSaving(true);
     try {
-      const res = await rejectLeaveRequest(id, { co_id: coId });
+      const res = await rejectLeaveRequest(id, { branch_id: values.branch_id });
       if (res?.error) throw new Error(res.error);
       showSnack("Leave request rejected", "success");
       router.push(LIST_PATH);
@@ -153,7 +163,7 @@ function CreateLeaveRequestContent() {
     } finally {
       setSaving(false);
     }
-  }, [coId, id, router, showSnack]);
+  }, [id, values.branch_id, router, showSnack]);
 
   const titleText = useMemo(() => {
     if (mode === "view") return "View Leave Request";
@@ -225,6 +235,30 @@ function CreateLeaveRequestContent() {
           className="grid gap-4"
           sx={{ gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" } }}
         >
+          <TextField
+            select
+            label="Branch"
+            size="small"
+            value={values.branch_id ? String(values.branch_id) : ""}
+            onChange={(e) => {
+              const nextBranch = Number(e.target.value);
+              // Changing branch invalidates the current employee lookup.
+              setValues((prev) => ({
+                ...prev,
+                branch_id: nextBranch,
+                eb_id: 0,
+              }));
+            }}
+            disabled={isView || mode === "edit"}
+            required
+          >
+            <MenuItem value="">Select branch</MenuItem>
+            {branchOptions.map((b) => (
+              <MenuItem key={b.branch_id} value={String(b.branch_id)}>
+                {b.branch_name}
+              </MenuItem>
+            ))}
+          </TextField>
           <TextField
             label="Employee Code"
             size="small"

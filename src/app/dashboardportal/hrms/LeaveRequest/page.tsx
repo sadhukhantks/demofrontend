@@ -13,6 +13,7 @@ import {
 } from "@mui/material";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { useSelectedCompanyCoId } from "@/hooks/use-selected-company-coid";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import {
   fetchLeaveRequestList,
   fetchLeaveTypeOptions,
@@ -39,6 +40,16 @@ const formatDDMMYYYY = (value: unknown): string => {
 export default function LeaveRequestPage() {
   const router = useRouter();
   const { coId } = useSelectedCompanyCoId();
+  const { selectedCompany, selectedBranches } = useSidebarContext();
+
+  const branchOptions = useMemo(
+    () =>
+      (selectedCompany?.branches ?? []).filter((b) =>
+        selectedBranches.includes(b.branch_id),
+      ),
+    [selectedCompany, selectedBranches],
+  );
+
   const [rows, setRows] = useState<LeaveRequestListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalRows, setTotalRows] = useState(0);
@@ -50,6 +61,7 @@ export default function LeaveRequestPage() {
   const [leaveTypeId, setLeaveTypeId] = useState<string>("");
   const [ebNo, setEbNo] = useState<string>("");
   const [statusId, setStatusId] = useState<string>("");
+  const [branchId, setBranchId] = useState<string>("");
   const [leaveTypeOptions, setLeaveTypeOptions] = useState<LeaveTypeOption[]>(
     [],
   );
@@ -80,11 +92,18 @@ export default function LeaveRequestPage() {
     };
   }, [coId]);
 
+  // Default the branch filter to the first sidebar-selected branch.
+  useEffect(() => {
+    if (!branchId && selectedBranches.length > 0) {
+      setBranchId(String(selectedBranches[0]));
+    }
+  }, [branchId, selectedBranches]);
+
   const fetchData = useCallback(async () => {
-    if (!coId) return;
+    if (!branchId) return;
     setLoading(true);
     try {
-      const { data, error } = await fetchLeaveRequestList(coId, {
+      const { data, error } = await fetchLeaveRequestList(branchId, {
         page: paginationModel.page + 1,
         page_size: paginationModel.pageSize,
         search: searchQuery || undefined,
@@ -113,7 +132,7 @@ export default function LeaveRequestPage() {
       setLoading(false);
     }
   }, [
-    coId,
+    branchId,
     paginationModel.page,
     paginationModel.pageSize,
     searchQuery,
@@ -215,6 +234,22 @@ export default function LeaveRequestPage() {
         isRowEditable={isRowEditable}
         toolbarContent={
           <Stack direction="row" spacing={1.5} alignItems="center">
+            {branchOptions.length > 1 ? (
+              <TextField
+                select
+                size="small"
+                label="Branch"
+                value={branchId}
+                onChange={(e) => setBranchId(e.target.value)}
+                sx={{ minWidth: 160 }}
+              >
+                {branchOptions.map((b) => (
+                  <MenuItem key={b.branch_id} value={String(b.branch_id)}>
+                    {b.branch_name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ) : null}
             <TextField
               select
               size="small"

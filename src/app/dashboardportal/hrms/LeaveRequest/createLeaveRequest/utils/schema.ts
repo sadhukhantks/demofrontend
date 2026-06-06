@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const leaveRequestFormSchema = z
   .object({
+    branch_id: z.number().int().positive("Branch is required"),
     eb_no: z.string().min(1, "Employee Code is required"),
     eb_id: z.number().int().positive("Lookup an employee before submitting"),
     leave_type_id: z.number().int().positive("Leave Type is required"),
