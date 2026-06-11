@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Box, Card, CardActionArea, CardContent, Typography } from "@mui/material";
-import { Factory, BarChart3, Boxes, Clock, Scale, Gauge, Ruler } from "lucide-react";
+import { Factory, BarChart3, Boxes, Clock, Scale, Gauge, Ruler, Disc3, Settings, Container, SlidersHorizontal } from "lucide-react";
 
 type Tile = {
 	href: string;
@@ -54,6 +54,30 @@ const TILES: Tile[] = [
 		title: "Drawing Machine Master",
 		subtitle: "Const meter & wrap limit per drawing machine",
 		icon: <Ruler size={32} className="text-blue-600" />,
+	},
+	{
+		href: "/dashboardportal/juteProduction/spinning",
+		title: "Spinning Production",
+		subtitle: "Doff weights, frame mapping, act count & daily efficiency",
+		icon: <Disc3 size={32} className="text-blue-600" />,
+	},
+	{
+		href: "/dashboardportal/juteProduction/masters/spinningMachineAttr",
+		title: "Spinning Machine Master",
+		subtitle: "Bobbin weight, speed & spindles per frame",
+		icon: <Settings size={32} className="text-blue-600" />,
+	},
+	{
+		href: "/dashboardportal/juteProduction/masters/trollyMaster",
+		title: "Trolly Master",
+		subtitle: "Trolly & basket tare weights",
+		icon: <Container size={32} className="text-blue-600" />,
+	},
+	{
+		href: "/dashboardportal/juteProduction/masters/yarnQualityParam",
+		title: "Yarn Quality Parameters",
+		subtitle: "Speed/TPI/count parameter sets per quality",
+		icon: <SlidersHorizontal size={32} className="text-blue-600" />,
 	},
 ];
 
