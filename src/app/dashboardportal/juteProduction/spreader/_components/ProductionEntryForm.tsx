@@ -19,11 +19,12 @@ import BinStateBanner from "./BinStateBanner";
 
 type Props = {
 	coId: string;
+	branchId: number;
 	setup: SpreaderSetup;
 	onSaved: () => void;
 };
 
-export default function ProductionEntryForm({ coId, setup, onSaved }: Props) {
+export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: Props) {
 	const [entryDate, setEntryDate] = React.useState<string>(todayISO());
 	const [entryTime, setEntryTime] = React.useState<number>(currentHour());
 	const [spell, setSpell] = React.useState<string>(spellFromHour(currentHour()));
@@ -85,6 +86,7 @@ export default function ProductionEntryForm({ coId, setup, onSaved }: Props) {
 		setError(null);
 		const body = {
 			co_id: Number(coId),
+			branch_id: Number(branchId),
 			entry_date: entryDate,
 			entry_time: Number(entryTime),
 			spell,

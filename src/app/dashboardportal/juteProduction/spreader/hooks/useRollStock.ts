@@ -5,7 +5,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { RollStockRow, QualitySummaryRow } from "../types/spreaderTypes";
 
-export function useRollStock(coId: string | null | undefined) {
+export function useRollStock(coId: string | null | undefined, branchId: number | null) {
 	const [rows, setRows] = React.useState<RollStockRow[]>([]);
 	const [summary, setSummary] = React.useState<QualitySummaryRow[]>([]);
 	const [loading, setLoading] = React.useState(false);
@@ -14,11 +14,15 @@ export function useRollStock(coId: string | null | undefined) {
 	const refresh = React.useCallback(() => setVersion((v) => v + 1), []);
 
 	React.useEffect(() => {
-		if (!coId) return;
+		if (!coId || branchId == null) {
+			setRows([]);
+			setSummary([]);
+			return;
+		}
 		let cancelled = false;
 		setLoading(true);
-		const stockUrl = `${apiRoutesPortalMasters.SPREADER_ROLL_STOCK}?co_id=${coId}`;
-		const summaryUrl = `${apiRoutesPortalMasters.SPREADER_ROLL_STOCK_QUALITY_SUMMARY}?co_id=${coId}`;
+		const stockUrl = `${apiRoutesPortalMasters.SPREADER_ROLL_STOCK}?co_id=${coId}&branch_id=${branchId}`;
+		const summaryUrl = `${apiRoutesPortalMasters.SPREADER_ROLL_STOCK_QUALITY_SUMMARY}?co_id=${coId}&branch_id=${branchId}`;
 		void Promise.all([
 			fetchWithCookie<{ data: RollStockRow[] }>(stockUrl, "GET"),
 			fetchWithCookie<{ data: QualitySummaryRow[] }>(summaryUrl, "GET"),
@@ -38,7 +42,7 @@ export function useRollStock(coId: string | null | undefined) {
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, version]);
+	}, [coId, branchId, version]);
 
 	return { rows, summary, loading, error, refresh };
 }

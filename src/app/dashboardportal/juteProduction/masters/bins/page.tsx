@@ -10,6 +10,7 @@ import {
 	DialogContent,
 	DialogTitle,
 	IconButton,
+	MenuItem,
 	Switch,
 	TextField,
 	Tooltip,
@@ -18,6 +19,7 @@ import {
 import { Pencil as EditOutlinedIcon, Plus as AddIcon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 
@@ -33,7 +35,12 @@ type BinRow = {
 };
 
 export default function SpreaderBinsPage() {
+	const [mounted, setMounted] = React.useState(false);
+	React.useEffect(() => { setMounted(true); }, []);
+
 	const { coId } = useSelectedCompanyCoId();
+	const { selectedCompany } = useSidebarContext();
+	const branchOptions = selectedCompany?.branches ?? [];
 	const [rows, setRows] = React.useState<BinRow[]>([]);
 	const [loading, setLoading] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
@@ -136,6 +143,8 @@ export default function SpreaderBinsPage() {
 		},
 	];
 
+	if (!mounted) return null;
+
 	if (!coId) {
 		return <Alert severity="warning" sx={{ m: 2 }}>Select a company to continue.</Alert>;
 	}
@@ -189,12 +198,19 @@ export default function SpreaderBinsPage() {
 							size="small"
 						/>
 						<TextField
-							type="number"
-							label="Branch ID"
+							select
+							label="Branch"
 							value={form.branch_id}
 							onChange={(e) => setForm({ ...form, branch_id: e.target.value })}
 							size="small"
-						/>
+							required
+						>
+							{branchOptions.map((b) => (
+								<MenuItem key={b.branch_id} value={String(b.branch_id)}>
+									{b.branch_name}
+								</MenuItem>
+							))}
+						</TextField>
 						<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
 							<Typography variant="body2">Active</Typography>
 							<Switch
@@ -214,7 +230,7 @@ export default function SpreaderBinsPage() {
 				</DialogContent>
 				<DialogActions>
 					<Button onClick={() => setOpen(false)}>Cancel</Button>
-					<Button variant="contained" onClick={handleSave} disabled={!form.bin_code.trim()}>
+					<Button variant="contained" onClick={handleSave} disabled={!form.bin_code.trim() || !form.branch_id}>
 						Save
 					</Button>
 				</DialogActions>

@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, CircularProgress, Tab, Tabs, TextField, Typography } from "@mui/material";
+import { Alert, Box, CircularProgress, MenuItem, Tab, Tabs, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { useSpreaderSetup } from "./hooks/useSpreaderSetup";
 import { useEntriesByDate } from "./hooks/useEntriesByDate";
 import { useIssueSetup, useIssuesByDate } from "./hooks/useIssueSetup";
@@ -21,26 +22,50 @@ export default function SpreaderPage() {
 	React.useEffect(() => { setMounted(true); }, []);
 
 	const { coId } = useSelectedCompanyCoId();
+	const { selectedBranches, selectedCompany } = useSidebarContext();
 	const [tab, setTab] = React.useState(0);
+
+	// Branch resolution: 1 sidebar branch → auto-use it; several → user must pick one.
+	const sidebarBranchIds = React.useMemo(() => selectedBranches.map(Number), [selectedBranches]);
+	const [pageBranchId, setPageBranchId] = React.useState<number | "">("");
+	React.useEffect(() => {
+		if (sidebarBranchIds.length === 1) {
+			setPageBranchId(sidebarBranchIds[0]);
+		} else if (sidebarBranchIds.length === 0) {
+			setPageBranchId("");
+		} else {
+			setPageBranchId((prev) =>
+				prev !== "" && sidebarBranchIds.includes(prev as number) ? prev : ""
+			);
+		}
+	}, [sidebarBranchIds]);
+	const branchId = pageBranchId === "" ? null : (pageBranchId as number);
+	const branchOptions = React.useMemo(
+		() => (selectedCompany?.branches ?? []).filter((b) => sidebarBranchIds.includes(Number(b.branch_id))),
+		[selectedCompany, sidebarBranchIds]
+	);
+	const selectedBranchName = branchOptions.find((b) => Number(b.branch_id) === branchId)?.branch_name;
 
 	// Production tab state
 	const [entryDate, setEntryDate] = React.useState<string>(todayISO());
-	const { setup: prodSetup, loading: setupLoading, error: setupError } = useSpreaderSetup(coId);
+	const { setup: prodSetup, loading: setupLoading, error: setupError } = useSpreaderSetup(coId, branchId);
 	const { rows: entries, loading: entriesLoading, refresh: refreshEntries } = useEntriesByDate(
 		coId,
-		entryDate
+		entryDate,
+		branchId
 	);
 
 	// Issue tab state
 	const [issueDate, setIssueDate] = React.useState<string>(todayISO());
-	const { setup: issueSetup, refresh: refreshIssueSetup } = useIssueSetup(coId);
+	const { setup: issueSetup, refresh: refreshIssueSetup } = useIssueSetup(coId, branchId);
 	const { rows: issues, loading: issuesLoading, refresh: refreshIssues } = useIssuesByDate(
 		coId,
-		issueDate
+		issueDate,
+		branchId
 	);
 
 	// Stock tab state
-	const { rows: stockRows, summary, loading: stockLoading, refresh: refreshStock } = useRollStock(coId);
+	const { rows: stockRows, summary, loading: stockLoading, refresh: refreshStock } = useRollStock(coId, branchId);
 
 	const onProductionSaved = React.useCallback(() => {
 		refreshEntries();
@@ -64,6 +89,14 @@ export default function SpreaderPage() {
 		);
 	}
 
+	if (sidebarBranchIds.length === 0) {
+		return (
+			<Alert severity="warning" sx={{ m: 2 }}>
+				Select at least one branch in the sidebar to continue.
+			</Alert>
+		);
+	}
+
 	return (
 		<Box sx={{ p: { xs: 1.5, md: 3 } }}>
 			<Typography variant="h5" sx={{ fontWeight: 600 }}>
@@ -73,6 +106,31 @@ export default function SpreaderPage() {
 				Daily production entry, roll issue, and bin-level stock view.
 			</Typography>
 
+			{sidebarBranchIds.length > 1 ? (
+				<TextField
+					select
+					size="small"
+					label="Branch"
+					value={pageBranchId}
+					onChange={(e) => setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))}
+					sx={{ mb: 2, minWidth: 240 }}
+				>
+					{branchOptions.map((b) => (
+						<MenuItem key={b.branch_id} value={Number(b.branch_id)}>
+							{b.branch_name}
+						</MenuItem>
+					))}
+				</TextField>
+			) : selectedBranchName ? (
+				<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+					Branch: {selectedBranchName}
+				</Typography>
+			) : null}
+
+			{branchId == null ? (
+				<Alert severity="info">Select a branch to load spreader data.</Alert>
+			) : (
+				<>
 			<Tabs
 				value={tab}
 				onChange={(_, v) => setTab(v)}
@@ -95,7 +153,7 @@ export default function SpreaderPage() {
 							<CircularProgress />
 						</Box>
 					) : (
-						<ProductionEntryForm coId={coId} setup={prodSetup} onSaved={onProductionSaved} />
+						<ProductionEntryForm coId={coId} branchId={branchId} setup={prodSetup} onSaved={onProductionSaved} />
 					)}
 					<Box>
 						<Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1, flexWrap: "wrap" }}>
@@ -127,7 +185,7 @@ export default function SpreaderPage() {
 					) : issueSetup.bins_with_stock.length === 0 ? (
 						<Alert severity="info">No bins have stock to issue from.</Alert>
 					) : (
-						<IssueEntryForm coId={coId} setup={issueSetup} onSaved={onIssueSaved} />
+						<IssueEntryForm coId={coId} branchId={branchId} setup={issueSetup} onSaved={onIssueSaved} />
 					)}
 					<Box>
 						<Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1, flexWrap: "wrap" }}>
@@ -153,6 +211,8 @@ export default function SpreaderPage() {
 			{tab === 2 ? (
 				<RollStockTable rows={stockRows} summary={summary} loading={stockLoading} />
 			) : null}
+				</>
+			)}
 		</Box>
 	);
 }

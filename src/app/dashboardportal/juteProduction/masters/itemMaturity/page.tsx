@@ -49,6 +49,11 @@ export default function ItemMaturityMasterPage() {
 	const [editing, setEditing] = React.useState<MaturityRow | null>(null);
 	const [form, setForm] = React.useState({ item_id: "" as number | "", maturity_hours: "", active: 1 });
 
+	const [mounted, setMounted] = React.useState(false);
+	React.useEffect(() => {
+		setMounted(true);
+	}, []);
+
 	const refresh = React.useCallback(async () => {
 		if (!coId) return;
 		setLoading(true);
@@ -141,6 +146,10 @@ export default function ItemMaturityMasterPage() {
 			renderCell: (params) => (params.value ? "Yes" : "No"),
 		},
 	];
+
+	if (!mounted) {
+		return null;
+	}
 
 	if (!coId) {
 		return <Alert severity="warning" sx={{ m: 2 }}>Select a company to continue.</Alert>;

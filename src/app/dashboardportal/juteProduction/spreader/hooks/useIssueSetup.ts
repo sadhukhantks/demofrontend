@@ -5,7 +5,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { IssueSetup, IssueAvailableWeightsResponse, SpreaderIssueRow } from "../types/spreaderTypes";
 
-export function useIssueSetup(coId: string | null | undefined) {
+export function useIssueSetup(coId: string | null | undefined, branchId: number | null) {
 	const [setup, setSetup] = React.useState<IssueSetup | null>(null);
 	const [loading, setLoading] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
@@ -14,10 +14,13 @@ export function useIssueSetup(coId: string | null | undefined) {
 	const refresh = React.useCallback(() => setVersion((v) => v + 1), []);
 
 	React.useEffect(() => {
-		if (!coId) return;
+		if (!coId || branchId == null) {
+			setSetup(null);
+			return;
+		}
 		let cancelled = false;
 		setLoading(true);
-		const url = `${apiRoutesPortalMasters.SPREADER_ISSUE_CREATE_SETUP}?co_id=${coId}`;
+		const url = `${apiRoutesPortalMasters.SPREADER_ISSUE_CREATE_SETUP}?co_id=${coId}&branch_id=${branchId}`;
 		void fetchWithCookie<{ data: IssueSetup }>(url, "GET").then(({ data, error: err }) => {
 			if (cancelled) return;
 			if (err) {
@@ -32,7 +35,7 @@ export function useIssueSetup(coId: string | null | undefined) {
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, version]);
+	}, [coId, branchId, version]);
 
 	return { setup, loading, error, refresh };
 }
@@ -69,7 +72,11 @@ export function useAvailableWeights(coId: string | null | undefined, entryIdGrp:
 	return { data, loading, error };
 }
 
-export function useIssuesByDate(coId: string | null | undefined, issueDate: string) {
+export function useIssuesByDate(
+	coId: string | null | undefined,
+	issueDate: string,
+	branchId: number | null
+) {
 	const [rows, setRows] = React.useState<SpreaderIssueRow[]>([]);
 	const [loading, setLoading] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
@@ -77,13 +84,13 @@ export function useIssuesByDate(coId: string | null | undefined, issueDate: stri
 	const refresh = React.useCallback(() => setVersion((v) => v + 1), []);
 
 	React.useEffect(() => {
-		if (!coId || !issueDate) {
+		if (!coId || !issueDate || branchId == null) {
 			setRows([]);
 			return;
 		}
 		let cancelled = false;
 		setLoading(true);
-		const url = `${apiRoutesPortalMasters.SPREADER_ISSUES_BY_DATE}?co_id=${coId}&issue_date=${issueDate}`;
+		const url = `${apiRoutesPortalMasters.SPREADER_ISSUES_BY_DATE}?co_id=${coId}&issue_date=${issueDate}&branch_id=${branchId}`;
 		void fetchWithCookie<{ data: SpreaderIssueRow[] }>(url, "GET").then(({ data, error: err }) => {
 			if (cancelled) return;
 			if (err) {
@@ -98,7 +105,7 @@ export function useIssuesByDate(coId: string | null | undefined, issueDate: stri
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, issueDate, version]);
+	}, [coId, issueDate, branchId, version]);
 
 	return { rows, loading, error, refresh };
 }

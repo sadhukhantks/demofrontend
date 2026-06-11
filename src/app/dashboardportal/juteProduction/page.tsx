@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Box, Card, CardActionArea, CardContent, Typography } from "@mui/material";
-import { Factory, BarChart3, Boxes, Clock, Scale } from "lucide-react";
+import { Factory, BarChart3, Boxes, Clock, Scale, Gauge, Ruler } from "lucide-react";
 
 type Tile = {
 	href: string;
@@ -42,6 +42,18 @@ const TILES: Tile[] = [
 		title: "Spreader Machine Wt",
 		subtitle: "Roll weight per spreader machine",
 		icon: <Scale size={32} className="text-blue-600" />,
+	},
+	{
+		href: "/dashboardportal/juteProduction/drawing",
+		title: "Drawing Production",
+		subtitle: "Daily spellwise drawing meter entry",
+		icon: <Gauge size={32} className="text-blue-600" />,
+	},
+	{
+		href: "/dashboardportal/juteProduction/masters/drawingMachineAttr",
+		title: "Drawing Machine Master",
+		subtitle: "Const meter & wrap limit per drawing machine",
+		icon: <Ruler size={32} className="text-blue-600" />,
 	},
 ];
 

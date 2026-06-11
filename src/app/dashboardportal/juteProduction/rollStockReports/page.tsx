@@ -37,6 +37,11 @@ export default function RollStockReportsPage() {
 	const [selShifts, setSelShifts] = React.useState<string[]>([]);
 	const summary = useProductionSummary(coId, reportDate, selSpreaders, selItems, selShifts);
 
+	const [mounted, setMounted] = React.useState(false);
+	React.useEffect(() => {
+		setMounted(true);
+	}, []);
+
 	const availableSpreaders = React.useMemo(() => {
 		if (!summary.data) return [] as Array<{ id: number; name: string }>;
 		const map = new Map<number, string>();
@@ -50,6 +55,10 @@ export default function RollStockReportsPage() {
 		for (const r of summary.data.rows) map.set(r.item_id, r.item_name);
 		return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
 	}, [summary.data]);
+
+	if (!mounted) {
+		return null;
+	}
 
 	if (!coId) {
 		return (

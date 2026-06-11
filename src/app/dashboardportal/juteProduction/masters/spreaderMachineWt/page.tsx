@@ -51,6 +51,11 @@ export default function SpreaderMachineWtPage() {
 	const [editing, setEditing] = React.useState<WtRow | null>(null);
 	const [form, setForm] = React.useState({ machine_id: "" as number | "", wt_per_roll: "", active: 1 });
 
+	const [mounted, setMounted] = React.useState(false);
+	React.useEffect(() => {
+		setMounted(true);
+	}, []);
+
 	const refresh = React.useCallback(async () => {
 		if (!coId) return;
 		setLoading(true);
@@ -154,6 +159,10 @@ export default function SpreaderMachineWtPage() {
 			renderCell: (params) => (params.value ? "Yes" : "No"),
 		},
 	];
+
+	if (!mounted) {
+		return null;
+	}
 
 	if (!coId) {
 		return <Alert severity="warning" sx={{ m: 2 }}>Select a company to continue.</Alert>;

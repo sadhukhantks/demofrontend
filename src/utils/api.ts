@@ -757,6 +757,15 @@ const apiRoutesPortalMasters = {
     SPREADER_MACHINE_WT_LIST: `${API_URL}/spreaderMasters/spreader_machine_wt_list`,
     SPREADER_MACHINE_WT_CREATE: `${API_URL}/spreaderMasters/spreader_machine_wt_create`,
     SPREADER_MACHINE_WT_EDIT: `${API_URL}/spreaderMasters/spreader_machine_wt_edit`,
+    DRAWING_ENTRY_CREATE_SETUP: `${API_URL}/drawingProd/entry_create_setup`,
+    DRAWING_MACHINE_PREV_STATE: `${API_URL}/drawingProd/machine_prev_state`,
+    DRAWING_ENTRY_CREATE: `${API_URL}/drawingProd/entry_create`,
+    DRAWING_ENTRIES_BY_DATE: `${API_URL}/drawingProd/entries_by_date`,
+    DRAWING_ENTRY_EDIT: `${API_URL}/drawingProd/entry_edit`,
+    DRAWING_ENTRY_DELETE: `${API_URL}/drawingProd/entry_delete`,
+    DRAWING_MACHINE_ATTR_LIST: `${API_URL}/drawingMasters/drawing_machine_attr_list`,
+    DRAWING_MACHINE_ATTR_CREATE: `${API_URL}/drawingMasters/drawing_machine_attr_create`,
+    DRAWING_MACHINE_ATTR_EDIT: `${API_URL}/drawingMasters/drawing_machine_attr_edit`,
 };
 
 export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters };

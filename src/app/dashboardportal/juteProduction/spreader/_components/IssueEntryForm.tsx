@@ -18,11 +18,12 @@ import { useAvailableWeights } from "../hooks/useIssueSetup";
 
 type Props = {
 	coId: string;
+	branchId: number;
 	setup: IssueSetup;
 	onSaved: () => void;
 };
 
-export default function IssueEntryForm({ coId, setup, onSaved }: Props) {
+export default function IssueEntryForm({ coId, branchId, setup, onSaved }: Props) {
 	const [issueDate, setIssueDate] = React.useState<string>(todayISO());
 	const [issueTime, setIssueTime] = React.useState<number>(currentHour());
 	const [spell, setSpell] = React.useState<string>(spellFromHour(currentHour()));
@@ -74,6 +75,7 @@ export default function IssueEntryForm({ coId, setup, onSaved }: Props) {
 		setError(null);
 		const body = {
 			co_id: Number(coId),
+			branch_id: Number(branchId),
 			issue_date: issueDate,
 			issue_time: Number(issueTime),
 			spell,
