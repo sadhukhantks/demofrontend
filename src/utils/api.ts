@@ -736,6 +736,16 @@ const apiRoutesPortalMasters = {
     LEAVE_REQUEST_REJECT: `${API_URL}/hrms/leave_request_reject`,
     LEAVE_LEDGER_BY_EB: `${API_URL}/hrms/leave_ledger`,
     WORKER_BY_EB_NO: `${API_URL}/hrms/worker_by_eb_no`,
+
+    // HRMS Daily Attendance (transaction) endpoints
+    ATTENDANCE_LIST: `${API_URL}/hrms/daily_attendance_list`,
+    ATTENDANCE_BY_ID: `${API_URL}/hrms/daily_attendance_by_id`,
+    ATTENDANCE_CREATE: `${API_URL}/hrms/daily_attendance_create`,
+    ATTENDANCE_EDIT: `${API_URL}/hrms/daily_attendance_edit`,
+    ATTENDANCE_APPROVE: `${API_URL}/hrms/daily_attendance_approve`,
+    ATTENDANCE_REJECT: `${API_URL}/hrms/daily_attendance_reject`,
+    ATTENDANCE_CREATE_SETUP: `${API_URL}/hrms/attendance_create_setup`,
+    ATTENDANCE_MACHINES: `${API_URL}/hrms/attendance_machines_by_designation`,
 };
 
 export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters };
