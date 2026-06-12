@@ -1,0 +1,44 @@
+/**
+ * Pure helpers for the Attendance Checklist page: backend-row → grid-row
+ * mapping, attendance-type labels, and filter validation.
+ */
+import { z } from "zod";
+import type {
+  AttendanceReportRow,
+  ChecklistGridRow,
+} from "../types/attendanceChecklistTypes";
+
+/** attendance_type codes → readable labels (see vowerp3be mobileapp models). */
+export const ATT_TYPE_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  R: "Regular",
+  O: "OT",
+  C: "Cash",
+});
+
+export const attTypeLabel = (code: string): string =>
+  ATT_TYPE_LABELS[code || "R"] ?? code;
+
+export const mapReportRows = (rows: AttendanceReportRow[]): ChecklistGridRow[] =>
+  rows.map((r) => ({
+    id: r.id,
+    date: r.attendance_date || "",
+    spell: r.shift_name || "",
+    ebNo: r.emp_code || "",
+    name: r.emp_name || "",
+    department: r.department_name || "",
+    designation: r.designation_name || "",
+    source: r.status || "",
+    attType: attTypeLabel(r.att_type),
+    workingHours: Number(r.working_hours ?? 0),
+  }));
+
+/** Mandatory search inputs. Optional filters are not validated (blank = all). */
+export const checklistFilterSchema = z
+  .object({
+    from_date: z.string().min(1, "Please enter the From Date"),
+    to_date: z.string().min(1, "Please enter the To Date"),
+    branch_id: z.string().min(1, "Please select the Branch"),
+  })
+  .refine((v) => v.from_date <= v.to_date, {
+    message: "From Date should not be greater than To Date",
+  });

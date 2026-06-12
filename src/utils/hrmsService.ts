@@ -699,6 +699,7 @@ export interface AttendanceRegisterParams {
   from_date: string;
   to_date: string;
   branch_id?: string | number;
+  /** Backend query param — maps from the form field `dept_id`. */
   department_id?: string | number;
   designation_id?: string | number;
   shift_name?: string;
