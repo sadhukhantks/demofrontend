@@ -32,7 +32,12 @@ export const mapReportRows = (rows: AttendanceReportRow[]): ChecklistGridRow[] =
     workingHours: Number(r.working_hours ?? 0),
   }));
 
-/** Mandatory search inputs. Optional filters are not validated (blank = all). */
+/**
+ * Mandatory search inputs — guard for manual `safeParse` before fetching
+ * (surface the first issue via snackbar). NOT for zodResolver, and the parsed
+ * output must not be used to build queries: optional filters (dept_id, etc.)
+ * are intentionally absent here and would be stripped.
+ */
 export const checklistFilterSchema = z
   .object({
     from_date: z.string().min(1, "Please enter the From Date"),
@@ -41,4 +46,5 @@ export const checklistFilterSchema = z
   })
   .refine((v) => v.from_date <= v.to_date, {
     message: "From Date should not be greater than To Date",
+    path: ["to_date"],
   });

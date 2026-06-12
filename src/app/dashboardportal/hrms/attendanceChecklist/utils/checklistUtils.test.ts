@@ -83,6 +83,10 @@ describe("attTypeLabel", () => {
 });
 
 describe("mapReportRows", () => {
+  it("returns an empty array for empty input", () => {
+    expect(mapReportRows([])).toEqual([]);
+  });
+
   it("maps backend fields to grid fields", () => {
     const [row] = mapReportRows([makeRow()]);
     expect(row).toEqual({
@@ -134,6 +138,15 @@ describe("checklistFilterSchema", () => {
     const res = checklistFilterSchema.safeParse({
       from_date: "2026-06-01",
       to_date: "2026-06-12",
+      branch_id: "4",
+    });
+    expect(res.success).toBe(true);
+  });
+
+  it("accepts a same-day range", () => {
+    const res = checklistFilterSchema.safeParse({
+      from_date: "2026-06-01",
+      to_date: "2026-06-01",
       branch_id: "4",
     });
     expect(res.success).toBe(true);
