@@ -28,13 +28,19 @@ import MuiForm, {
   type Schema,
 } from "@/components/ui/muiform";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
-import { fetchAttendanceRegister } from "@/utils/hrmsService";
+import { useSelectedCompanyCoId } from "@/hooks/use-selected-company-coid";
+import {
+  fetchAttendanceCreateSetup,
+  fetchAttendanceRegister,
+  fetchDesignationsBySubDept,
+} from "@/utils/hrmsService";
 import {
   checklistFilterSchema,
   mapReportRows,
 } from "./utils/checklistUtils";
 import type {
   AttendanceReportResponse,
+  AttendanceSetupResponse,
   ChecklistFilterValues,
   ChecklistGridRow,
   Option,
@@ -54,6 +60,12 @@ const INITIAL_FILTERS: ChecklistFilterValues = {
   emp_name: "",
 };
 
+const ATT_TYPE_OPTIONS: Option[] = Object.freeze([
+  { label: "Regular", value: "R" },
+  { label: "OT", value: "O" },
+  { label: "Cash", value: "C" },
+]) as unknown as Option[];
+
 function AttendanceChecklistContent() {
   const { selectedBranches, selectedCompany } = useSidebarContext();
   const formRef = useRef<MuiFormHandle>(null);
@@ -67,6 +79,7 @@ function AttendanceChecklistContent() {
   // mount). The post-mount effect below pushes the resolved branch in.
   const [filters, setFilters] = useState<ChecklistFilterValues>(INITIAL_FILTERS);
   const prevBranchRef = useRef<string>(sidebarBranchId);
+  const prevDeptRef = useRef<string>("");
 
   const [gridRows, setGridRows] = useState<ChecklistGridRow[]>([]);
   const [showGrid, setShowGrid] = useState(false);
@@ -94,6 +107,60 @@ function AttendanceChecklistContent() {
     [],
   );
 
+  const { coId } = useSelectedCompanyCoId();
+  const [spellOptions, setSpellOptions] = useState<Option[]>(EMPTY_OPTIONS);
+  const [departmentOptions, setDepartmentOptions] = useState<Option[]>(EMPTY_OPTIONS);
+  const [designationOptions, setDesignationOptions] = useState<Option[]>(EMPTY_OPTIONS);
+
+  // Spells and sub-departments are branch-scoped; refetch when branch changes.
+  useEffect(() => {
+    if (!filters.branch_id) {
+      setSpellOptions(EMPTY_OPTIONS);
+      setDepartmentOptions(EMPTY_OPTIONS);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const res = await fetchAttendanceCreateSetup(filters.branch_id);
+      if (cancelled || res.error || !res.data) return;
+      const setup = (res.data as AttendanceSetupResponse).data;
+      setSpellOptions(
+        (setup?.spells ?? []).map((s) => ({
+          // The report endpoint filters by spell NAME (da.spell), not id.
+          label: s.spell_name,
+          value: s.spell_name,
+        })),
+      );
+      setDepartmentOptions(
+        (setup?.sub_departments ?? []).map((d) => ({
+          label: d.sub_dept_desc,
+          value: String(d.sub_dept_id),
+        })),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [filters.branch_id]);
+
+  // Designations cascade from the selected department.
+  useEffect(() => {
+    if (!coId || !filters.dept_id) {
+      setDesignationOptions(EMPTY_OPTIONS);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const res = await fetchDesignationsBySubDept(coId, filters.dept_id);
+      if (cancelled || res.error || !res.data) return;
+      const body = res.data as { data?: Option[] };
+      setDesignationOptions(body.data ?? EMPTY_OPTIONS);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [coId, filters.dept_id]);
+
   // Branch options limited to the sidebar-selected branch(es).
   const branchOptions = useMemo<Option[]>(
     () =>
@@ -113,47 +180,65 @@ function AttendanceChecklistContent() {
     return "";
   }, [sidebarBranchId, branchOptions]);
 
-  // Push the resolved branch into the form once its option exists.
+  // Push the resolved branch into the form once its option exists. The sidebar
+  // context reads localStorage in a lazy initializer on the first CLIENT render,
+  // so this runs post-mount and cannot cause an SSR mismatch.
   useEffect(() => {
     if (!effectiveBranchId) return;
     formRef.current?.setValue("branch_id", effectiveBranchId);
     if (effectiveBranchId !== prevBranchRef.current) {
       prevBranchRef.current = effectiveBranchId;
+      formRef.current?.setValue("dept_id", "");
+      formRef.current?.setValue("designation_id", "");
+      formRef.current?.setValue("shift_name", "");
     }
   }, [effectiveBranchId, branchOptions]);
 
   const filterSchema = useMemo<Schema>(
     () => ({
       fields: [
-        {
-          name: "from_date",
-          label: "From Date",
-          type: "date",
-          required: true,
-          grid: { xs: 12, sm: 6, md: 3 },
-        },
-        {
-          name: "to_date",
-          label: "To Date",
-          type: "date",
-          required: true,
-          grid: { xs: 12, sm: 6, md: 3 },
-        },
-        {
-          name: "branch_id",
-          label: "Branch",
-          type: "select",
-          options: branchOptions,
-          required: true,
-          grid: { xs: 12, sm: 6, md: 3 },
-        },
+        { name: "from_date", label: "From Date", type: "date", required: true, grid: { xs: 12, sm: 6, md: 3 } },
+        { name: "to_date", label: "To Date", type: "date", required: true, grid: { xs: 12, sm: 6, md: 3 } },
+        { name: "branch_id", label: "Branch", type: "select", options: branchOptions, required: true, grid: { xs: 12, sm: 6, md: 3 } },
+        { name: "dept_id", label: "Department", type: "select", options: departmentOptions, grid: { xs: 12, sm: 6, md: 3 } },
+        { name: "designation_id", label: "Designation", type: "select", options: designationOptions, grid: { xs: 12, sm: 6, md: 3 } },
+        { name: "shift_name", label: "Spell", type: "select", options: spellOptions, grid: { xs: 12, sm: 6, md: 3 } },
+        { name: "att_type", label: "Attendance Type", type: "select", options: ATT_TYPE_OPTIONS, grid: { xs: 12, sm: 6, md: 3 } },
+        { name: "emp_code", label: "EB No", type: "text", grid: { xs: 12, sm: 6, md: 3 } },
+        { name: "emp_name", label: "Employee Name", type: "text", grid: { xs: 12, sm: 6, md: 3 } },
       ] satisfies Field[],
     }),
-    [branchOptions],
+    [branchOptions, departmentOptions, designationOptions, spellOptions],
   );
 
+  // onValuesChange fires with the FULL values object on every change (MuiForm
+  // uses a useEffect on the entire values state). To avoid clearing
+  // designation_id on every keystroke, we track the previous dept_id and only
+  // clear designation when dept actually changes — matching the prevBranchRef
+  // pattern used for branch cascades.
   const handleFilterChange = useCallback((vals: Record<string, unknown>) => {
-    setFilters((prev) => ({ ...prev, ...(vals as Partial<ChecklistFilterValues>) }));
+    const incoming = vals as Partial<ChecklistFilterValues>;
+    setFilters((prev) => ({ ...prev, ...incoming }));
+
+    const incomingBranch = incoming.branch_id;
+    if (
+      typeof incomingBranch === "string" &&
+      incomingBranch !== prevBranchRef.current
+    ) {
+      prevBranchRef.current = incomingBranch;
+      formRef.current?.setValue("dept_id", "");
+      formRef.current?.setValue("designation_id", "");
+      formRef.current?.setValue("shift_name", "");
+    }
+
+    const incomingDept = incoming.dept_id;
+    if (
+      typeof incomingDept === "string" &&
+      incomingDept !== prevDeptRef.current
+    ) {
+      prevDeptRef.current = incomingDept;
+      formRef.current?.setValue("designation_id", "");
+    }
   }, []);
 
   const handleSearch = useCallback(async () => {
@@ -168,6 +253,12 @@ function AttendanceChecklistContent() {
         from_date: filters.from_date,
         to_date: filters.to_date,
         branch_id: filters.branch_id,
+        department_id: filters.dept_id || undefined,
+        designation_id: filters.designation_id || undefined,
+        shift_name: filters.shift_name || undefined,
+        att_type: filters.att_type || undefined,
+        emp_code: filters.emp_code.trim() || undefined,
+        emp_name: filters.emp_name.trim() || undefined,
       });
       if (res.error || !res.data) {
         throw new Error(res.error || "Failed to fetch attendance");
@@ -177,6 +268,7 @@ function AttendanceChecklistContent() {
       setGridRows(mapReportRows(rows));
       setSearchedRange({ from: filters.from_date, to: filters.to_date });
       setShowGrid(true);
+      setPaginationModel((m) => ({ ...m, page: 0 }));
     } catch (err: unknown) {
       notify(
         err instanceof Error ? err.message : "Failed to fetch attendance",
