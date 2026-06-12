@@ -334,76 +334,133 @@ function AttendanceChecklistContent() {
   );
 
   return (
-    <Box className="flex min-h-screen flex-col gap-6 bg-gray-50 p-8">
-      <Box className="flex flex-col gap-1">
-        <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
-          Attendance Checklist
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Daily attendance register
-        </Typography>
-      </Box>
-
-      {/* Filters */}
-      <Paper className="p-4">
-        <MuiForm
-          ref={formRef}
-          schema={filterSchema}
-          initialValues={filters as unknown as Record<string, unknown>}
-          mode="edit"
-          onValuesChange={handleFilterChange}
-          hideModeToggle
-          hideSubmit
-        />
-        <Box className="mt-4 flex flex-wrap items-center justify-center gap-4">
-          <Button onClick={handleSearch} disabled={searching}>
-            {searching ? "Searching..." : "Search"}
-          </Button>
+    <>
+      <Box className="flex min-h-screen flex-col gap-6 bg-gray-50 p-8 print:hidden">
+        <Box className="flex flex-col gap-1">
+          <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
+            Attendance Checklist
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Daily attendance register
+          </Typography>
         </Box>
-      </Paper>
 
-      {/* Register grid */}
-      {showGrid && (
+        {/* Filters */}
         <Paper className="p-4">
-          <Box className="mb-2 flex items-center justify-between">
-            <Typography variant="subtitle1">
-              {gridRows.length} record{gridRows.length === 1 ? "" : "s"} from{" "}
-              {searchedRange.from} to {searchedRange.to}
-            </Typography>
-            <Button
-              variant="outline"
-              onClick={handleExportCsv}
-              disabled={!gridRows.length}
-            >
-              Export CSV
+          <MuiForm
+            ref={formRef}
+            schema={filterSchema}
+            initialValues={filters as unknown as Record<string, unknown>}
+            mode="edit"
+            onValuesChange={handleFilterChange}
+            hideModeToggle
+            hideSubmit
+          />
+          <Box className="mt-4 flex flex-wrap items-center justify-center gap-4">
+            <Button onClick={handleSearch} disabled={searching}>
+              {searching ? "Searching..." : "Search"}
             </Button>
           </Box>
-          <Box sx={{ width: "100%" }}>
-            <DataGrid
-              rows={gridRows}
-              columns={gridColumns}
-              getRowId={(row) => row.id}
-              autoHeight
-              paginationModel={paginationModel}
-              onPaginationModelChange={setPaginationModel}
-              pageSizeOptions={[25, 50, 100]}
-              disableRowSelectionOnClick
-            />
-          </Box>
         </Paper>
-      )}
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert severity={snackbar.severity} variant="filled">
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+        {/* Register grid */}
+        {showGrid && (
+          <Paper className="p-4">
+            <Box className="mb-2 flex items-center justify-between">
+              <Typography variant="subtitle1">
+                {gridRows.length} record{gridRows.length === 1 ? "" : "s"} from{" "}
+                {searchedRange.from} to {searchedRange.to}
+              </Typography>
+              <Box className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleExportCsv}
+                  disabled={!gridRows.length}
+                >
+                  Export CSV
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => window.print()}
+                  disabled={!gridRows.length}
+                >
+                  Print
+                </Button>
+              </Box>
+            </Box>
+            <Box sx={{ width: "100%" }}>
+              <DataGrid
+                rows={gridRows}
+                columns={gridColumns}
+                getRowId={(row) => row.id}
+                autoHeight
+                paginationModel={paginationModel}
+                onPaginationModelChange={setPaginationModel}
+                pageSizeOptions={[25, 50, 100]}
+                disableRowSelectionOnClick
+              />
+            </Box>
+          </Paper>
+        )}
+
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={4000}
+          onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        >
+          <Alert severity={snackbar.severity} variant="filled">
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </Box>
+
+      {/* Print-only register (browser print renders just this) */}
+      <div className="hidden print:block">
+        <h1 className="mb-1 text-lg font-semibold">Attendance Checklist</h1>
+        <p className="mb-3 text-sm">
+          {searchedRange.from} to {searchedRange.to} — {gridRows.length} records
+        </p>
+        <table className="w-full border-collapse text-xs">
+          <thead>
+            <tr>
+              {[
+                "Date",
+                "Spell",
+                "EB No",
+                "Name",
+                "Department",
+                "Designation",
+                "Source",
+                "Type",
+                "Working Hours",
+              ].map((h) => (
+                <th key={h} className="border border-gray-400 px-1 py-0.5 text-left">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {gridRows.map((r) => (
+              <tr key={r.id}>
+                <td className="border border-gray-400 px-1 py-0.5">{r.date}</td>
+                <td className="border border-gray-400 px-1 py-0.5">{r.spell}</td>
+                <td className="border border-gray-400 px-1 py-0.5">{r.ebNo}</td>
+                <td className="border border-gray-400 px-1 py-0.5">{r.name}</td>
+                <td className="border border-gray-400 px-1 py-0.5">{r.department}</td>
+                <td className="border border-gray-400 px-1 py-0.5">{r.designation}</td>
+                <td className="border border-gray-400 px-1 py-0.5">{r.source}</td>
+                <td className="border border-gray-400 px-1 py-0.5">{r.attType}</td>
+                <td className="border border-gray-400 px-1 py-0.5 text-right">
+                  {r.workingHours}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
