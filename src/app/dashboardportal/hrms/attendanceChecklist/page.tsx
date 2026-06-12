@@ -416,50 +416,52 @@ function AttendanceChecklistContent() {
       </Box>
 
       {/* Print-only register (browser print renders just this) */}
-      <div className="hidden print:block">
-        <h1 className="mb-1 text-lg font-semibold">Attendance Checklist</h1>
-        <p className="mb-3 text-sm">
-          {searchedRange.from} to {searchedRange.to} — {gridRows.length} records
-        </p>
-        <table className="w-full border-collapse text-xs">
-          <thead>
-            <tr>
-              {[
-                "Date",
-                "Spell",
-                "EB No",
-                "Name",
-                "Department",
-                "Designation",
-                "Source",
-                "Type",
-                "Working Hours",
-              ].map((h) => (
-                <th key={h} className="border border-gray-400 px-1 py-0.5 text-left">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {gridRows.map((r) => (
-              <tr key={r.id}>
-                <td className="border border-gray-400 px-1 py-0.5">{r.date}</td>
-                <td className="border border-gray-400 px-1 py-0.5">{r.spell}</td>
-                <td className="border border-gray-400 px-1 py-0.5">{r.ebNo}</td>
-                <td className="border border-gray-400 px-1 py-0.5">{r.name}</td>
-                <td className="border border-gray-400 px-1 py-0.5">{r.department}</td>
-                <td className="border border-gray-400 px-1 py-0.5">{r.designation}</td>
-                <td className="border border-gray-400 px-1 py-0.5">{r.source}</td>
-                <td className="border border-gray-400 px-1 py-0.5">{r.attType}</td>
-                <td className="border border-gray-400 px-1 py-0.5 text-right">
-                  {r.workingHours}
-                </td>
+      {showGrid && (
+        <div className="hidden print:block">
+          <h1 className="mb-1 text-lg font-semibold">Attendance Checklist</h1>
+          <p className="mb-3 text-sm">
+            {searchedRange.from} to {searchedRange.to} — {gridRows.length} records
+          </p>
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr>
+                {[
+                  "Date",
+                  "Spell",
+                  "EB No",
+                  "Name",
+                  "Department",
+                  "Designation",
+                  "Source",
+                  "Type",
+                  "Working Hours",
+                ].map((h) => (
+                  <th key={h} className="border border-gray-400 px-1 py-0.5 text-left">
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {gridRows.map((r) => (
+                <tr key={r.id}>
+                  <td className="border border-gray-400 px-1 py-0.5">{r.date}</td>
+                  <td className="border border-gray-400 px-1 py-0.5">{r.spell}</td>
+                  <td className="border border-gray-400 px-1 py-0.5">{r.ebNo}</td>
+                  <td className="border border-gray-400 px-1 py-0.5">{r.name}</td>
+                  <td className="border border-gray-400 px-1 py-0.5">{r.department}</td>
+                  <td className="border border-gray-400 px-1 py-0.5">{r.designation}</td>
+                  <td className="border border-gray-400 px-1 py-0.5">{r.source}</td>
+                  <td className="border border-gray-400 px-1 py-0.5">{r.attType}</td>
+                  <td className="border border-gray-400 px-1 py-0.5 text-right">
+                    {r.workingHours}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </>
   );
 }
