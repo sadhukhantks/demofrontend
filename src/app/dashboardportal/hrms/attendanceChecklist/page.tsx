@@ -34,7 +34,7 @@ import {
   fetchAttendanceRegister,
   fetchDesignationsBySubDept,
 } from "@/utils/hrmsService";
-import { ATT_TYPE_LABELS, checklistFilterSchema, mapReportRows } from "./utils/checklistUtils";
+import { ATT_TYPE_LABELS, checklistFilterSchema, csvFilename, mapReportRows, rowsToCsv } from "./utils/checklistUtils";
 import type {
   AttendanceReportResponse,
   AttendanceSetupResponse,
@@ -286,6 +286,20 @@ function AttendanceChecklistContent() {
     }
   }, [filters, notify]);
 
+  const handleExportCsv = useCallback(() => {
+    if (!gridRows.length) return;
+    // "﻿" = UTF-8 BOM so Excel opens accented names correctly.
+    const blob = new Blob(["﻿" + rowsToCsv(gridRows)], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = csvFilename(searchedRange.from, searchedRange.to);
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [gridRows, searchedRange]);
+
   const gridColumns = useMemo<GridColDef[]>(
     () => [
       { field: "date", headerName: "Date", width: 110 },
@@ -356,6 +370,13 @@ function AttendanceChecklistContent() {
               {gridRows.length} record{gridRows.length === 1 ? "" : "s"} from{" "}
               {searchedRange.from} to {searchedRange.to}
             </Typography>
+            <Button
+              variant="outline"
+              onClick={handleExportCsv}
+              disabled={!gridRows.length}
+            >
+              Export CSV
+            </Button>
           </Box>
           <Box sx={{ width: "100%" }}>
             <DataGrid

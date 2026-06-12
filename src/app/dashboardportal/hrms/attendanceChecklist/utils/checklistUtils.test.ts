@@ -4,7 +4,9 @@ import {
   ATT_TYPE_LABELS,
   attTypeLabel,
   checklistFilterSchema,
+  csvFilename,
   mapReportRows,
+  rowsToCsv,
 } from "./checklistUtils";
 import type { AttendanceReportRow } from "../types/attendanceChecklistTypes";
 
@@ -150,5 +152,43 @@ describe("checklistFilterSchema", () => {
       branch_id: "4",
     });
     expect(res.success).toBe(true);
+  });
+});
+
+describe("rowsToCsv", () => {
+  const gridRow = {
+    id: 1,
+    date: "2026-06-01",
+    spell: "A",
+    ebNo: "E001",
+    name: "Kumar, Ravi",
+    department: "Spinning",
+    designation: 'Operator "Sr"',
+    source: "Face",
+    attType: "Regular",
+    workingHours: 7.5,
+  };
+
+  it("emits a header row and one line per record", () => {
+    const csv = rowsToCsv([gridRow]);
+    const lines = csv.split("\n");
+    expect(lines[0]).toBe(
+      "Date,Spell,EB No,Name,Department,Designation,Source,Type,Working Hours",
+    );
+    expect(lines).toHaveLength(2);
+  });
+
+  it("escapes commas and quotes", () => {
+    const csv = rowsToCsv([gridRow]);
+    expect(csv).toContain('"Kumar, Ravi"');
+    expect(csv).toContain('"Operator ""Sr"""');
+  });
+});
+
+describe("csvFilename", () => {
+  it("includes the searched range", () => {
+    expect(csvFilename("2026-06-01", "2026-06-12")).toBe(
+      "attendance-checklist_2026-06-01_2026-06-12.csv",
+    );
   });
 });

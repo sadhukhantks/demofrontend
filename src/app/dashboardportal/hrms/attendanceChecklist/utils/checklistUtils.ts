@@ -48,3 +48,42 @@ export const checklistFilterSchema = z
     message: "From Date should not be greater than To Date",
     path: ["to_date"],
   });
+
+const CSV_HEADERS = [
+  "Date",
+  "Spell",
+  "EB No",
+  "Name",
+  "Department",
+  "Designation",
+  "Source",
+  "Type",
+  "Working Hours",
+] as const;
+
+const csvEscape = (value: string | number): string => {
+  const s = String(value);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+export const rowsToCsv = (rows: ChecklistGridRow[]): string => {
+  const lines = rows.map((r) =>
+    [
+      r.date,
+      r.spell,
+      r.ebNo,
+      r.name,
+      r.department,
+      r.designation,
+      r.source,
+      r.attType,
+      r.workingHours,
+    ]
+      .map(csvEscape)
+      .join(","),
+  );
+  return [CSV_HEADERS.join(","), ...lines].join("\n");
+};
+
+export const csvFilename = (fromDate: string, toDate: string): string =>
+  `attendance-checklist_${fromDate}_${toDate}.csv`;
