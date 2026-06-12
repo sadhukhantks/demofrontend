@@ -154,7 +154,7 @@ isRowEditable={(row) => [21, 4].includes(row.status_id)} // Only Draft and Rejec
 
 - `src/app/dashboardportal/procurement/indent/page.tsx` (transaction list)
 - `src/app/dashboardportal/masters/categoryMaster/page.tsx` (master list with dialog)
-- `src/app/dashboardportal/masters/items/page.tsx` (complex master list)
+- `src/app/dashboardportal/masters/itemMaster/page.tsx` (complex master list)
 - `src/app/dashboardadmin/userManagement/page.tsx` (admin list with hook)
 
 ---

@@ -59,7 +59,7 @@ Services: `src/utils/quotationService.ts`, `salesOrderService.ts`, `deliveryOrde
 | `salesInvoice.py` | `/api/salesInvoice` | Full approval set + DO/SO line feeds, `govt_sacking_source*`, transporter branches, e-invoice history |
 | `reports.py` | `/api/salesReports` | jute-tally-download (xlsx for Tally), jute-mr-summary, SO/invoice lists + downloads |
 
-61 endpoints, 1:1 with `apiRoutesPortalMasters` constants (`src/utils/api.ts:400-405,510-570`).
+61 endpoints, 1:1 with `apiRoutesPortalMasters` constants (`src/utils/api.ts`).
 Registered in `../vowerp3be/src/main.py:204-208`. Constants/status/invoice-type IDs:
 `../vowerp3be/src/sales/constants.py`.
 

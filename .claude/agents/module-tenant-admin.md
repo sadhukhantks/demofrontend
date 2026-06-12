@@ -81,7 +81,7 @@ Borrowed: `../vowerp3be/src/masters/mechineMaster.py` (`/api/mechMaster`),
 This dashboard does not run document approvals itself — `approvalHierarchy/` **configures** them:
 `approval_mst` rows (menu_id, branch_id, user_id, approval_level, optional single/day/month amount
 caps) drive the portal 20→20(next level)→3 flow and value-capped approvals. Detail:
-`docs/claude/modules/tenant-admin/pages-02-users-roles-approvals.md §Approval Hierarchy`.
+`docs/claude/modules/tenant-admin/pages-02-users-roles-approvals.md` (§Approval Hierarchy).
 
 ## 6. Related docs & skills
 
