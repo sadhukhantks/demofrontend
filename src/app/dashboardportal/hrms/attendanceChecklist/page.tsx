@@ -34,10 +34,7 @@ import {
   fetchAttendanceRegister,
   fetchDesignationsBySubDept,
 } from "@/utils/hrmsService";
-import {
-  checklistFilterSchema,
-  mapReportRows,
-} from "./utils/checklistUtils";
+import { ATT_TYPE_LABELS, checklistFilterSchema, mapReportRows } from "./utils/checklistUtils";
 import type {
   AttendanceReportResponse,
   AttendanceSetupResponse,
@@ -60,11 +57,10 @@ const INITIAL_FILTERS: ChecklistFilterValues = {
   emp_name: "",
 };
 
-const ATT_TYPE_OPTIONS: Option[] = Object.freeze([
-  { label: "Regular", value: "R" },
-  { label: "OT", value: "O" },
-  { label: "Cash", value: "C" },
-]) as unknown as Option[];
+/** Select options derived from the canonical att_type label map. */
+const ATT_TYPE_OPTIONS: Option[] = Object.entries(ATT_TYPE_LABELS).map(
+  ([value, label]) => ({ label, value }),
+);
 
 function AttendanceChecklistContent() {
   const { selectedBranches, selectedCompany } = useSidebarContext();
@@ -122,7 +118,13 @@ function AttendanceChecklistContent() {
     let cancelled = false;
     (async () => {
       const res = await fetchAttendanceCreateSetup(filters.branch_id);
-      if (cancelled || res.error || !res.data) return;
+      if (cancelled) return;
+      if (res.error || !res.data) {
+        setSpellOptions(EMPTY_OPTIONS);
+        setDepartmentOptions(EMPTY_OPTIONS);
+        notify(res.error || "Failed to load filter options", "error");
+        return;
+      }
       const setup = (res.data as AttendanceSetupResponse).data;
       setSpellOptions(
         (setup?.spells ?? []).map((s) => ({
@@ -141,7 +143,7 @@ function AttendanceChecklistContent() {
     return () => {
       cancelled = true;
     };
-  }, [filters.branch_id]);
+  }, [filters.branch_id, notify]);
 
   // Designations cascade from the selected department.
   useEffect(() => {
@@ -152,14 +154,19 @@ function AttendanceChecklistContent() {
     let cancelled = false;
     (async () => {
       const res = await fetchDesignationsBySubDept(coId, filters.dept_id);
-      if (cancelled || res.error || !res.data) return;
+      if (cancelled) return;
+      if (res.error || !res.data) {
+        setDesignationOptions(EMPTY_OPTIONS);
+        notify(res.error || "Failed to load filter options", "error");
+        return;
+      }
       const body = res.data as { data?: Option[] };
       setDesignationOptions(body.data ?? EMPTY_OPTIONS);
     })();
     return () => {
       cancelled = true;
     };
-  }, [coId, filters.dept_id]);
+  }, [coId, filters.dept_id, notify]);
 
   // Branch options limited to the sidebar-selected branch(es).
   const branchOptions = useMemo<Option[]>(
