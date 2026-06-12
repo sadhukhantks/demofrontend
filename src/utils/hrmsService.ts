@@ -692,3 +692,45 @@ export const fetchMachinesByDesignation = async (
     "GET",
   );
 };
+
+// ─── Attendance Checklist (flat register report) ───────────────────
+
+export interface AttendanceRegisterParams {
+  from_date: string;
+  to_date: string;
+  branch_id?: string | number;
+  department_id?: string | number;
+  designation_id?: string | number;
+  shift_name?: string;
+  att_type?: string;
+  emp_code?: string;
+  emp_name?: string;
+}
+
+/**
+ * Builds the query string for GET /attendance-report.
+ * Empty/undefined optional params are omitted. Exported for unit tests.
+ */
+export const buildAttendanceRegisterQuery = (
+  params: AttendanceRegisterParams,
+): string => {
+  const qs = new URLSearchParams({
+    from_date: params.from_date,
+    to_date: params.to_date,
+  });
+  if (params.branch_id) qs.set("branch_id", String(params.branch_id));
+  if (params.department_id) qs.set("department_id", String(params.department_id));
+  if (params.designation_id) qs.set("designation_id", String(params.designation_id));
+  if (params.shift_name) qs.set("shift_name", params.shift_name);
+  if (params.att_type) qs.set("att_type", params.att_type);
+  if (params.emp_code) qs.set("emp_code", params.emp_code);
+  if (params.emp_name) qs.set("emp_name", params.emp_name);
+  return qs.toString();
+};
+
+/** Flat attendance register rows for the Attendance Checklist page. */
+export const fetchAttendanceRegister = async (params: AttendanceRegisterParams) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.ATTENDANCE_REGISTER_REPORT}?${buildAttendanceRegisterQuery(params)}`,
+    "GET",
+  );
