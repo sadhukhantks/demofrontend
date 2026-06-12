@@ -139,7 +139,7 @@ src/app/dashboardportal/masters/yarnqualitymaster/
 Run tests with:
 ```bash
 # Activate venv first
-source C:/code/vowerp3be/.venv/Scripts/activate
+source ../vowerp3be/.venv/Scripts/activate
 
 # Run all tests
 pytest src/test/test_yarn_quality.py -v

@@ -360,11 +360,14 @@ export const fetchPayRegisterSalary = async (
 
 // ─── Pay Roll (pay_components_custom) ──────────────────────────────
 
-export const fetchPayRollSetup = async (coId: string) =>
-  fetchWithCookie(
-    `${apiRoutesPortalMasters.HRMS_PAY_ROLL_SETUP}?co_id=${coId}`,
+export const fetchPayRollSetup = async (coId: string, branchId?: string | number) => {
+  const qs = new URLSearchParams({ co_id: coId });
+  if (branchId) qs.set("branch_id", String(branchId));
+  return fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_PAY_ROLL_SETUP}?${qs.toString()}`,
     "GET",
   );
+};
 
 export const fetchPayRollData = async (
   coId: string,

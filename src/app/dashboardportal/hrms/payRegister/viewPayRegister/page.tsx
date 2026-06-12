@@ -71,24 +71,23 @@ function ViewPayRegisterContent() {
         if (cancelled) return;
         if (res?.error || !res?.data) return;
 
-        const rows = (res.data.data ?? []) as PaySalaryRow[];
-        if (rows.length > 0) {
-          // Build columns dynamically from the keys of the first row
-          const keys = Object.keys(rows[0]);
-          const cols: GridColDef[] = keys.map((key) => ({
-            field: key,
-            headerName: key,
-            flex: 1,
-            minWidth: 120,
-          }));
-          setSalaryColumns(cols);
-          // Ensure each row has a unique id
-          const mappedRows = rows.map((row, idx) => ({
-            ...row,
-            id: (row.id as number) ?? idx,
-          }));
-          setSalaryData(mappedRows);
-        }
+        const body = res.data as {
+          data?: PaySalaryRow[];
+          columns?: { field: string; headerName: string; minWidth?: number; type?: string }[];
+        };
+        const rows = body.data ?? [];
+        // Use the columns the backend provides (base columns are always present,
+        // so the grid header renders even when there's no salary data).
+        const cols: GridColDef[] = (body.columns ?? []).map((c) => ({
+          field: c.field,
+          headerName: c.headerName,
+          flex: 1,
+          minWidth: c.minWidth ?? 120,
+          ...(c.type === "number" ? { type: "number" as const } : {}),
+        }));
+        setSalaryColumns(cols);
+        // Ensure each row has a unique id
+        setSalaryData(rows.map((row, idx) => ({ ...row, id: (row.id as number) ?? idx })));
       } catch {
         // Silent failure for salary data
       }
@@ -156,9 +155,9 @@ function ViewPayRegisterContent() {
         </Paper>
       )}
 
-      {/* Salary Data Grid */}
+      {/* Salary Data Grid — header always renders; empty body shows the no-rows overlay */}
       <Paper className="p-4">
-        {salaryData.length > 0 ? (
+        {salaryColumns.length > 0 ? (
           <MuiDataGrid
             rows={salaryData}
             columns={salaryColumns}

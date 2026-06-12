@@ -107,7 +107,10 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
         paginationModel={paginationModel}
         onPaginationModelChange={onPaginationModelChange}
         pageSizeOptions={pageSizeOptions}
-        rowCount={rowCount}
+        // `rowCount` only has meaning for server-side pagination; passing it in
+        // client mode triggers a MUI X warning (the grid derives the count from
+        // `rows` itself).
+        {...(paginationMode === 'server' ? { rowCount } : {})}
         disableRowSelectionOnClick={disableRowSelectionOnClick}
         pagination
         // Use the new showToolbar prop instead of deprecated GridToolbar

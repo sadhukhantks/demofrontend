@@ -483,6 +483,17 @@ const apiRoutesPortalMasters = {
     BILL_PASS_GET_BY_ID: `${API_URL}/billPass/get_bill_pass_by_id`,
     BILL_PASS_UPDATE: `${API_URL}/billPass/update_bill_pass`,
 
+    // Procurement reports hub
+    INDENT_ITEMWISE_REPORT: `${API_URL}/procurementReports/indent-itemwise`,
+    INDENT_ITEMWISE_DOWNLOAD: `${API_URL}/procurementReports/indent-itemwise/download`,
+    PO_ITEMWISE_REPORT: `${API_URL}/procurementReports/po-itemwise`,
+    PO_ITEMWISE_DOWNLOAD: `${API_URL}/procurementReports/po-itemwise/download`,
+    SR_ITEMWISE_REPORT: `${API_URL}/procurementReports/sr-itemwise`,
+    SR_ITEMWISE_DOWNLOAD: `${API_URL}/procurementReports/sr-itemwise/download`,
+    BILL_PASS_DOWNLOAD: `${API_URL}/billPass/download_bill_pass_list`,
+    PO_TABLE_DOWNLOAD: `${API_URL}/procurementPO/download_po_table`,
+    INDENT_TABLE_DOWNLOAD: `${API_URL}/procurementIndent/download_indent_table`,
+
     // Inventory Issue endpoints
     ISSUE_TABLE: `${API_URL}/inventoryIssue/get_issue_table`,
     ISSUE_GET_BY_ID: `${API_URL}/inventoryIssue/get_issue_by_id`,
