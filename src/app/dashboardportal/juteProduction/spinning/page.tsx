@@ -17,8 +17,8 @@ import { useSpinningSetup } from "./hooks/useSpinningSetup";
 import DoffEntryForm from "./_components/DoffEntryForm";
 import DailyDoffGrid from "./_components/DailyDoffGrid";
 import FrameMapGrid from "./_components/FrameMapGrid";
-import ActCountGrid from "./_components/ActCountGrid";
-import SpinningDailyGrid from "./_components/SpinningDailyGrid";
+import PlanningGrid from "./_components/PlanningGrid";
+import WindingForm from "./_components/WindingForm";
 import type { DoffEntryRow } from "./types/spinningTypes";
 import { todayISO } from "./utils/spinningCalc";
 
@@ -90,8 +90,10 @@ export default function SpinningPage() {
 		);
 	}
 
-	const showSpell = tab === 0 || tab === 1;
-	const showDate = tab !== 2;
+	// Spell selector applies to Doff Entry (0), Frame → Quality (1) and the
+	// Planning Grid (2, optional filter). Winding (3) uses its own A/B/C shift.
+	const showSpell = tab === 0 || tab === 1 || tab === 2;
+	const showDate = true;
 
 	return (
 		<Box sx={{ p: { xs: 1.5, md: 3 } }}>
@@ -99,7 +101,7 @@ export default function SpinningPage() {
 				Spinning Production
 			</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-				Doff entry, frame→quality mapping, actual count and daily spinning efficiency.
+				Doff entry, frame→quality mapping, planning grid and winding production.
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
@@ -148,8 +150,8 @@ export default function SpinningPage() {
 								>
 									<Tab label="Doff Entry" />
 									<Tab label="Frame → Quality" />
-									<Tab label="Act Count" />
-									<Tab label="Spinning Daily" />
+									<Tab label="Planning Grid" />
+									<Tab label="Winding" />
 								</Tabs>
 							</Box>
 
@@ -165,7 +167,7 @@ export default function SpinningPage() {
 									<TextField
 										type="date"
 										size="small"
-										label={tab === 2 ? "Mapping Date" : "Date"}
+										label="Date"
 										value={tranDate}
 										onChange={(e) => setTranDate(e.target.value)}
 										InputLabelProps={{ shrink: true }}
@@ -222,11 +224,16 @@ export default function SpinningPage() {
 							) : null}
 
 							{tab === 2 ? (
-								<ActCountGrid coId={coId} branchId={branchId} date={tranDate} />
+								<PlanningGrid
+									coId={coId}
+									branchId={branchId}
+									date={tranDate}
+									spell={spell}
+								/>
 							) : null}
 
 							{tab === 3 ? (
-								<SpinningDailyGrid coId={coId} branchId={branchId} date={tranDate} />
+								<WindingForm coId={coId} branchId={branchId} date={tranDate} />
 							) : null}
 						</>
 					)}

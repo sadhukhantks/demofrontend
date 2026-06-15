@@ -69,45 +69,68 @@ export type FrameMapRow = {
 	quality_code: string | null;
 };
 
-export type ActCountRow = {
+// --- Planning Grid (SPINNING_PLANNING_GRID) ---
+// One row per frame (machine) per spell. All numeric columns are computed
+// server-side and rendered read-only; the client only previews/saves them.
+export type PlanningGridRow = {
+	tran_date: string;
+	spell_id: number;
+	spell_code: string | null;
+	machine_id: number;
+	mech_code: string | null;
 	yarn_quality_id: number;
-	param_id: number;
 	quality_code: string | null;
-	set_name: string | null;
-	spg_actual_count: number;
+	param_id: number;
+	spindles: number;
+	minutes: number;
+	act_count: number;
+	std_count: number;
+	std_speed: number;
+	actual_speed: number;
+	target_speed: number;
+	std_tpi: number;
+	actual_tpi: number;
+	target_tpi: number;
+	std_eff: number;
+	target_eff: number;
+	p100prod: number;
+	std_prod: number;
+	target_prod: number;
+	act_prod_doff: number;
+	winding_total: number;
+	act_prod_wind: number;
+	eff_doff: number;
+	eff_winding: number;
 };
 
-export type SpinningDailyRow = {
+// Per machine+quality+shift rollup returned alongside the planning grid rows.
+export type ShiftRollupRow = {
+	machine_id: number;
 	yarn_quality_id: number;
-	param_id: number;
-	quality_code: string | null;
-	set_name: string | null;
-	speed: number;
-	tpi: number;
-	spindle: number;
-	std_count: number;
-	act_count: number;
-	target_eff: number;
-	prod_a: number;
-	prod_b: number;
-	prod_c: number;
-	frames_a: number;
-	frames_b: number;
-	frames_c: number;
-	hrs_a: number;
-	hrs_b: number;
-	hrs_c: number;
-	winders: number;
-	// computed columns returned by SPINNING_DAILY_BY_DATE
-	p100a: number;
-	p100b: number;
-	p100c: number;
-	tar_prd: number;
-	hunprod: number;
-	act_eff: number;
-	eff_a: number;
-	eff_b: number;
-	eff_c: number;
+	shift: string;
+	prod_doff: number;
+	prod_wind: number;
+	doff_eff: number;
+	wind_eff: number;
+};
+
+export type PlanningGridData = {
+	rows: PlanningGridRow[];
+	shift_rollup: ShiftRollupRow[];
+};
+
+// --- Winding (WINDING_SETUP / WINDING_BY_DATE) ---
+export type WindingSetup = {
+	qualities: SpinningQualityOption[];
+	shifts: string[];
+};
+
+export type WindingRow = {
+	winding_prod_id: number;
+	yarn_quality_id: number;
+	shift: string;
+	qty_wind: number;
+	prod_date: string;
 };
 
 export type SpinningMachineAttrRow = {

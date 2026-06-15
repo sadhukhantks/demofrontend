@@ -65,7 +65,7 @@ export default function DailyEntriesGrid({ coId, rows, loading, onDeleted }: Pro
 				headerName: "Prod (kg)",
 				width: 110,
 				type: "number",
-				valueFormatter: ({ value }) => (value != null ? Number(value).toFixed(2) : ""),
+				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
 			},
 			{ field: "trolley_no", headerName: "Trolley", width: 80 },
 		],

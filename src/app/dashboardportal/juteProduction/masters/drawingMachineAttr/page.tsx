@@ -157,7 +157,7 @@ export default function DrawingMachineAttrPage() {
 			headerName: "Const Meter (m/8h)",
 			width: 160,
 			type: "number",
-			valueFormatter: ({ value }) => (value != null ? Number(value).toFixed(3) : "—"),
+			valueFormatter: (value) => (value != null ? Number(value).toFixed(3) : "—"),
 		},
 		{ field: "mc_group", headerName: "Group", width: 100 },
 		{ field: "meter_wrap_limit", headerName: "Wrap Limit", width: 110, type: "number" },

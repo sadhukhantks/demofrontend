@@ -44,7 +44,7 @@ export default function RollStockTable({ rows, summary, loading }: Props) {
 				headerName: "Qty (MT)",
 				width: 100,
 				type: "number",
-				valueFormatter: ({ value }) => (value != null ? Number(value).toFixed(3) : ""),
+				valueFormatter: (value) => (value != null ? Number(value).toFixed(3) : ""),
 			},
 			{
 				field: "maturity_hrs",
@@ -73,7 +73,7 @@ export default function RollStockTable({ rows, summary, loading }: Props) {
 				headerName: "Qty (MT)",
 				width: 110,
 				type: "number",
-				valueFormatter: ({ value }) => (value != null ? Number(value).toFixed(3) : ""),
+				valueFormatter: (value) => (value != null ? Number(value).toFixed(3) : ""),
 			},
 		],
 		[]

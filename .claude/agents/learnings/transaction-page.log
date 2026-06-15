@@ -1,0 +1,8 @@
+## 2026-06-13 - Spinning Page Rework (Planning Grid + Winding tabs)
+
+- **Pattern drift detected:** no — spinning/ already follows the date+spell+branch selector + tabs -> _components + hooks + types + utils pattern. Reused it exactly. Note: this jute-production module is NOT the approval-workflow transaction-page shape (no create/edit/view container, no status IDs); it is a day-entry grid module. The transaction-page spec's status-ID/approval scaffolding does not apply here.
+- **New shared components used:** none new; mirrored existing `@mui/x-data-grid` (v8.23.0) DataGrid usage from DailyDoffGrid.tsx and the `fetchWithCookie` + `apiRoutesPortalMasters` fetch pattern from useSpinningSetup.ts.
+- **TypeScript errors encountered:** none. `npx tsc --noEmit` clean for the whole spinning module.
+- **What worked well:** Deleting dead hook/component files first, then editing types/utils, then adding new hooks/components, then wiring page.tsx last — kept the type-check green incrementally. x-data-grid v8 `valueGetter(value, row)` signature confirmed against package.json before use.
+- **What should change:** A repo-wide `Fact-Forcing Gate` PreToolUse hook fires on every Edit/Write/Grep/Glob and requires importer/purpose facts before each op — budget extra turns for it. Confirm importers with Grep up front so the facts are ready.
+- **[PATTERN-CHANGE]** For server-computed read-only grids (Planning Grid), render values directly in DataGrid columns with `type: "number"` and no editable cell; Save posts the fetched rows back verbatim (server is source of truth). Client-side calc helpers (p100ProdSpell, allocateWinding) are display-only previews, not wired into the saved payload.

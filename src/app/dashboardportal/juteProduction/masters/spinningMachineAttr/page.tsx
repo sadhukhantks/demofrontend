@@ -162,7 +162,7 @@ export default function SpinningMachineAttrPage() {
 			headerName: "Bobbin Wt (kg)",
 			width: 140,
 			type: "number",
-			valueFormatter: ({ value }) => (value != null ? Number(value).toFixed(3) : "—"),
+			valueFormatter: (value) => (value != null ? Number(value).toFixed(3) : "—"),
 		},
 		{ field: "speed", headerName: "Speed", width: 100, type: "number" },
 		{ field: "no_of_spindle", headerName: "Spindles", width: 110, type: "number" },

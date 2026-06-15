@@ -77,7 +77,7 @@ export default function DailyDrawingGrid({ coId, rows, loading, onEdit, onDelete
 				headerName: "Eff (%)",
 				width: 90,
 				type: "number",
-				valueFormatter: ({ value }) => (value != null ? Number(value).toFixed(2) : ""),
+				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
 			},
 			{ field: "wrk_hours", headerName: "Hrs", width: 70, type: "number" },
 			{ field: "remarks", headerName: "Remarks", flex: 1, minWidth: 140 },

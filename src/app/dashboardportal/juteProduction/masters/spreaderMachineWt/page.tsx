@@ -150,7 +150,7 @@ export default function SpreaderMachineWtPage() {
 			headerName: "Wt per Roll (kg)",
 			width: 160,
 			type: "number",
-			valueFormatter: ({ value }) => (value != null ? Number(value).toFixed(3) : ""),
+			valueFormatter: (value) => (value != null ? Number(value).toFixed(3) : ""),
 		},
 		{
 			field: "active",

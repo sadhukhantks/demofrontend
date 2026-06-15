@@ -64,7 +64,7 @@ export default function DailyIssuesGrid({ coId, rows, loading, onDeleted }: Prop
 				headerName: "Issued (kg)",
 				width: 110,
 				type: "number",
-				valueFormatter: ({ value }) => (value != null ? Number(value).toFixed(2) : ""),
+				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
 			},
 			{ field: "breaker_inter_no", headerName: "Breaker", width: 120 },
 		],

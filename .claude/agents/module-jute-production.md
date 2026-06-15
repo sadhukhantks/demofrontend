@@ -6,7 +6,7 @@ tools: Read, Grep, Glob
 
 # Module Guide: Jute Production (+ Jute SQC)
 
-Last verified: 2026-06-12
+Last verified: 2026-06-13
 
 ## 1. Module overview
 
@@ -34,6 +34,21 @@ Scope: pages take `co_id` from `useSelectedCompanyCoId` and resolve `branch_id` 
 `useSidebarContext().selectedBranches` (1 branch → auto-used; several → in-page picker).
 Exception: `juteSQC/r-08-01` parses `co_id`/`branch_id` from localStorage sidebar state itself.
 Jute raw-material buying is a separate module (`module-jute-purchase`).
+
+**Winding (design only, not implemented yet):** a fourth production stage —
+Spreader → Drawing → Spinning → **Winding** — is documented but not built. Operators weigh wound
+trollies (Doff), record spindle open/close leftover (Jugar), and tag quality + spindle count;
+daily production = `Σ(doff) − opening_jugar + closing_jugar` (kg→bundles `/14` when UOM='B'). See
+the knowledge docs below before answering winding questions.
+
+## Knowledge docs
+
+| File | Covers |
+|------|--------|
+| `docs/claude/modules/jute-production/_index.md` | Winding scope, document chain, cross-repo registry |
+| `docs/claude/modules/jute-production/pages-01-winding-production.md` | Proposed Winding page (Doff/Jugar/Quality tabs) + masters, data points, client formulas |
+| `docs/claude/modules/jute-production/backend-map.md` | Proposed winding routers + legacy→vowerp3 endpoint mapping |
+| `../vowerp3be/docs/winding-production-design.md` | **Primary** — full legacy logic, data points, formulas, target design |
 
 ## 2. Page quick-map
 

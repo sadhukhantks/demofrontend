@@ -10,6 +10,7 @@ import {
 	DialogContent,
 	DialogTitle,
 	IconButton,
+	MenuItem,
 	TextField,
 	Tooltip,
 	Typography,
@@ -17,6 +18,7 @@ import {
 import { Pencil as EditOutlinedIcon, Plus as AddIcon, Trash2 as DeleteIcon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 
@@ -37,6 +39,16 @@ export default function TrollyMasterPage() {
 	}, []);
 
 	const { coId } = useSelectedCompanyCoId();
+	const { selectedCompany, selectedBranches } = useSidebarContext();
+
+	// Only branches the sidebar currently has selected, in company order.
+	const branchOptions = React.useMemo(
+		() =>
+			(selectedCompany?.branches ?? []).filter((b) => selectedBranches.includes(b.branch_id)),
+		[selectedCompany, selectedBranches]
+	);
+	const singleBranchId = branchOptions.length === 1 ? branchOptions[0].branch_id : null;
+
 	const [rows, setRows] = React.useState<TrollyRow[]>([]);
 	const [loading, setLoading] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
@@ -117,7 +129,13 @@ export default function TrollyMasterPage() {
 
 	const openCreate = () => {
 		setEditing(null);
-		setForm({ trolly_name: "", trolly_weight: "", busket_weight: "", trolly_posting_code: "", branch_id: "" });
+		setForm({
+			trolly_name: "",
+			trolly_weight: "",
+			busket_weight: "",
+			trolly_posting_code: "",
+			branch_id: singleBranchId != null ? String(singleBranchId) : "",
+		});
 		setOpen(true);
 	};
 	const openEdit = (r: TrollyRow) => {
@@ -159,17 +177,26 @@ export default function TrollyMasterPage() {
 			headerName: "Trolly Wt (kg)",
 			width: 140,
 			type: "number",
-			valueFormatter: ({ value }) => (value != null ? Number(value).toFixed(3) : "—"),
+			valueFormatter: (value) => (value != null ? Number(value).toFixed(3) : "—"),
 		},
 		{
 			field: "bucket_weight",
 			headerName: "Bucket Wt (kg)",
 			width: 140,
 			type: "number",
-			valueFormatter: ({ value }) => (value != null ? Number(value).toFixed(3) : "—"),
+			valueFormatter: (value) => (value != null ? Number(value).toFixed(3) : "—"),
 		},
 		{ field: "trolly_posting_code", headerName: "Posting Code", width: 150 },
-		{ field: "branch_id", headerName: "Branch", width: 100, type: "number" },
+		{
+			field: "branch_id",
+			headerName: "Branch",
+			width: 140,
+			valueGetter: (value) => {
+				if (value == null) return "—";
+				const match = (selectedCompany?.branches ?? []).find((b) => b.branch_id === value);
+				return match ? match.branch_name : value;
+			},
+		},
 	];
 
 	if (!mounted) return null;
@@ -252,13 +279,25 @@ export default function TrollyMasterPage() {
 							inputProps={{ maxLength: 50 }}
 						/>
 						<TextField
-							type="number"
-							label="Branch ID (optional)"
-							inputProps={{ step: 1, min: 0 }}
+							select
+							label="Branch"
 							value={form.branch_id}
 							onChange={(e) => setForm({ ...form, branch_id: e.target.value })}
 							size="small"
-						/>
+							disabled={branchOptions.length === 0}
+							helperText={branchOptions.length === 0 ? "No branch selected in sidebar" : undefined}
+						>
+							{branchOptions.length !== 1 ? (
+								<MenuItem value="">
+									<em>None</em>
+								</MenuItem>
+							) : null}
+							{branchOptions.map((b) => (
+								<MenuItem key={b.branch_id} value={String(b.branch_id)}>
+									{b.branch_name}
+								</MenuItem>
+							))}
+						</TextField>
 					</Box>
 				</DialogContent>
 				<DialogActions>

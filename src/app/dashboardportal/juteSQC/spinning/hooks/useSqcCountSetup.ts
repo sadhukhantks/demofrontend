@@ -3,14 +3,14 @@
 import * as React from "react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
-import type { ActCountRow } from "../types/spinningTypes";
+import type { SqcCountSetup } from "../types/sqcSpinningTypes";
 
-export function useActCount(
+export function useSqcCountSetup(
 	coId: string | null | undefined,
-	branchId: number | null,
-	mappingDate: string
+	entryDate: string,
+	branchId: number | null
 ) {
-	const [rows, setRows] = React.useState<ActCountRow[]>([]);
+	const [setup, setSetup] = React.useState<SqcCountSetup | null>(null);
 	const [loading, setLoading] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
 	const [version, setVersion] = React.useState(0);
@@ -18,28 +18,28 @@ export function useActCount(
 	const refresh = React.useCallback(() => setVersion((v) => v + 1), []);
 
 	React.useEffect(() => {
-		if (!coId || branchId == null || !mappingDate) {
-			setRows([]);
+		if (!coId || branchId == null || !entryDate) {
+			setSetup(null);
 			return;
 		}
 		let cancelled = false;
 		setLoading(true);
-		const url = `${apiRoutesPortalMasters.SPINNING_ACT_COUNT_GET}?co_id=${coId}&branch_id=${branchId}&mapping_date=${mappingDate}`;
-		void fetchWithCookie<{ data: ActCountRow[] }>(url, "GET").then(({ data, error: err }) => {
+		const url = `${apiRoutesPortalMasters.SPINNING_SQC_COUNT_SETUP}?co_id=${coId}&entry_date=${entryDate}&branch_id=${branchId}`;
+		void fetchWithCookie<{ data: SqcCountSetup }>(url, "GET").then(({ data, error: err }) => {
 			if (cancelled) return;
 			if (err) {
 				setError(err);
-				setRows([]);
+				setSetup(null);
 			} else {
 				setError(null);
-				setRows(data?.data ?? []);
+				setSetup(data?.data ?? null);
 			}
 			setLoading(false);
 		});
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, branchId, mappingDate, version]);
+	}, [coId, entryDate, branchId, version]);
 
-	return { rows, loading, error, refresh };
+	return { setup, loading, error, refresh };
 }

@@ -788,11 +788,28 @@ const apiRoutesPortalMasters = {
     SPINNING_FRAME_MAP_GET: `${API_URL}/spinningProd/frame_map_get`,
     SPINNING_FRAME_MAP_SAVE: `${API_URL}/spinningProd/frame_map_save`,
     SPINNING_FRAME_MAP_MAPPED: `${API_URL}/spinningProd/frame_map_mapped`,
-    SPINNING_ACT_COUNT_GET: `${API_URL}/spinningProd/act_count_get`,
-    SPINNING_ACT_COUNT_SAVE: `${API_URL}/spinningProd/act_count_save`,
-    SPINNING_DAILY_SETUP: `${API_URL}/spinningProd/spinning_daily_setup`,
-    SPINNING_DAILY_SAVE: `${API_URL}/spinningProd/spinning_daily_save`,
-    SPINNING_DAILY_BY_DATE: `${API_URL}/spinningProd/spinning_daily_by_date`,
+    // Spinning planning grid (router prefix /api/spinningProd)
+    SPINNING_PLANNING_GRID: `${API_URL}/spinningProd/planning_grid`,
+    SPINNING_PLANNING_GRID_SAVE: `${API_URL}/spinningProd/planning_grid_save`,
+    // Winding production (router prefix /api/windingProd) — WINDING_DELETE is a base path; caller appends /${id}
+    WINDING_SETUP: `${API_URL}/windingProd/winding_setup`,
+    WINDING_SAVE: `${API_URL}/windingProd/winding_save`,
+    WINDING_BY_DATE: `${API_URL}/windingProd/winding_by_date`,
+    WINDING_DELETE: `${API_URL}/windingProd/winding_delete`,
+    // Spinning standards master (router prefix /api/spngTargetMap) — *_EDIT/*_DELETE are base paths; caller appends /${id}
+    SPNG_TARGET_MAP_SETUP: `${API_URL}/spngTargetMap/target_map_setup`,
+    SPNG_TARGET_MAP_LIST: `${API_URL}/spngTargetMap/target_map_list`,
+    SPNG_TARGET_MAP_CREATE: `${API_URL}/spngTargetMap/target_map_create`,
+    SPNG_TARGET_MAP_EDIT: `${API_URL}/spngTargetMap/target_map_edit`,
+    SPNG_TARGET_MAP_DELETE: `${API_URL}/spngTargetMap/target_map_delete`,
+    // Spinning SQC (router prefix /api/juteSQC) — SPINNING_SQC_COUNT_DELETE is a base path; caller appends /${id}
+    SPINNING_SQC_ENTRY_SETUP: `${API_URL}/juteSQC/sqc_entry_setup`,
+    SPINNING_SQC_ENTRY_SAVE: `${API_URL}/juteSQC/sqc_entry_save`,
+    SPINNING_SQC_ENTRY_BY_DATE: `${API_URL}/juteSQC/sqc_entry_by_date`,
+    SPINNING_SQC_COUNT_SETUP: `${API_URL}/juteSQC/sqc_count_setup`,
+    SPINNING_SQC_COUNT_SAVE: `${API_URL}/juteSQC/sqc_count_save`,
+    SPINNING_SQC_COUNT_BY_DATE: `${API_URL}/juteSQC/sqc_count_by_date`,
+    SPINNING_SQC_COUNT_DELETE: `${API_URL}/juteSQC/sqc_count_delete`,
     // Spinning masters (router prefix /api/spinningMasters)
     SPINNING_MACHINE_ATTR_LIST: `${API_URL}/spinningMasters/spinning_machine_attr_list`,
     SPINNING_MACHINE_ATTR_CREATE: `${API_URL}/spinningMasters/spinning_machine_attr_create`,
