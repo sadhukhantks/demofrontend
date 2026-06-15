@@ -18,7 +18,6 @@ import DoffEntryForm from "./_components/DoffEntryForm";
 import DailyDoffGrid from "./_components/DailyDoffGrid";
 import FrameMapGrid from "./_components/FrameMapGrid";
 import PlanningGrid from "./_components/PlanningGrid";
-import WindingForm from "./_components/WindingForm";
 import type { DoffEntryRow } from "./types/spinningTypes";
 import { todayISO } from "./utils/spinningCalc";
 
@@ -91,7 +90,7 @@ export default function SpinningPage() {
 	}
 
 	// Spell selector applies to Doff Entry (0), Frame → Quality (1) and the
-	// Planning Grid (2, optional filter). Winding (3) uses its own A/B/C shift.
+	// Planning Grid (2, optional filter).
 	const showSpell = tab === 0 || tab === 1 || tab === 2;
 	const showDate = true;
 
@@ -101,7 +100,7 @@ export default function SpinningPage() {
 				Spinning Production
 			</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-				Doff entry, frame→quality mapping, planning grid and winding production.
+				Doff entry, frame→quality mapping and planning grid.
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
@@ -151,7 +150,6 @@ export default function SpinningPage() {
 									<Tab label="Doff Entry" />
 									<Tab label="Frame → Quality" />
 									<Tab label="Planning Grid" />
-									<Tab label="Winding" />
 								</Tabs>
 							</Box>
 
@@ -230,10 +228,6 @@ export default function SpinningPage() {
 									date={tranDate}
 									spell={spell}
 								/>
-							) : null}
-
-							{tab === 3 ? (
-								<WindingForm coId={coId} branchId={branchId} date={tranDate} />
 							) : null}
 						</>
 					)}

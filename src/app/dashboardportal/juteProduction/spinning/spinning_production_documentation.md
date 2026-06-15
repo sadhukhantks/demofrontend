@@ -116,7 +116,9 @@ Resolution map (each resolved by last-date <= requested date):
 | Target Eff | qid | target | eff |
 
 ### 2.6 Doff Table — `doff` (transactional)
-Actual spun production captured at the frame per date/spell.
+Actual spun production captured at the frame per date/spell. **A frame is doffed multiple times in a
+spell — each doff is one row.** The grid's **Act Prod Doff (`V`) is the SUM of all doff rows** for that
+date + spell + frame (not a single entry); see section 4 row 22 and section 5.1.
 
 | Column | Description |
 |---|---|
@@ -125,7 +127,7 @@ Actual spun production captured at the frame per date/spell.
 | `mc_id` | Frame. |
 | `spell` | Spell (`A1`, `A2`). |
 | `quality_id` | Quality produced. |
-| `act_prod_doff` | Actual spun production, kg. *(Drives **Act Prod Doff**, `V`.)* |
+| `act_prod_doff` | Actual spun production for one doff event, kg. Multiple rows per date/spell/frame; **summed** to the grid's `V`. *(Drives **Act Prod Doff**, `V`.)* |
 
 ### 2.7 Winding Production — `winding_prod` (transactional, queried as aggregate)
 Raw winding output records. The grid's **winding total is not taken as a stored value** — it is an **aggregate query** (sum) over these records for the relevant quality + date + shift ("winding prod query").
@@ -202,7 +204,7 @@ A 100-spindle frame under the same conditions gives `328`.
 | 19 | **100prod** | Calc | `ROUND((Std Speed x minutes x Act Count x Spindles) / (c1 x c2 x c3 x Std TPI), 0)` — see section 3. |
 | 20 | **Std Production** | Calc | `100prod x Std Eff`. |
 | 21 | **Target Production** | Calc | `100prod x Target Eff`. |
-| 22 | **Act Prod Doff** | Input | `doff.act_prod_doff` (`V`). |
+| 22 | **Act Prod Doff** | Query | `SUM(doff.act_prod_doff)` over all doff rows for the row's date + spell + frame (`V`) — a frame is doffed many times per spell; the entries are added up. |
 | 23 | **Winding total** | Query | SUM(`winding_prod.qty_wind`) per quality + date + shift (`W`) — section 5. |
 | 24 | **Act Prod Wind** | Calc | `W x (V / SUM V_group)` — winding allocated by doff share within quality+date+shift, see section 5. |
 | 25 | **Eff Doff** | Calc | `Act Prod Doff / 100prod` = `V / S`. |

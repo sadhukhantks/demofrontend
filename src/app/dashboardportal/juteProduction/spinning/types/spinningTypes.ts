@@ -119,20 +119,6 @@ export type PlanningGridData = {
 	shift_rollup: ShiftRollupRow[];
 };
 
-// --- Winding (WINDING_SETUP / WINDING_BY_DATE) ---
-export type WindingSetup = {
-	qualities: SpinningQualityOption[];
-	shifts: string[];
-};
-
-export type WindingRow = {
-	winding_prod_id: number;
-	yarn_quality_id: number;
-	shift: string;
-	qty_wind: number;
-	prod_date: string;
-};
-
 export type SpinningMachineAttrRow = {
 	spinning_machine_attr_id: number | null;
 	machine_id: number;

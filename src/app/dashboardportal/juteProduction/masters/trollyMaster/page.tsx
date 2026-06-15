@@ -22,6 +22,20 @@ import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 
+// trolly_type: 'T' = Trolly, 'S' = Spool. Backend column on trolly_mst.
+type TrollyType = "T" | "S";
+
+const TROLLY_TYPE_OPTIONS: { value: TrollyType; label: string }[] = [
+	{ value: "T", label: "Trolly" },
+	{ value: "S", label: "Spool" },
+];
+
+const trollyTypeLabel = (t: string | null | undefined): string => {
+	if (t === "S") return "Spool";
+	// Default/unknown treated as Trolly (backend default 'T').
+	return "Trolly";
+};
+
 type TrollyRow = {
 	trolly_id: number;
 	trolly_name: string | null;
@@ -30,6 +44,8 @@ type TrollyRow = {
 	bucket_weight: number | null;
 	trolly_posting_code: string | null;
 	branch_id: number | null;
+	// May be absent until the backend list endpoint selects this column.
+	trolly_type?: string | null;
 };
 
 export default function TrollyMasterPage() {
@@ -61,7 +77,11 @@ export default function TrollyMasterPage() {
 		busket_weight: "",
 		trolly_posting_code: "",
 		branch_id: "",
+		trolly_type: "T" as TrollyType,
 	});
+
+	// Grid filter: show all types, or only Trolly / only Spool.
+	const [typeFilter, setTypeFilter] = React.useState<"ALL" | TrollyType>("ALL");
 
 	const refresh = React.useCallback(async () => {
 		if (!coId) return;
@@ -89,6 +109,9 @@ export default function TrollyMasterPage() {
 			busket_weight: Number(form.busket_weight),
 			trolly_posting_code: form.trolly_posting_code || null,
 			branch_id: form.branch_id !== "" ? Number(form.branch_id) : null,
+			// Sent on both create & edit. NOTE: backend trolly_create/trolly_edit
+			// do not yet persist this (see report) — safe to send regardless.
+			trolly_type: form.trolly_type,
 		};
 		if (editing) {
 			const url = `${apiRoutesPortalMasters.TROLLY_EDIT}/${editing.trolly_id}?co_id=${coId}`;
@@ -135,6 +158,7 @@ export default function TrollyMasterPage() {
 			busket_weight: "",
 			trolly_posting_code: "",
 			branch_id: singleBranchId != null ? String(singleBranchId) : "",
+			trolly_type: "T",
 		});
 		setOpen(true);
 	};
@@ -146,6 +170,7 @@ export default function TrollyMasterPage() {
 			busket_weight: r.bucket_weight != null ? String(r.bucket_weight) : "",
 			trolly_posting_code: r.trolly_posting_code ?? "",
 			branch_id: r.branch_id != null ? String(r.branch_id) : "",
+			trolly_type: r.trolly_type === "S" ? "S" : "T",
 		});
 		setOpen(true);
 	};
@@ -173,6 +198,12 @@ export default function TrollyMasterPage() {
 		},
 		{ field: "trolly_name", headerName: "Trolly Name", flex: 1, minWidth: 200 },
 		{
+			field: "trolly_type",
+			headerName: "Type",
+			width: 110,
+			valueGetter: (value) => trollyTypeLabel(value as string | null | undefined),
+		},
+		{
 			field: "trolly_weight",
 			headerName: "Trolly Wt (kg)",
 			width: 140,
@@ -199,6 +230,12 @@ export default function TrollyMasterPage() {
 		},
 	];
 
+	// Treat missing/unknown trolly_type as 'T' (backend default) for filtering.
+	const filteredRows = React.useMemo(() => {
+		if (typeFilter === "ALL") return rows;
+		return rows.filter((r) => (r.trolly_type === "S" ? "S" : "T") === typeFilter);
+	}, [rows, typeFilter]);
+
 	if (!mounted) return null;
 
 	if (!coId) {
@@ -220,9 +257,26 @@ export default function TrollyMasterPage() {
 						Trolly and bucket tare weights used for net doff weight calculation.
 					</Typography>
 				</Box>
-				<Button variant="contained" startIcon={<AddIcon size={18} />} onClick={openCreate}>
-					New
-				</Button>
+				<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+					<TextField
+						select
+						label="Type"
+						value={typeFilter}
+						onChange={(e) => setTypeFilter(e.target.value as "ALL" | TrollyType)}
+						size="small"
+						sx={{ minWidth: 140 }}
+					>
+						<MenuItem value="ALL">All</MenuItem>
+						{TROLLY_TYPE_OPTIONS.map((o) => (
+							<MenuItem key={o.value} value={o.value}>
+								{o.label}
+							</MenuItem>
+						))}
+					</TextField>
+					<Button variant="contained" startIcon={<AddIcon size={18} />} onClick={openCreate}>
+						New
+					</Button>
+				</Box>
 			</Box>
 			{error ? (
 				<Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
@@ -232,7 +286,7 @@ export default function TrollyMasterPage() {
 			<Box sx={{ width: "100%", overflowX: "auto" }}>
 				<DataGrid
 					autoHeight
-					rows={rows}
+					rows={filteredRows}
 					getRowId={(r) => r.trolly_id}
 					columns={columns}
 					loading={loading}
@@ -255,6 +309,21 @@ export default function TrollyMasterPage() {
 							size="small"
 							inputProps={{ maxLength: 100 }}
 						/>
+						<TextField
+							select
+							label="Type"
+							value={form.trolly_type}
+							onChange={(e) =>
+								setForm({ ...form, trolly_type: e.target.value as TrollyType })
+							}
+							size="small"
+						>
+							{TROLLY_TYPE_OPTIONS.map((o) => (
+								<MenuItem key={o.value} value={o.value}>
+									{o.label}
+								</MenuItem>
+							))}
+						</TextField>
 						<TextField
 							type="number"
 							label="Trolly Weight (kg)"

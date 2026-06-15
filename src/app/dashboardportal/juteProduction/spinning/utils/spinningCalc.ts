@@ -56,28 +56,6 @@ export function p100ProdSpell(
 	);
 }
 
-// Allocate a quality's total winding qty across the frames producing it,
-// weighted by each frame's doff production. DISPLAY-ONLY preview helper.
-// Returns a map keyed by machine_id -> allocated winding qty (rounded 0).
-export function allocateWinding(
-	windingTotal: number,
-	frameDoffProd: Array<{ machine_id: number; act_prod_doff: number }>,
-): Record<number, number> {
-	const total = frameDoffProd.reduce((s, f) => s + (Number(f.act_prod_doff) || 0), 0);
-	const out: Record<number, number> = {};
-	if (!total) {
-		// No doff basis — split nothing rather than divide by zero.
-		frameDoffProd.forEach((f) => {
-			out[f.machine_id] = 0;
-		});
-		return out;
-	}
-	frameDoffProd.forEach((f) => {
-		out[f.machine_id] = Math.round((Number(windingTotal) * (Number(f.act_prod_doff) || 0)) / total);
-	});
-	return out;
-}
-
 export function todayISO(): string {
 	const d = new Date();
 	const m = String(d.getMonth() + 1).padStart(2, "0");
