@@ -29,9 +29,10 @@ type CreateYarnQualityProps = {
   yarnQualityId: number | null;
 };
 
-type YarnType = {
-  item_grp_id: number;
-  item_grp_name: string;
+type YarnItem = {
+  item_id: number;
+  item_name: string;
+  item_code?: string | null;
 };
 
 type Branch = {
@@ -42,31 +43,33 @@ type Branch = {
 type FormData = {
   quality_code: string;
   branch_id: string;
-  item_grp_id: string;
+  item_id: string;
   twist_per_inch: string;
   std_count: string;
   std_doff: string;
   std_wt_doff: string;
   target_eff: string;
+  std_mr_pct: string;
   is_active: boolean;
 };
 
 const INITIAL_FORM_DATA: FormData = {
   quality_code: "",
   branch_id: "",
-  item_grp_id: "",
+  item_id: "",
   twist_per_inch: "",
   std_count: "",
   std_doff: "",
   std_wt_doff: "",
   target_eff: "",
+  std_mr_pct: "",
   is_active: true,
 };
 
 const CreateYarnQuality: React.FC<CreateYarnQualityProps> = ({ open, onClose, mode, yarnQualityId }) => {
   const { coId } = useSelectedCompanyCoId();
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
-  const [yarnTypes, setYarnTypes] = useState<YarnType[]>([]);
+  const [yarnItems, setYarnItems] = useState<YarnItem[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -88,7 +91,7 @@ const CreateYarnQuality: React.FC<CreateYarnQualityProps> = ({ open, onClose, mo
         if (error) {
           throw new Error(error);
         }
-        setYarnTypes(data?.yarn_types || []);
+        setYarnItems(data?.yarn_items || []);
         setBranches(data?.branches || []);
       } else if (mode === "edit" && yarnQualityId) {
         const { data, error } = await fetchYarnQualityEditSetup(coId, yarnQualityId);
@@ -96,19 +99,20 @@ const CreateYarnQuality: React.FC<CreateYarnQualityProps> = ({ open, onClose, mo
           throw new Error(error);
         }
 
-        setYarnTypes(data?.yarn_types || []);
+        setYarnItems(data?.yarn_items || []);
         setBranches(data?.branches || []);
         if (data?.yarn_quality_details) {
           const details = data.yarn_quality_details;
           setFormData({
             quality_code: details.quality_code || "",
             branch_id: details.branch_id?.toString() || "",
-            item_grp_id: details.item_grp_id?.toString() || "",
+            item_id: details.item_id?.toString() || "",
             twist_per_inch: details.twist_per_inch?.toString() || "",
             std_count: details.std_count?.toString() || "",
             std_doff: details.std_doff?.toString() || "",
             std_wt_doff: details.std_wt_doff?.toString() || "",
             target_eff: details.target_eff?.toString() || "",
+            std_mr_pct: details.std_mr_pct?.toString() || "",
             is_active: details.is_active === 1,
           });
         }
@@ -146,8 +150,8 @@ const CreateYarnQuality: React.FC<CreateYarnQualityProps> = ({ open, onClose, mo
         setError("Branch is required");
         return;
       }
-      if (!formData.item_grp_id) {
-        setError("Yarn type is required");
+      if (!formData.item_id) {
+        setError("Yarn item is required");
         return;
       }
 
@@ -158,12 +162,13 @@ const CreateYarnQuality: React.FC<CreateYarnQualityProps> = ({ open, onClose, mo
         co_id: coId,
         quality_code: formData.quality_code,
         branch_id: formData.branch_id,
-        item_grp_id: formData.item_grp_id,
+        item_id: formData.item_id,
         twist_per_inch: formData.twist_per_inch || undefined,
         std_count: formData.std_count || undefined,
         std_doff: formData.std_doff || undefined,
         std_wt_doff: formData.std_wt_doff || undefined,
         target_eff: formData.target_eff || undefined,
+        std_mr_pct: formData.std_mr_pct || undefined,
         is_active: formData.is_active ? 1 : 0,
       };
 
@@ -258,25 +263,25 @@ const CreateYarnQuality: React.FC<CreateYarnQualityProps> = ({ open, onClose, mo
 
             <Autocomplete
               fullWidth
-              options={yarnTypes}
-              getOptionLabel={(option) => option.item_grp_name}
-              value={
-                yarnTypes.find((type) => type.item_grp_id.toString() === formData.item_grp_id) || null
+              options={yarnItems}
+              getOptionLabel={(option) =>
+                option.item_code ? `${option.item_name} (${option.item_code})` : option.item_name
               }
+              value={yarnItems.find((it) => it.item_id.toString() === formData.item_id) || null}
               onChange={(event, newValue) => {
                 setFormData((prev) => ({
                   ...prev,
-                  item_grp_id: newValue?.item_grp_id?.toString() || "",
+                  item_id: newValue?.item_id?.toString() || "",
                 }));
               }}
               disabled={submitting}
-              noOptionsText="No yarn types found"
+              noOptionsText="No yarn items found"
               loading={loading}
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="Yarn Type"
-                  placeholder="Search yarn type..."
+                  label="Yarn Item"
+                  placeholder="Search yarn item..."
                   margin="normal"
                   required
                   InputProps={{
@@ -350,6 +355,19 @@ const CreateYarnQuality: React.FC<CreateYarnQualityProps> = ({ open, onClose, mo
               margin="normal"
               disabled={submitting}
               inputProps={{ step: "0.01" }}
+            />
+
+            <TextField
+              fullWidth
+              label="Std MR %"
+              name="std_mr_pct"
+              type="number"
+              value={formData.std_mr_pct}
+              onChange={handleInputChange}
+              margin="normal"
+              disabled={submitting}
+              inputProps={{ step: "0.01", min: 0 }}
+              helperText="Standard moisture regain % — used by Spinning SQC corrected count"
             />
 
             <FormControlLabel

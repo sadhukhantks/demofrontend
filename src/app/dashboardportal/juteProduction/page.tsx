@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Box, Card, CardActionArea, CardContent, Typography } from "@mui/material";
-import { Factory, BarChart3, Boxes, Clock, Scale, Gauge, Ruler, Disc3, Settings, Container, SlidersHorizontal, RotateCw } from "lucide-react";
+import { Factory, BarChart3, Boxes, Clock, Scale, Gauge, Ruler, Disc3, Settings, Container, RotateCw } from "lucide-react";
 
 type Tile = {
 	href: string;
@@ -78,12 +78,6 @@ const TILES: Tile[] = [
 		title: "Trolly Master",
 		subtitle: "Trolly & basket tare weights",
 		icon: <Container size={32} className="text-blue-600" />,
-	},
-	{
-		href: "/dashboardportal/juteProduction/masters/yarnQualityParam",
-		title: "Yarn Quality Parameters",
-		subtitle: "Speed/TPI/count parameter sets per quality",
-		icon: <SlidersHorizontal size={32} className="text-blue-600" />,
 	},
 ];
 

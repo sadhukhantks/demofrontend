@@ -16,11 +16,13 @@ type YarnQuality = {
   quality_code: string;
   branch_name: string;
   yarn_type_name: string;
+  item_code: string;
   twist_per_inch: number;
   std_count: number;
   std_doff: number;
   std_wt_doff: number;
   target_eff: number;
+  std_mr_pct: number;
   is_active: number;
   [key: string]: any;
 };
@@ -134,12 +136,14 @@ export default function YarnQualityMasterPage() {
       },
       { field: "quality_code", headerName: "Quality Code", flex: 1, minWidth: 150 },
       { field: "branch_name", headerName: "Branch", flex: 1, minWidth: 150 },
-      { field: "yarn_type_name", headerName: "Yarn Type", flex: 1, minWidth: 150 },
+      { field: "yarn_type_name", headerName: "Yarn Item", flex: 1, minWidth: 150 },
+      { field: "item_code", headerName: "Item Code", flex: 1, minWidth: 120 },
       { field: "twist_per_inch", headerName: "Twist/Inch", flex: 1, minWidth: 120, type: "number" },
       { field: "std_count", headerName: "Std Count", flex: 1, minWidth: 120, type: "number" },
       { field: "std_doff", headerName: "Std Doff", flex: 1, minWidth: 120, type: "number" },
       { field: "std_wt_doff", headerName: "Std Wt Doff", flex: 1, minWidth: 120, type: "number" },
       { field: "target_eff", headerName: "Target Eff", flex: 1, minWidth: 120, type: "number" },
+      { field: "std_mr_pct", headerName: "Std MR %", flex: 1, minWidth: 110, type: "number" },
       {
         field: "is_active",
         headerName: "Active",

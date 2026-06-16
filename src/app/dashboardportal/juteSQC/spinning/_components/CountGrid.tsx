@@ -70,10 +70,11 @@ export default function CountGrid({ coId, readings, averages, loading, onDeleted
 				),
 			},
 			{
-				field: "spell_name",
+				field: "spell_code",
 				headerName: "Spell",
 				width: 120,
-				valueGetter: (_value, row) => row.spell_name ?? (row.spell_id != null ? `Spell #${row.spell_id}` : "—"),
+				valueGetter: (_value, row) =>
+					row.spell_code ?? row.spell_name ?? (row.spell_id != null ? `Spell #${row.spell_id}` : "—"),
 			},
 			{
 				field: "machine_name",
@@ -86,13 +87,48 @@ export default function CountGrid({ coId, readings, averages, loading, onDeleted
 				field: "quality_name",
 				headerName: "Quality",
 				width: 180,
-				valueGetter: (_value, row) => row.quality_name ?? `Q #${row.yarn_quality_id}`,
+				valueGetter: (_value, row) =>
+					row.quality_name ?? row.quality_code ?? `Q #${row.yarn_quality_id}`,
 			},
-			{ field: "quality_code", headerName: "Q.Code", width: 110 },
+			{
+				field: "dp",
+				headerName: "DP",
+				width: 90,
+				type: "number",
+				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
+			},
+			{
+				field: "tp",
+				headerName: "TP",
+				width: 90,
+				type: "number",
+				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
+			},
+			{
+				field: "wt_450_gms",
+				headerName: "WT/450 (gms)",
+				width: 130,
+				type: "number",
+				valueFormatter: (value) => (value != null ? Number(value).toFixed(3) : ""),
+			},
+			{
+				field: "mr_pct",
+				headerName: "MR %",
+				width: 90,
+				type: "number",
+				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
+			},
 			{
 				field: "observed_count",
 				headerName: "Observed Count",
-				width: 150,
+				width: 140,
+				type: "number",
+				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
+			},
+			{
+				field: "corrected_count",
+				headerName: "Corrected Count",
+				width: 140,
 				type: "number",
 				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
 			},
@@ -105,7 +141,7 @@ export default function CountGrid({ coId, readings, averages, loading, onDeleted
 			{/* Per-quality average panel */}
 			<Paper variant="outlined" sx={{ p: 2 }}>
 				<Typography variant="subtitle2" sx={{ mb: 1, color: "text.secondary" }}>
-					Average Count by Quality
+					Average Count by Quality (observed / corrected)
 				</Typography>
 				{averages.length === 0 ? (
 					<Typography variant="body2" color="text.secondary">
@@ -120,7 +156,7 @@ export default function CountGrid({ coId, readings, averages, loading, onDeleted
 								variant="outlined"
 								label={`${a.quality_name ?? a.quality_code ?? `Q #${a.yarn_quality_id}`}: ${
 									a.avg_count != null ? Number(a.avg_count).toFixed(2) : "—"
-								}`}
+								} / ${a.avg_corrected != null ? Number(a.avg_corrected).toFixed(2) : "—"}`}
 							/>
 						))}
 					</Box>

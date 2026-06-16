@@ -65,7 +65,6 @@ export type FrameMapRow = {
 	mech_code: string | null;
 	machine_name: string | null;
 	yarn_quality_id: number | null;
-	param_id: number | null;
 	quality_code: string | null;
 };
 
@@ -80,7 +79,6 @@ export type PlanningGridRow = {
 	mech_code: string | null;
 	yarn_quality_id: number;
 	quality_code: string | null;
-	param_id: number;
 	spindles: number;
 	minutes: number;
 	act_count: number;
@@ -142,17 +140,3 @@ export type TrollyRow = {
 	branch_id: number | null;
 };
 
-export type YarnQualityParamRow = {
-	param_id: number;
-	yarn_quality_id: number;
-	set_name: string | null;
-	speed: number;
-	tpi: number;
-	std_count: number;
-	spindle: number;
-	frame_type: string | null;
-	jbo_rbo: string | null;
-	subgroup_type: string | null;
-	target_eff: number;
-	active: number;
-};

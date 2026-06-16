@@ -827,6 +827,11 @@ const apiRoutesPortalMasters = {
     SPINNING_SQC_COUNT_SAVE: `${API_URL}/juteSQC/sqc_count_save`,
     SPINNING_SQC_COUNT_BY_DATE: `${API_URL}/juteSQC/sqc_count_by_date`,
     SPINNING_SQC_COUNT_DELETE: `${API_URL}/juteSQC/sqc_count_delete`,
+    // RHMR (Temperature / Humidity per date + spell) — SPINNING_SQC_RHMR_DELETE is a base path; caller appends /${id}
+    SPINNING_SQC_RHMR_SETUP: `${API_URL}/juteSQC/sqc_rhmr_setup`,
+    SPINNING_SQC_RHMR_SEARCH: `${API_URL}/juteSQC/sqc_rhmr_search`,
+    SPINNING_SQC_RHMR_SAVE: `${API_URL}/juteSQC/sqc_rhmr_save`,
+    SPINNING_SQC_RHMR_DELETE: `${API_URL}/juteSQC/sqc_rhmr_delete`,
     // Spinning masters (router prefix /api/spinningMasters)
     SPINNING_MACHINE_ATTR_LIST: `${API_URL}/spinningMasters/spinning_machine_attr_list`,
     SPINNING_MACHINE_ATTR_CREATE: `${API_URL}/spinningMasters/spinning_machine_attr_create`,
@@ -835,10 +840,6 @@ const apiRoutesPortalMasters = {
     TROLLY_CREATE: `${API_URL}/spinningMasters/trolly_create`,
     TROLLY_EDIT: `${API_URL}/spinningMasters/trolly_edit`,
     TROLLY_DELETE: `${API_URL}/spinningMasters/trolly_delete`,
-    YARN_QUALITY_PARAM_LIST: `${API_URL}/spinningMasters/yarn_quality_param_list`,
-    YARN_QUALITY_PARAM_CREATE: `${API_URL}/spinningMasters/yarn_quality_param_create`,
-    YARN_QUALITY_PARAM_EDIT: `${API_URL}/spinningMasters/yarn_quality_param_edit`,
-    YARN_QUALITY_PARAM_DELETE: `${API_URL}/spinningMasters/yarn_quality_param_delete`,
 };
 
 export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters };

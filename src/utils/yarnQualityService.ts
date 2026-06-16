@@ -4,9 +4,10 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 /**
  * Type definitions for yarn quality API responses
  */
-type YarnType = {
-  item_grp_id: number;
-  item_grp_name: string;
+type YarnItem = {
+  item_id: number;
+  item_name: string;
+  item_code?: string | null;
 };
 
 type Branch = {
@@ -15,25 +16,26 @@ type Branch = {
 };
 
 type YarnQualitySetupResponse = {
-  yarn_types: YarnType[];
+  yarn_items: YarnItem[];
   branches: Branch[];
 };
 
 type YarnQualityDetails = {
   yarn_quality_id?: number;
   quality_code?: string;
-  item_grp_id?: number | string;
+  item_id?: number | string;
   branch_id?: number | string;
   twist_per_inch?: number | string;
   std_count?: number | string;
   std_doff?: number | string;
   std_wt_doff?: number | string;
   target_eff?: number | string;
+  std_mr_pct?: number | string;
   is_active?: number;
 };
 
 type YarnQualityEditSetupResponse = {
-  yarn_types: YarnType[];
+  yarn_items: YarnItem[];
   branches: Branch[];
   yarn_quality_details?: YarnQualityDetails;
 };
@@ -45,7 +47,7 @@ type YarnQualityEditSetupResponse = {
 const mapSetupResponse = (apiResponse: any): YarnQualitySetupResponse => {
   const unwrapped = apiResponse?.data || apiResponse;
   return {
-    yarn_types: unwrapped?.yarn_types || [],
+    yarn_items: unwrapped?.yarn_items || [],
     branches: unwrapped?.branches || [],
   };
 };
@@ -56,7 +58,7 @@ const mapSetupResponse = (apiResponse: any): YarnQualitySetupResponse => {
 const mapEditSetupResponse = (apiResponse: any): YarnQualityEditSetupResponse => {
   const unwrapped = apiResponse?.data || apiResponse;
   return {
-    yarn_types: unwrapped?.yarn_types || [],
+    yarn_items: unwrapped?.yarn_items || [],
     branches: unwrapped?.branches || [],
     yarn_quality_details: unwrapped?.yarn_quality_details,
   };
@@ -140,11 +142,13 @@ export const createYarnQuality = async (payload: {
   co_id: string;
   branch_id?: string;
   quality_code: string;
-  item_grp_id: string;
+  item_id: string;
   twist_per_inch?: string;
   std_count?: string;
   std_doff?: string;
   std_wt_doff?: string;
+  target_eff?: string;
+  std_mr_pct?: string;
   is_active?: number;
   updated_by?: string;
 }) => {
@@ -165,11 +169,13 @@ export const updateYarnQuality = async (payload: {
   co_id: string;
   branch_id?: string;
   quality_code: string;
-  item_grp_id: string;
+  item_id: string;
   twist_per_inch?: string;
   std_count?: string;
   std_doff?: string;
   std_wt_doff?: string;
+  target_eff?: string;
+  std_mr_pct?: string;
   is_active?: number;
   updated_by?: string;
 }) => {

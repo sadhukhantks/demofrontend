@@ -9,12 +9,16 @@ import { useSqcEntrySetup } from "./hooks/useSqcEntrySetup";
 import { useSqcEntryByDate } from "./hooks/useSqcEntryByDate";
 import { useSqcCountSetup } from "./hooks/useSqcCountSetup";
 import { useSqcCountByDate } from "./hooks/useSqcCountByDate";
+import { useSqcRhmrSetup } from "./hooks/useSqcRhmrSetup";
+import { useSqcRhmrSearch } from "./hooks/useSqcRhmrSearch";
 import SpeedTpiForm from "./_components/SpeedTpiForm";
 import SpeedTpiGrid from "./_components/SpeedTpiGrid";
 import CountForm from "./_components/CountForm";
 import CountGrid from "./_components/CountGrid";
+import RhmrForm from "./_components/RhmrForm";
+import RhmrGrid from "./_components/RhmrGrid";
 
-const TABS = ["Speed / TPI Entry", "Count Observations"] as const;
+const TABS = ["R-08-16 Yarn Parameter", "Speed / TPI Entry", "RHMR"] as const;
 
 export default function SpinningSqcPage() {
 	// HYDRATION RULE: this component reads sidebar context and seeds a date,
@@ -86,6 +90,21 @@ export default function SpinningSqcPage() {
 		refreshCount();
 	}, [refreshCount]);
 
+	// Tab 3 — RHMR (Temperature / Humidity per date + spell)
+	const { setup: rhmrSetup, loading: rhmrSetupLoading, error: rhmrSetupError } = useSqcRhmrSetup(coId, branchId);
+	// Search filters: date defaults to today, spell defaults to all (both optional / clearable).
+	const [rhmrFilterDate, setRhmrFilterDate] = React.useState<string>(todayISO());
+	const [rhmrFilterSpell, setRhmrFilterSpell] = React.useState<number | "">("");
+	const {
+		rows: rhmrRows,
+		loading: rhmrRowsLoading,
+		refresh: refreshRhmr,
+	} = useSqcRhmrSearch(coId, branchId, rhmrFilterDate || null, rhmrFilterSpell === "" ? null : Number(rhmrFilterSpell));
+
+	const onRhmrSaved = React.useCallback(() => {
+		refreshRhmr();
+	}, [refreshRhmr]);
+
 	if (!mounted) return null;
 
 	if (!coId) {
@@ -151,8 +170,8 @@ export default function SpinningSqcPage() {
 						))}
 					</Tabs>
 
-					{/* Tab 1 — Speed / TPI Entry */}
-					{tab === 0 ? (
+					{/* Tab 2 — Speed / TPI Entry */}
+					{tab === 1 ? (
 						<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
 							<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
 								<Typography variant="subtitle2">Entry date</Typography>
@@ -187,8 +206,8 @@ export default function SpinningSqcPage() {
 						</Box>
 					) : null}
 
-					{/* Tab 2 — Count Observations */}
-					{tab === 1 ? (
+					{/* Tab 1 — R-08-15 Yarn QR% & CV% (Count Observations) */}
+					{tab === 0 ? (
 						<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
 							<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
 								<Typography variant="subtitle2">Observation date</Typography>
@@ -221,6 +240,56 @@ export default function SpinningSqcPage() {
 								loading={countLoading}
 								onDeleted={onCountSaved}
 							/>
+						</Box>
+					) : null}
+
+					{/* Tab 3 — RHMR (Temperature / Humidity per date + spell) */}
+					{tab === 2 ? (
+						<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+							{rhmrSetupError ? <Alert severity="error">{rhmrSetupError}</Alert> : null}
+							{rhmrSetupLoading || !rhmrSetup ? (
+								<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+									<CircularProgress />
+								</Box>
+							) : (
+								<RhmrForm coId={coId} branchId={branchId} setup={rhmrSetup} onSaved={onRhmrSaved} />
+							)}
+
+							<Box>
+								<Typography variant="subtitle2" sx={{ mb: 1 }}>
+									Search RHMR entries
+								</Typography>
+								<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap", mb: 2 }}>
+									<TextField
+										type="date"
+										label="Filter date"
+										size="small"
+										value={rhmrFilterDate}
+										onChange={(e) => setRhmrFilterDate(e.target.value)}
+										InputLabelProps={{ shrink: true }}
+									/>
+									<TextField
+										select
+										label="Filter spell"
+										size="small"
+										value={rhmrFilterSpell}
+										onChange={(e) =>
+											setRhmrFilterSpell(e.target.value === "" ? "" : Number(e.target.value))
+										}
+										sx={{ minWidth: 180 }}
+									>
+										<MenuItem value="">
+											<em>All spells</em>
+										</MenuItem>
+										{(rhmrSetup?.spells ?? []).map((s) => (
+											<MenuItem key={s.spell_id} value={s.spell_id}>
+												{s.spell_code}
+											</MenuItem>
+										))}
+									</TextField>
+								</Box>
+								<RhmrGrid coId={coId} rows={rhmrRows} loading={rhmrRowsLoading} onDeleted={onRhmrSaved} />
+							</Box>
 						</Box>
 					) : null}
 				</>

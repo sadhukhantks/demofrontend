@@ -27,7 +27,7 @@ import { todayISO } from "../../spinning/utils/spinningCalc";
 
 type IdType = "mcid" | "qid";
 type ValueRole = "standard" | "target" | "actual";
-type Param = "speed" | "tpi" | "eff";
+type Param = "speed" | "tpi" | "eff" | "spindles" | "dc" | "tc";
 
 type SetupMachine = { machine_id: number; machine_name: string | null; mech_code: string | null };
 type SetupQuality = { yarn_quality_id: number; quality_code: string | null; quality_name: string | null };
@@ -77,7 +77,24 @@ const VALUE_ROLE_LABELS: Record<ValueRole, string> = {
 	target: "Target",
 	actual: "Actual",
 };
-const PARAM_LABELS: Record<Param, string> = { speed: "Speed", tpi: "TPI", eff: "Efficiency" };
+const PARAM_LABELS: Record<Param, string> = {
+	speed: "Speed",
+	tpi: "TPI",
+	eff: "Efficiency",
+	spindles: "Spindles",
+	dc: "DC",
+	tc: "TC",
+};
+
+// Which params apply per type: Quality (qid) → TPI / Eff; Machine (mcid) → Speed / Spindles / DC / TC.
+const PARAMS_BY_ID_TYPE: Record<IdType, Param[]> = {
+	mcid: ["speed", "spindles", "dc", "tc"],
+	qid: ["tpi", "eff"],
+};
+const ALL_PARAMS: Param[] = ["speed", "tpi", "eff", "spindles", "dc", "tc"];
+
+// Param options for a given type ("" = no type chosen yet, e.g. the "All" filter → show every param).
+const paramsFor = (idType: IdType | ""): Param[] => (idType ? PARAMS_BY_ID_TYPE[idType] : ALL_PARAMS);
 
 export default function SpngTargetMapPage() {
 	const [mounted, setMounted] = React.useState(false);
@@ -183,7 +200,6 @@ export default function SpngTargetMapPage() {
 
 	const idTypeOptions = setup?.id_types ?? (["mcid", "qid"] as IdType[]);
 	const valueRoleOptions = setup?.value_roles ?? (["standard", "target", "actual"] as ValueRole[]);
-	const paramOptions = setup?.params ?? (["speed", "tpi", "eff"] as Param[]);
 
 	const handleSave = async () => {
 		if (!coId) return;
@@ -366,7 +382,7 @@ export default function SpngTargetMapPage() {
 					size="small"
 					value={filters.id_type}
 					onChange={(e) =>
-						setFilters({ ...filters, id_type: e.target.value as IdType | "", ref_id: "" })
+						setFilters({ ...filters, id_type: e.target.value as IdType | "", ref_id: "", param: "" })
 					}
 					sx={{ minWidth: 150 }}
 				>
@@ -425,7 +441,7 @@ export default function SpngTargetMapPage() {
 					<MenuItem value="">
 						<em>All</em>
 					</MenuItem>
-					{paramOptions.map((p) => (
+					{paramsFor(filters.id_type).map((p) => (
 						<MenuItem key={p} value={p}>
 							{PARAM_LABELS[p] ?? p}
 						</MenuItem>
@@ -465,7 +481,7 @@ export default function SpngTargetMapPage() {
 							label="Type"
 							value={form.id_type}
 							onChange={(e) =>
-								setForm({ ...form, id_type: e.target.value as IdType | "", ref_id: "" })
+								setForm({ ...form, id_type: e.target.value as IdType | "", ref_id: "", param: "" })
 							}
 							size="small"
 							disabled={!!editing}
@@ -513,7 +529,7 @@ export default function SpngTargetMapPage() {
 							size="small"
 							disabled={!!editing}
 						>
-							{paramOptions.map((p) => (
+							{paramsFor(form.id_type).map((p) => (
 								<MenuItem key={p} value={p}>
 									{PARAM_LABELS[p] ?? p}
 								</MenuItem>

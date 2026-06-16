@@ -56,6 +56,22 @@ export function p100ProdSpell(
 	);
 }
 
+// R-08-16 Yarn Parameter (Spinning SQC) count preview. The server recomputes
+// these on save and is authoritative; this only mirrors the math for live display.
+//   observed  = round( (wt450Gms / 450) * (14400 / 454), 2 )
+//   corrected = round( observed / (100 + mrPct) * (100 + stdMrPct), 2 )
+// Returns 0 when inputs are missing/invalid (callers show "—" for empty inputs).
+export function observedCount(wt450Gms: number): number {
+	if (!wt450Gms || Number(wt450Gms) <= 0) return 0;
+	return round2((Number(wt450Gms) / 450) * (14400 / 454));
+}
+
+export function correctedCount(observed: number, mrPct: number, stdMrPct: number): number {
+	const denom = 100 + Number(mrPct);
+	if (!observed || !denom) return 0;
+	return round2((Number(observed) / denom) * (100 + Number(stdMrPct)));
+}
+
 export function todayISO(): string {
 	const d = new Date();
 	const m = String(d.getMonth() + 1).padStart(2, "0");

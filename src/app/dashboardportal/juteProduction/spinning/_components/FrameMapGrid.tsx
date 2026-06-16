@@ -19,7 +19,7 @@ import {
 import { Save as SaveIcon, Stamp as StampIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
-import type { SpinningSetup, YarnQualityParamRow } from "../types/spinningTypes";
+import type { SpinningSetup } from "../types/spinningTypes";
 import { useFrameMap } from "../hooks/useFrameMap";
 
 type Props = {
@@ -30,82 +30,36 @@ type Props = {
 	spell: string;
 };
 
-type EditState = {
-	yarn_quality_id: number | "";
-	param_id: number | "";
-};
-
 export default function FrameMapGrid({ coId, branchId, setup, date, spell }: Props) {
 	const { rows, loading, error, refresh } = useFrameMap(coId, branchId, date, spell);
-	const [edits, setEdits] = React.useState<Record<number, EditState>>({});
-	const [paramsByQuality, setParamsByQuality] = React.useState<Record<number, YarnQualityParamRow[]>>(
-		{}
-	);
+	const [edits, setEdits] = React.useState<Record<number, number | "">>({});
 	const [saving, setSaving] = React.useState(false);
 	const [busy, setBusy] = React.useState(false);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
-	// Seed local edit state from fetched rows.
+	// Seed local edit state (machine -> yarn_quality_id) from fetched rows.
 	React.useEffect(() => {
-		const seed: Record<number, EditState> = {};
+		const seed: Record<number, number | ""> = {};
 		rows.forEach((r) => {
-			seed[r.machine_id] = {
-				yarn_quality_id: r.yarn_quality_id ?? "",
-				param_id: r.param_id ?? "",
-			};
+			seed[r.machine_id] = r.yarn_quality_id ?? "";
 		});
 		setEdits(seed);
 	}, [rows]);
 
-	// Lazily load param options for a quality so the param dropdown can populate.
-	const loadParams = React.useCallback(
-		async (qualityId: number) => {
-			if (paramsByQuality[qualityId]) return;
-			const url = `${apiRoutesPortalMasters.YARN_QUALITY_PARAM_LIST}?co_id=${coId}&yarn_quality_id=${qualityId}`;
-			const { data } = await fetchWithCookie<{ data: YarnQualityParamRow[] }>(url, "GET");
-			setParamsByQuality((prev) => ({ ...prev, [qualityId]: data?.data ?? [] }));
-		},
-		[coId, paramsByQuality]
-	);
-
-	React.useEffect(() => {
-		rows.forEach((r) => {
-			if (r.yarn_quality_id != null) void loadParams(r.yarn_quality_id);
-		});
-	}, [rows, loadParams]);
-
 	const setQuality = (machineId: number, value: number | "") => {
-		setEdits((prev) => ({
-			...prev,
-			[machineId]: { yarn_quality_id: value, param_id: "" },
-		}));
-		if (value !== "") void loadParams(value);
-	};
-
-	const setParam = (machineId: number, value: number | "") => {
-		setEdits((prev) => ({
-			...prev,
-			[machineId]: { ...prev[machineId], param_id: value },
-		}));
+		setEdits((prev) => ({ ...prev, [machineId]: value }));
 	};
 
 	const handleSaveMap = async () => {
 		setSaving(true);
 		const entries = rows
 			.map((r) => {
-				const e = edits[r.machine_id];
-				return e && e.yarn_quality_id !== ""
-					? {
-							machine_id: r.machine_id,
-							yarn_quality_id: Number(e.yarn_quality_id),
-							param_id: e.param_id === "" ? null : Number(e.param_id),
-						}
+				const q = edits[r.machine_id];
+				return q !== undefined && q !== ""
+					? { machine_id: r.machine_id, yarn_quality_id: Number(q) }
 					: null;
 			})
-			.filter(
-				(x): x is { machine_id: number; yarn_quality_id: number; param_id: number | null } =>
-					x !== null
-			);
+			.filter((x): x is { machine_id: number; yarn_quality_id: number } => x !== null);
 
 		const body = { co_id: Number(coId), branch_id: Number(branchId), tran_date: date, spell, entries };
 		const { error: err } = await fetchWithCookie(
@@ -178,20 +132,17 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell }: Pro
 				<Alert severity="info">No frames found for this date and spell.</Alert>
 			) : (
 				<Box sx={{ width: "100%", overflowX: "auto" }}>
-					<Table size="small" sx={{ minWidth: 700 }}>
+					<Table size="small" sx={{ minWidth: 600 }}>
 						<TableHead>
 							<TableRow>
 								<TableCell>Mc Code</TableCell>
 								<TableCell>Machine</TableCell>
 								<TableCell>Yarn Quality</TableCell>
-								<TableCell>Param / Set</TableCell>
 							</TableRow>
 						</TableHead>
 						<TableBody>
 							{rows.map((r) => {
-								const e = edits[r.machine_id] ?? { yarn_quality_id: "", param_id: "" };
-								const paramOpts =
-									e.yarn_quality_id !== "" ? paramsByQuality[Number(e.yarn_quality_id)] ?? [] : [];
+								const q = edits[r.machine_id] ?? "";
 								return (
 									<TableRow key={r.machine_id}>
 										<TableCell>{r.mech_code}</TableCell>
@@ -200,7 +151,7 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell }: Pro
 											<TextField
 												select
 												size="small"
-												value={e.yarn_quality_id}
+												value={q}
 												onChange={(ev) =>
 													setQuality(
 														r.machine_id,
@@ -212,33 +163,9 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell }: Pro
 												<MenuItem value="">
 													<em>None</em>
 												</MenuItem>
-												{setup.qualities.map((q) => (
-													<MenuItem key={q.yarn_quality_id} value={q.yarn_quality_id}>
-														{q.quality_code} — {q.quality_name}
-													</MenuItem>
-												))}
-											</TextField>
-										</TableCell>
-										<TableCell>
-											<TextField
-												select
-												size="small"
-												value={e.param_id}
-												onChange={(ev) =>
-													setParam(
-														r.machine_id,
-														ev.target.value === "" ? "" : Number(ev.target.value)
-													)
-												}
-												disabled={e.yarn_quality_id === ""}
-												sx={{ minWidth: 180 }}
-											>
-												<MenuItem value="">
-													<em>None</em>
-												</MenuItem>
-												{paramOpts.map((p) => (
-													<MenuItem key={p.param_id} value={p.param_id}>
-														{p.set_name ?? `Param ${p.param_id}`}
+												{setup.qualities.map((qq) => (
+													<MenuItem key={qq.yarn_quality_id} value={qq.yarn_quality_id}>
+														{qq.quality_code} — {qq.quality_name}
 													</MenuItem>
 												))}
 											</TextField>

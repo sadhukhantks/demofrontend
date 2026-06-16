@@ -16,9 +16,9 @@ type Props = {
 	spell: string;
 };
 
-// Stable composite row id: a frame can appear per spell + quality + param.
+// Stable composite row id: a frame can appear per spell + quality.
 function planningRowId(r: PlanningGridRow): string {
-	return `${r.machine_id}:${r.spell_id}:${r.yarn_quality_id}:${r.param_id}`;
+	return `${r.machine_id}:${r.spell_id}:${r.yarn_quality_id}`;
 }
 
 function rollupRowId(r: ShiftRollupRow): string {

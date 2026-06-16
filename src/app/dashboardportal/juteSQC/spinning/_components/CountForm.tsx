@@ -5,6 +5,7 @@ import { Alert, Box, Button, MenuItem, Snackbar, TextField } from "@mui/material
 import { Plus as AddIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
+import { observedCount, correctedCount } from "@/app/dashboardportal/juteProduction/spinning/utils/spinningCalc";
 import type { SqcCountSetup, SqcCountSavePayloadRow } from "../types/sqcSpinningTypes";
 
 type Props = {
@@ -19,18 +20,36 @@ export default function CountForm({ coId, branchId, entryDate, setup, onSaved }:
 	const [spellId, setSpellId] = React.useState<number | "">(""); // optional
 	const [machineId, setMachineId] = React.useState<number | "">(""); // optional
 	const [yarnQualityId, setYarnQualityId] = React.useState<number | "">("");
-	const [observedCount, setObservedCount] = React.useState<string>("");
+	const [dp, setDp] = React.useState<string>("");
+	const [tp, setTp] = React.useState<string>("");
+	const [wt450, setWt450] = React.useState<string>("");
+	const [mrPct, setMrPct] = React.useState<string>("");
 	const [saving, setSaving] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
-	// Quality + observed count are required; spell and machine are optional.
-	const formInvalid = !yarnQualityId || observedCount === "" || Number(observedCount) <= 0;
+	// Std MR% comes from the selected quality (yarn_quality_master.std_mr_pct).
+	const selectedQuality = setup.qualities.find((q) => q.yarn_quality_id === Number(yarnQualityId));
+	const stdMrPct = selectedQuality?.std_mr_pct;
+
+	// Live preview (server recomputes on save and is authoritative).
+	const observed = wt450 !== "" && Number(wt450) > 0 ? observedCount(Number(wt450)) : null;
+	const corrected =
+		observed != null && mrPct !== "" && stdMrPct != null
+			? correctedCount(observed, Number(mrPct), Number(stdMrPct))
+			: null;
+
+	// Quality + WT/450 + MR% are required (they drive the calc); spell/machine/DP/TP optional.
+	const formInvalid = !yarnQualityId || wt450 === "" || Number(wt450) <= 0 || mrPct === "";
 
 	// "Add reading" appends a new observation row (multi-observation, NOT upsert).
 	const handleAddReading = async () => {
 		if (formInvalid) {
-			setError("Select a quality and enter an observed count > 0.");
+			setError("Select a quality and enter WT/450 (> 0) and MR%.");
+			return;
+		}
+		if (stdMrPct == null) {
+			setError("Selected quality has no Std MR% set. Add it on the Yarn Quality master first.");
 			return;
 		}
 		setSaving(true);
@@ -39,7 +58,12 @@ export default function CountForm({ coId, branchId, entryDate, setup, onSaved }:
 			spell_id: spellId === "" ? null : Number(spellId),
 			mc_id: machineId === "" ? null : Number(machineId),
 			yarn_quality_id: Number(yarnQualityId),
-			observed_count: Number(observedCount),
+			dp: dp === "" ? null : Number(dp),
+			tp: tp === "" ? null : Number(tp),
+			wt_450_gms: Number(wt450),
+			mr_pct: Number(mrPct),
+			observed_count: observed,
+			corrected_count: corrected,
 		};
 		const body = {
 			co_id: Number(coId),
@@ -57,11 +81,13 @@ export default function CountForm({ coId, branchId, entryDate, setup, onSaved }:
 			setError(err);
 			return;
 		}
-		const qName =
-			setup.qualities.find((q) => q.yarn_quality_id === Number(yarnQualityId))?.quality_name ?? yarnQualityId;
-		setSnack(`Added reading ${observedCount} for ${qName}`);
+		const qName = selectedQuality?.quality_name ?? yarnQualityId;
+		setSnack(`Added reading (count ${observed ?? "—"}) for ${qName}`);
 		// Keep spell/machine/quality so the inspector can punch many readings quickly.
-		setObservedCount("");
+		setDp("");
+		setTp("");
+		setWt450("");
+		setMrPct("");
 		onSaved();
 	};
 
@@ -74,7 +100,7 @@ export default function CountForm({ coId, branchId, entryDate, setup, onSaved }:
 					gridTemplateColumns: {
 						xs: "1fr",
 						sm: "repeat(2, minmax(0, 1fr))",
-						md: "repeat(4, minmax(0, 1fr))",
+						md: "repeat(3, minmax(0, 1fr))",
 					},
 				}}
 			>
@@ -97,7 +123,7 @@ export default function CountForm({ coId, branchId, entryDate, setup, onSaved }:
 				</TextField>
 				<TextField
 					select
-					label="Machine (optional)"
+					label="Machine (MC No.)"
 					value={machineId}
 					onChange={(e) => setMachineId(e.target.value === "" ? "" : Number(e.target.value))}
 					size="small"
@@ -119,6 +145,13 @@ export default function CountForm({ coId, branchId, entryDate, setup, onSaved }:
 					onChange={(e) => setYarnQualityId(e.target.value === "" ? "" : Number(e.target.value))}
 					size="small"
 					fullWidth
+					helperText={
+						yarnQualityId !== ""
+							? stdMrPct != null
+								? `Std MR%: ${Number(stdMrPct).toFixed(2)}`
+								: "No Std MR% set for this quality"
+							: " "
+					}
 				>
 					{setup.qualities.map((q) => (
 						<MenuItem key={q.yarn_quality_id} value={q.yarn_quality_id}>
@@ -128,11 +161,55 @@ export default function CountForm({ coId, branchId, entryDate, setup, onSaved }:
 				</TextField>
 				<TextField
 					type="number"
-					label="Observed Count"
-					value={observedCount}
-					onChange={(e) => setObservedCount(e.target.value)}
+					label="DP"
+					value={dp}
+					onChange={(e) => setDp(e.target.value)}
 					size="small"
 					fullWidth
+					inputProps={{ step: "any", min: 0 }}
+				/>
+				<TextField
+					type="number"
+					label="TP"
+					value={tp}
+					onChange={(e) => setTp(e.target.value)}
+					size="small"
+					fullWidth
+					inputProps={{ step: "any", min: 0 }}
+				/>
+				<TextField
+					type="number"
+					label="WT /450 YDS (gms)"
+					value={wt450}
+					onChange={(e) => setWt450(e.target.value)}
+					size="small"
+					fullWidth
+					inputProps={{ step: "any", min: 0 }}
+				/>
+				<TextField
+					type="number"
+					label="MR %"
+					value={mrPct}
+					onChange={(e) => setMrPct(e.target.value)}
+					size="small"
+					fullWidth
+					inputProps={{ step: "any", min: 0 }}
+				/>
+				<TextField
+					label="Observed Count"
+					value={observed != null ? observed.toFixed(2) : ""}
+					size="small"
+					fullWidth
+					InputProps={{ readOnly: true }}
+					helperText="WT/450 ÷ 450 × (14400/454)"
+				/>
+				<TextField
+					label="Corrected Count"
+					value={corrected != null ? corrected.toFixed(2) : ""}
+					size="small"
+					fullWidth
+					InputProps={{ readOnly: true }}
+					helperText="Observed ÷ (100+MR%) × (100+Std MR%)"
 				/>
 			</Box>
 			{error ? (

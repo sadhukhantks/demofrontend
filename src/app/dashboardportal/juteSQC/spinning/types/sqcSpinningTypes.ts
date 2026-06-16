@@ -13,6 +13,8 @@ export type SqcQuality = {
 	yarn_quality_id: number;
 	quality_code: string;
 	quality_name: string;
+	// Standard moisture regain % (from yarn_quality_master) — feeds corrected count.
+	std_mr_pct?: number | null;
 };
 
 export type SqcSpell = {
@@ -79,7 +81,14 @@ export type SqcCountReadingRow = {
 	yarn_quality_id: number;
 	quality_code?: string | null;
 	quality_name?: string | null;
+	std_mr_pct?: number | null;
+	// R-08-16 raw inputs (DP/TP store-only; WT/450 + MR% feed the count calc).
+	dp?: number | null;
+	tp?: number | null;
+	wt_450_gms?: number | null;
+	mr_pct?: number | null;
 	observed_count: number;
+	corrected_count?: number | null;
 };
 
 export type SqcCountAverageRow = {
@@ -87,6 +96,7 @@ export type SqcCountAverageRow = {
 	quality_code?: string | null;
 	quality_name?: string | null;
 	avg_count: number;
+	avg_corrected?: number | null;
 };
 
 export type SqcCountByDateResponse = {
@@ -95,9 +105,56 @@ export type SqcCountByDateResponse = {
 };
 
 // One row in the SPINNING_SQC_COUNT_SAVE payload.
+// observed_count / corrected_count are sent as a preview; the server recomputes them.
 export type SqcCountSavePayloadRow = {
 	spell_id?: number | null;
 	mc_id?: number | null;
 	yarn_quality_id: number;
-	observed_count: number;
+	dp?: number | null;
+	tp?: number | null;
+	wt_450_gms?: number | null;
+	mr_pct?: number | null;
+	observed_count?: number | null;
+	corrected_count?: number | null;
+};
+
+// ─── RHMR — Temperature / Humidity per date + spell (Tab 3) ──────────────────
+
+export type SqcRhmrRow = {
+	spinning_sqc_rhmr_id?: number;
+	co_id?: number;
+	branch_id?: number | null;
+	entry_date: string; // 'YYYY-MM-DD'
+	spell_id: number;
+	spell_code?: string | null;
+	spell_name?: string | null;
+	temperature: number | null;
+	humidity: number | null;
+};
+
+export type SqcRhmrSetup = {
+	spells: SqcSpell[];
+};
+
+// POST SPINNING_SQC_RHMR_SAVE body. confirm=true overwrites an existing
+// (date, spell) row; the first save without confirm returns SqcRhmrSaveResult.exists.
+export type SqcRhmrSavePayload = {
+	co_id: number;
+	branch_id: number;
+	entry_date: string;
+	spell_id: number;
+	temperature: number | null;
+	humidity: number | null;
+	confirm?: boolean;
+};
+
+export type SqcRhmrSaveResult = {
+	saved?: number;
+	mode?: "insert" | "update";
+	exists?: boolean;
+	existing?: {
+		spinning_sqc_rhmr_id: number;
+		temperature: number | null;
+		humidity: number | null;
+	};
 };
