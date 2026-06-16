@@ -34,7 +34,7 @@ export default function DoffForm({ coId, branchId, setup, date, spell, onSaved }
 	const [mc3, setMc3] = React.useState<number | "">("");
 	const [trollyId, setTrollyId] = React.useState<number | "">("");
 	const [spoolId, setSpoolId] = React.useState<number | "">("");
-	const [qualityId, setQualityId] = React.useState<number | "">("");
+	const [yarnItemId, setYarnItemId] = React.useState<number | "">("");
 	const [grossWeight, setGrossWeight] = React.useState<string>("");
 	const [saving, setSaving] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
@@ -63,7 +63,7 @@ export default function DoffForm({ coId, branchId, setup, date, spell, onSaved }
 		if (prevState) {
 			if (prevState.trolly_id != null) setTrollyId(prevState.trolly_id);
 			if (prevState.spool_id != null) setSpoolId(prevState.spool_id);
-			if (prevState.yarn_quality_id != null) setQualityId(prevState.yarn_quality_id);
+			if (prevState.item_id != null) setYarnItemId(prevState.item_id);
 		}
 		// Only re-run when a new prev state arrives.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -94,7 +94,7 @@ export default function DoffForm({ coId, branchId, setup, date, spell, onSaved }
 		!noDuplicateMachines ||
 		trollyId === "" ||
 		spoolId === "" ||
-		qualityId === "" ||
+		yarnItemId === "" ||
 		grossWeight === "" ||
 		grossNum <= 0 ||
 		!netPositive ||
@@ -147,7 +147,7 @@ export default function DoffForm({ coId, branchId, setup, date, spell, onSaved }
 			machine_ids: machineIds,
 			trolly_id: Number(trollyId),
 			spool_id: Number(spoolId),
-			quality_id: Number(qualityId),
+			quality_id: Number(yarnItemId),
 			gross_weight: grossNum,
 		};
 		const { data, error: err } = await fetchWithCookie<{
@@ -224,15 +224,15 @@ export default function DoffForm({ coId, branchId, setup, date, spell, onSaved }
 				</TextField>
 				<TextField
 					select
-					label="Yarn Quality"
-					value={qualityId}
-					onChange={(e) => setQualityId(e.target.value === "" ? "" : Number(e.target.value))}
+					label="Yarn"
+					value={yarnItemId}
+					onChange={(e) => setYarnItemId(e.target.value === "" ? "" : Number(e.target.value))}
 					size="small"
 					fullWidth
 				>
-					{setup.qualities.map((q) => (
-						<MenuItem key={q.yarn_quality_id} value={q.yarn_quality_id}>
-							{q.quality_code} — {q.quality_name ?? ""}
+					{setup.yarn_items.map((y) => (
+						<MenuItem key={y.item_id} value={y.item_id}>
+							{y.item_code} — {y.item_name ?? ""}
 						</MenuItem>
 					))}
 				</TextField>

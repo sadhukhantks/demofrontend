@@ -30,11 +30,17 @@ type ValueRole = "standard" | "target" | "actual";
 type Param = "speed" | "tpi" | "eff" | "spindles" | "dc" | "tc";
 
 type SetupMachine = { machine_id: number; machine_name: string | null; mech_code: string | null };
-type SetupQuality = { yarn_quality_id: number; quality_code: string | null; quality_name: string | null };
+type SetupYarnItem = {
+	item_id: number;
+	item_code: string | null;
+	item_name: string | null;
+	std_count: number | null;
+	std_mr_pct: number | null;
+};
 
 type SetupData = {
 	machines: SetupMachine[];
-	qualities: SetupQuality[];
+	yarn_items: SetupYarnItem[];
 	id_types: IdType[];
 	value_roles: ValueRole[];
 	params: Param[];
@@ -71,7 +77,7 @@ type FormState = {
 
 // --- Helpers ---------------------------------------------------------------
 
-const ID_TYPE_LABELS: Record<IdType, string> = { mcid: "Machine", qid: "Quality" };
+const ID_TYPE_LABELS: Record<IdType, string> = { mcid: "Machine", qid: "Yarn" };
 const VALUE_ROLE_LABELS: Record<ValueRole, string> = {
 	standard: "Standard",
 	target: "Target",
@@ -86,7 +92,7 @@ const PARAM_LABELS: Record<Param, string> = {
 	tc: "TC",
 };
 
-// Which params apply per type: Quality (qid) → TPI / Eff; Machine (mcid) → Speed / Spindles / DC / TC.
+// Which params apply per type: Yarn (qid) → TPI / Eff; Machine (mcid) → Speed / Spindles / DC / TC.
 const PARAMS_BY_ID_TYPE: Record<IdType, Param[]> = {
 	mcid: ["speed", "spindles", "dc", "tc"],
 	qid: ["tpi", "eff"],
@@ -140,7 +146,7 @@ export default function SpngTargetMapPage() {
 		[singleBranchId]
 	);
 
-	// Load dialog dropdown options (machines, qualities, enums) once per company/branch.
+	// Load dialog dropdown options (machines, yarn items, enums) once per company/branch.
 	const loadSetup = React.useCallback(async () => {
 		if (!coId) return;
 		const { data, error: err } = await fetchWithCookie<{ data: SetupData }>(
@@ -190,9 +196,9 @@ export default function SpngTargetMapPage() {
 					label: `${m.mech_code ?? ""}${m.mech_code ? " — " : ""}${m.machine_name ?? m.machine_id}`,
 				}));
 			}
-			return setup.qualities.map((q) => ({
-				id: q.yarn_quality_id,
-				label: `${q.quality_code ?? ""}${q.quality_code ? " — " : ""}${q.quality_name ?? q.yarn_quality_id}`,
+			return setup.yarn_items.map((y) => ({
+				id: y.item_id,
+				label: `${y.item_code ?? ""}${y.item_code ? " — " : ""}${y.item_name ?? y.item_id}`,
 			}));
 		},
 		[setup]
@@ -316,7 +322,7 @@ export default function SpngTargetMapPage() {
 			valueFormatter: (value) => (value ? ID_TYPE_LABELS[value as IdType] ?? value : "—"),
 		},
 		{ field: "ref_code", headerName: "Code", width: 120, valueFormatter: (value) => value ?? "—" },
-		{ field: "ref_name", headerName: "Machine / Quality", flex: 1, minWidth: 200 },
+		{ field: "ref_name", headerName: "Machine / Yarn", flex: 1, minWidth: 200 },
 		{
 			field: "value_role",
 			headerName: "Role",
@@ -359,7 +365,7 @@ export default function SpngTargetMapPage() {
 						Spinning Standards / Targets
 					</Typography>
 					<Typography variant="body2" color="text.secondary">
-						Standard, target and actual values (speed / TPI / efficiency) per machine or yarn quality,
+						Standard, target and actual values (speed / TPI / efficiency) per machine or yarn,
 						effective-dated.
 					</Typography>
 				</Box>
@@ -397,7 +403,7 @@ export default function SpngTargetMapPage() {
 				</TextField>
 				<TextField
 					select
-					label="Machine / Quality"
+					label="Machine / Yarn"
 					size="small"
 					value={filters.ref_id}
 					onChange={(e) => setFilters({ ...filters, ref_id: e.target.value })}
@@ -494,7 +500,7 @@ export default function SpngTargetMapPage() {
 						</TextField>
 						<TextField
 							select
-							label={form.id_type === "qid" ? "Yarn Quality" : "Machine"}
+							label={form.id_type === "qid" ? "Yarn" : "Machine"}
 							value={form.ref_id}
 							onChange={(e) => setForm({ ...form, ref_id: e.target.value })}
 							size="small"

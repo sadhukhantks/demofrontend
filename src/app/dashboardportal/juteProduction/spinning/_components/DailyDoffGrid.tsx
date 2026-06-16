@@ -96,7 +96,7 @@ export default function DailyDoffGrid({ coId, branchId, date, spell, onEdit }: P
 			{ field: "mech_code", headerName: "Mc Code", width: 100 },
 			{ field: "machine_name", headerName: "Machine", width: 170 },
 			{ field: "trolly_name", headerName: "Trolly", width: 130 },
-			{ field: "quality_code", headerName: "Quality", width: 110 },
+			{ field: "item_code", headerName: "Yarn", width: 110 },
 			{ field: "gross_weight", headerName: "Gross", width: 90, type: "number" },
 			{ field: "tare_weight", headerName: "Tare", width: 90, type: "number" },
 			{ field: "net_weight", headerName: "Net", width: 90, type: "number" },

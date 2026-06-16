@@ -5,7 +5,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WindingDoffSetup } from "../types/windingTypes";
 
-// WINDING_DOFF_SETUP — winding machines, qualities, trollies (type T),
+// WINDING_DOFF_SETUP — winding machines, yarn items, trollies (type T),
 // spools (type S) and spells for the Doff tab. No-ops while !coId (and while
 // branch unresolved) per the hydration rule.
 export function useWindingDoffSetup(

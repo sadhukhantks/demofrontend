@@ -37,16 +37,16 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell }: Pro
 	const [busy, setBusy] = React.useState(false);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
-	// Seed local edit state (machine -> yarn_quality_id) from fetched rows.
+	// Seed local edit state (machine -> item_id) from fetched rows.
 	React.useEffect(() => {
 		const seed: Record<number, number | ""> = {};
 		rows.forEach((r) => {
-			seed[r.machine_id] = r.yarn_quality_id ?? "";
+			seed[r.machine_id] = r.item_id ?? "";
 		});
 		setEdits(seed);
 	}, [rows]);
 
-	const setQuality = (machineId: number, value: number | "") => {
+	const setYarn = (machineId: number, value: number | "") => {
 		setEdits((prev) => ({ ...prev, [machineId]: value }));
 	};
 
@@ -56,10 +56,10 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell }: Pro
 			.map((r) => {
 				const q = edits[r.machine_id];
 				return q !== undefined && q !== ""
-					? { machine_id: r.machine_id, yarn_quality_id: Number(q) }
+					? { machine_id: r.machine_id, item_id: Number(q) }
 					: null;
 			})
-			.filter((x): x is { machine_id: number; yarn_quality_id: number } => x !== null);
+			.filter((x): x is { machine_id: number; item_id: number } => x !== null);
 
 		const body = { co_id: Number(coId), branch_id: Number(branchId), tran_date: date, spell, entries };
 		const { error: err } = await fetchWithCookie(
@@ -95,13 +95,13 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell }: Pro
 	};
 
 	if (!spell) {
-		return <Alert severity="info">Select a spell to load frame → quality mapping.</Alert>;
+		return <Alert severity="info">Select a spell to load frame → yarn mapping.</Alert>;
 	}
 
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
 			<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
-				<Typography variant="subtitle2">Frame → Quality mapping</Typography>
+				<Typography variant="subtitle2">Frame → Yarn mapping</Typography>
 				<Button
 					variant="contained"
 					size="small"
@@ -137,7 +137,7 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell }: Pro
 							<TableRow>
 								<TableCell>Mc Code</TableCell>
 								<TableCell>Machine</TableCell>
-								<TableCell>Yarn Quality</TableCell>
+								<TableCell>Yarn</TableCell>
 							</TableRow>
 						</TableHead>
 						<TableBody>
@@ -153,7 +153,7 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell }: Pro
 												size="small"
 												value={q}
 												onChange={(ev) =>
-													setQuality(
+													setYarn(
 														r.machine_id,
 														ev.target.value === "" ? "" : Number(ev.target.value)
 													)
@@ -163,9 +163,9 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell }: Pro
 												<MenuItem value="">
 													<em>None</em>
 												</MenuItem>
-												{setup.qualities.map((qq) => (
-													<MenuItem key={qq.yarn_quality_id} value={qq.yarn_quality_id}>
-														{qq.quality_code} — {qq.quality_name}
+												{setup.yarn_items.map((yy) => (
+													<MenuItem key={yy.item_id} value={yy.item_id}>
+														{yy.item_name} ({yy.item_code})
 													</MenuItem>
 												))}
 											</TextField>

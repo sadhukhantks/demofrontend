@@ -16,13 +16,13 @@ type Props = {
 	spell: string;
 };
 
-// Stable composite row id: a frame can appear per spell + quality.
+// Stable composite row id: a frame can appear per spell + yarn item.
 function planningRowId(r: PlanningGridRow): string {
-	return `${r.machine_id}:${r.spell_id}:${r.yarn_quality_id}`;
+	return `${r.machine_id}:${r.spell_id}:${r.item_id}`;
 }
 
 function rollupRowId(r: ShiftRollupRow): string {
-	return `${r.machine_id}:${r.yarn_quality_id}:${r.shift}`;
+	return `${r.machine_id}:${r.item_id}:${r.shift}`;
 }
 
 const num = { type: "number" as const, width: 90 };
@@ -40,7 +40,7 @@ export default function PlanningGrid({ coId, branchId, date, spell }: Props) {
 		() => [
 			{ field: "mech_code", headerName: "Frame", width: 100 },
 			{ field: "spell_code", headerName: "Spell", width: 80 },
-			{ field: "quality_code", headerName: "Quality", width: 110 },
+			{ field: "item_code", headerName: "Yarn", width: 110 },
 			{ field: "spindles", headerName: "Spindles", ...num },
 			{ field: "minutes", headerName: "Minutes", ...num },
 			{ field: "act_count", headerName: "Act Cnt", ...num },
@@ -68,7 +68,7 @@ export default function PlanningGrid({ coId, branchId, date, spell }: Props) {
 	const rollupColumns = React.useMemo<GridColDef<ShiftRollupRow>[]>(
 		() => [
 			{ field: "machine_id", headerName: "Machine", width: 100, type: "number" },
-			{ field: "yarn_quality_id", headerName: "Quality", width: 100, type: "number" },
+			{ field: "item_id", headerName: "Yarn", width: 100, type: "number" },
 			{ field: "shift", headerName: "Shift", width: 80 },
 			{ field: "prod_doff", headerName: "Prod (Doff)", width: 120, type: "number" },
 			{ field: "prod_wind", headerName: "Prod (Wind)", width: 120, type: "number" },
@@ -144,7 +144,7 @@ export default function PlanningGrid({ coId, branchId, date, spell }: Props) {
 
 			<Box>
 				<Typography variant="subtitle2" sx={{ mb: 1 }}>
-					Shift rollup (machine / quality / shift)
+					Shift rollup (machine / yarn / shift)
 				</Typography>
 				<Box sx={{ width: "100%", overflowX: "auto" }}>
 					<DataGrid

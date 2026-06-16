@@ -19,7 +19,7 @@ type Props = {
 export default function CountForm({ coId, branchId, entryDate, setup, onSaved }: Props) {
 	const [spellId, setSpellId] = React.useState<number | "">(""); // optional
 	const [machineId, setMachineId] = React.useState<number | "">(""); // optional
-	const [yarnQualityId, setYarnQualityId] = React.useState<number | "">("");
+	const [yarnItemId, setYarnItemId] = React.useState<number | "">("");
 	const [dp, setDp] = React.useState<string>("");
 	const [tp, setTp] = React.useState<string>("");
 	const [wt450, setWt450] = React.useState<string>("");
@@ -28,9 +28,9 @@ export default function CountForm({ coId, branchId, entryDate, setup, onSaved }:
 	const [error, setError] = React.useState<string | null>(null);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
-	// Std MR% comes from the selected quality (yarn_quality_master.std_mr_pct).
-	const selectedQuality = setup.qualities.find((q) => q.yarn_quality_id === Number(yarnQualityId));
-	const stdMrPct = selectedQuality?.std_mr_pct;
+	// Std MR% comes from the selected yarn item (jute_yarn_mst.std_mr_pct).
+	const selectedItem = setup.yarn_items.find((y) => y.item_id === Number(yarnItemId));
+	const stdMrPct = selectedItem?.std_mr_pct;
 
 	// Live preview (server recomputes on save and is authoritative).
 	const observed = wt450 !== "" && Number(wt450) > 0 ? observedCount(Number(wt450)) : null;
@@ -39,17 +39,17 @@ export default function CountForm({ coId, branchId, entryDate, setup, onSaved }:
 			? correctedCount(observed, Number(mrPct), Number(stdMrPct))
 			: null;
 
-	// Quality + WT/450 + MR% are required (they drive the calc); spell/machine/DP/TP optional.
-	const formInvalid = !yarnQualityId || wt450 === "" || Number(wt450) <= 0 || mrPct === "";
+	// Yarn + WT/450 + MR% are required (they drive the calc); spell/machine/DP/TP optional.
+	const formInvalid = !yarnItemId || wt450 === "" || Number(wt450) <= 0 || mrPct === "";
 
 	// "Add reading" appends a new observation row (multi-observation, NOT upsert).
 	const handleAddReading = async () => {
 		if (formInvalid) {
-			setError("Select a quality and enter WT/450 (> 0) and MR%.");
+			setError("Select a yarn and enter WT/450 (> 0) and MR%.");
 			return;
 		}
 		if (stdMrPct == null) {
-			setError("Selected quality has no Std MR% set. Add it on the Yarn Quality master first.");
+			setError("Selected yarn has no Std MR% set. Add it on the Yarn master first.");
 			return;
 		}
 		setSaving(true);
@@ -57,7 +57,7 @@ export default function CountForm({ coId, branchId, entryDate, setup, onSaved }:
 		const reading: SqcCountSavePayloadRow = {
 			spell_id: spellId === "" ? null : Number(spellId),
 			mc_id: machineId === "" ? null : Number(machineId),
-			yarn_quality_id: Number(yarnQualityId),
+			item_id: Number(yarnItemId),
 			dp: dp === "" ? null : Number(dp),
 			tp: tp === "" ? null : Number(tp),
 			wt_450_gms: Number(wt450),
@@ -81,9 +81,9 @@ export default function CountForm({ coId, branchId, entryDate, setup, onSaved }:
 			setError(err);
 			return;
 		}
-		const qName = selectedQuality?.quality_name ?? yarnQualityId;
-		setSnack(`Added reading (count ${observed ?? "—"}) for ${qName}`);
-		// Keep spell/machine/quality so the inspector can punch many readings quickly.
+		const yName = selectedItem?.item_name ?? yarnItemId;
+		setSnack(`Added reading (count ${observed ?? "—"}) for ${yName}`);
+		// Keep spell/machine/yarn so the inspector can punch many readings quickly.
 		setDp("");
 		setTp("");
 		setWt450("");
@@ -140,22 +140,22 @@ export default function CountForm({ coId, branchId, entryDate, setup, onSaved }:
 				</TextField>
 				<TextField
 					select
-					label="Yarn Quality"
-					value={yarnQualityId}
-					onChange={(e) => setYarnQualityId(e.target.value === "" ? "" : Number(e.target.value))}
+					label="Yarn"
+					value={yarnItemId}
+					onChange={(e) => setYarnItemId(e.target.value === "" ? "" : Number(e.target.value))}
 					size="small"
 					fullWidth
 					helperText={
-						yarnQualityId !== ""
+						yarnItemId !== ""
 							? stdMrPct != null
 								? `Std MR%: ${Number(stdMrPct).toFixed(2)}`
-								: "No Std MR% set for this quality"
+								: "No Std MR% set for this yarn"
 							: " "
 					}
 				>
-					{setup.qualities.map((q) => (
-						<MenuItem key={q.yarn_quality_id} value={q.yarn_quality_id}>
-							{q.quality_name} ({q.quality_code})
+					{setup.yarn_items.map((y) => (
+						<MenuItem key={y.item_id} value={y.item_id}>
+							{y.item_name} ({y.item_code})
 						</MenuItem>
 					))}
 				</TextField>

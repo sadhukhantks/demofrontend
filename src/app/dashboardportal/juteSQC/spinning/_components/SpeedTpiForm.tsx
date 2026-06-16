@@ -17,7 +17,7 @@ type Props = {
 
 export default function SpeedTpiForm({ coId, branchId, entryDate, setup, onSaved }: Props) {
 	const [machineId, setMachineId] = React.useState<number | "">("");
-	const [yarnQualityId, setYarnQualityId] = React.useState<number | "">("");
+	const [yarnItemId, setYarnItemId] = React.useState<number | "">("");
 	const [actualSpeed, setActualSpeed] = React.useState<string>("");
 	const [actualTpi, setActualTpi] = React.useState<string>("");
 	const [saving, setSaving] = React.useState(false);
@@ -27,19 +27,19 @@ export default function SpeedTpiForm({ coId, branchId, entryDate, setup, onSaved
 	// One active row per mc + quality + date. Disallow save with neither metric.
 	const formInvalid =
 		!machineId ||
-		!yarnQualityId ||
+		!yarnItemId ||
 		(actualSpeed === "" && actualTpi === "");
 
 	const handleSubmit = async () => {
 		if (formInvalid) {
-			setError("Select machine + quality and enter speed and/or TPI.");
+			setError("Select machine + yarn and enter speed and/or TPI.");
 			return;
 		}
 		setSaving(true);
 		setError(null);
 		const entry: SqcEntrySavePayloadRow = {
 			mc_id: Number(machineId),
-			yarn_quality_id: Number(yarnQualityId),
+			item_id: Number(yarnItemId),
 			actual_speed: actualSpeed === "" ? null : Number(actualSpeed),
 			actual_tpi: actualTpi === "" ? null : Number(actualTpi),
 		};
@@ -95,15 +95,15 @@ export default function SpeedTpiForm({ coId, branchId, entryDate, setup, onSaved
 				</TextField>
 				<TextField
 					select
-					label="Yarn Quality"
-					value={yarnQualityId}
-					onChange={(e) => setYarnQualityId(e.target.value === "" ? "" : Number(e.target.value))}
+					label="Yarn"
+					value={yarnItemId}
+					onChange={(e) => setYarnItemId(e.target.value === "" ? "" : Number(e.target.value))}
 					size="small"
 					fullWidth
 				>
-					{setup.qualities.map((q) => (
-						<MenuItem key={q.yarn_quality_id} value={q.yarn_quality_id}>
-							{q.quality_name} ({q.quality_code})
+					{setup.yarn_items.map((y) => (
+						<MenuItem key={y.item_id} value={y.item_id}>
+							{y.item_name} ({y.item_code})
 						</MenuItem>
 					))}
 				</TextField>

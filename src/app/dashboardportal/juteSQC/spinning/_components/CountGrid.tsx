@@ -22,7 +22,7 @@ function rowKey(r: SqcCountReadingRow): number | string {
 		r.jute_sqc_spinning_count_id ??
 		r.sqc_spinning_count_id ??
 		r.id ??
-		`${r.entry_date}-${r.yarn_quality_id}-${r.mc_id ?? "x"}-${r.spell_id ?? "x"}-${r.observed_count}`
+		`${r.entry_date}-${r.item_id}-${r.mc_id ?? "x"}-${r.spell_id ?? "x"}-${r.observed_count}`
 	);
 }
 
@@ -84,11 +84,11 @@ export default function CountGrid({ coId, readings, averages, loading, onDeleted
 					row.machine_name ?? (row.mc_id != null ? `MC #${row.mc_id}` : "—"),
 			},
 			{
-				field: "quality_name",
-				headerName: "Quality",
+				field: "item_name",
+				headerName: "Yarn",
 				width: 180,
 				valueGetter: (_value, row) =>
-					row.quality_name ?? row.quality_code ?? `Q #${row.yarn_quality_id}`,
+					row.item_name ?? row.item_code ?? `Yarn #${row.item_id}`,
 			},
 			{
 				field: "dp",
@@ -141,7 +141,7 @@ export default function CountGrid({ coId, readings, averages, loading, onDeleted
 			{/* Per-quality average panel */}
 			<Paper variant="outlined" sx={{ p: 2 }}>
 				<Typography variant="subtitle2" sx={{ mb: 1, color: "text.secondary" }}>
-					Average Count by Quality (observed / corrected)
+					Average Count by Yarn (observed / corrected)
 				</Typography>
 				{averages.length === 0 ? (
 					<Typography variant="body2" color="text.secondary">
@@ -151,10 +151,10 @@ export default function CountGrid({ coId, readings, averages, loading, onDeleted
 					<Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
 						{averages.map((a) => (
 							<Chip
-								key={a.yarn_quality_id}
+								key={a.item_id}
 								color="primary"
 								variant="outlined"
-								label={`${a.quality_name ?? a.quality_code ?? `Q #${a.yarn_quality_id}`}: ${
+								label={`${a.item_name ?? a.item_code ?? `Yarn #${a.item_id}`}: ${
 									a.avg_count != null ? Number(a.avg_count).toFixed(2) : "—"
 								} / ${a.avg_corrected != null ? Number(a.avg_corrected).toFixed(2) : "—"}`}
 							/>

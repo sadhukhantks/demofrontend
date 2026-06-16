@@ -70,7 +70,7 @@ export default function DoffGrid({ coId, branchId, date, spell, refreshSignal, o
 			{ field: "spell_code", headerName: "Spell", width: 70 },
 			{ field: "mech_code", headerName: "Mc Code", width: 100 },
 			{ field: "machine_name", headerName: "Machine", width: 160 },
-			{ field: "quality_code", headerName: "Quality", width: 110 },
+			{ field: "item_code", headerName: "Yarn", width: 110 },
 			{ field: "trolly_name", headerName: "Trolly", width: 120 },
 			{ field: "spool_name", headerName: "Spool", width: 120 },
 			{ field: "no_of_machines", headerName: "#Mc", width: 70, type: "number" },

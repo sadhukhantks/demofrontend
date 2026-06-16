@@ -24,17 +24,19 @@ export type SpinningTrollyOption = {
 	bucket_weight: number;
 };
 
-export type SpinningQualityOption = {
-	yarn_quality_id: number;
-	quality_code: string;
-	quality_name: string;
+export type YarnItemOption = {
+	item_id: number;
+	item_code: string;
+	item_name: string;
+	std_count: number | null;
+	std_mr_pct: number | null;
 };
 
 export type SpinningSetup = {
 	machines: SpinningMachineOption[];
 	spells: SpinningSpellOption[];
 	trollies: SpinningTrollyOption[];
-	qualities: SpinningQualityOption[];
+	yarn_items: YarnItemOption[];
 };
 
 export type DoffPrevState = {
@@ -53,8 +55,8 @@ export type DoffEntryRow = {
 	machine_name: string | null;
 	trolly_id: number;
 	trolly_name: string | null;
-	yarn_quality_id: number | null;
-	quality_code: string | null;
+	item_id: number | null;
+	item_code: string | null;
 	gross_weight: number;
 	tare_weight: number;
 	net_weight: number;
@@ -64,8 +66,8 @@ export type FrameMapRow = {
 	machine_id: number;
 	mech_code: string | null;
 	machine_name: string | null;
-	yarn_quality_id: number | null;
-	quality_code: string | null;
+	item_id: number | null;
+	item_code: string | null;
 };
 
 // --- Planning Grid (SPINNING_PLANNING_GRID) ---
@@ -77,8 +79,8 @@ export type PlanningGridRow = {
 	spell_code: string | null;
 	machine_id: number;
 	mech_code: string | null;
-	yarn_quality_id: number;
-	quality_code: string | null;
+	item_id: number;
+	item_code: string | null;
 	spindles: number;
 	minutes: number;
 	act_count: number;
@@ -104,7 +106,7 @@ export type PlanningGridRow = {
 // Per machine+quality+shift rollup returned alongside the planning grid rows.
 export type ShiftRollupRow = {
 	machine_id: number;
-	yarn_quality_id: number;
+	item_id: number;
 	shift: string;
 	prod_doff: number;
 	prod_wind: number;

@@ -21,7 +21,7 @@ import {
 import { RefreshCw as GetIcon, Save as SaveIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
-import type { WindingQualityOption, WindingQualityRow } from "../types/windingTypes";
+import type { YarnItemOption, WindingQualityRow } from "../types/windingTypes";
 import { useQualitySetup } from "../hooks/useQualitySetup";
 import { useQualityByDate } from "../hooks/useQualityByDate";
 import { SPINDLE_MIN, SPINDLE_MAX } from "../utils/windingCalc";
@@ -31,18 +31,18 @@ type Props = {
 	branchId: number;
 	date: string;
 	spell: string;
-	qualities: WindingQualityOption[];
+	yarnItems: YarnItemOption[];
 };
 
 type EditState = {
-	yarn_quality_id: number | "";
+	item_id: number | "";
 	no_of_spindle: string;
 };
 
 // "Get Quality" auto-seeds one row per winding machine (inheriting the prior
-// spell's quality + spindle) and returns the rows; each row's quality + spindle
+// spell's yarn + spindle) and returns the rows; each row's yarn + spindle
 // (1..30) is editable and saved individually.
-export default function QualityGrid({ coId, branchId, date, spell, qualities }: Props) {
+export default function QualityGrid({ coId, branchId, date, spell, yarnItems }: Props) {
 	const { setup, loading: setupLoading, error: setupError, run, reset } = useQualitySetup(
 		coId,
 		branchId,
@@ -57,7 +57,7 @@ export default function QualityGrid({ coId, branchId, date, spell, qualities }: 
 	const [savingId, setSavingId] = React.useState<number | null>(null);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
-	const qualityOpts = setup?.qualities ?? qualities;
+	const yarnOpts = setup?.yarn_items ?? yarnItems;
 
 	// Reset the editable section when the date/spell context changes.
 	React.useEffect(() => {
@@ -71,7 +71,7 @@ export default function QualityGrid({ coId, branchId, date, spell, qualities }: 
 		const seed: Record<number, EditState> = {};
 		setup.machines.forEach((r) => {
 			seed[r.winding_daily_qlty_id] = {
-				yarn_quality_id: r.yarn_quality_id ?? "",
+				item_id: r.item_id ?? "",
 				no_of_spindle: String(r.no_of_spindle ?? 0),
 			};
 		});
@@ -86,8 +86,8 @@ export default function QualityGrid({ coId, branchId, date, spell, qualities }: 
 		await run(date, spell);
 	};
 
-	const setQuality = (id: number, value: number | "") =>
-		setEdits((prev) => ({ ...prev, [id]: { ...prev[id], yarn_quality_id: value } }));
+	const setYarn = (id: number, value: number | "") =>
+		setEdits((prev) => ({ ...prev, [id]: { ...prev[id], item_id: value } }));
 	const setSpindle = (id: number, value: string) =>
 		setEdits((prev) => ({ ...prev, [id]: { ...prev[id], no_of_spindle: value } }));
 
@@ -103,7 +103,7 @@ export default function QualityGrid({ coId, branchId, date, spell, qualities }: 
 		const url = `${apiRoutesPortalMasters.WINDING_QUALITY_SAVE}/${row.winding_daily_qlty_id}?co_id=${coId}`;
 		const body = {
 			co_id: Number(coId),
-			yarn_quality_id: e.yarn_quality_id === "" ? null : Number(e.yarn_quality_id),
+			item_id: e.item_id === "" ? null : Number(e.item_id),
 			no_of_spindle: spindle,
 		};
 		const { error: err } = await fetchWithCookie(url, "PUT", body);
@@ -112,7 +112,7 @@ export default function QualityGrid({ coId, branchId, date, spell, qualities }: 
 			setSnack(err);
 			return;
 		}
-		setSnack(`Saved quality for ${row.mech_code ?? row.machine_id}`);
+		setSnack(`Saved yarn for ${row.mech_code ?? row.machine_id}`);
 		refreshDay();
 	};
 
@@ -120,7 +120,7 @@ export default function QualityGrid({ coId, branchId, date, spell, qualities }: 
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
 			<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
 				<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
-					<Typography variant="subtitle2">Quality &amp; spindle entry</Typography>
+					<Typography variant="subtitle2">Yarn &amp; spindle entry</Typography>
 					<Button
 						variant="contained"
 						size="small"
@@ -145,7 +145,7 @@ export default function QualityGrid({ coId, branchId, date, spell, qualities }: 
 								<TableRow>
 									<TableCell>Mc Code</TableCell>
 									<TableCell>Machine</TableCell>
-									<TableCell>Yarn Quality</TableCell>
+									<TableCell>Yarn</TableCell>
 									<TableCell>No. of Spindle</TableCell>
 									<TableCell align="right">Save</TableCell>
 								</TableRow>
@@ -153,7 +153,7 @@ export default function QualityGrid({ coId, branchId, date, spell, qualities }: 
 							<TableBody>
 								{setup.machines.map((r) => {
 									const e = edits[r.winding_daily_qlty_id] ?? {
-										yarn_quality_id: "",
+										item_id: "",
 										no_of_spindle: "0",
 									};
 									return (
@@ -164,9 +164,9 @@ export default function QualityGrid({ coId, branchId, date, spell, qualities }: 
 												<TextField
 													select
 													size="small"
-													value={e.yarn_quality_id}
+													value={e.item_id}
 													onChange={(ev) =>
-														setQuality(
+														setYarn(
 															r.winding_daily_qlty_id,
 															ev.target.value === "" ? "" : Number(ev.target.value),
 														)
@@ -176,9 +176,9 @@ export default function QualityGrid({ coId, branchId, date, spell, qualities }: 
 													<MenuItem value="">
 														<em>None</em>
 													</MenuItem>
-													{qualityOpts.map((q) => (
-														<MenuItem key={q.yarn_quality_id} value={q.yarn_quality_id}>
-															{q.quality_code} — {q.quality_name ?? ""}
+													{yarnOpts.map((y) => (
+														<MenuItem key={y.item_id} value={y.item_id}>
+															{y.item_code} — {y.item_name ?? ""}
 														</MenuItem>
 													))}
 												</TextField>
@@ -223,7 +223,7 @@ export default function QualityGrid({ coId, branchId, date, spell, qualities }: 
 
 			<Box>
 				<Typography variant="subtitle2" sx={{ mb: 1 }}>
-					Quality entries
+					Yarn entries
 				</Typography>
 				<Box sx={{ width: "100%", overflowX: "auto" }}>
 					<Table size="small" sx={{ minWidth: 760 }}>
@@ -232,7 +232,7 @@ export default function QualityGrid({ coId, branchId, date, spell, qualities }: 
 								<TableCell>Spell</TableCell>
 								<TableCell>Mc Code</TableCell>
 								<TableCell>Machine</TableCell>
-								<TableCell>Quality</TableCell>
+								<TableCell>Yarn</TableCell>
 								<TableCell>Spindles</TableCell>
 							</TableRow>
 						</TableHead>
@@ -255,7 +255,7 @@ export default function QualityGrid({ coId, branchId, date, spell, qualities }: 
 										<TableCell>{r.spell_code}</TableCell>
 										<TableCell>{r.mech_code}</TableCell>
 										<TableCell>{r.machine_name}</TableCell>
-										<TableCell>{r.quality_code ?? "—"}</TableCell>
+										<TableCell>{r.item_code ?? "—"}</TableCell>
 										<TableCell>{r.no_of_spindle}</TableCell>
 									</TableRow>
 								))

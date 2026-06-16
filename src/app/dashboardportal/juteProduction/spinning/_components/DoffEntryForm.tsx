@@ -37,7 +37,7 @@ export default function DoffEntryForm({
 
 	const [machineId, setMachineId] = React.useState<number | "">("");
 	const [trollyId, setTrollyId] = React.useState<number | "">("");
-	const [qualityId, setQualityId] = React.useState<number | "">("");
+	const [itemId, setItemId] = React.useState<number | "">("");
 	const [grossWeight, setGrossWeight] = React.useState<string>("");
 	const [saving, setSaving] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
@@ -61,7 +61,7 @@ export default function DoffEntryForm({
 		if (editingEntry) {
 			setMachineId(editingEntry.mc_id);
 			setTrollyId(editingEntry.trolly_id);
-			setQualityId(editingEntry.yarn_quality_id ?? "");
+			setItemId(editingEntry.item_id ?? "");
 			setGrossWeight(String(editingEntry.gross_weight));
 			setError(null);
 		}
@@ -91,7 +91,7 @@ export default function DoffEntryForm({
 
 	const resetToCreateDefaults = () => {
 		setGrossWeight("");
-		// Keep machine/trolly/quality for rapid sequential doff entry.
+		// Keep machine/trolly/yarn for rapid sequential doff entry.
 	};
 
 	const handleSubmit = async () => {
@@ -106,7 +106,7 @@ export default function DoffEntryForm({
 			const body = {
 				gross_weight: Number(grossWeight),
 				trolly_id: Number(trollyId),
-				yarn_quality_id: qualityId === "" ? null : Number(qualityId),
+				item_id: itemId === "" ? null : Number(itemId),
 			};
 			const url = `${apiRoutesPortalMasters.SPINNING_DOFF_EDIT}/${editingEntry.daily_doff_tbl_id}?co_id=${coId}`;
 			const { error: err } = await fetchWithCookie(url, "PUT", body);
@@ -129,7 +129,7 @@ export default function DoffEntryForm({
 			spell,
 			machine_id: Number(machineId),
 			trolly_id: Number(trollyId),
-			yarn_quality_id: qualityId === "" ? null : Number(qualityId),
+			item_id: itemId === "" ? null : Number(itemId),
 			gross_weight: Number(grossWeight),
 		};
 		const { data, error: err } = await fetchWithCookie<{
@@ -150,7 +150,7 @@ export default function DoffEntryForm({
 		onCancelEdit();
 		setMachineId("");
 		setTrollyId("");
-		setQualityId("");
+		setItemId("");
 		setGrossWeight("");
 		setError(null);
 	};
@@ -199,18 +199,18 @@ export default function DoffEntryForm({
 				</TextField>
 				<TextField
 					select
-					label="Yarn Quality"
-					value={qualityId}
-					onChange={(e) => setQualityId(e.target.value === "" ? "" : Number(e.target.value))}
+					label="Yarn"
+					value={itemId}
+					onChange={(e) => setItemId(e.target.value === "" ? "" : Number(e.target.value))}
 					size="small"
 					fullWidth
 				>
 					<MenuItem value="">
 						<em>None</em>
 					</MenuItem>
-					{setup.qualities.map((q) => (
-						<MenuItem key={q.yarn_quality_id} value={q.yarn_quality_id}>
-							{q.quality_code} — {q.quality_name}
+					{setup.yarn_items.map((y) => (
+						<MenuItem key={y.item_id} value={y.item_id}>
+							{y.item_name} ({y.item_code})
 						</MenuItem>
 					))}
 				</TextField>

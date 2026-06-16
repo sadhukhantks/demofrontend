@@ -14,7 +14,7 @@ export default function SpeedTpiGrid({ rows, loading }: Props) {
 	// Backend may not always send a stable PK; fall back to a composite key.
 	const getRowId = React.useCallback(
 		(r: SqcEntryRow) =>
-			r.jute_sqc_spinning_entry_id ?? `${r.mc_id}-${r.yarn_quality_id}-${r.entry_date}`,
+			r.jute_sqc_spinning_entry_id ?? `${r.mc_id}-${r.item_id}-${r.entry_date}`,
 		[]
 	);
 
@@ -28,12 +28,12 @@ export default function SpeedTpiGrid({ rows, loading }: Props) {
 			},
 			{ field: "mech_code", headerName: "Code", width: 110 },
 			{
-				field: "quality_name",
-				headerName: "Quality",
+				field: "item_name",
+				headerName: "Yarn",
 				width: 180,
-				valueGetter: (_value, row) => row.quality_name ?? `Q #${row.yarn_quality_id}`,
+				valueGetter: (_value, row) => row.item_name ?? `Yarn #${row.item_id}`,
 			},
-			{ field: "quality_code", headerName: "Q.Code", width: 110 },
+			{ field: "item_code", headerName: "Code", width: 110 },
 			{
 				field: "actual_speed",
 				headerName: "Actual Speed",

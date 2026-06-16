@@ -9,11 +9,14 @@ export type SqcMachine = {
 	branch_id?: number | null;
 };
 
-export type SqcQuality = {
-	yarn_quality_id: number;
-	quality_code: string;
-	quality_name: string;
-	// Standard moisture regain % (from yarn_quality_master) — feeds corrected count.
+// A yarn item (item_mst, item_type_id=4) — the single yarn identity.
+export type YarnItemOption = {
+	item_id: number;
+	item_code: string;
+	item_name: string;
+	// Standard count (jute_yarn_mst.jute_yarn_count).
+	std_count?: number | null;
+	// Standard moisture regain % (jute_yarn_mst.std_mr_pct) — feeds corrected count.
 	std_mr_pct?: number | null;
 };
 
@@ -35,23 +38,23 @@ export type SqcEntryRow = {
 	machine_id?: number;
 	machine_name?: string;
 	mech_code?: string;
-	yarn_quality_id: number;
-	quality_code?: string;
-	quality_name?: string;
+	item_id: number;
+	item_code?: string;
+	item_name?: string;
 	actual_speed: number | null;
 	actual_tpi: number | null;
 };
 
 export type SqcEntrySetup = {
 	machines: SqcMachine[];
-	qualities: SqcQuality[];
+	yarn_items: YarnItemOption[];
 	entries: SqcEntryRow[];
 };
 
 // One row in the SPINNING_SQC_ENTRY_SAVE payload.
 export type SqcEntrySavePayloadRow = {
 	mc_id: number;
-	yarn_quality_id: number;
+	item_id: number;
 	actual_speed?: number | null;
 	actual_tpi?: number | null;
 };
@@ -60,7 +63,7 @@ export type SqcEntrySavePayloadRow = {
 
 export type SqcCountSetup = {
 	machines: SqcMachine[];
-	qualities: SqcQuality[];
+	yarn_items: YarnItemOption[];
 	spells: SqcSpell[];
 	entries: SqcCountReadingRow[];
 };
@@ -78,9 +81,9 @@ export type SqcCountReadingRow = {
 	machine_id?: number | null;
 	machine_name?: string | null;
 	mech_code?: string | null;
-	yarn_quality_id: number;
-	quality_code?: string | null;
-	quality_name?: string | null;
+	item_id: number;
+	item_code?: string | null;
+	item_name?: string | null;
 	std_mr_pct?: number | null;
 	// R-08-16 raw inputs (DP/TP store-only; WT/450 + MR% feed the count calc).
 	dp?: number | null;
@@ -92,9 +95,9 @@ export type SqcCountReadingRow = {
 };
 
 export type SqcCountAverageRow = {
-	yarn_quality_id: number;
-	quality_code?: string | null;
-	quality_name?: string | null;
+	item_id: number;
+	item_code?: string | null;
+	item_name?: string | null;
 	avg_count: number;
 	avg_corrected?: number | null;
 };
@@ -109,7 +112,7 @@ export type SqcCountByDateResponse = {
 export type SqcCountSavePayloadRow = {
 	spell_id?: number | null;
 	mc_id?: number | null;
-	yarn_quality_id: number;
+	item_id: number;
 	dp?: number | null;
 	tp?: number | null;
 	wt_450_gms?: number | null;

@@ -232,7 +232,7 @@ export default function WindingPage() {
 									branchId={branchId}
 									date={tranDate}
 									spell={spell}
-									qualities={doffSetup.qualities}
+									yarnItems={doffSetup.yarn_items}
 								/>
 							) : null}
 						</>

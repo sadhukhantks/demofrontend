@@ -25,16 +25,17 @@ export type WindingTrollyOption = {
 	bucket_weight: number;
 };
 
-export type WindingQualityOption = {
-	yarn_quality_id: number;
-	quality_code: string;
-	quality_name: string | null;
+// A yarn item (item_mst, item_type_id=4) — the single yarn identity.
+export type YarnItemOption = {
+	item_id: number;
+	item_code: string;
+	item_name: string | null;
 };
 
 // Response of WINDING_DOFF_SETUP (data.{...}).
 export type WindingDoffSetup = {
 	machines: WindingMachineOption[];
-	qualities: WindingQualityOption[];
+	yarn_items: YarnItemOption[];
 	trollies: WindingTrollyOption[];
 	spools: WindingTrollyOption[];
 	spells: WindingSpellOption[];
@@ -50,7 +51,7 @@ export type WindingJugarSetup = {
 export type WindingDoffPrevState = {
 	winding_doff_id: number;
 	machine_id: number;
-	yarn_quality_id: number | null;
+	item_id: number | null;
 	trolly_id: number | null;
 	trolly_wt: number;
 	spool_id: number | null;
@@ -72,8 +73,8 @@ export type WindingDoffRow = {
 	machine_id: number;
 	mech_code: string | null;
 	machine_name: string | null;
-	yarn_quality_id: number | null;
-	quality_code: string | null;
+	item_id: number | null;
+	item_code: string | null;
 	trolly_id: number;
 	trolly_name: string | null;
 	trolly_wt: number;
@@ -120,13 +121,13 @@ export type WindingQualityRow = {
 	machine_id: number;
 	mech_code: string | null;
 	machine_name: string | null;
-	yarn_quality_id: number | null;
-	quality_code: string | null;
+	item_id: number | null;
+	item_code: string | null;
 	no_of_spindle: number;
 };
 
 // Response of WINDING_QUALITY_SETUP (data.{...}).
 export type WindingQualitySetup = {
 	machines: WindingQualityRow[];
-	qualities: WindingQualityOption[];
+	yarn_items: YarnItemOption[];
 };
