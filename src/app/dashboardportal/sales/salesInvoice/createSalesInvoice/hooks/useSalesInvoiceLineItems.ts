@@ -130,6 +130,7 @@ export const useSalesInvoiceLineItems = ({
 			quantity: line.quantity != null ? String(line.quantity) : "",
 			rate: line.rate != null ? String(line.rate) : "",
 			uom: uomId,
+			uomName: line.uomName ?? "",
 			discountType: line.discountType,
 			discountedRate: line.discountedRate,
 			discountAmount: line.discountAmount,

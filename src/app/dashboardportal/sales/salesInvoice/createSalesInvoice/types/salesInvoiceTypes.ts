@@ -203,6 +203,9 @@ export type EditableLineItem = {
 	quantity: string;
 	rate: string;
 	uom: string;
+	/** Unit name resolved by the backend (e.g. "Qntl"); used for display when the
+	 *  lazy item-group UOM cache isn't loaded (e.g. view mode). */
+	uomName?: string;
 	discountType?: number;
 	discountedRate?: number;
 	discountAmount?: number;
