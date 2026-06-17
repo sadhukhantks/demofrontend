@@ -10,8 +10,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Alert,
   Box,
-  IconButton,
-  InputAdornment,
   MenuItem,
   Paper,
   Snackbar,
@@ -19,9 +17,9 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSelectedCompanyCoId } from "@/hooks/use-selected-company-coid";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import {
   approveLeaveRequest,
   createLeaveRequest,
@@ -36,21 +34,35 @@ import {
 import { leaveRequestFormSchema } from "./utils/schema";
 import { STATUS_COLOR, STATUS_LABELS } from "../types/leaveRequestTypes";
 
-const LIST_PATH = "/dashboardportal/hrms/hrmsmasters/leaveRequest";
+const LIST_PATH = "/dashboardportal/hrms/LeaveRequest";
 
 function CreateLeaveRequestContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { coId } = useSelectedCompanyCoId();
+  const { selectedCompany, selectedBranches } = useSidebarContext();
 
   const mode = (searchParams.get("mode") ?? "create") as FormMode;
   const id = searchParams.get("id");
 
+  // Branch dropdown options = branches active in the left sidebar; the first
+  // sidebar-selected branch is the default for a new leave request.
+  const branchOptions = useMemo(
+    () =>
+      (selectedCompany?.branches ?? []).filter((b) =>
+        selectedBranches.includes(b.branch_id),
+      ),
+    [selectedCompany, selectedBranches],
+  );
+  const defaultBranchId = selectedBranches[0] ?? 0;
+
   const {
     values,
+    setValues,
     updateField,
     statusId,
     workerName,
+    workerInvalid,
     leaveTypeOptions,
     ledger,
     approveButton,
@@ -59,7 +71,7 @@ function CreateLeaveRequestContent() {
     error,
     setError,
     lookupWorker,
-  } = useLeaveRequestForm({ coId: coId ?? "", mode, id });
+  } = useLeaveRequestForm({ coId: coId ?? "", defaultBranchId, mode, id });
 
   const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState<{
@@ -88,19 +100,16 @@ function CreateLeaveRequestContent() {
       showSnack(firstError, "error");
       return null;
     }
-    if (!coId) {
-      showSnack("Company not selected", "error");
-      return null;
-    }
     return {
-      co_id: coId,
+      branch_id: parsed.data.branch_id,
       eb_id: parsed.data.eb_id,
       leave_type_id: parsed.data.leave_type_id,
       leave_from_date: parsed.data.leave_from_date,
       leave_to_date: parsed.data.leave_to_date,
+      non_working_days: parsed.data.non_working_days,
       leave_purpose: parsed.data.leave_purpose,
     };
-  }, [coId, values, showSnack]);
+  }, [values, showSnack]);
 
   const handleSave = useCallback(async () => {
     const payload = validateAndGetPayload();
@@ -126,10 +135,10 @@ function CreateLeaveRequestContent() {
   }, [validateAndGetPayload, mode, id, router, showSnack]);
 
   const handleApprove = useCallback(async () => {
-    if (!coId || !id) return;
+    if (!id) return;
     setSaving(true);
     try {
-      const res = await approveLeaveRequest(id, { co_id: coId });
+      const res = await approveLeaveRequest(id, { branch_id: values.branch_id });
       if (res?.error) throw new Error(res.error);
       showSnack("Leave request approved", "success");
       router.push(LIST_PATH);
@@ -138,13 +147,13 @@ function CreateLeaveRequestContent() {
     } finally {
       setSaving(false);
     }
-  }, [coId, id, router, showSnack]);
+  }, [id, values.branch_id, router, showSnack]);
 
   const handleReject = useCallback(async () => {
-    if (!coId || !id) return;
+    if (!id) return;
     setSaving(true);
     try {
-      const res = await rejectLeaveRequest(id, { co_id: coId });
+      const res = await rejectLeaveRequest(id, { branch_id: values.branch_id });
       if (res?.error) throw new Error(res.error);
       showSnack("Leave request rejected", "success");
       router.push(LIST_PATH);
@@ -153,13 +162,26 @@ function CreateLeaveRequestContent() {
     } finally {
       setSaving(false);
     }
-  }, [coId, id, router, showSnack]);
+  }, [id, values.branch_id, router, showSnack]);
 
   const titleText = useMemo(() => {
     if (mode === "view") return "View Leave Request";
     if (mode === "edit") return "Edit Leave Request";
     return "Apply Leave";
   }, [mode]);
+
+  // Actual leave days = inclusive date span minus non-working days. Read-only.
+  const leaveDays = useMemo(() => {
+    const from = new Date(values.leave_from_date);
+    const to = new Date(values.leave_to_date);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return 0;
+    const spanDays = Math.round((to.getTime() - from.getTime()) / 86_400_000) + 1;
+    const days = spanDays - (values.non_working_days || 0);
+    return days > 0 ? days : 0;
+  }, [values.leave_from_date, values.leave_to_date, values.non_working_days]);
+
+  const leaveDaysInvalid =
+    Boolean(values.leave_from_date && values.leave_to_date) && leaveDays <= 0;
 
   return (
     <Box className="flex flex-col gap-6 p-4">
@@ -221,78 +243,138 @@ function CreateLeaveRequestContent() {
         <Typography variant="subtitle1" className="mb-3 font-semibold">
           Leave Details
         </Typography>
-        <Box
-          className="grid gap-4"
-          sx={{ gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" } }}
-        >
-          <TextField
-            label="Employee Code"
-            size="small"
-            value={values.eb_no}
-            onChange={(e) => updateField("eb_no", e.target.value.toUpperCase())}
-            disabled={isView || mode === "edit"}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    size="small"
-                    onClick={lookupWorker}
-                    disabled={isView || mode === "edit" || !values.eb_no}
-                    aria-label="Lookup employee"
-                  >
-                    <Search size={16} />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-          <TextField
-            label="Worker Name"
-            size="small"
-            value={workerName}
-            disabled
-          />
-          <TextField
-            select
-            label="Leave Type"
-            size="small"
-            value={values.leave_type_id ? String(values.leave_type_id) : ""}
-            onChange={(e) =>
-              updateField("leave_type_id", Number(e.target.value))
-            }
-            disabled={isView || !canEdit}
-            required
+        <Box className="flex flex-col gap-4">
+          {/* Row 1: employee selection */}
+          <Box
+            className="grid gap-4"
+            sx={{ gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" } }}
           >
-            <MenuItem value="">Select leave type</MenuItem>
-            {leaveTypeOptions.map((opt) => (
-              <MenuItem
-                key={opt.leave_type_id}
-                value={String(opt.leave_type_id)}
-              >
-                {opt.leave_type_description || opt.leave_type_code}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label="From Date"
-            type="date"
-            size="small"
-            value={values.leave_from_date}
-            onChange={(e) => updateField("leave_from_date", e.target.value)}
-            disabled={isView || !canEdit}
-            InputLabelProps={{ shrink: true }}
-            required
-          />
-          <TextField
-            label="To Date"
-            type="date"
-            size="small"
-            value={values.leave_to_date}
-            onChange={(e) => updateField("leave_to_date", e.target.value)}
-            disabled={isView || !canEdit}
-            InputLabelProps={{ shrink: true }}
-            required
-          />
+            <TextField
+              select
+              label="Branch"
+              size="small"
+              value={values.branch_id ? String(values.branch_id) : ""}
+              onChange={(e) => {
+                const nextBranch = Number(e.target.value);
+                // Changing branch invalidates the current employee lookup.
+                setValues((prev) => ({
+                  ...prev,
+                  branch_id: nextBranch,
+                  eb_id: 0,
+                }));
+              }}
+              disabled={isView || mode === "edit"}
+              required
+            >
+              <MenuItem value="">Select branch</MenuItem>
+              {branchOptions.map((b) => (
+                <MenuItem key={b.branch_id} value={String(b.branch_id)}>
+                  {b.branch_name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Employee Code"
+              size="small"
+              value={values.eb_no}
+              onChange={(e) =>
+                updateField("eb_no", e.target.value.toUpperCase())
+              }
+              onBlur={() => lookupWorker()}
+              disabled={isView || mode === "edit"}
+            />
+            <TextField
+              label="Worker Name"
+              size="small"
+              value={workerName}
+              placeholder={workerInvalid ? "Invalid Emp code/Name" : undefined}
+              error={workerInvalid}
+              InputProps={{ readOnly: true }}
+              sx={
+                workerInvalid
+                  ? {
+                      "& .MuiInputBase-input::placeholder": {
+                        color: "error.main",
+                        opacity: 1,
+                      },
+                    }
+                  : undefined
+              }
+            />
+          </Box>
+
+          {/* Row 2: leave type, dates and day counts */}
+          <Box
+            className="grid gap-4"
+            sx={{ gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(5, 1fr)" } }}
+          >
+            <TextField
+              select
+              label="Leave Type"
+              size="small"
+              value={values.leave_type_id ? String(values.leave_type_id) : ""}
+              onChange={(e) =>
+                updateField("leave_type_id", Number(e.target.value))
+              }
+              disabled={isView || !canEdit}
+              required
+            >
+              <MenuItem value="">Select leave type</MenuItem>
+              {leaveTypeOptions.map((opt) => (
+                <MenuItem
+                  key={opt.leave_type_id}
+                  value={String(opt.leave_type_id)}
+                >
+                  {opt.leave_type_description || opt.leave_type_code}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="From Date"
+              type="date"
+              size="small"
+              value={values.leave_from_date}
+              onChange={(e) => updateField("leave_from_date", e.target.value)}
+              disabled={isView || !canEdit}
+              InputLabelProps={{ shrink: true }}
+              required
+            />
+            <TextField
+              label="To Date"
+              type="date"
+              size="small"
+              value={values.leave_to_date}
+              onChange={(e) => updateField("leave_to_date", e.target.value)}
+              disabled={isView || !canEdit}
+              InputLabelProps={{ shrink: true }}
+              required
+            />
+            <TextField
+              label="Non Working Days"
+              type="number"
+              size="small"
+              value={values.non_working_days}
+              onChange={(e) =>
+                updateField(
+                  "non_working_days",
+                  Math.max(0, Math.trunc(Number(e.target.value)) || 0),
+                )
+              }
+              disabled={isView || !canEdit}
+              inputProps={{ min: 0 }}
+            />
+            <TextField
+              label="No of Days Leave"
+              size="small"
+              value={leaveDays}
+              error={leaveDaysInvalid}
+              helperText={
+                leaveDaysInvalid ? "Must be greater than 0" : undefined
+              }
+              InputProps={{ readOnly: true }}
+            />
+          </Box>
+
           <TextField
             label="Reason"
             size="small"
@@ -301,7 +383,7 @@ function CreateLeaveRequestContent() {
             value={values.leave_purpose}
             onChange={(e) => updateField("leave_purpose", e.target.value)}
             disabled={isView || !canEdit}
-            sx={{ gridColumn: { md: "span 3" } }}
+            fullWidth
             required
           />
         </Box>

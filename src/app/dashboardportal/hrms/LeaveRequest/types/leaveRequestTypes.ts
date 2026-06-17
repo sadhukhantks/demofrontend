@@ -46,8 +46,8 @@ export interface LeaveRequestListRow {
   leave_type: string;
   leave_from_date: string;
   leave_to_date: string;
+  non_working_days: number | null;
   leave_purpose: string | null;
-  leave_ledger: string | null;
   status: number;
   status_label?: string;
 }
@@ -63,16 +63,16 @@ export interface LeaveRequestLine {
 export interface LeaveRequestHeader {
   leave_transaction_id: number;
   eb_id: number;
+  branch_id: number;
   eb_no: string;
   worker_name: string;
   leave_type_id: number;
   leave_type: string;
   leave_from_date: string;
   leave_to_date: string;
+  non_working_days: number | null;
   leave_purpose: string | null;
   status: number;
-  company_id: number;
-  created_by: number | null;
   updated_by: number | null;
 }
 

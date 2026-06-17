@@ -777,6 +777,18 @@ const apiRoutesPortalMasters = {
     DRAWING_MACHINE_ATTR_LIST: `${API_URL}/drawingMasters/drawing_machine_attr_list`,
     DRAWING_MACHINE_ATTR_CREATE: `${API_URL}/drawingMasters/drawing_machine_attr_create`,
     DRAWING_MACHINE_ATTR_EDIT: `${API_URL}/drawingMasters/drawing_machine_attr_edit`,
+    // HRMS Daily Attendance (transaction) endpoints
+    ATTENDANCE_LIST: `${API_URL}/hrms/daily_attendance_list`,
+    ATTENDANCE_BY_ID: `${API_URL}/hrms/daily_attendance_by_id`,
+    ATTENDANCE_CREATE: `${API_URL}/hrms/daily_attendance_create`,
+    ATTENDANCE_EDIT: `${API_URL}/hrms/daily_attendance_edit`,
+    ATTENDANCE_APPROVE: `${API_URL}/hrms/daily_attendance_approve`,
+    ATTENDANCE_REJECT: `${API_URL}/hrms/daily_attendance_reject`,
+    ATTENDANCE_CREATE_SETUP: `${API_URL}/hrms/attendance_create_setup`,
+    ATTENDANCE_MACHINES: `${API_URL}/hrms/attendance_machines_by_designation`,
+    // Attendance register report — served by the Flask mobileapp mounted at the
+    // backend root (no /hrms prefix). vowerp3be/src/mobileapp/src/attendance/attendance.py
+    ATTENDANCE_REGISTER_REPORT: `${API_URL}/attendance-report`,
 };
 
 export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters };
