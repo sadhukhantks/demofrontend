@@ -819,9 +819,6 @@ const apiRoutesPortalMasters = {
     SPINNING_SQC_RHMR_SAVE: `${API_URL}/juteSQC/sqc_rhmr_save`,
     SPINNING_SQC_RHMR_DELETE: `${API_URL}/juteSQC/sqc_rhmr_delete`,
     // Spinning masters (router prefix /api/spinningMasters)
-    SPINNING_MACHINE_ATTR_LIST: `${API_URL}/spinningMasters/spinning_machine_attr_list`,
-    SPINNING_MACHINE_ATTR_CREATE: `${API_URL}/spinningMasters/spinning_machine_attr_create`,
-    SPINNING_MACHINE_ATTR_EDIT: `${API_URL}/spinningMasters/spinning_machine_attr_edit`,
     TROLLY_LIST: `${API_URL}/spinningMasters/trolly_list`,
     TROLLY_CREATE: `${API_URL}/spinningMasters/trolly_create`,
     TROLLY_EDIT: `${API_URL}/spinningMasters/trolly_edit`,

@@ -135,8 +135,8 @@ export default function SpinningPage() {
 						</Box>
 					) : setup.machines.length === 0 ? (
 						<Alert severity="info">
-							No spinning machines found for this branch. Add machines and configure their
-							attributes in the Spinning Machine Master.
+							No spinning machines found for this branch. Add machines, then set their
+							standards (bobbin weight, spindles, speed) in Spinning Standards / Targets.
 						</Alert>
 					) : (
 						<>

@@ -6,8 +6,9 @@ export type SpinningMachineOption = {
 	machine_name: string;
 	mech_code: string;
 	branch_id: number | null;
+	// Resolved from jute_prod_spng_target_map (standard bobbin_wt) as-of today by the
+	// doff setup endpoint; an as-of-today display hint (create/edit re-resolve per tran_date).
 	bobbin_weight: number;
-	no_of_spindle: number;
 };
 
 export type SpinningSpellOption = {
@@ -117,20 +118,6 @@ export type ShiftRollupRow = {
 export type PlanningGridData = {
 	rows: PlanningGridRow[];
 	shift_rollup: ShiftRollupRow[];
-};
-
-export type SpinningMachineAttrRow = {
-	spinning_machine_attr_id: number | null;
-	machine_id: number;
-	mech_code: string | null;
-	machine_name: string | null;
-	dept_name: string | null;
-	branch_id: number | null;
-	bobbin_weight: number;
-	speed: number;
-	no_of_spindle: number;
-	frame_type: string | null;
-	active: number;
 };
 
 export type TrollyRow = {

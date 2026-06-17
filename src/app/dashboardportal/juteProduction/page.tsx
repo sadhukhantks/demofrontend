@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Box, Card, CardActionArea, CardContent, Typography } from "@mui/material";
-import { Factory, BarChart3, Boxes, Clock, Scale, Gauge, Ruler, Disc3, Settings, Container, RotateCw } from "lucide-react";
+import { Factory, BarChart3, Boxes, Clock, Scale, Gauge, Ruler, Disc3, Container, RotateCw } from "lucide-react";
 
 type Tile = {
 	href: string;
@@ -66,12 +66,6 @@ const TILES: Tile[] = [
 		title: "Winding Production",
 		subtitle: "Doff entry, spindle jugar (open/close) & daily quality",
 		icon: <RotateCw size={32} className="text-blue-600" />,
-	},
-	{
-		href: "/dashboardportal/juteProduction/masters/spinningMachineAttr",
-		title: "Spinning Machine Master",
-		subtitle: "Bobbin weight, speed & spindles per frame",
-		icon: <Settings size={32} className="text-blue-600" />,
 	},
 	{
 		href: "/dashboardportal/juteProduction/masters/trollyMaster",

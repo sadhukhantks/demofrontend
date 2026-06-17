@@ -27,7 +27,7 @@ import { todayISO } from "../../spinning/utils/spinningCalc";
 
 type IdType = "mcid" | "qid";
 type ValueRole = "standard" | "target" | "actual";
-type Param = "speed" | "tpi" | "eff" | "spindles" | "dc" | "tc";
+type Param = "speed" | "tpi" | "eff" | "spindles" | "dc" | "tc" | "bobbin_wt";
 
 type SetupMachine = { machine_id: number; machine_name: string | null; mech_code: string | null };
 type SetupYarnItem = {
@@ -90,14 +90,20 @@ const PARAM_LABELS: Record<Param, string> = {
 	spindles: "Spindles",
 	dc: "DC",
 	tc: "TC",
+	bobbin_wt: "Bobbin Wt",
 };
 
-// Which params apply per type: Yarn (qid) → TPI / Eff; Machine (mcid) → Speed / Spindles / DC / TC.
+// Which params apply per type: Yarn (qid) → TPI / Eff;
+// Machine (mcid) → Speed / Spindles / DC / TC / Bobbin Wt.
 const PARAMS_BY_ID_TYPE: Record<IdType, Param[]> = {
-	mcid: ["speed", "spindles", "dc", "tc"],
+	mcid: ["speed", "spindles", "dc", "tc", "bobbin_wt"],
 	qid: ["tpi", "eff"],
 };
-const ALL_PARAMS: Param[] = ["speed", "tpi", "eff", "spindles", "dc", "tc"];
+const ALL_PARAMS: Param[] = ["speed", "tpi", "eff", "spindles", "dc", "tc", "bobbin_wt"];
+
+// Physical machine-config params read by production resolve at value_role = 'standard'
+// only; lock the Role selector to Standard for these to keep the data meaningful.
+const PHYSICAL_MCID_PARAMS: Param[] = ["bobbin_wt", "spindles"];
 
 // Param options for a given type ("" = no type chosen yet, e.g. the "All" filter → show every param).
 const paramsFor = (idType: IdType | ""): Param[] => (idType ? PARAMS_BY_ID_TYPE[idType] : ALL_PARAMS);
@@ -365,8 +371,8 @@ export default function SpngTargetMapPage() {
 						Spinning Standards / Targets
 					</Typography>
 					<Typography variant="body2" color="text.secondary">
-						Standard, target and actual values (speed / TPI / efficiency) per machine or yarn,
-						effective-dated.
+						Standard, target and actual values per machine or yarn, effective-dated. Machine:
+						speed / spindles / bobbin weight; Yarn: TPI / efficiency.
 					</Typography>
 				</Box>
 				<Button variant="contained" startIcon={<AddIcon size={18} />} onClick={openCreate}>
@@ -519,7 +525,12 @@ export default function SpngTargetMapPage() {
 							value={form.value_role}
 							onChange={(e) => setForm({ ...form, value_role: e.target.value as ValueRole | "" })}
 							size="small"
-							disabled={!!editing}
+							disabled={!!editing || PHYSICAL_MCID_PARAMS.includes(form.param as Param)}
+							helperText={
+								PHYSICAL_MCID_PARAMS.includes(form.param as Param)
+									? "Machine config — always Standard"
+									: undefined
+							}
 						>
 							{valueRoleOptions.map((r) => (
 								<MenuItem key={r} value={r}>
@@ -531,7 +542,17 @@ export default function SpngTargetMapPage() {
 							select
 							label="Parameter"
 							value={form.param}
-							onChange={(e) => setForm({ ...form, param: e.target.value as Param | "" })}
+							onChange={(e) => {
+								const param = e.target.value as Param | "";
+								// Physical machine config (bobbin_wt/spindles) is read at value_role=standard only.
+								setForm({
+									...form,
+									param,
+									value_role: PHYSICAL_MCID_PARAMS.includes(param as Param)
+										? "standard"
+										: form.value_role,
+								});
+							}}
 							size="small"
 							disabled={!!editing}
 						>
