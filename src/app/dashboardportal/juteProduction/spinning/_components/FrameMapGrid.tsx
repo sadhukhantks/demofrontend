@@ -5,6 +5,7 @@ import {
 	Alert,
 	Box,
 	Button,
+	Chip,
 	CircularProgress,
 	MenuItem,
 	Snackbar,
@@ -31,20 +32,43 @@ type Props = {
 };
 
 export default function FrameMapGrid({ coId, branchId, setup, date, spell }: Props) {
-	const { rows, loading, error, refresh } = useFrameMap(coId, branchId, date, spell);
+	const { rows, lastUpdated, loading, error, refresh } = useFrameMap(coId, branchId, date, spell);
 	const [edits, setEdits] = React.useState<Record<number, number | "">>({});
 	const [saving, setSaving] = React.useState(false);
 	const [busy, setBusy] = React.useState(false);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
-	// Seed local edit state (machine -> item_id) from fetched rows.
+	// Seed local edit state (machine -> item_id) from fetched rows. Prefill from the
+	// prior date's mapping when nothing is saved yet today, so the operator only has
+	// to tweak the 1-2 frames that changed.
 	React.useEffect(() => {
 		const seed: Record<number, number | ""> = {};
 		rows.forEach((r) => {
-			seed[r.machine_id] = r.item_id ?? "";
+			seed[r.machine_id] = r.item_id ?? r.prev_item_id ?? "";
 		});
 		setEdits(seed);
 	}, [rows]);
+
+	// Baseline = what is actually persisted today (null/"" when unsaved). A cell is
+	// dirty when its current selection differs from the saved baseline — carried-
+	// forward prefills are therefore dirty until the operator clicks Save Map.
+	const savedMap = React.useMemo(() => {
+		const m: Record<number, number | ""> = {};
+		rows.forEach((r) => {
+			m[r.machine_id] = r.item_id ?? "";
+		});
+		return m;
+	}, [rows]);
+
+	const isDirty = React.useCallback(
+		(machineId: number) => (edits[machineId] ?? "") !== (savedMap[machineId] ?? ""),
+		[edits, savedMap]
+	);
+	const dirtyCount = rows.reduce((n, r) => (isDirty(r.machine_id) ? n + 1 : n), 0);
+
+	// Banner: surface the date the draft was prefilled from (first row carrying one).
+	const prevDate = rows.find((r) => r.prev_date)?.prev_date ?? null;
+	const hasCarryForward = rows.some((r) => r.item_id == null && r.prev_item_id != null);
 
 	const setYarn = (machineId: number, value: number | "") => {
 		setEdits((prev) => ({ ...prev, [machineId]: value }));
@@ -109,7 +133,7 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell }: Pro
 					onClick={handleSaveMap}
 					disabled={saving || loading || rows.length === 0}
 				>
-					{saving ? "Saving…" : "Save Map"}
+					{saving ? "Saving…" : dirtyCount > 0 ? `Save Map (${dirtyCount} unsaved)` : "Save Map"}
 				</Button>
 				<Button
 					variant="outlined"
@@ -120,9 +144,21 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell }: Pro
 				>
 					Mapped
 				</Button>
+				{lastUpdated ? (
+					<Typography variant="caption" color="text.secondary" sx={{ ml: "auto" }}>
+						Last updated: {new Date(lastUpdated.replace(" ", "T")).toLocaleString()}
+					</Typography>
+				) : null}
 			</Box>
 
 			{error ? <Alert severity="error">{error}</Alert> : null}
+
+			{!loading && rows.length > 0 && hasCarryForward ? (
+				<Alert severity="info">
+					Prefilled from {prevDate ?? "the last saved day"}
+					{dirtyCount > 0 ? ` — ${dirtyCount} unsaved change(s). Review and Save Map.` : "."}
+				</Alert>
+			) : null}
 
 			{loading ? (
 				<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
@@ -138,13 +174,18 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell }: Pro
 								<TableCell>Mc Code</TableCell>
 								<TableCell>Machine</TableCell>
 								<TableCell>Yarn</TableCell>
+								<TableCell>Status</TableCell>
 							</TableRow>
 						</TableHead>
 						<TableBody>
 							{rows.map((r) => {
 								const q = edits[r.machine_id] ?? "";
+								const dirty = isDirty(r.machine_id);
 								return (
-									<TableRow key={r.machine_id}>
+									<TableRow
+										key={r.machine_id}
+										sx={{ bgcolor: dirty ? "rgba(255, 193, 7, 0.12)" : undefined }}
+									>
 										<TableCell>{r.mech_code}</TableCell>
 										<TableCell>{r.machine_name}</TableCell>
 										<TableCell>
@@ -169,6 +210,22 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell }: Pro
 													</MenuItem>
 												))}
 											</TextField>
+										</TableCell>
+										<TableCell>
+											{dirty ? (
+												<Chip
+													size="small"
+													color="warning"
+													variant="outlined"
+													label={
+														r.item_id == null && r.prev_item_id != null
+															? `Unsaved · from ${r.prev_item_name ?? "prev"}`
+															: "Unsaved"
+													}
+												/>
+											) : r.item_id != null ? (
+												<Chip size="small" color="success" variant="outlined" label="Saved" />
+											) : null}
 										</TableCell>
 									</TableRow>
 								);

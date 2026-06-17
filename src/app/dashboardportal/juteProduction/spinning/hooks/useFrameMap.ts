@@ -12,6 +12,7 @@ export function useFrameMap(
 	spell: string | null
 ) {
 	const [rows, setRows] = React.useState<FrameMapRow[]>([]);
+	const [lastUpdated, setLastUpdated] = React.useState<string | null>(null);
 	const [loading, setLoading] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
 	const [version, setVersion] = React.useState(0);
@@ -26,21 +27,25 @@ export function useFrameMap(
 		let cancelled = false;
 		setLoading(true);
 		const url = `${apiRoutesPortalMasters.SPINNING_FRAME_MAP_GET}?co_id=${coId}&branch_id=${branchId}&tran_date=${tranDate}&spell=${spell}`;
-		void fetchWithCookie<{ data: FrameMapRow[] }>(url, "GET").then(({ data, error: err }) => {
-			if (cancelled) return;
-			if (err) {
-				setError(err);
-				setRows([]);
-			} else {
-				setError(null);
-				setRows(data?.data ?? []);
+		void fetchWithCookie<{ data: FrameMapRow[]; last_updated: string | null }>(url, "GET").then(
+			({ data, error: err }) => {
+				if (cancelled) return;
+				if (err) {
+					setError(err);
+					setRows([]);
+					setLastUpdated(null);
+				} else {
+					setError(null);
+					setRows(data?.data ?? []);
+					setLastUpdated(data?.last_updated ?? null);
+				}
+				setLoading(false);
 			}
-			setLoading(false);
-		});
+		);
 		return () => {
 			cancelled = true;
 		};
 	}, [coId, branchId, tranDate, spell, version]);
 
-	return { rows, loading, error, refresh };
+	return { rows, lastUpdated, loading, error, refresh };
 }

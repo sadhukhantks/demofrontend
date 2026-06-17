@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, Button, MenuItem, Snackbar, TextField } from "@mui/material";
+import { Alert, Autocomplete, Box, Button, MenuItem, Snackbar, TextField } from "@mui/material";
 import { Save as SaveIcon, X as CancelIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -37,7 +37,6 @@ export default function DoffEntryForm({
 
 	const [machineId, setMachineId] = React.useState<number | "">("");
 	const [trollyId, setTrollyId] = React.useState<number | "">("");
-	const [itemId, setItemId] = React.useState<number | "">("");
 	const [grossWeight, setGrossWeight] = React.useState<string>("");
 	const [saving, setSaving] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
@@ -61,7 +60,6 @@ export default function DoffEntryForm({
 		if (editingEntry) {
 			setMachineId(editingEntry.mc_id);
 			setTrollyId(editingEntry.trolly_id);
-			setItemId(editingEntry.item_id ?? "");
 			setGrossWeight(String(editingEntry.gross_weight));
 			setError(null);
 		}
@@ -91,7 +89,7 @@ export default function DoffEntryForm({
 
 	const resetToCreateDefaults = () => {
 		setGrossWeight("");
-		// Keep machine/trolly/yarn for rapid sequential doff entry.
+		// Keep machine/trolly for rapid sequential doff entry.
 	};
 
 	const handleSubmit = async () => {
@@ -106,7 +104,6 @@ export default function DoffEntryForm({
 			const body = {
 				gross_weight: Number(grossWeight),
 				trolly_id: Number(trollyId),
-				item_id: itemId === "" ? null : Number(itemId),
 			};
 			const url = `${apiRoutesPortalMasters.SPINNING_DOFF_EDIT}/${editingEntry.daily_doff_tbl_id}?co_id=${coId}`;
 			const { error: err } = await fetchWithCookie(url, "PUT", body);
@@ -129,7 +126,6 @@ export default function DoffEntryForm({
 			spell,
 			machine_id: Number(machineId),
 			trolly_id: Number(trollyId),
-			item_id: itemId === "" ? null : Number(itemId),
 			gross_weight: Number(grossWeight),
 		};
 		const { data, error: err } = await fetchWithCookie<{
@@ -150,7 +146,6 @@ export default function DoffEntryForm({
 		onCancelEdit();
 		setMachineId("");
 		setTrollyId("");
-		setItemId("");
 		setGrossWeight("");
 		setError(null);
 	};
@@ -168,21 +163,18 @@ export default function DoffEntryForm({
 					},
 				}}
 			>
-				<TextField
-					select
-					label="Machine"
-					value={machineId}
-					onChange={(e) => setMachineId(e.target.value === "" ? "" : Number(e.target.value))}
+				<Autocomplete
+					options={setup.machines}
+					getOptionLabel={(m) => `${m.mech_code} — ${m.machine_name}`}
+					value={setup.machines.find((m) => m.machine_id === machineId) ?? null}
+					onChange={(_, newVal) => setMachineId(newVal ? newVal.machine_id : "")}
 					size="small"
 					fullWidth
 					disabled={editing}
-				>
-					{setup.machines.map((m) => (
-						<MenuItem key={m.machine_id} value={m.machine_id}>
-							{m.mech_code} — {m.machine_name}
-						</MenuItem>
-					))}
-				</TextField>
+					clearOnEscape
+					isOptionEqualToValue={(opt, val) => opt.machine_id === val.machine_id}
+					renderInput={(params) => <TextField {...params} label="Machine" />}
+				/>
 				<TextField
 					select
 					label="Trolly"
@@ -194,23 +186,6 @@ export default function DoffEntryForm({
 					{setup.trollies.map((t) => (
 						<MenuItem key={t.trolly_id} value={t.trolly_id}>
 							{t.trolly_name}
-						</MenuItem>
-					))}
-				</TextField>
-				<TextField
-					select
-					label="Yarn"
-					value={itemId}
-					onChange={(e) => setItemId(e.target.value === "" ? "" : Number(e.target.value))}
-					size="small"
-					fullWidth
-				>
-					<MenuItem value="">
-						<em>None</em>
-					</MenuItem>
-					{setup.yarn_items.map((y) => (
-						<MenuItem key={y.item_id} value={y.item_id}>
-							{y.item_name} ({y.item_code})
 						</MenuItem>
 					))}
 				</TextField>

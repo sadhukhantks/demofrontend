@@ -67,8 +67,14 @@ export type FrameMapRow = {
 	machine_id: number;
 	mech_code: string | null;
 	machine_name: string | null;
+	// Today's SAVED mapping (null = nothing saved yet for this machine).
 	item_id: number | null;
 	item_code: string | null;
+	item_name: string | null;
+	// Prior date's mapping, surfaced as an unsaved-draft suggestion for prefill.
+	prev_item_id: number | null;
+	prev_item_name: string | null;
+	prev_date: string | null;
 };
 
 // --- Planning Grid (SPINNING_PLANNING_GRID) ---
