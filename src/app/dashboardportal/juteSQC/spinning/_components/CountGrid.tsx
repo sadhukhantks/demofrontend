@@ -49,15 +49,16 @@ function rangeTolerance(std: number): number {
 	return std < 16 ? 0.2 : 0.5;
 }
 
-// Each reading is a distinct observation; resolve whichever id field the backend sends.
-function rowKey(r: SqcCountReadingRow): number | string {
-	return (
-		r.jute_sqc_spinning_count_id ??
-		r.sqc_spinning_count_id ??
-		r.id ??
-		`${r.entry_date}-${r.item_id}-${r.mc_id ?? "x"}-${r.spell_id ?? "x"}-${r.observed_count}`
-	);
+// Server-side id of a reading (whichever id field the backend sends), or null if
+// this row hasn't been persisted with one. Used for delete — never as a grid key.
+function serverId(r: SqcCountReadingRow): number | null {
+	return r.jute_sqc_spinning_count_id ?? r.sqc_spinning_count_id ?? r.id ?? null;
 }
+
+// Grid row = reading + a guaranteed-unique key. Two identical observations (same
+// date/item/machine/spell/count) share every server-visible field, so the row's
+// list index is the only collision-free key for DataGrid.
+type GridRow = SqcCountReadingRow & { _gridId: string };
 
 export default function CountGrid({ coId, readings, averages, yarnItems, loading, onDeleted }: Props) {
 	const [snack, setSnack] = React.useState<string | null>(null);
@@ -104,7 +105,7 @@ export default function CountGrid({ coId, readings, averages, yarnItems, loading
 	);
 
 	const handleDelete = React.useCallback(
-		async (id: number | string) => {
+		async (id: number | null) => {
 			if (typeof id !== "number") {
 				setSnack("This reading cannot be deleted (no server id).");
 				return;
@@ -122,7 +123,7 @@ export default function CountGrid({ coId, readings, averages, yarnItems, loading
 		[coId, onDeleted]
 	);
 
-	const columns = React.useMemo<GridColDef<SqcCountReadingRow>[]>(
+	const columns = React.useMemo<GridColDef<GridRow>[]>(
 		() => [
 			{
 				field: "actions",
@@ -135,7 +136,7 @@ export default function CountGrid({ coId, readings, averages, yarnItems, loading
 						<IconButton
 							size="small"
 							color="error"
-							onClick={() => handleDelete(rowKey(params.row))}
+							onClick={() => handleDelete(serverId(params.row))}
 							sx={{ minWidth: 40, minHeight: 40 }}
 						>
 							<DeleteOutlineIcon size={16} />
@@ -210,6 +211,12 @@ export default function CountGrid({ coId, readings, averages, yarnItems, loading
 		[handleDelete]
 	);
 
+	// Index is the only collision-free key when two identical observations exist.
+	const gridRows = React.useMemo<GridRow[]>(
+		() => readings.map((r, i) => ({ ...r, _gridId: `${serverId(r) ?? "new"}-${i}` })),
+		[readings]
+	);
+
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
 			{/* Per-quality summary: avg observed/corrected count vs standard, with heavy/light + range check */}
@@ -278,8 +285,8 @@ export default function CountGrid({ coId, readings, averages, yarnItems, loading
 			<Box sx={{ width: "100%", overflowX: "auto" }}>
 				<DataGrid
 					autoHeight
-					rows={readings}
-					getRowId={rowKey}
+					rows={gridRows}
+					getRowId={(row) => row._gridId}
 					columns={columns}
 					loading={loading}
 					disableRowSelectionOnClick
