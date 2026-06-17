@@ -237,6 +237,7 @@ export default function SpinningSqcPage() {
 								coId={coId}
 								readings={countReadings}
 								averages={countAverages}
+								yarnItems={countSetup?.yarn_items ?? []}
 								loading={countLoading}
 								onDeleted={onCountSaved}
 							/>

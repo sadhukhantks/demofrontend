@@ -1,20 +1,53 @@
 "use client";
 
 import * as React from "react";
-import { Box, Chip, IconButton, Paper, Snackbar, Tooltip, Typography } from "@mui/material";
+import {
+	Box,
+	IconButton,
+	Paper,
+	Snackbar,
+	Table,
+	TableBody,
+	TableCell,
+	TableContainer,
+	TableHead,
+	TableRow,
+	Tooltip,
+	Typography,
+	alpha,
+} from "@mui/material";
 import { Trash2 as DeleteOutlineIcon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
-import type { SqcCountReadingRow, SqcCountAverageRow } from "../types/sqcSpinningTypes";
+import type { SqcCountReadingRow, SqcCountAverageRow, YarnItemOption } from "../types/sqcSpinningTypes";
 
 type Props = {
 	coId: string;
 	readings: SqcCountReadingRow[];
 	averages: SqcCountAverageRow[];
+	yarnItems: YarnItemOption[];
 	loading: boolean;
 	onDeleted: () => void;
 };
+
+// One computed summary line per yarn (joins averages with the standard count).
+type SummaryRow = {
+	item_id: number;
+	quality: string;
+	std: number | null;
+	obs: number | null;
+	corr: number | null;
+	hylt: number | null; // (corr - std) / std, as a percentage
+	heavyLight: "HEAVY" | "LIGHT" | "—";
+	tol: number | null; // ±0.2 if std count < 16, else ±0.5 (LB/count units)
+	outOfRange: boolean; // |corr - std| > tol → highlight red
+};
+
+// Range tolerance switches on the standard count: <16 → ±0.2, else ±0.5.
+function rangeTolerance(std: number): number {
+	return std < 16 ? 0.2 : 0.5;
+}
 
 // Each reading is a distinct observation; resolve whichever id field the backend sends.
 function rowKey(r: SqcCountReadingRow): number | string {
@@ -26,8 +59,49 @@ function rowKey(r: SqcCountReadingRow): number | string {
 	);
 }
 
-export default function CountGrid({ coId, readings, averages, loading, onDeleted }: Props) {
+export default function CountGrid({ coId, readings, averages, yarnItems, loading, onDeleted }: Props) {
 	const [snack, setSnack] = React.useState<string | null>(null);
+
+	// Standard count per yarn (averages don't carry it; it lives in the setup).
+	const stdMap = React.useMemo(() => {
+		const m = new Map<number, number | null>();
+		for (const y of yarnItems) m.set(y.item_id, y.std_count ?? null);
+		return m;
+	}, [yarnItems]);
+
+	const summaryRows = React.useMemo<SummaryRow[]>(
+		() =>
+			averages.map((a) => {
+				const std = stdMap.get(a.item_id) ?? null;
+				const obs = a.avg_count ?? null;
+				const corr = a.avg_corrected ?? null;
+
+				const canCompare = std != null && std !== 0 && corr != null;
+				const hylt = canCompare ? ((corr - std) / std) * 100 : null;
+				const tol = std != null ? rangeTolerance(std) : null;
+				const outOfRange = canCompare && tol != null ? Math.abs(corr - std) > tol : false;
+				const heavyLight: SummaryRow["heavyLight"] = canCompare
+					? corr > std
+						? "HEAVY"
+						: corr < std
+						? "LIGHT"
+						: "—"
+					: "—";
+
+				return {
+					item_id: a.item_id,
+					quality: a.item_name ?? a.item_code ?? `Yarn #${a.item_id}`,
+					std,
+					obs,
+					corr,
+					hylt,
+					heavyLight,
+					tol,
+					outOfRange,
+				};
+			}),
+		[averages, stdMap]
+	);
 
 	const handleDelete = React.useCallback(
 		async (id: number | string) => {
@@ -138,28 +212,65 @@ export default function CountGrid({ coId, readings, averages, loading, onDeleted
 
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-			{/* Per-quality average panel */}
+			{/* Per-quality summary: avg observed/corrected count vs standard, with heavy/light + range check */}
 			<Paper variant="outlined" sx={{ p: 2 }}>
 				<Typography variant="subtitle2" sx={{ mb: 1, color: "text.secondary" }}>
-					Average Count by Yarn (observed / corrected)
+					Average Count by Yarn
 				</Typography>
-				{averages.length === 0 ? (
+				{summaryRows.length === 0 ? (
 					<Typography variant="body2" color="text.secondary">
 						No readings yet for this date.
 					</Typography>
 				) : (
-					<Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-						{averages.map((a) => (
-							<Chip
-								key={a.item_id}
-								color="primary"
-								variant="outlined"
-								label={`${a.item_name ?? a.item_code ?? `Yarn #${a.item_id}`}: ${
-									a.avg_count != null ? Number(a.avg_count).toFixed(2) : "—"
-								} / ${a.avg_corrected != null ? Number(a.avg_corrected).toFixed(2) : "—"}`}
-							/>
-						))}
-					</Box>
+					<TableContainer>
+						<Table size="small">
+							<TableHead>
+								<TableRow>
+									<TableCell>QUALITY</TableCell>
+									<TableCell align="right">STD (LB)</TableCell>
+									<TableCell align="right">OBS (LBS)</TableCell>
+									<TableCell align="right">CORR (LBS)</TableCell>
+									<TableCell align="right">HY / LT</TableCell>
+									<TableCell align="center">HEAVY / LIGHT</TableCell>
+									<TableCell align="center">RANGE&nbsp;(±)</TableCell>
+								</TableRow>
+							</TableHead>
+							<TableBody>
+								{summaryRows.map((r) => (
+									<TableRow key={r.item_id}>
+										<TableCell>{r.quality}</TableCell>
+										<TableCell align="right">
+											{r.std != null ? r.std.toFixed(2) : "—"}
+										</TableCell>
+										<TableCell align="right">
+											{r.obs != null ? r.obs.toFixed(2) : "—"}
+										</TableCell>
+										<TableCell align="right">
+											{r.corr != null ? r.corr.toFixed(2) : "—"}
+										</TableCell>
+										<TableCell
+											align="right"
+											sx={
+												r.outOfRange
+													? {
+															color: "error.main",
+															fontWeight: 700,
+															bgcolor: (theme) => alpha(theme.palette.error.main, 0.12),
+													  }
+													: undefined
+											}
+										>
+											{r.hylt != null ? `${r.hylt.toFixed(2)}%` : "—"}
+										</TableCell>
+										<TableCell align="center">{r.heavyLight}</TableCell>
+										<TableCell align="center">
+											{r.tol != null ? `±${r.tol}` : "—"}
+										</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					</TableContainer>
 				)}
 			</Paper>
 

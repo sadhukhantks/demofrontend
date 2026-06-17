@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, Button, MenuItem, Snackbar, TextField } from "@mui/material";
+import { Alert, Autocomplete, Box, Button, MenuItem, Snackbar, TextField } from "@mui/material";
 import { Plus as AddIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -121,44 +121,37 @@ export default function CountForm({ coId, branchId, entryDate, setup, onSaved }:
 						</MenuItem>
 					))}
 				</TextField>
-				<TextField
-					select
-					label="Machine (MC No.)"
-					value={machineId}
-					onChange={(e) => setMachineId(e.target.value === "" ? "" : Number(e.target.value))}
+				<Autocomplete
+					options={setup.machines}
+					getOptionLabel={(m) => `${m.machine_name} (${m.mech_code})`}
+					value={setup.machines.find((m) => m.machine_id === machineId) ?? null}
+					onChange={(_, newVal) => setMachineId(newVal ? newVal.machine_id : "")}
 					size="small"
-					fullWidth
-				>
-					<MenuItem value="">
-						<em>None</em>
-					</MenuItem>
-					{setup.machines.map((m) => (
-						<MenuItem key={m.machine_id} value={m.machine_id}>
-							{m.machine_name} ({m.mech_code})
-						</MenuItem>
-					))}
-				</TextField>
-				<TextField
-					select
-					label="Yarn"
-					value={yarnItemId}
-					onChange={(e) => setYarnItemId(e.target.value === "" ? "" : Number(e.target.value))}
+					clearOnEscape
+					renderInput={(params) => <TextField {...params} label="Machine (MC No.)" />}
+					isOptionEqualToValue={(opt, val) => opt.machine_id === val.machine_id}
+				/>
+				<Autocomplete
+					options={setup.yarn_items}
+					getOptionLabel={(y) => `${y.item_name} (${y.item_code})`}
+					value={setup.yarn_items.find((y) => y.item_id === yarnItemId) ?? null}
+					onChange={(_, newVal) => setYarnItemId(newVal ? newVal.item_id : "")}
 					size="small"
-					fullWidth
-					helperText={
-						yarnItemId !== ""
-							? stdMrPct != null
-								? `Std MR%: ${Number(stdMrPct).toFixed(2)}`
-								: "No Std MR% set for this yarn"
-							: " "
-					}
-				>
-					{setup.yarn_items.map((y) => (
-						<MenuItem key={y.item_id} value={y.item_id}>
-							{y.item_name} ({y.item_code})
-						</MenuItem>
-					))}
-				</TextField>
+					renderInput={(params) => (
+						<TextField
+							{...params}
+							label="Yarn"
+							helperText={
+								yarnItemId !== ""
+									? stdMrPct != null
+										? `Std MR%: ${Number(stdMrPct).toFixed(2)}`
+										: "No Std MR% set for this yarn"
+									: " "
+							}
+						/>
+					)}
+					isOptionEqualToValue={(opt, val) => opt.item_id === val.item_id}
+				/>
 				<TextField
 					type="number"
 					label="DP"
