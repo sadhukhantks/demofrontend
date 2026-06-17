@@ -13,7 +13,7 @@ import {
   FormControlLabel,
   Typography,
 } from "@mui/material";
-import EditIcon from "@mui/icons-material/Edit";
+import { PencilIcon } from "lucide-react";
 import { SearchablePaginatedTable } from "@/components/ui/searchablePaginatedTable";
 import { Column } from "@/components/ui/datatablewithedit";
 import { fetchWithCookie } from "@/utils/apiClient2";
@@ -81,7 +81,7 @@ export default function PortalRoleTablePage() {
           variant="outlined"
           color="primary"
           size="small"
-          startIcon={<EditIcon />}
+          startIcon={<PencilIcon size={16} />}
           onClick={() => handleEditClick(row)}
         >
           Edit
