@@ -223,14 +223,19 @@ export default function SalaryStructureStep({
       if (!r) return val;
       const digits = Math.max(0, Math.min(10, r.digits | 0));
       const factor = Math.pow(10, digits);
+      // Kill floating-point noise before ceil/floor so e.g. 563.0000001 doesn't jump to 564.
+      const scaled = Math.round(val * factor * 1e6) / 1e6;
+      // ROUNDOF_TYPE matches the pay_components dropdown (ROUNDOF_TYPE_OPTIONS):
+      // 1 = Round Up, 2 = Round Down, 3 = Round Nearest, 0/None = no rounding
       switch (r.type) {
-        case 2:
-          return Math.trunc(val * factor) / factor;
-        case 3:
-          return (val >= 0 ? Math.ceil(val * factor) : Math.floor(val * factor)) / factor;
         case 1:
+          return Math.ceil(scaled) / factor;
+        case 2:
+          return Math.floor(scaled) / factor;
+        case 3:
+          return Math.round(scaled) / factor;
         default:
-          return Math.round(val * factor) / factor;
+          return val;
       }
     };
 

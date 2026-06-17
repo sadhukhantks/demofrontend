@@ -1253,7 +1253,10 @@ function InvoiceTransactionPageContent() {
 	const previewItems = React.useMemo(() => {
 		const isGovtSkg = isGovtSkgInvoice(String(formValues.invoice_type ?? ""));
 		return filledLineItems.map((line, index) => {
-			const uomLabel = getUomLabel(line.itemGroup, line.item, line.uom);
+			// Prefer the backend-resolved unit name; getUomLabel falls back to the raw
+			// uom id when the item-group UOM cache isn't loaded (e.g. view mode).
+			const cachedUomLabel = getUomLabel(line.itemGroup, line.item, line.uom);
+			const uomLabel = line.uomName || (cachedUomLabel !== line.uom ? cachedUomLabel : "");
 			const discountType = (() => {
 				if (line.discountType === 1) return "%";
 				if (line.discountType === 2) return "Amt";

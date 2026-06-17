@@ -496,7 +496,7 @@ export const downloadPayRollTemplate = async (
 // ─── Leave Request (transaction) ───────────────────────────────────
 
 export const fetchLeaveRequestList = async (
-  coId: string,
+  branchId: string | number,
   params?: {
     page?: number;
     page_size?: number;
@@ -506,7 +506,7 @@ export const fetchLeaveRequestList = async (
     status_id?: number | string;
   },
 ) => {
-  const qs = new URLSearchParams({ co_id: coId });
+  const qs = new URLSearchParams({ branch_id: String(branchId) });
   if (params?.page) qs.set("page", String(params.page));
   if (params?.page_size) qs.set("page_size", String(params.page_size));
   if (params?.search) qs.set("search", params.search);
@@ -526,11 +526,12 @@ export const fetchLeaveRequestById = async (id: number | string) =>
   );
 
 export const createLeaveRequest = async (payload: {
-  co_id: string | number;
+  branch_id: string | number;
   eb_id: number;
   leave_type_id: number;
   leave_from_date: string;
   leave_to_date: string;
+  non_working_days: number;
   leave_purpose: string;
 }) =>
   fetchWithCookie(apiRoutesPortalMasters.LEAVE_REQUEST_CREATE, "POST", payload);
@@ -538,11 +539,12 @@ export const createLeaveRequest = async (payload: {
 export const updateLeaveRequest = async (
   id: number | string,
   payload: {
-    co_id: string | number;
+    branch_id: string | number;
     eb_id: number;
     leave_type_id: number;
     leave_from_date: string;
     leave_to_date: string;
+    non_working_days: number;
     leave_purpose: string;
   },
 ) =>
@@ -554,7 +556,7 @@ export const updateLeaveRequest = async (
 
 export const approveLeaveRequest = async (
   id: number | string,
-  payload: { co_id: string | number; remarks?: string },
+  payload: { branch_id?: string | number; remarks?: string },
 ) =>
   fetchWithCookie(
     `${apiRoutesPortalMasters.LEAVE_REQUEST_APPROVE}/${id}`,
@@ -564,7 +566,7 @@ export const approveLeaveRequest = async (
 
 export const rejectLeaveRequest = async (
   id: number | string,
-  payload: { co_id: string | number; remarks?: string },
+  payload: { branch_id?: string | number; remarks?: string },
 ) =>
   fetchWithCookie(
     `${apiRoutesPortalMasters.LEAVE_REQUEST_REJECT}/${id}`,
@@ -572,15 +574,21 @@ export const rejectLeaveRequest = async (
     payload,
   );
 
-export const fetchLeaveLedgerByEb = async (coId: string, ebNo: string) =>
+export const fetchLeaveLedgerByEb = async (
+  branchId: string | number,
+  ebNo: string,
+) =>
   fetchWithCookie(
-    `${apiRoutesPortalMasters.LEAVE_LEDGER_BY_EB}/${ebNo}?co_id=${coId}`,
+    `${apiRoutesPortalMasters.LEAVE_LEDGER_BY_EB}/${ebNo}?branch_id=${branchId}`,
     "GET",
   );
 
-export const fetchWorkerByEbNo = async (coId: string, ebNo: string) =>
+export const fetchWorkerByEbNo = async (
+  branchId: string | number,
+  ebNo: string,
+) =>
   fetchWithCookie(
-    `${apiRoutesPortalMasters.WORKER_BY_EB_NO}/${ebNo}?co_id=${coId}`,
+    `${apiRoutesPortalMasters.WORKER_BY_EB_NO}/${ebNo}?branch_id=${branchId}`,
     "GET",
   );
 
@@ -591,3 +599,139 @@ export const fetchLeaveTypeOptions = async (coId: string) => {
     "GET",
   );
 };
+
+// ─── Daily Attendance (transaction) ────────────────────────────────
+
+export interface AttendancePayload {
+  branch_id: string | number;
+  eb_id: number;
+  attendance_date: string;
+  attendance_mark: string;
+  attendance_source: string;
+  attendance_type: string;
+  spell: string;
+  spell_hours: number;
+  worked_department_id: number;
+  worked_designation_id: number;
+  working_hours: number;
+  idle_hours: number;
+  remarks: string;
+  entry_time: string;
+  exit_time: string;
+  machine_ids: number[];
+}
+
+export const fetchAttendanceList = async (
+  branchId: string | number,
+  params?: {
+    page?: number;
+    page_size?: number;
+    search?: string;
+    from_date?: string;
+    to_date?: string;
+    eb_no?: string;
+    attendance_type?: string;
+    status_id?: number | string;
+  },
+) => {
+  const qs = new URLSearchParams({ branch_id: String(branchId) });
+  if (params?.page) qs.set("page", String(params.page));
+  if (params?.page_size) qs.set("page_size", String(params.page_size));
+  if (params?.search) qs.set("search", params.search);
+  if (params?.from_date) qs.set("from_date", params.from_date);
+  if (params?.to_date) qs.set("to_date", params.to_date);
+  if (params?.eb_no) qs.set("eb_no", params.eb_no);
+  if (params?.attendance_type) qs.set("attendance_type", params.attendance_type);
+  if (params?.status_id) qs.set("status_id", String(params.status_id));
+  return fetchWithCookie(
+    `${apiRoutesPortalMasters.ATTENDANCE_LIST}?${qs.toString()}`,
+    "GET",
+  );
+};
+
+export const fetchAttendanceById = async (id: number | string) =>
+  fetchWithCookie(`${apiRoutesPortalMasters.ATTENDANCE_BY_ID}/${id}`, "GET");
+
+export const createAttendance = async (payload: AttendancePayload) =>
+  fetchWithCookie(apiRoutesPortalMasters.ATTENDANCE_CREATE, "POST", payload);
+
+export const updateAttendance = async (
+  id: number | string,
+  payload: AttendancePayload,
+) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.ATTENDANCE_EDIT}/${id}`,
+    "PUT",
+    payload,
+  );
+
+export const approveAttendance = async (id: number | string) =>
+  fetchWithCookie(`${apiRoutesPortalMasters.ATTENDANCE_APPROVE}/${id}`, "PUT", {});
+
+export const rejectAttendance = async (id: number | string) =>
+  fetchWithCookie(`${apiRoutesPortalMasters.ATTENDANCE_REJECT}/${id}`, "PUT", {});
+
+export const fetchAttendanceCreateSetup = async (
+  branchId: string | number,
+) => {
+  const qs = new URLSearchParams({ branch_id: String(branchId) });
+  return fetchWithCookie(
+    `${apiRoutesPortalMasters.ATTENDANCE_CREATE_SETUP}?${qs.toString()}`,
+    "GET",
+  );
+};
+
+export const fetchMachinesByDesignation = async (
+  branchId: string | number,
+  designationId?: number | string,
+) => {
+  const qs = new URLSearchParams({ branch_id: String(branchId) });
+  if (designationId) qs.set("designation_id", String(designationId));
+  return fetchWithCookie(
+    `${apiRoutesPortalMasters.ATTENDANCE_MACHINES}?${qs.toString()}`,
+    "GET",
+  );
+};
+
+// ─── Attendance Checklist (flat register report) ───────────────────
+
+export interface AttendanceRegisterParams {
+  from_date: string;
+  to_date: string;
+  branch_id?: string | number;
+  /** Backend query param — maps from the form field `dept_id`. */
+  department_id?: string | number;
+  designation_id?: string | number;
+  shift_name?: string;
+  att_type?: string;
+  emp_code?: string;
+  emp_name?: string;
+}
+
+/**
+ * Builds the query string for GET /attendance-report.
+ * Empty/undefined optional params are omitted. Exported for unit tests.
+ */
+export const buildAttendanceRegisterQuery = (
+  params: AttendanceRegisterParams,
+): string => {
+  const qs = new URLSearchParams({
+    from_date: params.from_date,
+    to_date: params.to_date,
+  });
+  if (params.branch_id) qs.set("branch_id", String(params.branch_id));
+  if (params.department_id) qs.set("department_id", String(params.department_id));
+  if (params.designation_id) qs.set("designation_id", String(params.designation_id));
+  if (params.shift_name) qs.set("shift_name", params.shift_name);
+  if (params.att_type) qs.set("att_type", params.att_type);
+  if (params.emp_code) qs.set("emp_code", params.emp_code);
+  if (params.emp_name) qs.set("emp_name", params.emp_name);
+  return qs.toString();
+};
+
+/** Flat attendance register rows for the Attendance Checklist page. */
+export const fetchAttendanceRegister = async (params: AttendanceRegisterParams) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.ATTENDANCE_REGISTER_REPORT}?${buildAttendanceRegisterQuery(params)}`,
+    "GET",
+  );
