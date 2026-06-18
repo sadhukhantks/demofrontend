@@ -25,6 +25,8 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 // trolly_type: 'T' = Trolly, 'S' = Spool. Backend column on trolly_mst.
 type TrollyType = "T" | "S";
 
+type MachineType = { machine_type_id: number; machine_type_name: string };
+
 const TROLLY_TYPE_OPTIONS: { value: TrollyType; label: string }[] = [
 	{ value: "T", label: "Trolly" },
 	{ value: "S", label: "Spool" },
@@ -44,8 +46,8 @@ type TrollyRow = {
 	bucket_weight: number | null;
 	trolly_posting_code: string | null;
 	branch_id: number | null;
-	// May be absent until the backend list endpoint selects this column.
 	trolly_type?: string | null;
+	machine_type_id: number | null;
 };
 
 export default function TrollyMasterPage() {
@@ -78,10 +80,14 @@ export default function TrollyMasterPage() {
 		trolly_posting_code: "",
 		branch_id: "",
 		trolly_type: "T" as TrollyType,
+		machine_type_id: "",
 	});
+
+	const [machineTypes, setMachineTypes] = React.useState<MachineType[]>([]);
 
 	// Grid filter: show all types, or only Trolly / only Spool.
 	const [typeFilter, setTypeFilter] = React.useState<"ALL" | TrollyType>("ALL");
+	const [machineTypeFilter, setMachineTypeFilter] = React.useState<"ALL" | number>("ALL");
 
 	const refresh = React.useCallback(async () => {
 		if (!coId) return;
@@ -99,6 +105,16 @@ export default function TrollyMasterPage() {
 		void refresh();
 	}, [refresh]);
 
+	React.useEffect(() => {
+		void (async () => {
+			const { data } = await fetchWithCookie<{ data: MachineType[] }>(
+				apiRoutesPortalMasters.TROLLY_MACHINE_TYPES,
+				"GET"
+			);
+			setMachineTypes(data?.data ?? []);
+		})();
+	}, []);
+
 	const handleSave = async () => {
 		if (!coId) return;
 		setError(null);
@@ -109,9 +125,8 @@ export default function TrollyMasterPage() {
 			busket_weight: Number(form.busket_weight),
 			trolly_posting_code: form.trolly_posting_code || null,
 			branch_id: form.branch_id !== "" ? Number(form.branch_id) : null,
-			// Sent on both create & edit. NOTE: backend trolly_create/trolly_edit
-			// do not yet persist this (see report) — safe to send regardless.
 			trolly_type: form.trolly_type,
+			machine_type_id: form.machine_type_id !== "" ? Number(form.machine_type_id) : null,
 		};
 		if (editing) {
 			const url = `${apiRoutesPortalMasters.TROLLY_EDIT}/${editing.trolly_id}?co_id=${coId}`;
@@ -159,6 +174,7 @@ export default function TrollyMasterPage() {
 			trolly_posting_code: "",
 			branch_id: singleBranchId != null ? String(singleBranchId) : "",
 			trolly_type: "T",
+			machine_type_id: "",
 		});
 		setOpen(true);
 	};
@@ -171,6 +187,7 @@ export default function TrollyMasterPage() {
 			trolly_posting_code: r.trolly_posting_code ?? "",
 			branch_id: r.branch_id != null ? String(r.branch_id) : "",
 			trolly_type: r.trolly_type === "S" ? "S" : "T",
+			machine_type_id: r.machine_type_id != null ? String(r.machine_type_id) : "",
 		});
 		setOpen(true);
 	};
@@ -204,6 +221,16 @@ export default function TrollyMasterPage() {
 			valueGetter: (value) => trollyTypeLabel(value as string | null | undefined),
 		},
 		{
+			field: "machine_type_id",
+			headerName: "Machine Type",
+			width: 150,
+			valueGetter: (value) => {
+				if (value == null) return "—";
+				const mt = machineTypes.find((m) => m.machine_type_id === value);
+				return mt ? mt.machine_type_name : value;
+			},
+		},
+		{
 			field: "trolly_weight",
 			headerName: "Trolly Wt (kg)",
 			width: 140,
@@ -232,9 +259,12 @@ export default function TrollyMasterPage() {
 
 	// Treat missing/unknown trolly_type as 'T' (backend default) for filtering.
 	const filteredRows = React.useMemo(() => {
-		if (typeFilter === "ALL") return rows;
-		return rows.filter((r) => (r.trolly_type === "S" ? "S" : "T") === typeFilter);
-	}, [rows, typeFilter]);
+		return rows.filter((r) => {
+			const typeOk = typeFilter === "ALL" || (r.trolly_type === "S" ? "S" : "T") === typeFilter;
+			const mtOk = machineTypeFilter === "ALL" || r.machine_type_id === machineTypeFilter;
+			return typeOk && mtOk;
+		});
+	}, [rows, typeFilter, machineTypeFilter]);
 
 	if (!mounted) return null;
 
@@ -270,6 +300,23 @@ export default function TrollyMasterPage() {
 						{TROLLY_TYPE_OPTIONS.map((o) => (
 							<MenuItem key={o.value} value={o.value}>
 								{o.label}
+							</MenuItem>
+						))}
+					</TextField>
+					<TextField
+						select
+						label="Machine Type"
+						value={String(machineTypeFilter)}
+						onChange={(e) =>
+							setMachineTypeFilter(e.target.value === "ALL" ? "ALL" : Number(e.target.value))
+						}
+						size="small"
+						sx={{ minWidth: 150 }}
+					>
+						<MenuItem value="ALL">All</MenuItem>
+						{machineTypes.map((mt) => (
+							<MenuItem key={mt.machine_type_id} value={String(mt.machine_type_id)}>
+								{mt.machine_type_name}
 							</MenuItem>
 						))}
 					</TextField>
@@ -325,6 +372,21 @@ export default function TrollyMasterPage() {
 							))}
 						</TextField>
 						<TextField
+							select
+							label="Machine Type"
+							value={form.machine_type_id}
+							onChange={(e) => setForm({ ...form, machine_type_id: e.target.value })}
+							size="small"
+							required
+							helperText={machineTypes.length === 0 ? "Loading machine types…" : "Required"}
+						>
+							{machineTypes.map((mt) => (
+								<MenuItem key={mt.machine_type_id} value={String(mt.machine_type_id)}>
+									{mt.machine_type_name}
+								</MenuItem>
+							))}
+						</TextField>
+						<TextField
 							type="number"
 							label="Trolly Weight (kg)"
 							inputProps={{ step: 0.001, min: 0 }}
@@ -374,7 +436,12 @@ export default function TrollyMasterPage() {
 					<Button
 						variant="contained"
 						onClick={handleSave}
-						disabled={!form.trolly_name || form.trolly_weight === "" || form.busket_weight === ""}
+						disabled={
+								!form.trolly_name ||
+								form.trolly_weight === "" ||
+								form.busket_weight === "" ||
+								form.machine_type_id === ""
+							}
 					>
 						Save
 					</Button>

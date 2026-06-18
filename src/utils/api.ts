@@ -827,6 +827,7 @@ const apiRoutesPortalMasters = {
     TROLLY_CREATE: `${API_URL}/spinningMasters/trolly_create`,
     TROLLY_EDIT: `${API_URL}/spinningMasters/trolly_edit`,
     TROLLY_DELETE: `${API_URL}/spinningMasters/trolly_delete`,
+    TROLLY_MACHINE_TYPES: `${API_URL}/spinningMasters/trolly_machine_types`,
 };
 
 export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters };
