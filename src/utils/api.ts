@@ -805,6 +805,8 @@ const apiRoutesPortalMasters = {
     SPNG_TARGET_MAP_CREATE: `${API_URL}/spngTargetMap/target_map_create`,
     SPNG_TARGET_MAP_EDIT: `${API_URL}/spngTargetMap/target_map_edit`,
     SPNG_TARGET_MAP_DELETE: `${API_URL}/spngTargetMap/target_map_delete`,
+    SPNG_TARGET_MAP_GRID: `${API_URL}/spngTargetMap/target_map_grid`,
+    SPNG_TARGET_MAP_BULK_SAVE: `${API_URL}/spngTargetMap/target_map_bulk_save`,
     // Spinning SQC (router prefix /api/juteSQC) — SPINNING_SQC_COUNT_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_ENTRY_SETUP: `${API_URL}/juteSQC/sqc_entry_setup`,
     SPINNING_SQC_ENTRY_SAVE: `${API_URL}/juteSQC/sqc_entry_save`,
@@ -813,6 +815,11 @@ const apiRoutesPortalMasters = {
     SPINNING_SQC_COUNT_SAVE: `${API_URL}/juteSQC/sqc_count_save`,
     SPINNING_SQC_COUNT_BY_DATE: `${API_URL}/juteSQC/sqc_count_by_date`,
     SPINNING_SQC_COUNT_DELETE: `${API_URL}/juteSQC/sqc_count_delete`,
+    // R-08-15 Yarn QR & CV % (router prefix /api/juteSQC) — SPINNING_SQC_QR_CV_DELETE is a base path; caller appends /${id}
+    SPINNING_SQC_QR_CV_SETUP: `${API_URL}/juteSQC/sqc_qr_cv_setup`,
+    SPINNING_SQC_QR_CV_SAVE: `${API_URL}/juteSQC/sqc_qr_cv_save`,
+    SPINNING_SQC_QR_CV_BY_DATE: `${API_URL}/juteSQC/sqc_qr_cv_by_date`,
+    SPINNING_SQC_QR_CV_DELETE: `${API_URL}/juteSQC/sqc_qr_cv_delete`,
     // RHMR (Temperature / Humidity per date + spell) — SPINNING_SQC_RHMR_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_RHMR_SETUP: `${API_URL}/juteSQC/sqc_rhmr_setup`,
     SPINNING_SQC_RHMR_SEARCH: `${API_URL}/juteSQC/sqc_rhmr_search`,

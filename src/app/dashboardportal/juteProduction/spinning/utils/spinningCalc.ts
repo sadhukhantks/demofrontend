@@ -72,6 +72,22 @@ export function correctedCount(observed: number, mrPct: number, stdMrPct: number
 	return round2((Number(observed) / denom) * (100 + Number(stdMrPct)));
 }
 
+// Sample standard deviation (n-1 divisor) for the Spinning SQC QR/CV live
+// preview. The server recomputes via Python `statistics` and is authoritative;
+// this only mirrors the math for live display. Non-numeric/NaN values are
+// ignored. Returns null when fewer than 2 numeric values remain (sample stdev
+// is undefined for n < 2) — callers show "—" for an empty/insufficient set.
+export function sampleStdDev(nums: number[]): number | null {
+	const vals = (nums || [])
+		.map((n) => Number(n))
+		.filter((n) => Number.isFinite(n));
+	const n = vals.length;
+	if (n < 2) return null;
+	const mean = vals.reduce((acc, v) => acc + v, 0) / n;
+	const variance = vals.reduce((acc, v) => acc + (v - mean) * (v - mean), 0) / (n - 1);
+	return Math.sqrt(variance);
+}
+
 export function todayISO(): string {
 	const d = new Date();
 	const m = String(d.getMonth() + 1).padStart(2, "0");

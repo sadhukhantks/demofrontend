@@ -161,3 +161,53 @@ export type SqcRhmrSaveResult = {
 		humidity: number | null;
 	};
 };
+
+// ─── R-08-15 Yarn QR & CV % (Tab 4) ─────────────────────────────────────────
+
+// Per-yarn R-08-16 averages displayed as read-only context (read from saved R-08-16 values).
+export type SqcYarnObs = {
+	item_id: number;
+	item_code?: string | null;
+	item_name?: string | null;
+	observed_count: number;   // AVG of R-08-16 observed_count
+	mr_pct: number | null;    // AVG of R-08-16 mr_pct
+	obs_count: number;        // # R-08-16 readings averaged
+};
+
+export type SqcQrCvSetup = {
+	machines: SqcMachine[];
+	yarn_items: YarnItemOption[];
+	yarn_obs: SqcYarnObs[];
+	groups: SqcQrCvGroup[];
+};
+
+export type SqcQrCvReading = { spindle_no: number; reading_no: number; reading_val: number | null };
+
+export type SqcQrCvStats = {
+	max: number | null; min: number | null; std_dev: number | null;
+	avg_bs: number | null; qr_pct: number | null; cv_pct: number | null; n: number;
+};
+
+export type SqcQrCvGroup = {
+	spinning_sqc_qr_cv_id?: number;
+	entry_date: string;
+	mc_id?: number | null;
+	mech_code?: string | null;
+	machine_name?: string | null;
+	item_id: number;
+	item_code?: string | null;
+	item_name?: string | null;
+	observed_count?: number | null;  // AVG of saved R-08-16 values (not stored in QR/CV)
+	mr_pct?: number | null;          // AVG of saved R-08-16 values (not stored in QR/CV)
+	readings: SqcQrCvReading[];
+	stats?: SqcQrCvStats | null;
+};
+
+// POST sqc_qr_cv_save payload (no observed_count/mr_pct — server reads them from saved R-08-16)
+export type SqcQrCvSpindlePayload = { spindle_no: number; readings: (number | null)[] };
+export type SqcQrCvSavePayloadRow = {
+	mc_id?: number | null;
+	item_id: number;
+	spindles: SqcQrCvSpindlePayload[];
+};
+export type SqcQrCvByDateResponse = { groups: SqcQrCvGroup[] };

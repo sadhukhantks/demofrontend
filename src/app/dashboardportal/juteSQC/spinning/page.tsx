@@ -11,14 +11,18 @@ import { useSqcCountSetup } from "./hooks/useSqcCountSetup";
 import { useSqcCountByDate } from "./hooks/useSqcCountByDate";
 import { useSqcRhmrSetup } from "./hooks/useSqcRhmrSetup";
 import { useSqcRhmrSearch } from "./hooks/useSqcRhmrSearch";
+import { useSqcQrCvSetup } from "./hooks/useSqcQrCvSetup";
+import { useSqcQrCvByDate } from "./hooks/useSqcQrCvByDate";
 import SpeedTpiForm from "./_components/SpeedTpiForm";
 import SpeedTpiGrid from "./_components/SpeedTpiGrid";
 import CountForm from "./_components/CountForm";
 import CountGrid from "./_components/CountGrid";
 import RhmrForm from "./_components/RhmrForm";
 import RhmrGrid from "./_components/RhmrGrid";
+import YarnQrCvForm from "./_components/YarnQrCvForm";
+import YarnQrCvGrid from "./_components/YarnQrCvGrid";
 
-const TABS = ["R-08-16 Yarn Parameter", "Speed / TPI Entry", "RHMR"] as const;
+const TABS = ["R-08-16 Yarn Parameter", "Speed / TPI Entry", "RHMR", "R-08-15 Yarn QR & CV %"] as const;
 
 export default function SpinningSqcPage() {
 	// HYDRATION RULE: this component reads sidebar context and seeds a date,
@@ -104,6 +108,23 @@ export default function SpinningSqcPage() {
 	const onRhmrSaved = React.useCallback(() => {
 		refreshRhmr();
 	}, [refreshRhmr]);
+
+	// Tab 4 — R-08-15 Yarn QR% & CV%
+	const [qrCvDate, setQrCvDate] = React.useState<string>(todayISO());
+	const {
+		setup: qrCvSetup,
+		loading: qrCvSetupLoading,
+		error: qrCvSetupError,
+	} = useSqcQrCvSetup(coId, qrCvDate, branchId);
+	const {
+		groups: qrCvGroups,
+		loading: qrCvLoading,
+		refresh: refreshQrCv,
+	} = useSqcQrCvByDate(coId, qrCvDate, branchId);
+
+	const onQrCvSaved = React.useCallback(() => {
+		refreshQrCv();
+	}, [refreshQrCv]);
 
 	if (!mounted) return null;
 
@@ -291,6 +312,42 @@ export default function SpinningSqcPage() {
 								</Box>
 								<RhmrGrid coId={coId} rows={rhmrRows} loading={rhmrRowsLoading} onDeleted={onRhmrSaved} />
 							</Box>
+						</Box>
+					) : null}
+
+					{/* Tab 4 — R-08-15 Yarn QR% & CV% */}
+					{tab === 3 ? (
+						<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+							<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+								<Typography variant="subtitle2">Observation date</Typography>
+								<TextField
+									type="date"
+									size="small"
+									value={qrCvDate}
+									onChange={(e) => setQrCvDate(e.target.value)}
+									InputLabelProps={{ shrink: true }}
+								/>
+							</Box>
+							{qrCvSetupError ? <Alert severity="error">{qrCvSetupError}</Alert> : null}
+							{qrCvSetupLoading || !qrCvSetup ? (
+								<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+									<CircularProgress />
+								</Box>
+							) : (
+								<YarnQrCvForm
+									coId={coId}
+									branchId={branchId}
+									entryDate={qrCvDate}
+									setup={qrCvSetup}
+									onSaved={onQrCvSaved}
+								/>
+							)}
+							<YarnQrCvGrid
+								coId={coId}
+								groups={qrCvGroups}
+								loading={qrCvLoading}
+								onDeleted={onQrCvSaved}
+							/>
 						</Box>
 					) : null}
 				</>
