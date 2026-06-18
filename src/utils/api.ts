@@ -808,9 +808,6 @@ const apiRoutesPortalMasters = {
     SPNG_TARGET_MAP_GRID: `${API_URL}/spngTargetMap/target_map_grid`,
     SPNG_TARGET_MAP_BULK_SAVE: `${API_URL}/spngTargetMap/target_map_bulk_save`,
     // Spinning SQC (router prefix /api/juteSQC) — SPINNING_SQC_COUNT_DELETE is a base path; caller appends /${id}
-    SPINNING_SQC_ENTRY_SETUP: `${API_URL}/juteSQC/sqc_entry_setup`,
-    SPINNING_SQC_ENTRY_SAVE: `${API_URL}/juteSQC/sqc_entry_save`,
-    SPINNING_SQC_ENTRY_BY_DATE: `${API_URL}/juteSQC/sqc_entry_by_date`,
     SPINNING_SQC_COUNT_SETUP: `${API_URL}/juteSQC/sqc_count_setup`,
     SPINNING_SQC_COUNT_SAVE: `${API_URL}/juteSQC/sqc_count_save`,
     SPINNING_SQC_COUNT_BY_DATE: `${API_URL}/juteSQC/sqc_count_by_date`,

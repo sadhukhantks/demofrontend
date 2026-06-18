@@ -26,39 +26,6 @@ export type SqcSpell = {
 	spell_name: string;
 };
 
-// ─── Speed / TPI Entry (Tab 1) ──────────────────────────────────────────────
-
-export type SqcEntryRow = {
-	// Identity / display fields returned by SPINNING_SQC_ENTRY_BY_DATE.
-	// The backend may key rows differently; we tolerate optional id fields and
-	// fall back to a composite key in the grid.
-	jute_sqc_spinning_entry_id?: number;
-	entry_date: string;
-	mc_id: number;
-	machine_id?: number;
-	machine_name?: string;
-	mech_code?: string;
-	item_id: number;
-	item_code?: string;
-	item_name?: string;
-	actual_speed: number | null;
-	actual_tpi: number | null;
-};
-
-export type SqcEntrySetup = {
-	machines: SqcMachine[];
-	yarn_items: YarnItemOption[];
-	entries: SqcEntryRow[];
-};
-
-// One row in the SPINNING_SQC_ENTRY_SAVE payload.
-export type SqcEntrySavePayloadRow = {
-	mc_id: number;
-	item_id: number;
-	actual_speed?: number | null;
-	actual_tpi?: number | null;
-};
-
 // ─── Count Observations (Tab 2) ─────────────────────────────────────────────
 
 export type SqcCountSetup = {

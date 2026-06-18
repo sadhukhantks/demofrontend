@@ -1,41 +1,22 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, MenuItem, Snackbar, TextField, Typography } from "@mui/material";
+import { Alert, Box, MenuItem, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
-import { fetchWithCookie } from "@/utils/apiClient2";
-import { apiRoutesPortalMasters } from "@/utils/api";
 import { todayISO } from "../../spinning/utils/spinningCalc";
-import TargetGrid, {
-	type DirtyCell,
-	type IdType,
-	type TargetGridData,
-	type ValueRole,
-} from "./_components/TargetGrid";
+import type { IdType, ValueRole } from "./_components/TargetGrid";
+import TargetMapEditor, {
+	ID_TYPE_LABELS,
+	VALUE_ROLE_LABELS,
+} from "./_components/TargetMapEditor";
 
-// --- Labels ---------------------------------------------------------------
-
-const ID_TYPE_LABELS: Record<IdType, string> = { mcid: "Machine", qid: "Yarn" };
-const VALUE_ROLE_LABELS: Record<ValueRole, string> = {
-	standard: "Standard",
-	target: "Target",
-	actual: "Actual",
-};
-const PARAM_LABELS: Record<string, string> = {
-	speed: "Speed",
-	tpi: "TPI",
-	eff: "Efficiency",
-	spindles: "Spindles",
-	dc: "DC",
-	tc: "TC",
-	bobbin_wt: "Bobbin Wt",
-};
+// --- Header-bar options -----------------------------------------------------
+// Actual entry now lives on the Spinning SQC page; this master keeps only the
+// values you plan ahead of time: standard and target.
 
 const ID_TYPE_OPTIONS: IdType[] = ["mcid", "qid"];
-const VALUE_ROLE_OPTIONS: ValueRole[] = ["standard", "target", "actual"];
-
-const EMPTY_GRID: TargetGridData = { params: [], rows: [] };
+const VALUE_ROLE_OPTIONS: ValueRole[] = ["standard", "target"];
 
 export default function SpngTargetMapPage() {
 	const [mounted, setMounted] = React.useState(false);
@@ -58,73 +39,7 @@ export default function SpngTargetMapPage() {
 	const [valueRole, setValueRole] = React.useState<ValueRole | "">("");
 	const [effectiveDate, setEffectiveDate] = React.useState<string>(todayISO());
 
-	const [grid, setGrid] = React.useState<TargetGridData>(EMPTY_GRID);
-	const [loading, setLoading] = React.useState(false);
-	const [saving, setSaving] = React.useState(false);
-	const [error, setError] = React.useState<string | null>(null);
-	const [snack, setSnack] = React.useState<string | null>(null);
-
 	const ready = !!coId && !!idType && !!valueRole && !!effectiveDate;
-
-	const refresh = React.useCallback(async () => {
-		if (!coId || !idType || !valueRole || !effectiveDate) {
-			setGrid(EMPTY_GRID);
-			return;
-		}
-		setLoading(true);
-		setError(null);
-		const params = new URLSearchParams({
-			co_id: String(coId),
-			id_type: idType,
-			value_role: valueRole,
-			effective_date: effectiveDate,
-		});
-		if (singleBranchId != null) params.set("branch_id", String(singleBranchId));
-		const { data, error: err } = await fetchWithCookie<{ data: TargetGridData }>(
-			`${apiRoutesPortalMasters.SPNG_TARGET_MAP_GRID}?${params.toString()}`,
-			"GET"
-		);
-		if (err) {
-			setError(err);
-			setGrid(EMPTY_GRID);
-		} else {
-			setGrid(data?.data ?? EMPTY_GRID);
-		}
-		setLoading(false);
-	}, [coId, idType, valueRole, effectiveDate, singleBranchId]);
-
-	React.useEffect(() => {
-		void refresh();
-	}, [refresh]);
-
-	const handleSave = async (cells: DirtyCell[]) => {
-		if (!coId || !idType || !valueRole || cells.length === 0) return;
-		setSaving(true);
-		setError(null);
-		try {
-			const { data, error: err } = await fetchWithCookie<{
-				data: { inserted: number; updated: number; cleared: number };
-			}>(apiRoutesPortalMasters.SPNG_TARGET_MAP_BULK_SAVE, "POST", {
-				co_id: Number(coId),
-				branch_id: singleBranchId != null ? Number(singleBranchId) : null,
-				effective_date: effectiveDate,
-				id_type: idType,
-				value_role: valueRole,
-				cells,
-			});
-			if (err) {
-				setError(err);
-				return;
-			}
-			const d = data?.data;
-			setSnack(
-				`Saved — inserted ${d?.inserted ?? 0}, updated ${d?.updated ?? 0}, cleared ${d?.cleared ?? 0}.`
-			);
-			await refresh();
-		} finally {
-			setSaving(false);
-		}
-	};
 
 	if (!mounted) return null;
 
@@ -143,16 +58,11 @@ export default function SpngTargetMapPage() {
 					Spinning Standards / Targets
 				</Typography>
 				<Typography variant="body2" color="text.secondary">
-					Standard, target and actual values per machine or yarn, effective-dated. Pick a Type,
-					Role and Effective Date, then edit values inline and Save.
+					Standard and target values per machine or yarn, effective-dated. Pick a Type, Role and
+					Effective Date, then edit values inline and Save. (Actuals are entered on the Spinning SQC
+					page.)
 				</Typography>
 			</Box>
-
-			{error ? (
-				<Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-					{error}
-				</Alert>
-			) : null}
 
 			{/* Header bar (always visible) */}
 			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 3 }}>
@@ -204,22 +114,14 @@ export default function SpngTargetMapPage() {
 			{!ready ? (
 				<Alert severity="info">Select Type, Role and Effective Date to load the grid.</Alert>
 			) : (
-				<TargetGrid
-					grid={grid}
-					loading={loading}
-					saving={saving}
+				<TargetMapEditor
+					coId={coId}
+					branchId={singleBranchId}
+					idType={idType as IdType}
+					valueRole={valueRole as ValueRole}
 					effectiveDate={effectiveDate}
-					paramLabels={PARAM_LABELS}
-					onSave={(cells) => void handleSave(cells)}
 				/>
 			)}
-
-			<Snackbar
-				open={!!snack}
-				autoHideDuration={4000}
-				onClose={() => setSnack(null)}
-				message={snack ?? ""}
-			/>
 		</Box>
 	);
 }

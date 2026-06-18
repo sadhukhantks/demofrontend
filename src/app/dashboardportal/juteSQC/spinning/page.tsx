@@ -5,16 +5,16 @@ import { Alert, Box, CircularProgress, MenuItem, Tab, Tabs, TextField, Typograph
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayISO } from "@/app/dashboardportal/juteProduction/spinning/utils/spinningCalc";
-import { useSqcEntrySetup } from "./hooks/useSqcEntrySetup";
-import { useSqcEntryByDate } from "./hooks/useSqcEntryByDate";
 import { useSqcCountSetup } from "./hooks/useSqcCountSetup";
 import { useSqcCountByDate } from "./hooks/useSqcCountByDate";
 import { useSqcRhmrSetup } from "./hooks/useSqcRhmrSetup";
 import { useSqcRhmrSearch } from "./hooks/useSqcRhmrSearch";
 import { useSqcQrCvSetup } from "./hooks/useSqcQrCvSetup";
 import { useSqcQrCvByDate } from "./hooks/useSqcQrCvByDate";
-import SpeedTpiForm from "./_components/SpeedTpiForm";
-import SpeedTpiGrid from "./_components/SpeedTpiGrid";
+// Shared target-map editor reused across the juteProduction route boundary:
+// the "Actual Speed / TPI" tab writes actuals into jute_prod_spng_target_map,
+// the same table the spinning planning grid reads (value_role='actual').
+import TargetMapEditor from "../../juteProduction/masters/spngTargetMap/_components/TargetMapEditor";
 import CountForm from "./_components/CountForm";
 import CountGrid from "./_components/CountGrid";
 import RhmrForm from "./_components/RhmrForm";
@@ -22,7 +22,7 @@ import RhmrGrid from "./_components/RhmrGrid";
 import YarnQrCvForm from "./_components/YarnQrCvForm";
 import YarnQrCvGrid from "./_components/YarnQrCvGrid";
 
-const TABS = ["R-08-16 Yarn Parameter", "Speed / TPI Entry", "RHMR", "R-08-15 Yarn QR & CV %"] as const;
+const TABS = ["R-08-16 Yarn Parameter", "Actual Speed / TPI", "RHMR", "R-08-15 Yarn QR & CV %"] as const;
 
 export default function SpinningSqcPage() {
 	// HYDRATION RULE: this component reads sidebar context and seeds a date,
@@ -57,24 +57,8 @@ export default function SpinningSqcPage() {
 	);
 	const selectedBranchName = branchOptions.find((b) => Number(b.branch_id) === branchId)?.branch_name;
 
-	// Tab 1 — Speed/TPI Entry
+	// Tab 1 — Actual Speed / TPI (target-map actuals)
 	const [entryDate, setEntryDate] = React.useState<string>(todayISO());
-	const {
-		setup: entrySetup,
-		loading: entrySetupLoading,
-		error: entrySetupError,
-		refresh: refreshEntrySetup,
-	} = useSqcEntrySetup(coId, branchId, entryDate);
-	const {
-		rows: entryRows,
-		loading: entryRowsLoading,
-		refresh: refreshEntryRows,
-	} = useSqcEntryByDate(coId, entryDate, branchId);
-
-	const onEntrySaved = React.useCallback(() => {
-		refreshEntrySetup();
-		refreshEntryRows();
-	}, [refreshEntrySetup, refreshEntryRows]);
 
 	// Tab 2 — Count Observations
 	const [countDate, setCountDate] = React.useState<string>(todayISO());
@@ -150,7 +134,7 @@ export default function SpinningSqcPage() {
 				Spinning SQC
 			</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-				Daily yarn speed/TPI entry and count observations.
+				Daily yarn parameter, actual speed/TPI entry and count observations.
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
@@ -191,7 +175,7 @@ export default function SpinningSqcPage() {
 						))}
 					</Tabs>
 
-					{/* Tab 2 — Speed / TPI Entry */}
+					{/* Tab 2 — Actual Speed / TPI (writes target-map actuals) */}
 					{tab === 1 ? (
 						<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
 							<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
@@ -204,25 +188,29 @@ export default function SpinningSqcPage() {
 									InputLabelProps={{ shrink: true }}
 								/>
 							</Box>
-							{entrySetupError ? <Alert severity="error">{entrySetupError}</Alert> : null}
-							{entrySetupLoading || !entrySetup ? (
-								<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-									<CircularProgress />
-								</Box>
-							) : (
-								<SpeedTpiForm
-									coId={coId}
-									branchId={branchId}
-									entryDate={entryDate}
-									setup={entrySetup}
-									onSaved={onEntrySaved}
-								/>
-							)}
 							<Box>
 								<Typography variant="subtitle2" sx={{ mb: 1 }}>
-									Speed / TPI for {entryDate}
+									Machine
 								</Typography>
-								<SpeedTpiGrid rows={entryRows} loading={entryRowsLoading} />
+								<TargetMapEditor
+									coId={coId}
+									branchId={branchId}
+									idType="mcid"
+									valueRole="actual"
+									effectiveDate={entryDate}
+								/>
+							</Box>
+							<Box>
+								<Typography variant="subtitle2" sx={{ mb: 1 }}>
+									Yarn
+								</Typography>
+								<TargetMapEditor
+									coId={coId}
+									branchId={branchId}
+									idType="qid"
+									valueRole="actual"
+									effectiveDate={entryDate}
+								/>
 							</Box>
 						</Box>
 					) : null}
