@@ -72,7 +72,7 @@ export default function DailyIssuesGrid({ coId, rows, loading, onDeleted }: Prop
 	);
 
 	return (
-		<Box sx={{ width: "100%", overflowX: "auto" }}>
+		<Box sx={{ width: "100%" }}>
 			<DataGrid
 				autoHeight
 				rows={rows}
@@ -85,7 +85,7 @@ export default function DailyIssuesGrid({ coId, rows, loading, onDeleted }: Prop
 				initialState={{
 					pagination: { paginationModel: { pageSize: 25, page: 0 } },
 				}}
-				sx={{ minWidth: 1050 }}
+				sx={{ width: "100%" }}
 			/>
 		</Box>
 	);

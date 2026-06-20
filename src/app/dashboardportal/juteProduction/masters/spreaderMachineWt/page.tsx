@@ -189,7 +189,7 @@ export default function SpreaderMachineWtPage() {
 				</Button>
 			</Box>
 			{error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
-			<Box sx={{ width: "100%", overflowX: "auto" }}>
+			<Box sx={{ width: "100%" }}>
 				<DataGrid
 					autoHeight
 					rows={rows.map((r) => ({ ...r, id: r.spreader_machine_attr_id }))}
@@ -199,7 +199,7 @@ export default function SpreaderMachineWtPage() {
 					disableRowSelectionOnClick
 					pageSizeOptions={[10, 25, 50]}
 					initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
-					sx={{ minWidth: 700 }}
+					sx={{ width: "100%" }}
 				/>
 			</Box>
 

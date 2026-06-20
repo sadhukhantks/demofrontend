@@ -330,7 +330,7 @@ export default function TrollyMasterPage() {
 					{error}
 				</Alert>
 			) : null}
-			<Box sx={{ width: "100%", overflowX: "auto" }}>
+			<Box sx={{ width: "100%" }}>
 				<DataGrid
 					autoHeight
 					rows={filteredRows}
@@ -341,7 +341,7 @@ export default function TrollyMasterPage() {
 					disableRowSelectionOnClick
 					pageSizeOptions={[10, 25, 50]}
 					initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
-					sx={{ minWidth: 800 }}
+					sx={{ width: "100%" }}
 				/>
 			</Box>
 

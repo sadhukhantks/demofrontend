@@ -103,7 +103,7 @@ export default function RollStockTable({ rows, summary, loading }: Props) {
 					<Chip label="Clear filters" onDelete={() => setSelectedItems([])} onClick={() => setSelectedItems([])} />
 				) : null}
 			</Stack>
-			<Box sx={{ width: "100%", overflowX: "auto" }}>
+			<Box sx={{ width: "100%" }}>
 				<Typography variant="subtitle2" sx={{ mb: 1 }}>
 					Current Roll Stock (Bin × Group × Item)
 				</Typography>
@@ -118,10 +118,10 @@ export default function RollStockTable({ rows, summary, loading }: Props) {
 					initialState={{
 						pagination: { paginationModel: { pageSize: 25, page: 0 } },
 					}}
-					sx={{ minWidth: 900 }}
+					sx={{ width: "100%" }}
 				/>
 			</Box>
-			<Box sx={{ width: "100%", overflowX: "auto" }}>
+			<Box sx={{ width: "100%" }}>
 				<Typography variant="subtitle2" sx={{ mb: 1 }}>
 					Quality-wise Closing Stock
 				</Typography>
@@ -133,7 +133,7 @@ export default function RollStockTable({ rows, summary, loading }: Props) {
 					density="comfortable"
 					disableRowSelectionOnClick
 					hideFooter
-					sx={{ minWidth: 500 }}
+					sx={{ width: "100%" }}
 				/>
 			</Box>
 		</Box>

@@ -102,7 +102,7 @@ export default function DoffGrid({ coId, branchId, date, spell, refreshSignal, o
 					{error}
 				</Alert>
 			) : null}
-			<Box sx={{ width: "100%", overflowX: "auto" }}>
+			<Box sx={{ width: "100%" }}>
 				<DataGrid
 					autoHeight
 					rows={rows}
@@ -113,7 +113,7 @@ export default function DoffGrid({ coId, branchId, date, spell, refreshSignal, o
 					density="comfortable"
 					pageSizeOptions={[10, 25, 50]}
 					initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
-					sx={{ minWidth: 1100 }}
+					sx={{ width: "100%" }}
 				/>
 			</Box>
 			<Snackbar

@@ -123,7 +123,7 @@ export default function DailyDoffGrid({ coId, branchId, date, spell, onEdit }: P
 					{error}
 				</Alert>
 			) : null}
-			<Box sx={{ width: "100%", overflowX: "auto" }}>
+			<Box sx={{ width: "100%" }}>
 				<DataGrid
 					autoHeight
 					rows={rows}
@@ -136,7 +136,7 @@ export default function DailyDoffGrid({ coId, branchId, date, spell, onEdit }: P
 					initialState={{
 						pagination: { paginationModel: { pageSize: 25, page: 0 } },
 					}}
-					sx={{ minWidth: 1100 }}
+					sx={{ width: "100%" }}
 				/>
 			</Box>
 			<Snackbar

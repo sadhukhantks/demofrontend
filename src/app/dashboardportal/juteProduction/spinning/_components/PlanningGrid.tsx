@@ -125,7 +125,7 @@ export default function PlanningGrid({ coId, branchId, date, spell }: Props) {
 
 			{error ? <Alert severity="error">{error}</Alert> : null}
 
-			<Box sx={{ width: "100%", overflowX: "auto" }}>
+			<Box sx={{ width: "100%" }}>
 				<DataGrid
 					autoHeight
 					rows={rows}
@@ -138,7 +138,7 @@ export default function PlanningGrid({ coId, branchId, date, spell }: Props) {
 					initialState={{
 						pagination: { paginationModel: { pageSize: 25, page: 0 } },
 					}}
-					sx={{ minWidth: 2200 }}
+					sx={{ width: "100%" }}
 				/>
 			</Box>
 
@@ -146,7 +146,7 @@ export default function PlanningGrid({ coId, branchId, date, spell }: Props) {
 				<Typography variant="subtitle2" sx={{ mb: 1 }}>
 					Shift rollup (machine / yarn / shift)
 				</Typography>
-				<Box sx={{ width: "100%", overflowX: "auto" }}>
+				<Box sx={{ width: "100%" }}>
 					<DataGrid
 						autoHeight
 						rows={rollup}
@@ -159,7 +159,7 @@ export default function PlanningGrid({ coId, branchId, date, spell }: Props) {
 						initialState={{
 							pagination: { paginationModel: { pageSize: 25, page: 0 } },
 						}}
-						sx={{ minWidth: 760 }}
+						sx={{ width: "100%" }}
 					/>
 				</Box>
 			</Box>
