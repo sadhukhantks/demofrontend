@@ -828,6 +828,13 @@ const apiRoutesPortalMasters = {
     TROLLY_EDIT: `${API_URL}/spinningMasters/trolly_edit`,
     TROLLY_DELETE: `${API_URL}/spinningMasters/trolly_delete`,
     TROLLY_MACHINE_TYPES: `${API_URL}/spinningMasters/trolly_machine_types`,
+    // Stoppage Hours (router prefix /api/stoppageProd) — STOPPAGE_ENTRY_EDIT/DELETE are
+    // base paths; caller appends /${id}?co_id=...
+    STOPPAGE_ENTRY_CREATE_SETUP: `${API_URL}/stoppageProd/entry_create_setup`,
+    STOPPAGE_ENTRY_CREATE: `${API_URL}/stoppageProd/entry_create`,
+    STOPPAGE_ENTRIES_BY_DATE: `${API_URL}/stoppageProd/entries_by_date`,
+    STOPPAGE_ENTRY_EDIT: `${API_URL}/stoppageProd/entry_edit`,
+    STOPPAGE_ENTRY_DELETE: `${API_URL}/stoppageProd/entry_delete`,
 };
 
 export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters };
