@@ -169,11 +169,17 @@ export const useInvoiceLineItemColumns = ({
 				minWidth: "80px",
 				renderCell: ({ item }) => {
 					const options = getUomOptions(item.itemGroup, item.item);
-					const label = getUomLabel(item.itemGroup, item.item, item.uom);
+					const cachedLabel = getUomLabel(item.itemGroup, item.item, item.uom);
+					// Prefer the unit name stored on the line (resolved by the backend).
+					// `getUomLabel` falls back to the raw uom id when the item-group UOM
+					// cache isn't loaded, which is what happens in view mode.
+					const label = item.uomName || (cachedLabel !== item.uom ? cachedLabel : "");
 					if (!canEdit) {
 						return <span className="block truncate text-sm">{label || "-"}</span>;
 					}
-					const value = options.find((o) => o.value === item.uom) ?? null;
+					const value =
+						options.find((o) => o.value === item.uom) ??
+						(item.uom ? { value: item.uom, label: item.uomName || item.uom } : null);
 					return (
 						<SearchableSelect<Option>
 							options={options}
@@ -185,7 +191,10 @@ export const useInvoiceLineItemColumns = ({
 						/>
 					);
 				},
-				getTooltip: ({ item }) => getUomLabel(item.itemGroup, item.item, item.uom) || undefined,
+				getTooltip: ({ item }) => {
+					const cachedLabel = getUomLabel(item.itemGroup, item.item, item.uom);
+					return item.uomName || (cachedLabel !== item.uom ? cachedLabel : undefined) || undefined;
+				},
 			},
 			{
 				id: "discountType",

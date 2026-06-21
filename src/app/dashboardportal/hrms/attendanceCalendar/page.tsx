@@ -3,27 +3,17 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
-import {
-  Snackbar,
-  Alert,
-  Chip,
-  TextField,
-  MenuItem,
-  Stack,
-} from "@mui/material";
+import { Snackbar, Alert, Chip, TextField, MenuItem, Stack } from "@mui/material";
 import IndexWrapper from "@/components/ui/IndexWrapper";
-import { useSelectedCompanyCoId } from "@/hooks/use-selected-company-coid";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import { fetchAttendanceList } from "@/utils/hrmsService";
 import {
-  fetchLeaveRequestList,
-  fetchLeaveTypeOptions,
-} from "@/utils/hrmsService";
-import {
-  LeaveRequestListRow,
-  LeaveTypeOption,
+  AttendanceListRow,
   STATUS_COLOR,
   STATUS_LABELS,
   STATUS_FILTER_OPTIONS,
-} from "./types/leaveRequestTypes";
+  ATTENDANCE_TYPE_OPTIONS,
+} from "./types/attendanceTypes";
 
 const formatDDMMYYYY = (value: unknown): string => {
   if (!value) return "";
@@ -36,10 +26,19 @@ const formatDDMMYYYY = (value: unknown): string => {
   return `${dd}-${mm}-${yyyy}`;
 };
 
-export default function LeaveRequestPage() {
+export default function AttendanceCalendarPage() {
   const router = useRouter();
-  const { coId } = useSelectedCompanyCoId();
-  const [rows, setRows] = useState<LeaveRequestListRow[]>([]);
+  const { selectedCompany, selectedBranches } = useSidebarContext();
+
+  const branchOptions = useMemo(
+    () =>
+      (selectedCompany?.branches ?? []).filter((b) =>
+        selectedBranches.includes(b.branch_id),
+      ),
+    [selectedCompany, selectedBranches],
+  );
+
+  const [rows, setRows] = useState<AttendanceListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalRows, setTotalRows] = useState(0);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
@@ -47,60 +46,48 @@ export default function LeaveRequestPage() {
     pageSize: 20,
   });
   const [searchQuery, setSearchQuery] = useState("");
-  const [leaveTypeId, setLeaveTypeId] = useState<string>("");
+  const [branchId, setBranchId] = useState<string>("");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
   const [ebNo, setEbNo] = useState<string>("");
+  const [attendanceType, setAttendanceType] = useState<string>("");
   const [statusId, setStatusId] = useState<string>("");
-  const [leaveTypeOptions, setLeaveTypeOptions] = useState<LeaveTypeOption[]>(
-    [],
-  );
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
     severity: "success" | "error";
   }>({ open: false, message: "", severity: "success" });
 
+  // Default the branch filter to the first sidebar-selected branch.
   useEffect(() => {
-    if (!coId) return;
-    let active = true;
-    (async () => {
-      const { data, error } = await fetchLeaveTypeOptions(coId);
-      if (!active) return;
-      if (error || !data) return;
-      const options = ((data.data ?? []) as Record<string, unknown>[]).map(
-        (r) => ({
-          leave_type_id: Number(r.leave_type_id),
-          leave_type_code: String(r.leave_type_code ?? ""),
-          leave_type_description: String(r.leave_type_description ?? ""),
-        }),
-      );
-      setLeaveTypeOptions(options);
-    })();
-    return () => {
-      active = false;
-    };
-  }, [coId]);
+    if (!branchId && selectedBranches.length > 0) {
+      setBranchId(String(selectedBranches[0]));
+    }
+  }, [branchId, selectedBranches]);
 
   const fetchData = useCallback(async () => {
-    if (!coId) return;
+    if (!branchId) return;
     setLoading(true);
     try {
-      const { data, error } = await fetchLeaveRequestList(coId, {
+      const { data, error } = await fetchAttendanceList(branchId, {
         page: paginationModel.page + 1,
         page_size: paginationModel.pageSize,
         search: searchQuery || undefined,
-        leave_type_id: leaveTypeId || undefined,
+        from_date: fromDate || undefined,
+        to_date: toDate || undefined,
         eb_no: ebNo || undefined,
+        attendance_type: attendanceType || undefined,
         status_id: statusId || undefined,
       });
       if (error || !data) {
-        throw new Error(error || "Failed to fetch leave requests");
+        throw new Error(error || "Failed to fetch attendance records");
       }
       const mapped = ((data.data ?? []) as Record<string, unknown>[]).map(
         (r) => ({
           ...r,
-          id: (r.id ?? r.leave_transaction_id) as number,
+          id: (r.id ?? r.daily_atten_id) as number,
         }),
-      ) as LeaveRequestListRow[];
+      ) as AttendanceListRow[];
       setRows(mapped);
       setTotalRows((data.total as number) ?? mapped.length);
     } catch (err: unknown) {
@@ -113,12 +100,14 @@ export default function LeaveRequestPage() {
       setLoading(false);
     }
   }, [
-    coId,
+    branchId,
     paginationModel.page,
     paginationModel.pageSize,
     searchQuery,
-    leaveTypeId,
+    fromDate,
+    toDate,
     ebNo,
+    attendanceType,
     statusId,
   ]);
 
@@ -126,26 +115,38 @@ export default function LeaveRequestPage() {
     fetchData();
   }, [fetchData]);
 
-  const columns = useMemo<GridColDef<LeaveRequestListRow>[]>(
+  const columns = useMemo<GridColDef<AttendanceListRow>[]>(
     () => [
-      { field: "worker_name", headerName: "Worker Name", flex: 1.2 },
       { field: "eb_no", headerName: "EB No", flex: 0.7 },
+      { field: "worker_name", headerName: "Worker Name", flex: 1.2 },
       {
-        field: "leave_from_date",
-        headerName: "From Date",
+        field: "attendance_date",
+        headerName: "Date",
         flex: 0.8,
         renderCell: (params) => formatDDMMYYYY(params.value),
       },
+      { field: "attendance_mark", headerName: "Mark", flex: 0.5 },
+      { field: "spell", headerName: "Spell", flex: 0.7 },
+      { field: "worked_department", headerName: "Department", flex: 1 },
+      { field: "worked_designation", headerName: "Designation", flex: 1 },
       {
-        field: "leave_to_date",
-        headerName: "To Date",
-        flex: 0.8,
-        renderCell: (params) => formatDDMMYYYY(params.value),
+        field: "working_hours",
+        headerName: "Work Hrs",
+        flex: 0.6,
+        type: "number",
+        headerAlign: "left",
+        align: "left",
       },
-      { field: "leave_type", headerName: "Leave Type", flex: 0.9 },
-      { field: "leave_ledger", headerName: "Leave Ledger", flex: 0.8 },
       {
-        field: "status",
+        field: "idle_hours",
+        headerName: "Idle Hrs",
+        flex: 0.6,
+        type: "number",
+        headerAlign: "left",
+        align: "left",
+      },
+      {
+        field: "status_id",
         headerName: "Status",
         flex: 0.8,
         renderCell: (params) => {
@@ -165,17 +166,17 @@ export default function LeaveRequestPage() {
   );
 
   const handleView = useCallback(
-    (row: LeaveRequestListRow) =>
+    (row: AttendanceListRow) =>
       router.push(
-        `/dashboardportal/hrms/hrmsmasters/leaveRequest/createLeaveRequest?mode=view&id=${row.id}`,
+        `/dashboardportal/hrms/attendanceCalendar/createAttendance?mode=view&id=${row.id}`,
       ),
     [router],
   );
 
   const handleEdit = useCallback(
-    (row: LeaveRequestListRow) =>
+    (row: AttendanceListRow) =>
       router.push(
-        `/dashboardportal/hrms/hrmsmasters/leaveRequest/createLeaveRequest?mode=edit&id=${row.id}`,
+        `/dashboardportal/hrms/attendanceCalendar/createAttendance?mode=edit&id=${row.id}`,
       ),
     [router],
   );
@@ -183,21 +184,21 @@ export default function LeaveRequestPage() {
   const handleCreate = useCallback(
     () =>
       router.push(
-        "/dashboardportal/hrms/hrmsmasters/leaveRequest/createLeaveRequest?mode=create",
+        "/dashboardportal/hrms/attendanceCalendar/createAttendance?mode=create",
       ),
     [router],
   );
 
   const isRowEditable = useCallback(
-    (row: LeaveRequestListRow) => row.status !== 3 && row.status !== 4,
+    (row: AttendanceListRow) => row.status_id !== 3 && row.status_id !== 4,
     [],
   );
 
   return (
     <>
-      <IndexWrapper<LeaveRequestListRow>
-        title="Leave Requests"
-        subtitle="Apply, review, and approve worker leave requests"
+      <IndexWrapper<AttendanceListRow>
+        title="Attendance Calendar"
+        subtitle="Mark, review, and approve daily worker attendance"
         rows={rows}
         columns={columns}
         rowCount={totalRows}
@@ -209,30 +210,46 @@ export default function LeaveRequestPage() {
           onChange: (e) => setSearchQuery(e.target.value),
           placeholder: "Search by worker name...",
         }}
-        createAction={{ label: "Apply Leave", onClick: handleCreate }}
+        createAction={{ label: "Mark Attendance", onClick: handleCreate }}
         onView={handleView}
         onEdit={handleEdit}
         isRowEditable={isRowEditable}
         toolbarContent={
           <Stack direction="row" spacing={1.5} alignItems="center">
+            {branchOptions.length > 1 ? (
+              <TextField
+                select
+                size="small"
+                label="Branch"
+                value={branchId}
+                onChange={(e) => setBranchId(e.target.value)}
+                sx={{ minWidth: 160 }}
+              >
+                {branchOptions.map((b) => (
+                  <MenuItem key={b.branch_id} value={String(b.branch_id)}>
+                    {b.branch_name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ) : null}
             <TextField
-              select
               size="small"
-              label="Leave Type"
-              value={leaveTypeId}
-              onChange={(e) => setLeaveTypeId(e.target.value)}
-              sx={{ minWidth: 160 }}
-            >
-              <MenuItem value="">All</MenuItem>
-              {leaveTypeOptions.map((opt) => (
-                <MenuItem
-                  key={opt.leave_type_id}
-                  value={String(opt.leave_type_id)}
-                >
-                  {opt.leave_type_description || opt.leave_type_code}
-                </MenuItem>
-              ))}
-            </TextField>
+              label="From Date"
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 150 }}
+            />
+            <TextField
+              size="small"
+              label="To Date"
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 150 }}
+            />
             <TextField
               size="small"
               label="Employee Code"
@@ -240,6 +257,21 @@ export default function LeaveRequestPage() {
               onChange={(e) => setEbNo(e.target.value)}
               sx={{ minWidth: 140 }}
             />
+            <TextField
+              select
+              size="small"
+              label="Type"
+              value={attendanceType}
+              onChange={(e) => setAttendanceType(e.target.value)}
+              sx={{ minWidth: 130 }}
+            >
+              <MenuItem value="">All</MenuItem>
+              {ATTENDANCE_TYPE_OPTIONS.map((t) => (
+                <MenuItem key={t.value} value={t.value}>
+                  {t.label}
+                </MenuItem>
+              ))}
+            </TextField>
             <TextField
               select
               size="small"
