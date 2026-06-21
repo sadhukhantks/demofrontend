@@ -143,9 +143,6 @@ export default function CreateMechineMasterPage({
 					remarks: String(record.remarks ?? ""),
 					active: String(record.active ?? "1"),
 					mech_posting_code: record.mech_posting_code != null ? String(record.mech_posting_code) : "",
-					mech_shr_code: String(record.mech_shr_code ?? ""),
-					line_no: record.line_no != null ? String(record.line_no) : "",
-					no_of_mechines: record.no_of_mechines != null ? String(record.no_of_mechines) : "",
 				});
 			} else {
 				const params = new URLSearchParams({ co_id, branch_id: branch_ids });
@@ -190,9 +187,6 @@ export default function CreateMechineMasterPage({
 					remarks: "",
 					active: "1",
 					mech_posting_code: "",
-					mech_shr_code: "",
-					line_no: "",
-					no_of_mechines: "",
 				});
 			}
 
@@ -272,26 +266,8 @@ export default function CreateMechineMasterPage({
 					grid: { xs: 12, sm: 6 },
 				},
 				{
-					name: "mech_shr_code",
-					label: "Machine SHR Code",
-					type: "text",
-					grid: { xs: 12, sm: 6 },
-				},
-				{
 					name: "mech_posting_code",
 					label: "Posting Code",
-					type: "number",
-					grid: { xs: 12, sm: 6 },
-				},
-				{
-					name: "line_no",
-					label: "Line No",
-					type: "number",
-					grid: { xs: 12, sm: 6 },
-				},
-				{
-					name: "no_of_mechines",
-					label: "No. of Machines",
 					type: "number",
 					grid: { xs: 12, sm: 6 },
 				},
@@ -326,10 +302,7 @@ export default function CreateMechineMasterPage({
 				mechine_name: values.machine_name,
 				mechine_type_id: values.machine_type_id,
 				mechine_code: values.mech_code,
-				mech_shr_code: values.mech_shr_code || null,
 				mechine_posting_code: values.mech_posting_code || null,
-				line_no: values.line_no || null,
-				no_of_mechines: values.no_of_mechines || null,
 				remarks: values.remarks || null,
 				active: Number(values.active ?? 1),
 			};

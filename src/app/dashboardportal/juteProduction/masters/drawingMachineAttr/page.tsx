@@ -157,7 +157,7 @@ export default function DrawingMachineAttrPage() {
 			headerName: "Const Meter (m/8h)",
 			width: 160,
 			type: "number",
-			valueFormatter: ({ value }) => (value != null ? Number(value).toFixed(3) : "—"),
+			valueFormatter: (value) => (value != null ? Number(value).toFixed(3) : "—"),
 		},
 		{ field: "mc_group", headerName: "Group", width: 100 },
 		{ field: "meter_wrap_limit", headerName: "Wrap Limit", width: 110, type: "number" },
@@ -208,7 +208,7 @@ export default function DrawingMachineAttrPage() {
 					{error}
 				</Alert>
 			) : null}
-			<Box sx={{ width: "100%", overflowX: "auto" }}>
+			<Box sx={{ width: "100%" }}>
 				<DataGrid
 					autoHeight
 					rows={rows}
@@ -219,7 +219,7 @@ export default function DrawingMachineAttrPage() {
 					disableRowSelectionOnClick
 					pageSizeOptions={[10, 25, 50]}
 					initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
-					sx={{ minWidth: 900 }}
+					sx={{ width: "100%" }}
 				/>
 			</Box>
 

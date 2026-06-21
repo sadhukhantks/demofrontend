@@ -65,7 +65,7 @@ export default function DailyEntriesGrid({ coId, rows, loading, onDeleted }: Pro
 				headerName: "Prod (kg)",
 				width: 110,
 				type: "number",
-				valueFormatter: ({ value }) => (value != null ? Number(value).toFixed(2) : ""),
+				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
 			},
 			{ field: "trolley_no", headerName: "Trolley", width: 80 },
 		],
@@ -73,7 +73,7 @@ export default function DailyEntriesGrid({ coId, rows, loading, onDeleted }: Pro
 	);
 
 	return (
-		<Box sx={{ width: "100%", overflowX: "auto" }}>
+		<Box sx={{ width: "100%" }}>
 			<DataGrid
 				autoHeight
 				rows={rows}
@@ -86,7 +86,7 @@ export default function DailyEntriesGrid({ coId, rows, loading, onDeleted }: Pro
 				initialState={{
 					pagination: { paginationModel: { pageSize: 25, page: 0 } },
 				}}
-				sx={{ minWidth: 1100 }}
+				sx={{ width: "100%" }}
 			/>
 		</Box>
 	);
