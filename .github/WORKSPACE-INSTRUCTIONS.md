@@ -7,14 +7,14 @@ This workspace contains **four repositories**, but only **two are active develop
 ### Active Development Repositories (READ/WRITE)
 | Repository | Path | Description |
 |------------|------|-------------|
-| `vowerp3be` | `c:\code\vowerp3be` | **Current backend** - FastAPI + SQLAlchemy, Python |
-| `vowerp3ui` | `c:\code\vowerp3ui` | **Current frontend** - Next.js 15 + React 19 + TypeScript |
+| `vowerp3be` | `../vowerp3be` (sibling) | **Current backend** - FastAPI + SQLAlchemy, Python |
+| `vowerp3ui` | `./` (this repo) | **Current frontend** - Next.js 15 + React 19 + TypeScript |
 
 ### Reference-Only Repositories (READ-ONLY — DO NOT MODIFY)
 | Repository | Path | Description |
 |------------|------|-------------|
-| `vow_backend_2.0` | `c:\code\awscc-github\vow_backend_2.0` | **Legacy backend** - Java Spring Boot microservices |
-| `vow-ui-2.0` | `c:\code\awscc-github\vow-ui-2.0` | **Legacy frontend** - React (class components) + Redux Saga |
+| `vow_backend_2.0` | `../awscc-github/vow_backend_2.0` (if cloned) | **Legacy backend** - Java Spring Boot microservices |
+| `vow-ui-2.0` | `../awscc-github/vow-ui-2.0` (if cloned) | **Legacy frontend** - React (class components) + Redux Saga |
 
 ---
 

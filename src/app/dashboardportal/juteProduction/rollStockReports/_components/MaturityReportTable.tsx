@@ -44,7 +44,7 @@ export default function MaturityReportTable({ rows, loading, error }: Props) {
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
 			{error ? <Alert severity="error">{error}</Alert> : null}
-			<Box sx={{ width: "100%", overflowX: "auto" }}>
+			<Box sx={{ width: "100%" }}>
 				<DataGrid
 					autoHeight
 					rows={rows.map((r, i) => ({ ...r, id: `${r.spreader_roll_issue_id}-${i}` }))}
@@ -54,7 +54,7 @@ export default function MaturityReportTable({ rows, loading, error }: Props) {
 					disableRowSelectionOnClick
 					pageSizeOptions={[10, 25, 50, 100]}
 					initialState={{ pagination: { paginationModel: { pageSize: 50, page: 0 } } }}
-					sx={{ minWidth: 1100 }}
+					sx={{ width: "100%" }}
 				/>
 			</Box>
 		</Box>

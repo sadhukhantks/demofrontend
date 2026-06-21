@@ -151,14 +151,18 @@ export default function CreateYarnMaster({
       // If editing, set initial values from existing record
       if (editId !== undefined && data.yarn_details) {
         const details = data.yarn_details;
-        const count = details.jute_yarn_count !== null && details.jute_yarn_count !== undefined 
-          ? String(details.jute_yarn_count) 
+        const count = details.jute_yarn_count !== null && details.jute_yarn_count !== undefined
+          ? String(details.jute_yarn_count)
+          : "";
+        const stdMrPct = details.std_mr_pct !== null && details.std_mr_pct !== undefined
+          ? String(details.std_mr_pct)
           : "";
         const typeId = details.item_grp_id ? String(details.item_grp_id) : "";
         const remarks = details.jute_yarn_remarks ?? "";
-        
+
         const vals = {
           jute_yarn_count: count,
+          std_mr_pct: stdMrPct,
           item_grp_id: typeId,
           jute_yarn_remarks: remarks,
         };
@@ -168,6 +172,7 @@ export default function CreateYarnMaster({
         // Create mode - empty initial values
         const vals = {
           jute_yarn_count: "",
+          std_mr_pct: "",
           item_grp_id: "",
           jute_yarn_remarks: "",
         };
@@ -225,6 +230,14 @@ export default function CreateYarnMaster({
           grid: { xs: 12, md: 4 },
         },
         {
+          name: "std_mr_pct",
+          label: "Std MR %",
+          type: "number",
+          required: false,
+          disabled: mode === "view",
+          grid: { xs: 12, md: 4 },
+        },
+        {
           name: "item_grp_id",
           label: "Yarn Type",
           type: "select",
@@ -265,6 +278,16 @@ export default function CreateYarnMaster({
         }
       }
 
+      // Validate std MR % if provided
+      const stdMrPctRaw = values.std_mr_pct;
+      let parsedStdMrPct: number | null = null;
+      if (stdMrPctRaw && String(stdMrPctRaw).trim() !== "") {
+        parsedStdMrPct = parseFloat(String(stdMrPctRaw));
+        if (isNaN(parsedStdMrPct)) {
+          throw new Error("Std MR % must be a valid number");
+        }
+      }
+
       // Generate the yarn name from current form values
       const yarnName = generateYarnName(
         String(values.jute_yarn_count ?? ""),
@@ -279,6 +302,7 @@ export default function CreateYarnMaster({
       const payload = {
         jute_yarn_name: yarnName,
         jute_yarn_count: parsedYarnCount,
+        std_mr_pct: parsedStdMrPct,
         item_grp_id: values.item_grp_id ? Number(values.item_grp_id) : null,
         jute_yarn_remarks: values.jute_yarn_remarks || null,
         co_id,

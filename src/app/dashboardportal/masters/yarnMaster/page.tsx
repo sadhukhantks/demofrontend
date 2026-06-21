@@ -17,6 +17,7 @@ type YarnMasterRow = {
   jute_yarn_id: number;
   jute_yarn_name: string;
   jute_yarn_count?: number;
+  std_mr_pct?: number;
   item_grp_id?: number;
   item_grp_name?: string;
   item_id?: number;
@@ -91,6 +92,7 @@ export default function YarnMasterPage() {
         jute_yarn_id: r.jute_yarn_id as number,
         jute_yarn_name: (r.jute_yarn_name as string) ?? "",
         jute_yarn_count: r.jute_yarn_count as number | undefined,
+        std_mr_pct: r.std_mr_pct as number | undefined,
         item_grp_id: r.item_grp_id as number | undefined,
         item_grp_name: (r.item_grp_name as string) ?? "-",
         item_id: r.item_id as number | undefined,
@@ -198,7 +200,15 @@ export default function YarnMasterPage() {
         headerName: "Yarn Count",
         flex: 0.7,
         minWidth: 120,
-        valueFormatter: (value: number | undefined) => 
+        valueFormatter: (value: number | undefined) =>
+          value !== undefined && value !== null ? value.toString() : "-",
+      },
+      {
+        field: "std_mr_pct",
+        headerName: "Std MR %",
+        flex: 0.7,
+        minWidth: 110,
+        valueFormatter: (value: number | undefined) =>
           value !== undefined && value !== null ? value.toString() : "-",
       },
       {

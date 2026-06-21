@@ -261,20 +261,6 @@ const apiRoutesPortalMasters = {
     JUTE_AGENT_MAP_CREATE: `${API_URL}/juteAgentMap/jute_agent_map_create`,
     JUTE_AGENT_MAP_DELETE: `${API_URL}/juteAgentMap/jute_agent_map_delete`,
 
-    // Yarn Quality Master endpoints
-    YARN_QUALITY_TABLE: `${API_URL}/yarnQualityMaster/yarn_quality_table`,
-    YARN_QUALITY_CREATE_SETUP: `${API_URL}/yarnQualityMaster/yarn_quality_create_setup`,
-    YARN_QUALITY_EDIT_SETUP: `${API_URL}/yarnQualityMaster/yarn_quality_edit_setup`,
-    YARN_QUALITY_CREATE: `${API_URL}/yarnQualityMaster/yarn_quality_create`,
-    YARN_QUALITY_EDIT: `${API_URL}/yarnQualityMaster/yarn_quality_edit`,
-
-    // Machine SPG Details Master endpoints
-    MACHINE_SPG_DETAILS_TABLE: `${API_URL}/machineSpgDetailsMaster/machine_spg_details_table`,
-    MACHINE_SPG_DETAILS_CREATE_SETUP: `${API_URL}/machineSpgDetailsMaster/machine_spg_details_create_setup`,
-    MACHINE_SPG_DETAILS_MACHINES_BY_BRANCH: `${API_URL}/machineSpgDetailsMaster/get_machines_by_branch`,
-    MACHINE_SPG_DETAILS_EDIT_SETUP: `${API_URL}/machineSpgDetailsMaster/machine_spg_details_edit_setup`,
-    MACHINE_SPG_DETAILS_CREATE: `${API_URL}/machineSpgDetailsMaster/machine_spg_details_create`,
-    MACHINE_SPG_DETAILS_EDIT: `${API_URL}/machineSpgDetailsMaster/machine_spg_details_edit`,
     // Yarn Type Master endpoints
     YARN_TYPE_TABLE: `${API_URL}/yarnTypeMaster/get_yarn_type_table`,
     YARN_TYPE_BY_ID: `${API_URL}/yarnTypeMaster/get_yarn_type_by_id`,
@@ -789,6 +775,78 @@ const apiRoutesPortalMasters = {
     // Attendance register report — served by the Flask mobileapp mounted at the
     // backend root (no /hrms prefix). vowerp3be/src/mobileapp/src/attendance/attendance.py
     ATTENDANCE_REGISTER_REPORT: `${API_URL}/attendance-report`,
+    // Spinning / Doff production (router prefix /api/spinningProd)
+    SPINNING_DOFF_SETUP: `${API_URL}/spinningProd/doff_entry_create_setup`,
+    SPINNING_DOFF_PREV_STATE: `${API_URL}/spinningProd/doff_machine_prev_state`,
+    SPINNING_DOFF_CREATE: `${API_URL}/spinningProd/doff_entry_create`,
+    SPINNING_DOFF_BY_DATE: `${API_URL}/spinningProd/doff_entries_by_date`,
+    SPINNING_DOFF_EDIT: `${API_URL}/spinningProd/doff_entry_edit`,
+    SPINNING_DOFF_DELETE: `${API_URL}/spinningProd/doff_entry_delete`,
+    SPINNING_DOFF_DEDUP: `${API_URL}/spinningProd/doff_dedup_run`,
+    SPINNING_FRAME_MAP_GET: `${API_URL}/spinningProd/frame_map_get`,
+    SPINNING_FRAME_MAP_SAVE: `${API_URL}/spinningProd/frame_map_save`,
+    SPINNING_FRAME_MAP_MAPPED: `${API_URL}/spinningProd/frame_map_mapped`,
+    // Spinning planning grid (router prefix /api/spinningProd)
+    SPINNING_PLANNING_GRID: `${API_URL}/spinningProd/planning_grid`,
+    SPINNING_PLANNING_GRID_SAVE: `${API_URL}/spinningProd/planning_grid_save`,
+    // Winding production (router prefix /api/windingProd) — *_EDIT/*_UPDATE/*_DELETE and
+    // WINDING_QUALITY_SAVE are base paths; caller appends /${id}?co_id=...
+    // Doff
+    WINDING_DOFF_SETUP: `${API_URL}/windingProd/doff_setup`,
+    WINDING_DOFF_PREV_STATE: `${API_URL}/windingProd/doff_machine_prev_state`,
+    WINDING_DOFF_CREATE: `${API_URL}/windingProd/doff_create`,
+    WINDING_DOFF_BY_DATE: `${API_URL}/windingProd/doff_by_date`,
+    WINDING_DOFF_EDIT: `${API_URL}/windingProd/doff_edit`,
+    WINDING_DOFF_DELETE: `${API_URL}/windingProd/doff_delete`,
+    // Jugar
+    WINDING_JUGAR_SETUP: `${API_URL}/windingProd/jugar_setup`,
+    WINDING_JUGAR_PREV_STATE: `${API_URL}/windingProd/jugar_prev_state`,
+    WINDING_JUGAR_SAVE: `${API_URL}/windingProd/jugar_save`,
+    WINDING_JUGAR_UPDATE: `${API_URL}/windingProd/jugar_update`,
+    WINDING_JUGAR_BY_DATE: `${API_URL}/windingProd/jugar_by_date`,
+    // Quality
+    WINDING_QUALITY_SETUP: `${API_URL}/windingProd/quality_setup`,
+    WINDING_QUALITY_SAVE: `${API_URL}/windingProd/quality_save`,
+    WINDING_QUALITY_BY_DATE: `${API_URL}/windingProd/quality_by_date`,
+    // Winding reports (router prefix /api/juteProductionReports)
+    WINDING_SPELL_REPORT: `${API_URL}/juteProductionReports/winding_spell_report`,
+    WINDING_QUALITY_WISE_REPORT: `${API_URL}/juteProductionReports/winding_quality_wise`,
+    // Spinning standards master (router prefix /api/spngTargetMap) — *_EDIT/*_DELETE are base paths; caller appends /${id}
+    SPNG_TARGET_MAP_SETUP: `${API_URL}/spngTargetMap/target_map_setup`,
+    SPNG_TARGET_MAP_LIST: `${API_URL}/spngTargetMap/target_map_list`,
+    SPNG_TARGET_MAP_CREATE: `${API_URL}/spngTargetMap/target_map_create`,
+    SPNG_TARGET_MAP_EDIT: `${API_URL}/spngTargetMap/target_map_edit`,
+    SPNG_TARGET_MAP_DELETE: `${API_URL}/spngTargetMap/target_map_delete`,
+    SPNG_TARGET_MAP_GRID: `${API_URL}/spngTargetMap/target_map_grid`,
+    SPNG_TARGET_MAP_BULK_SAVE: `${API_URL}/spngTargetMap/target_map_bulk_save`,
+    // Spinning SQC (router prefix /api/juteSQC) — SPINNING_SQC_COUNT_DELETE is a base path; caller appends /${id}
+    SPINNING_SQC_COUNT_SETUP: `${API_URL}/juteSQC/sqc_count_setup`,
+    SPINNING_SQC_COUNT_SAVE: `${API_URL}/juteSQC/sqc_count_save`,
+    SPINNING_SQC_COUNT_BY_DATE: `${API_URL}/juteSQC/sqc_count_by_date`,
+    SPINNING_SQC_COUNT_DELETE: `${API_URL}/juteSQC/sqc_count_delete`,
+    // R-08-15 Yarn QR & CV % (router prefix /api/juteSQC) — SPINNING_SQC_QR_CV_DELETE is a base path; caller appends /${id}
+    SPINNING_SQC_QR_CV_SETUP: `${API_URL}/juteSQC/sqc_qr_cv_setup`,
+    SPINNING_SQC_QR_CV_SAVE: `${API_URL}/juteSQC/sqc_qr_cv_save`,
+    SPINNING_SQC_QR_CV_BY_DATE: `${API_URL}/juteSQC/sqc_qr_cv_by_date`,
+    SPINNING_SQC_QR_CV_DELETE: `${API_URL}/juteSQC/sqc_qr_cv_delete`,
+    // RHMR (Temperature / Humidity per date + spell) — SPINNING_SQC_RHMR_DELETE is a base path; caller appends /${id}
+    SPINNING_SQC_RHMR_SETUP: `${API_URL}/juteSQC/sqc_rhmr_setup`,
+    SPINNING_SQC_RHMR_SEARCH: `${API_URL}/juteSQC/sqc_rhmr_search`,
+    SPINNING_SQC_RHMR_SAVE: `${API_URL}/juteSQC/sqc_rhmr_save`,
+    SPINNING_SQC_RHMR_DELETE: `${API_URL}/juteSQC/sqc_rhmr_delete`,
+    // Spinning masters (router prefix /api/spinningMasters)
+    TROLLY_LIST: `${API_URL}/spinningMasters/trolly_list`,
+    TROLLY_CREATE: `${API_URL}/spinningMasters/trolly_create`,
+    TROLLY_EDIT: `${API_URL}/spinningMasters/trolly_edit`,
+    TROLLY_DELETE: `${API_URL}/spinningMasters/trolly_delete`,
+    TROLLY_MACHINE_TYPES: `${API_URL}/spinningMasters/trolly_machine_types`,
+    // Stoppage Hours (router prefix /api/stoppageProd) — STOPPAGE_ENTRY_EDIT/DELETE are
+    // base paths; caller appends /${id}?co_id=...
+    STOPPAGE_ENTRY_CREATE_SETUP: `${API_URL}/stoppageProd/entry_create_setup`,
+    STOPPAGE_ENTRY_CREATE: `${API_URL}/stoppageProd/entry_create`,
+    STOPPAGE_ENTRIES_BY_DATE: `${API_URL}/stoppageProd/entries_by_date`,
+    STOPPAGE_ENTRY_EDIT: `${API_URL}/stoppageProd/entry_edit`,
+    STOPPAGE_ENTRY_DELETE: `${API_URL}/stoppageProd/entry_delete`,
 };
 
 export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters };

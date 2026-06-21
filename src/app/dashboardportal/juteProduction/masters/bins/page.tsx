@@ -165,7 +165,7 @@ export default function SpreaderBinsPage() {
 				</Button>
 			</Box>
 			{error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
-			<Box sx={{ width: "100%", overflowX: "auto" }}>
+			<Box sx={{ width: "100%" }}>
 				<DataGrid
 					autoHeight
 					rows={rows.map((r) => ({ ...r, id: r.bin_id }))}
@@ -175,7 +175,7 @@ export default function SpreaderBinsPage() {
 					disableRowSelectionOnClick
 					pageSizeOptions={[10, 25, 50]}
 					initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
-					sx={{ minWidth: 800 }}
+					sx={{ width: "100%" }}
 				/>
 			</Box>
 

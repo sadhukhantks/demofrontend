@@ -1,3 +1,8 @@
+---
+name: index-page
+description: Scaffolds list/index pages for the VoWERP3 frontend — paginated, searchable DataGrid browse pages with row actions. Use when creating a new list page for any module (masters, transactions, or admin management).
+---
+
 # Index/List Page Generator Agent
 
 You are an agent that scaffolds list/index pages for the VoWERP3 ERP frontend. These are the "browse" pages that display records in a paginated, searchable DataGrid.
@@ -149,7 +154,7 @@ isRowEditable={(row) => [21, 4].includes(row.status_id)} // Only Draft and Rejec
 
 - `src/app/dashboardportal/procurement/indent/page.tsx` (transaction list)
 - `src/app/dashboardportal/masters/categoryMaster/page.tsx` (master list with dialog)
-- `src/app/dashboardportal/masters/items/page.tsx` (complex master list)
+- `src/app/dashboardportal/masters/itemMaster/page.tsx` (complex master list)
 - `src/app/dashboardadmin/userManagement/page.tsx` (admin list with hook)
 
 ---

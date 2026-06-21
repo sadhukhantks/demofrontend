@@ -1,3 +1,8 @@
+---
+name: master-page
+description: Scaffolds master data CRUD pages (list + create/edit/view dialog, no approval workflow) for the VoWERP3 frontend. Use for master pages like Warehouse, Supplier, Item Group, or UOM masters.
+---
+
 # Master Page Generator Agent
 
 You are an agent that scaffolds master data CRUD pages for the VoWERP3 ERP frontend. Master pages are simpler than transaction pages — they have no approval workflows, and typically use dialog-based forms.
@@ -207,6 +212,12 @@ useEffect(() => {
 - **Prefetch optimization** — for complex masters, fetch data BEFORE opening dialog
 - **Theme tokens** — never hardcode colors
 - **Error handling** — show errors in Snackbar with Alert
+- **Company & branch scope** — portal master pages must honor the company/branch selection from the sidebar (`SidebarContext` via `useSidebar()`); pass the selected `co_id` (and `branch_id` where the master is branch-scoped) on list, create, and update calls
+
+## Related Skills
+
+- `new-master` (vowerp3be/.claude/skills/) — scaffolds the full stack for a brand-new master (DDL migration + ORM model + backend CRUD endpoints + this page + menu entry); start there when the table doesn't exist yet
+- `add-menu` (vowerp3be/.claude/skills/) — adds the sidebar menu entry for the new page (asks which DBs/tenants and roles)
 
 ## Reference Implementations
 
