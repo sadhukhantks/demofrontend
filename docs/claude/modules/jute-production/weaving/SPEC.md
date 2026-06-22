@@ -30,7 +30,10 @@ Last verified: 2026-06-22 (initial spec — research across vow 2.0 reference + 
 >    `tbl_prod_weaving_quality_mapping` date-effective actual-shot/speed override. Works exactly like
 >    the Beaming SQC page (reuses the `TargetMapEditor` with `valueRole='actual'`).
 >
-> **Status: PROPOSED (spec only).** Nothing implemented yet. Persona: **Portal**
+> **Status: PROPOSED — AWAITING SPEC REVIEW (spec only, nothing implemented).** Four decisions locked
+> in review 2026-06-22 (§0): Weaving machine type = **`'Weaving'`** (Q1); **full jugar carry-forward**
+> (Q3); standards **quality-linked + optional loom eff** (Q5); next step = **review this spec, then
+> build**. Remaining defaults open for redline in §12 (Q2/Q4/Q5b/Q6/Q7/Q8/Q12). Persona: **Portal**
 > (`Depends(get_tenant_db)` + `get_current_user_with_refresh`, `{"data": …}` responses, soft delete
 > via `active = 0`, **no approval workflow**, trigger-based audit — no `created_*`). Register routers
 > in `src/main.py` after the beaming routers (`:216`). The **idle/working hours** impact is wired the
@@ -53,9 +56,9 @@ Last verified: 2026-06-22 (initial spec — research across vow 2.0 reference + 
 | 2 | **Production-entry grain** | **Per loom + quality, per spell.** Header = `tran_date, spell_id, machine_id (loom), eb_id?`; each row = `weaving_quality_id, cuts, jugar` (+ optional `beam_no`). `cuts`/`jugar` are the only operator inputs; production/efficiency are **server-computed**. |
 | 3 | **Two legacy engines → one table** | Legacy had `WEAVING_PRODUCTION` (day/spell aggregate, Java) **and** `CUTS_JUGAR_BUFF_1` (per-loom 5-spell, native SQL). vowerp3 **consolidates to one** per-loom/quality/spell snapshot `jute_prod_weaving_daily`; shift/day/quality rollups are **derived by query** (SUM), never stored — exactly like `jute_prod_beaming_daily`. |
 | 4 | **Quality master content (fixed)** | `jute_prod_weaving_quality` stores `item_id, weaving_quality_code, weaving_quality_name, ends, width, ports, shots, finished_length, ozs_yds, no_of_jugar_per_cut, mc_teeth`. Many qualities per `item_id`. **`no_of_jugar_per_cut` is mandatory** (legacy entity omitted it but the production SQL divides by it — §13 A.1). |
-| 5 | **Standards split (target map)** | **Quality-linked (`qid`, `ref_id=weaving_quality_id`):** `speed`(picks/min), `picks`(PPI/actual_shots), `eff` — std; `eff` (+ optional `speed`) — target. **Loom-linked (`mcid`, `ref_id=machine_id`, OPTIONAL):** `eff` — std/target (loom baseline/target efficiency from legacy `MECHINE_MASTER.PROD_EFF/TARGET_EFF`). FE Type selector **Loom | Quality** (mirrors beaming's Machine | Quality). |
+| 5 | **Standards split (target map)** ✅LOCKED | **Quality-linked (`qid`, `ref_id=weaving_quality_id`):** `speed`(picks/min), `picks`(PPI/actual_shots), `eff` — std; `eff` (+ optional `speed`) — target. **Loom-linked (`mcid`, `ref_id=machine_id`, OPTIONAL):** `eff` — std/target (loom baseline/target efficiency from legacy `MECHINE_MASTER.PROD_EFF/TARGET_EFF`). FE Type selector **Loom | Quality** (mirrors beaming's Machine | Quality). |
 | 6 | **Actuals (Weaving SQC)** | The Weaving SQC page captures **`value_role='actual'`** for `speed` (actual loom picks/min) and `picks` (actual PPI), quality-linked (`qid`), effective-dated — reuses `/weavingTargetMap` endpoints (= legacy `tbl_prod_weaving_quality_mapping`). When an actual exists as-of the production date it **overrides** the corresponding standard in the efficiency calc; otherwise the standard is used. |
-| 7 | **Jugar carry-forward** | **Implement** the legacy open/close roll-forward (§3, §13 B.5): `open` of a spell = prior spell's `close`; `open_A1` of day N = `close_C` of day N−1 for the same loom. This is weaving's only material divergence from beaming. (Alternative: simplified per-spell production with no carry — see §12 Q3.) |
+| 7 | **Jugar carry-forward** ✅LOCKED | **Implement** the legacy open/close roll-forward (§3, §13 B.5): `open` of a spell = prior spell's `close`; `open_A1` of day N = `close_C` of day N−1 for the same loom. This is weaving's only material divergence from beaming. (Alternative: simplified per-spell production with no carry — see §12 Q3.) |
 | 8 | **Working hours** | `working_hours = max(0, spell_mst.working_hours − Σ jute_prod_stoppage_hours[machine,date,spell])` — wired to the Stoppage Hours module exactly like beaming (§3). |
 | 9 | **No approval workflow** | Direct CRUD + soft delete (`active=0`); no `status_id`, consistent with all of jute production. |
 | 10 | **Target tenant DB** | **dev3** (QA/dev tenant) for all DDL/seed/testing — confirm in §12 Q12. |
@@ -67,7 +70,7 @@ like beaming's `create_beaming_item_type_and_machine_type.sql` + `seed_beaming_m
 
 | Object | Action | Notes |
 |--------|--------|-------|
-| **Loom machine type** | Confirm/seed `machine_type_mst.machine_type_name = 'Loom'` (legacy looms = `MECHINE_MASTER.machineType in ('S4 Loom','Loom')`). `WEAVING_MACHINE_TYPE_NAME` resolves to its `machine_type_id` at runtime. | **Could not verify in dev3** (DB host firewalled from build sandbox) — confirm the existing loom machine-type name, or seed one as beaming seeded `Beaming`=12. §12 Q1. |
+| **Weaving (loom) machine type** | **LOCKED `machine_type_mst.machine_type_name = 'Weaving'`** (review 2026-06-22, Q1) — parallel to `Beaming`=12, `Spinning`. Looms are `machine_mst` rows of this type (legacy `MECHINE_MASTER.machineType in ('S4 Loom','Loom')`). `WEAVING_MACHINE_TYPE_NAME = "Weaving"` resolves to its `machine_type_id` at runtime. | Confirm a `'Weaving'` type exists in dev3, else seed it as beaming seeded `Beaming`=12. (DB host firewalled from build sandbox — couldn't auto-verify.) |
 | **Woven-cloth item type** | Weaving qualities key off woven jute-cloth items. **Reuse `item_type_master 'Jute Cloth' = 5`** (already applied for beaming, §beaming 0.1) — the woven product is jute cloth. | `WEAVING_ITEM_TYPE_IDS = (5,)`. Confirm whether woven cloth should be a distinct item type vs share `Jute Cloth` with beaming. §12 Q2. |
 | **Menus** | 4 `menu_mst` rows under parent *Jute Production* (`menu_id` 768): Weaving Production, Weaving Quality Master, Weaving Standards; + 1 under the juteSQC parent: Weaving SQC. `role_menu_map` left to tenant admin. Seed via `seed_weaving_menu.sql` + `seed_weaving_sqc_menu.sql` (mirror beaming's). | §11. |
 
@@ -148,7 +151,7 @@ param keys off.
 | `date` | entry | **header** |
 | `shift` | derived from `spell` (`LEFT(spell_code,1)`) | **derived** |
 | `spell` | `spell_mst` (5 weaving spells **A1, B1, A2, B2, C**) | **header** |
-| `loom` (`machine_id`) | `machine_mst` where `machine_type = 'Loom'` | **header** |
+| `loom` (`machine_id`) | `machine_mst` where `machine_type = 'Weaving'` | **header** |
 | `eb_no` | `eb_id` (operator/weaver) | **header** (optional) |
 | `beam_no` | entry | **data-entry field** (per row, optional — physical beam mounted) |
 | `cuts` | entry | **data-entry field** (per row) — full cuts woven |
@@ -329,7 +332,7 @@ Clone beaming's 7 endpoints verbatim (rename table/PK/ref queries):
 | DELETE | `/target_map_delete/{id}` | soft-delete |
 
 `qid` refs come from `jute_prod_weaving_quality` (code+name); `mcid` refs from `machine_mst` filtered
-by `machine_type_name = 'Loom'`.
+by `machine_type_name = 'Weaving'`.
 
 ### 5.4 Frontend
 
@@ -425,7 +428,7 @@ is the vowerp3 replacement for legacy `tbl_prod_weaving_quality_mapping` (§13 A
 
 ```python
 # Weaving (loom) machine type — resolved against machine_type_mst.machine_type_name.
-WEAVING_MACHINE_TYPE_NAME = "Loom"          # confirm/seed in dev3 (§0.1, Q1)
+WEAVING_MACHINE_TYPE_NAME = "Weaving"       # LOCKED (review 2026-06-22, Q1); confirm/seed in dev3 (§0.1)
 WEAVING_ITEM_TYPE_IDS     = (5,)            # 'Jute Cloth' (reuse beaming's; Q2)
 WEAVING_OZ_TO_KG          = 35.2            # ounces -> kg (16 oz/lb × 2.2 lb/kg)
 WEAVING_YARD_FACTOR       = 36              # picks -> standard-yards conversion
@@ -501,18 +504,18 @@ the juteSQC parent; map via `role_menu_map` (left to tenant admin). Use the `add
 
 ## 12. Open questions / decisions to confirm
 
-| # | Question | Spec default (recommended) |
-|---|----------|----------------------------|
-| Q1 | **Loom machine type** — what is the exact `machine_type_mst.machine_type_name` for looms in dev3? (Couldn't verify — DB firewalled.) | `'Loom'`; seed if absent (mirror beaming `Beaming`=12). |
-| Q2 | **Item type for woven cloth** — share `Jute Cloth` (item_type 5) with beaming, or a distinct woven-cloth type? | Reuse `Jute Cloth` (5). |
-| Q3 | **Jugar carry-forward** — implement the full open/close roll-forward across spells/days, or simplify (per-spell production only, no carry)? | **Implement carry-forward** (legacy-faithful). |
-| Q4 | **Quality master vs reuse beaming quality** — separate `jute_prod_weaving_quality`, or extend `jute_prod_bm_quality`? (Legacy used ONE shared `weaving_quality_master` for both.) | **Separate** `jute_prod_weaving_quality` (different attributes: finished_length, ozs_yds, jugar_per_cut). |
-| Q5 | **Loom-linked standards** — include the optional `mcid` eff dimension (loom baseline/target efficiency), or quality-only? | Include `mcid` eff as optional; quality-linked is primary. |
-| Q5b | **Target speed** — add `qid/target/speed`, or target only `eff`? | `eff` only (add `speed` if desired). |
-| Q6 | **Composite weaving qualities** — any multi-warp/composite weaving qualities needing a `_dtl` table (like beaming)? | No `_dtl` (legacy flat); add later if needed. |
-| Q7 | **`beam_no` / `eb_id` on entry** — capture physical beam no and weaver EB per row? | Yes, both optional. |
-| Q8 | **Reports** — which weaving reports to build (loom-yards line-wise eff today/30-day, EB-wise eff, single/double loom)? Legacy had several (§13 B.9–B.11). | Phase 2: loom-yards + spell/quality rollup first. |
-| Q12 | **Target tenant DB** | **dev3**. |
+| # | Question | Status / answer |
+|---|----------|-----------------|
+| Q1 | **Loom machine type** — exact `machine_type_mst.machine_type_name` for looms in dev3? | ✅ **LOCKED `'Weaving'`** (review 2026-06-22); seed if absent (mirror beaming `Beaming`=12). |
+| Q3 | **Jugar carry-forward** — full open/close roll-forward across spells/days, or simplified per-spell? | ✅ **LOCKED — full carry-forward** (review 2026-06-22, legacy-faithful). |
+| Q5 | **Loom-linked standards** — include optional `mcid` eff (loom baseline/target), or quality-only? | ✅ **LOCKED — quality-linked (`qid`) primary + optional `mcid` eff** (review 2026-06-22). |
+| Q2 | **Item type for woven cloth** — share `Jute Cloth` (item_type 5) with beaming, or a distinct type? | ⏳ open — default: reuse `Jute Cloth` (5). |
+| Q4 | **Quality master vs reuse beaming quality** — separate `jute_prod_weaving_quality`, or extend `jute_prod_bm_quality`? (Legacy used ONE shared `weaving_quality_master`.) | ⏳ open — default: **separate** (different attributes: finished_length, ozs_yds, jugar_per_cut). |
+| Q5b | **Target speed** — add `qid/target/speed`, or target only `eff`? | ⏳ open — default: `eff` only. |
+| Q6 | **Composite weaving qualities** — multi-warp qualities needing a `_dtl` table (like beaming)? | ⏳ open — default: no `_dtl` (legacy flat). |
+| Q7 | **`beam_no` / `eb_id` on entry** — capture physical beam no + weaver EB per row? | ⏳ open — default: yes, both optional. |
+| Q8 | **Reports** — which weaving reports first (loom-yards line-wise eff today/30-day, EB-wise eff, single/double loom — §13 B.9–B.11)? | ⏳ open — default: phase 2; loom-yards + spell/quality rollup first. |
+| Q12 | **Target tenant DB** | ⏳ open — default: **dev3**. |
 
 ---
 
@@ -531,7 +534,7 @@ the juteSQC parent; map via `role_menu_map` (left to tenant admin). Use the `add
 | `WEAVING_PRODUCTION` — day/spell aggregate (`WeavingProduction.java`) | derived rollup (report query) — no separate table |
 | `DAILY_WEAVING_QUALITIES` — loom→quality/day/spell (`DailyWeavingQualities.java`) | the loom+quality grain on `jute_prod_weaving_daily` |
 | `TBL_PROD_WEAVING_QUALITY_MAPPING` — date-effective actual_shot/speed/finished_length (`WeavingQualityMapping.java`) | `jute_prod_weaving_target_map` rows with `value_role='actual'` (Weaving SQC page) |
-| `MECHINE_MASTER` looms (`machineType in 'S4 Loom','Loom'`) — `PROD_EFF`,`TARGET_EFF` | `machine_mst` (`machine_type='Loom'`); loom eff → optional `mcid` target-map params |
+| `MECHINE_MASTER` looms (`machineType in 'S4 Loom','Loom'`) — `PROD_EFF`,`TARGET_EFF` | `machine_mst` (`machine_type='Weaving'`); loom eff → optional `mcid` target-map params |
 | `SPELL_MASTER` (`Spells.java`) — `WORKING_HOURS`, spells A1/B1/A2/B2/C | `spell_mst` (already used by beaming/spinning) |
 | Efficiency views `VIEW_EB_WISE_DAY/DAILY/MONTHLY_EFFICIENCY`, `VIEW_SINGLE_DOUBLE_LOOM_REPORT` | reimplement in `reportQueries.py` (§12 Q8) |
 
