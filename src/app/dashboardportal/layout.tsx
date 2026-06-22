@@ -6,6 +6,7 @@ import Sidebar from "@/components/dashboard/sidebar"
 import { SidebarProvider, useSidebarContext } from "@/components/dashboard/sidebarContext"
 import { determinePortalAction } from "@/utils/portalPermissions"
 import { Menu } from "lucide-react"
+import SupportTicketWidget from "@/components/support/SupportTicketWidget"
 
 function PortalPermissionBoundary({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -95,6 +96,9 @@ export default function DashboardLayout({
               {children}
             </main>
           </div>
+
+          {/* Floating "raise a support ticket" widget — present on every portal page */}
+          <SupportTicketWidget variant="portal" />
         </div>
       </PortalPermissionBoundary>
     </SidebarProvider>

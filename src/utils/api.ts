@@ -849,6 +849,30 @@ const apiRoutesPortalMasters = {
     STOPPAGE_ENTRY_DELETE: `${API_URL}/stoppageProd/entry_delete`,
 };
 
-export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters };
+// Support tickets (Zendesk-style). Raised from Portal/Tenant Admin widgets,
+// managed by the VOW team from the Control Desk. Backend prefix /api/supportTicket.
+const apiRoutesSupport = {
+    META: `${API_URL}/supportTicket/meta`,
+    // Reporter side — Portal
+    PORTAL_RAISE: `${API_URL}/supportTicket/portal/raise`,
+    PORTAL_MY_TICKETS: `${API_URL}/supportTicket/portal/my-tickets`,
+    PORTAL_TICKET: `${API_URL}/supportTicket/portal/ticket`, // append /{id}
+    PORTAL_COMMENT: `${API_URL}/supportTicket/portal/comment`,
+    // Reporter side — Tenant Admin
+    ADMIN_RAISE: `${API_URL}/supportTicket/admin/raise`,
+    ADMIN_MY_TICKETS: `${API_URL}/supportTicket/admin/my-tickets`,
+    ADMIN_TICKET: `${API_URL}/supportTicket/admin/ticket`, // append /{id}
+    ADMIN_COMMENT: `${API_URL}/supportTicket/admin/comment`,
+    // VOW management — Control Desk
+    MANAGE_LIST: `${API_URL}/supportTicket/manage/list`,
+    MANAGE_STATS: `${API_URL}/supportTicket/manage/stats`,
+    MANAGE_ASSIGNEES: `${API_URL}/supportTicket/manage/assignees`,
+    MANAGE_TICKET: `${API_URL}/supportTicket/manage/ticket`, // append /{id}
+    MANAGE_ASSIGN: `${API_URL}/supportTicket/manage/assign`,
+    MANAGE_TRANSITION: `${API_URL}/supportTicket/manage/transition`,
+    MANAGE_COMMENT: `${API_URL}/supportTicket/manage/comment`,
+};
+
+export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters, apiRoutesSupport };
 
 // NEXT_PUBLIC_API_BASE_URL=/api
