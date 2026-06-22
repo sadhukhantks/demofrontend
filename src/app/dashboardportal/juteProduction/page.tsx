@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Box, Card, CardActionArea, CardContent, Typography } from "@mui/material";
-import { Factory, BarChart3, Boxes, Clock, Scale, Gauge, Ruler, Disc3, Container, RotateCw, Timer } from "lucide-react";
+import { Factory, BarChart3, Boxes, Clock, Scale, Gauge, Ruler, Disc3, Container, RotateCw, Timer, Columns3 } from "lucide-react";
 
 type Tile = {
 	href: string;
@@ -66,6 +66,12 @@ const TILES: Tile[] = [
 		title: "Winding Production",
 		subtitle: "Doff entry, spindle jugar (open/close) & daily quality",
 		icon: <RotateCw size={32} className="text-blue-600" />,
+	},
+	{
+		href: "/dashboardportal/juteProduction/beaming",
+		title: "Beaming Production",
+		subtitle: "Daily beaming production entry",
+		icon: <Columns3 size={32} className="text-blue-600" />,
 	},
 	{
 		href: "/dashboardportal/juteProduction/stoppageHours",

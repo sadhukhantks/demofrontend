@@ -847,6 +847,33 @@ const apiRoutesPortalMasters = {
     STOPPAGE_ENTRIES_BY_DATE: `${API_URL}/stoppageProd/entries_by_date`,
     STOPPAGE_ENTRY_EDIT: `${API_URL}/stoppageProd/entry_edit`,
     STOPPAGE_ENTRY_DELETE: `${API_URL}/stoppageProd/entry_delete`,
+    // Beaming Quality Master (router prefix /api/beamingMasters) — BM_QUALITY_EDIT/DELETE/DETAIL are
+    // base paths; caller appends /${id}?co_id=...
+    BM_QUALITY_CREATE_SETUP: `${API_URL}/beamingMasters/bm_quality_create_setup`,
+    BM_QUALITY_LIST: `${API_URL}/beamingMasters/bm_quality_list`,
+    BM_QUALITY_CREATE: `${API_URL}/beamingMasters/bm_quality_create`,
+    BM_QUALITY_EDIT: `${API_URL}/beamingMasters/bm_quality_edit`,
+    BM_QUALITY_DELETE: `${API_URL}/beamingMasters/bm_quality_delete`,
+    BM_QUALITY_DETAIL: `${API_URL}/beamingMasters/bm_quality_detail`,
+    // Beaming Standards / Targets Map (router prefix /api/beamingTargetMap) — clone of spngTargetMap;
+    // *_EDIT/*_DELETE are base paths; caller appends /${id}
+    BEAMING_TARGET_MAP_SETUP: `${API_URL}/beamingTargetMap/target_map_setup`,
+    BEAMING_TARGET_MAP_LIST: `${API_URL}/beamingTargetMap/target_map_list`,
+    BEAMING_TARGET_MAP_CREATE: `${API_URL}/beamingTargetMap/target_map_create`,
+    BEAMING_TARGET_MAP_EDIT: `${API_URL}/beamingTargetMap/target_map_edit`,
+    BEAMING_TARGET_MAP_DELETE: `${API_URL}/beamingTargetMap/target_map_delete`,
+    BEAMING_TARGET_MAP_GRID: `${API_URL}/beamingTargetMap/target_map_grid`,
+    BEAMING_TARGET_MAP_BULK_SAVE: `${API_URL}/beamingTargetMap/target_map_bulk_save`,
+    // Beaming Production Entry (router prefix /api/beamingProd) — BEAMING_ENTRY_EDIT/DELETE are
+    // base paths; caller appends /${id}?co_id=...
+    BEAMING_ENTRY_CREATE_SETUP: `${API_URL}/beamingProd/entry_create_setup`,
+    BEAMING_ENTRIES_BY_DATE: `${API_URL}/beamingProd/entries_by_date`,
+    BEAMING_MACHINE_STANDARDS: `${API_URL}/beamingProd/machine_standards`,
+    BEAMING_ENTRY_CREATE: `${API_URL}/beamingProd/entry_create`,
+    BEAMING_ENTRY_EDIT: `${API_URL}/beamingProd/entry_edit`,
+    BEAMING_ENTRY_DELETE: `${API_URL}/beamingProd/entry_delete`,
+    BEAMING_PLANNING_GRID: `${API_URL}/beamingProd/planning_grid`,
+    BEAMING_PLANNING_GRID_SAVE: `${API_URL}/beamingProd/planning_grid_save`,
 };
 
 export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters };
