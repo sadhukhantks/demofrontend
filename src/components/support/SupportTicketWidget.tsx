@@ -41,11 +41,15 @@ import {
 import { ArrowLeft, LifeBuoy, Send, X } from "lucide-react";
 
 import { useSidebarContextSafe } from "@/components/dashboard/sidebarContext";
+import { AttachmentList, AttachmentUploadButton } from "@/components/support/AttachmentList";
 import {
   addReporterComment,
+  deleteReporterAttachment,
   getMyTickets,
+  getReporterAttachmentUrl,
   getReporterTicket,
   raiseTicket,
+  uploadReporterAttachment,
   type WidgetVariant,
 } from "@/utils/supportTicketService";
 import {
@@ -56,6 +60,7 @@ import {
   TICKET_STATUS_COLOR,
   TICKET_STATUS_LABELS,
   type RaiseTicketForm,
+  type TicketAttachment,
   type TicketComment,
   type TicketDetail,
   type TicketSummary,
@@ -96,15 +101,18 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
   const [tab, setTab] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [snack, setSnack] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   // "My tickets" state
   const [myTickets, setMyTickets] = useState<TicketSummary[]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [selected, setSelected] = useState<TicketDetail | null>(null);
   const [comments, setComments] = useState<TicketComment[]>([]);
+  const [attachments, setAttachments] = useState<TicketAttachment[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replying, setReplying] = useState(false);
+  const [uploadingDetail, setUploadingDetail] = useState(false);
 
   const {
     register,
@@ -156,13 +164,27 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
   const onSubmit = handleSubmit(async (form) => {
     setSubmitting(true);
     const { data, error } = await raiseTicket(variant, { ...form, ...captureContext() });
-    setSubmitting(false);
     if (error || !data) {
+      setSubmitting(false);
       setSnack({ msg: error ?? "Could not submit your ticket", severity: "error" });
       return;
     }
-    setSnack({ msg: `Ticket ${data.ticket_no} submitted — thank you!`, severity: "success" });
+    // Upload any attachments the user picked, against the new ticket.
+    let failed = 0;
+    for (const file of pendingFiles) {
+      const res = await uploadReporterAttachment(variant, data.ticket_id, file);
+      if (res.error) failed += 1;
+    }
+    setSubmitting(false);
+    setSnack({
+      msg:
+        failed > 0
+          ? `Ticket ${data.ticket_no} submitted, but ${failed} attachment(s) failed to upload`
+          : `Ticket ${data.ticket_no} submitted — thank you!`,
+      severity: failed > 0 ? "error" : "success",
+    });
     reset();
+    setPendingFiles([]);
     setTab(1);
     void loadMyTickets();
   });
@@ -178,8 +200,53 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
       }
       setSelected(data.data);
       setComments(data.comments ?? []);
+      setAttachments(data.attachments ?? []);
     },
     [variant],
+  );
+
+  const openAttachment = useCallback(
+    async (attachment: TicketAttachment) => {
+      if (attachment.url) {
+        window.open(attachment.url, "_blank", "noopener,noreferrer");
+        return;
+      }
+      const { data, error } = await getReporterAttachmentUrl(variant, attachment.attachment_id);
+      if (error || !data?.url) {
+        setSnack({ msg: error ?? "Could not open attachment", severity: "error" });
+        return;
+      }
+      window.open(data.url, "_blank", "noopener,noreferrer");
+    },
+    [variant],
+  );
+
+  const uploadToSelected = useCallback(
+    async (files: File[]) => {
+      if (!selected) return;
+      setUploadingDetail(true);
+      let failed = 0;
+      for (const file of files) {
+        const res = await uploadReporterAttachment(variant, selected.ticket_id, file);
+        if (res.error) failed += 1;
+      }
+      setUploadingDetail(false);
+      if (failed > 0) setSnack({ msg: `${failed} attachment(s) failed to upload`, severity: "error" });
+      await openTicket(selected.ticket_id);
+    },
+    [selected, variant, openTicket],
+  );
+
+  const removeAttachment = useCallback(
+    async (attachment: TicketAttachment) => {
+      const { error } = await deleteReporterAttachment(variant, attachment.attachment_id);
+      if (error) {
+        setSnack({ msg: error, severity: "error" });
+        return;
+      }
+      if (selected) await openTicket(selected.ticket_id);
+    },
+    [variant, selected, openTicket],
   );
 
   const sendReply = useCallback(async () => {
@@ -199,6 +266,7 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
     setOpen(false);
     setSelected(null);
     setComments([]);
+    setAttachments([]);
   };
 
   const categoryOptions = useMemo(() => TICKET_CATEGORIES, []);
@@ -231,6 +299,8 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
           onChange={(_, v: number) => {
             setTab(v);
             setSelected(null);
+            setComments([]);
+            setAttachments([]);
           }}
           sx={{ px: 3 }}
         >
@@ -316,6 +386,34 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
                   {...register("description")}
                 />
 
+                <Box>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: pendingFiles.length ? 1 : 0 }}>
+                    <AttachmentUploadButton
+                      onFiles={(files) => setPendingFiles((prev) => [...prev, ...files])}
+                      label="Attach screenshots / files"
+                      onReject={(m) => setSnack({ msg: m, severity: "error" })}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      Images or documents, up to 10 MB each
+                    </Typography>
+                  </Stack>
+                  {pendingFiles.length > 0 && (
+                    <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1}>
+                      {pendingFiles.map((f, idx) => (
+                        <Chip
+                          key={`${f.name}-${idx}`}
+                          size="small"
+                          variant="outlined"
+                          label={f.name.length > 24 ? `${f.name.slice(0, 22)}…` : f.name}
+                          onDelete={() =>
+                            setPendingFiles((prev) => prev.filter((_, i) => i !== idx))
+                          }
+                        />
+                      ))}
+                    </Stack>
+                  )}
+                </Box>
+
                 <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
                   <Button
                     type="submit"
@@ -380,6 +478,7 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
                 onClick={() => {
                   setSelected(null);
                   setComments([]);
+                  setAttachments([]);
                 }}
                 sx={{ mb: 1 }}
               >
@@ -406,6 +505,23 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
                   <Typography variant="body2" sx={{ mt: 1.5, whiteSpace: "pre-wrap" }}>
                     {selected.description}
                   </Typography>
+
+                  <Divider sx={{ my: 2 }} />
+                  <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                    <Typography variant="subtitle2">Attachments</Typography>
+                    <AttachmentUploadButton
+                      onFiles={uploadToSelected}
+                      disabled={uploadingDetail}
+                      label="Add"
+                      onReject={(m) => setSnack({ msg: m, severity: "error" })}
+                    />
+                  </Stack>
+                  <AttachmentList
+                    attachments={attachments}
+                    onOpen={openAttachment}
+                    onDelete={removeAttachment}
+                    canDelete={(a) => a.uploaded_by_type === "reporter"}
+                  />
 
                   <Divider sx={{ my: 2 }} />
                   <Typography variant="subtitle2" sx={{ mb: 1 }}>

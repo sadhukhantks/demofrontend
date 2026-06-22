@@ -141,9 +141,44 @@ export interface TicketComment {
   created_date_time: string | null;
 }
 
+export interface TicketAttachment {
+  attachment_id: number;
+  ticket_id: number;
+  kind: "image" | "document";
+  original_filename: string | null;
+  mime_type: string | null;
+  size_bytes: number | null;
+  uploaded_by_type: "reporter" | "vow";
+  uploaded_by_name: string | null;
+  uploaded_at: string | null;
+  /** Short-lived presigned URL, present on detail responses. */
+  url?: string | null;
+}
+
 export interface TicketDetailResponse {
   data: TicketDetail;
   comments: TicketComment[];
+  attachments: TicketAttachment[];
+}
+
+/** Accept filter for the file picker — images (screenshots) + documents. */
+export const ATTACHMENT_ACCEPT =
+  "image/png,image/jpeg,image/gif,image/webp," +
+  "application/pdf,application/msword," +
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document," +
+  "application/vnd.ms-excel," +
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet," +
+  "application/vnd.ms-powerpoint," +
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation," +
+  "text/csv,text/plain";
+
+export const ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+
+export function formatFileSize(bytes: number | null | undefined): string {
+  if (!bytes && bytes !== 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export interface Assignee {

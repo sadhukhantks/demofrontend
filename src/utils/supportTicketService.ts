@@ -30,12 +30,14 @@ const reporterRoutes = (variant: WidgetVariant) =>
         myTickets: apiRoutesSupport.PORTAL_MY_TICKETS,
         ticket: apiRoutesSupport.PORTAL_TICKET,
         comment: apiRoutesSupport.PORTAL_COMMENT,
+        attachment: apiRoutesSupport.PORTAL_ATTACHMENT,
       }
     : {
         raise: apiRoutesSupport.ADMIN_RAISE,
         myTickets: apiRoutesSupport.ADMIN_MY_TICKETS,
         ticket: apiRoutesSupport.ADMIN_TICKET,
         comment: apiRoutesSupport.ADMIN_COMMENT,
+        attachment: apiRoutesSupport.ADMIN_ATTACHMENT,
       };
 
 // ── Reporter side ────────────────────────────────────────────────────────────────
@@ -78,6 +80,43 @@ export async function addReporterComment(
     ticket_id: ticketId,
     comment_text: commentText,
   });
+  return { data: data?.data ?? null, error, status };
+}
+
+export async function uploadReporterAttachment(
+  variant: WidgetVariant,
+  ticketId: number,
+  file: File,
+): Promise<ServiceResult<{ attachment_id: number }>> {
+  const form = new FormData();
+  form.append("file", file);
+  const { data, error, status } = await fetchWithCookie(
+    `${reporterRoutes(variant).ticket}/${ticketId}/attachment`,
+    "POST",
+    form,
+  );
+  return { data: data?.data ?? null, error, status };
+}
+
+export async function getReporterAttachmentUrl(
+  variant: WidgetVariant,
+  attachmentId: number,
+): Promise<ServiceResult<{ url: string }>> {
+  const { data, error, status } = await fetchWithCookie(
+    `${reporterRoutes(variant).attachment}/${attachmentId}`,
+    "GET",
+  );
+  return { data: data?.data ?? null, error, status };
+}
+
+export async function deleteReporterAttachment(
+  variant: WidgetVariant,
+  attachmentId: number,
+): Promise<ServiceResult<unknown>> {
+  const { data, error, status } = await fetchWithCookie(
+    `${reporterRoutes(variant).attachment}/${attachmentId}`,
+    "DELETE",
+  );
   return { data: data?.data ?? null, error, status };
 }
 
@@ -172,6 +211,40 @@ export async function addManageComment(
     comment_text: commentText,
     is_internal: isInternal,
   });
+  return { data: data?.data ?? null, error, status };
+}
+
+export async function uploadManageAttachment(
+  ticketId: number,
+  file: File,
+): Promise<ServiceResult<{ attachment_id: number }>> {
+  const form = new FormData();
+  form.append("file", file);
+  const { data, error, status } = await fetchWithCookie(
+    `${apiRoutesSupport.MANAGE_TICKET}/${ticketId}/attachment`,
+    "POST",
+    form,
+  );
+  return { data: data?.data ?? null, error, status };
+}
+
+export async function getManageAttachmentUrl(
+  attachmentId: number,
+): Promise<ServiceResult<{ url: string }>> {
+  const { data, error, status } = await fetchWithCookie(
+    `${apiRoutesSupport.MANAGE_ATTACHMENT}/${attachmentId}`,
+    "GET",
+  );
+  return { data: data?.data ?? null, error, status };
+}
+
+export async function deleteManageAttachment(
+  attachmentId: number,
+): Promise<ServiceResult<unknown>> {
+  const { data, error, status } = await fetchWithCookie(
+    `${apiRoutesSupport.MANAGE_ATTACHMENT}/${attachmentId}`,
+    "DELETE",
+  );
   return { data: data?.data ?? null, error, status };
 }
 

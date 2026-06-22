@@ -27,12 +27,16 @@ import {
 } from "@mui/material";
 import { X } from "lucide-react";
 
+import { AttachmentList, AttachmentUploadButton } from "@/components/support/AttachmentList";
 import {
   addManageComment,
   assignTicket,
+  deleteManageAttachment,
   getAssignees,
+  getManageAttachmentUrl,
   getManageTicket,
   transitionTicket,
+  uploadManageAttachment,
 } from "@/utils/supportTicketService";
 import {
   TICKET_PRIORITY_COLOR,
@@ -41,6 +45,7 @@ import {
   TICKET_STATUS_LABELS,
   type Assignee,
   type TicketAction,
+  type TicketAttachment,
   type TicketComment,
   type TicketDetail,
 } from "@/utils/supportTicketTypes";
@@ -128,6 +133,7 @@ export default function TicketManageDrawer({
   const [loading, setLoading] = useState(false);
   const [ticket, setTicket] = useState<TicketDetail | null>(null);
   const [comments, setComments] = useState<TicketComment[]>([]);
+  const [attachments, setAttachments] = useState<TicketAttachment[]>([]);
   const [assignees, setAssignees] = useState<Assignee[]>([]);
   const [assigneeId, setAssigneeId] = useState<number | "">("");
   const [reason, setReason] = useState("");
@@ -148,8 +154,52 @@ export default function TicketManageDrawer({
     }
     setTicket(data.data);
     setComments(data.comments ?? []);
+    setAttachments(data.attachments ?? []);
     setAssigneeId(data.data.assigned_to_con_user_id ?? "");
   }, [ticketId]);
+
+  const openAttachment = useCallback(async (attachment: TicketAttachment) => {
+    if (attachment.url) {
+      window.open(attachment.url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    const { data, error } = await getManageAttachmentUrl(attachment.attachment_id);
+    if (error || !data?.url) {
+      setSnack({ msg: error ?? "Could not open attachment", severity: "error" });
+      return;
+    }
+    window.open(data.url, "_blank", "noopener,noreferrer");
+  }, []);
+
+  const uploadAttachments = useCallback(
+    async (files: File[]) => {
+      if (ticketId == null) return;
+      setBusy(true);
+      let failed = 0;
+      for (const file of files) {
+        const res = await uploadManageAttachment(ticketId, file);
+        if (res.error) failed += 1;
+      }
+      setBusy(false);
+      if (failed > 0) setSnack({ msg: `${failed} attachment(s) failed to upload`, severity: "error" });
+      await load();
+      onChanged();
+    },
+    [ticketId, load, onChanged],
+  );
+
+  const removeAttachment = useCallback(
+    async (attachment: TicketAttachment) => {
+      const { error } = await deleteManageAttachment(attachment.attachment_id);
+      if (error) {
+        setSnack({ msg: error, severity: "error" });
+        return;
+      }
+      await load();
+      onChanged();
+    },
+    [load, onChanged],
+  );
 
   useEffect(() => {
     if (open && ticketId != null) {
@@ -158,6 +208,7 @@ export default function TicketManageDrawer({
     if (!open) {
       setTicket(null);
       setComments([]);
+      setAttachments([]);
       setReason("");
       setNotes("");
       setCommentText("");
@@ -284,6 +335,24 @@ export default function TicketManageDrawer({
             <InfoRow label="Raised" value={formatDateTime(ticket.created_date_time)} />
             {ticket.close_reason ? <InfoRow label="Close reason" value={ticket.close_reason} /> : null}
             {ticket.resolution_notes ? <InfoRow label="Resolution" value={ticket.resolution_notes} /> : null}
+
+            <Divider sx={{ my: 2 }} />
+
+            {/* Attachments */}
+            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+              <Typography variant="subtitle2">Attachments</Typography>
+              <AttachmentUploadButton
+                onFiles={uploadAttachments}
+                disabled={busy}
+                label="Add"
+                onReject={(m) => setSnack({ msg: m, severity: "error" })}
+              />
+            </Stack>
+            <AttachmentList
+              attachments={attachments}
+              onOpen={openAttachment}
+              onDelete={removeAttachment}
+            />
 
             <Divider sx={{ my: 2 }} />
 
