@@ -117,7 +117,7 @@ export default function PayRegisterDispSetPage() {
         if (!cancelled) {
           setSchemeOptions(
             schemes.map((s) => ({
-              label: `${String(s.payscheme_code ?? "")} — ${String(s.payscheme_name ?? "")}`,
+              label: String(s.payscheme_name ?? ""),
               value: String(s.payscheme_id),
             })),
           );
@@ -501,18 +501,29 @@ export default function PayRegisterDispSetPage() {
               onPaginationModelChange={setPaginationModel}
               pageSizeOptions={[10, 25, 50, 100]}
               disableRowSelectionOnClick
+              getRowClassName={(params) =>
+                (params.row as GridRow).pay_id == null ? "row-unsaved" : ""
+              }
               sx={{
-                "& .MuiDataGrid-columnHeaders": {
-                  backgroundColor: "#f5f5f5",
+                // Match the Pay Register index page header (IndexWrapper / muiDataGrid).
+                "& .MuiDataGrid-columnHeader": {
+                  backgroundColor: "#3ea6da",
+                  color: "white",
+                  fontWeight: "bold",
+                  borderRight: "1px solid rgba(224, 224, 224, 1)",
+                },
+                "& .MuiDataGrid-columnHeaderTitle": {
                   fontWeight: "bold",
                 },
                 "& .MuiDataGrid-cell": {
-                  borderRight: "1px solid",
-                  borderColor: "divider",
+                  borderRight: "1px solid rgba(224, 224, 224, 1)",
                 },
-                "& .MuiDataGrid-columnHeader": {
-                  borderRight: "1px solid",
-                  borderColor: "divider",
+                // Unsaved (not yet persisted) rows stand out.
+                "& .row-unsaved": {
+                  backgroundColor: "#fff8e1",
+                },
+                "& .row-unsaved:hover": {
+                  backgroundColor: "#fff3c4",
                 },
               }}
             />
