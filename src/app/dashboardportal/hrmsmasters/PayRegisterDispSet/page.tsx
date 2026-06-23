@@ -20,6 +20,7 @@ import {
   Tooltip,
 } from "@mui/material";
 import { Save, Trash2 } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/transaction/SearchableSelect";
 import { useSelectedCompanyCoId } from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import {
@@ -288,41 +289,37 @@ export default function PayRegisterDispSetPage() {
     <Box className="flex flex-col gap-4 p-4">
       <Typography variant="h5">Pay Register Display Setup</Typography>
 
-      <Paper className="flex flex-wrap items-center gap-4 p-4">
-        <TextField
-          select
-          label="Pay Scheme"
-          value={payschemeId}
-          onChange={(e) => setPayschemeId(e.target.value)}
-          size="small"
-          sx={{ minWidth: 260 }}
-        >
-          <MenuItem value="">
-            <em>Select pay scheme</em>
-          </MenuItem>
-          {schemeOptions.map((o) => (
-            <MenuItem key={o.value} value={o.value}>
-              {o.label}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          select
-          label="Branch"
-          value={branchId}
-          onChange={(e) => setBranchId(e.target.value)}
-          size="small"
-          sx={{ minWidth: 200 }}
-        >
-          <MenuItem value="">
-            <em>Select branch</em>
-          </MenuItem>
-          {branchOptions.map((o) => (
-            <MenuItem key={o.value} value={o.value}>
-              {o.label}
-            </MenuItem>
-          ))}
-        </TextField>
+      <Paper className="flex flex-wrap items-end gap-4 p-4">
+        <Box sx={{ minWidth: 280 }}>
+          <Typography variant="caption" color="textSecondary">
+            Pay Scheme
+          </Typography>
+          <SearchableSelect<Option>
+            options={schemeOptions}
+            value={schemeOptions.find((o) => o.value === payschemeId) ?? null}
+            onChange={(opt) => setPayschemeId(opt?.value ?? "")}
+            getOptionLabel={(o) => o.label}
+            getOptionKey={(o) => o.value}
+            isOptionEqualToValue={(a, b) => a.value === b.value}
+            placeholder="Search pay scheme..."
+            noOptionsText="No pay schemes"
+          />
+        </Box>
+        <Box sx={{ minWidth: 220 }}>
+          <Typography variant="caption" color="textSecondary">
+            Branch
+          </Typography>
+          <SearchableSelect<Option>
+            options={branchOptions}
+            value={branchOptions.find((o) => o.value === branchId) ?? null}
+            onChange={(opt) => setBranchId(opt?.value ?? "")}
+            getOptionLabel={(o) => o.label}
+            getOptionKey={(o) => o.value}
+            isOptionEqualToValue={(a, b) => a.value === b.value}
+            placeholder="Search branch..."
+            noOptionsText="No branches"
+          />
+        </Box>
       </Paper>
 
       <Paper className="p-2">
@@ -360,22 +357,18 @@ export default function PayRegisterDispSetPage() {
               {rows.map((row, idx) => (
                 <TableRow key={row.pay_id ?? `new-${idx}`}>
                   <TableCell>
-                    <TextField
-                      select
-                      fullWidth
-                      size="small"
-                      value={row.component_id}
-                      onChange={(e) => updateRow(idx, { component_id: e.target.value })}
-                    >
-                      <MenuItem value="">
-                        <em>Select component</em>
-                      </MenuItem>
-                      {componentOptions.map((o) => (
-                        <MenuItem key={o.value} value={o.value}>
-                          {o.label}
-                        </MenuItem>
-                      ))}
-                    </TextField>
+                    <SearchableSelect<Option>
+                      options={componentOptions}
+                      value={
+                        componentOptions.find((o) => o.value === row.component_id) ?? null
+                      }
+                      onChange={(opt) => updateRow(idx, { component_id: opt?.value ?? "" })}
+                      getOptionLabel={(o) => o.label}
+                      getOptionKey={(o) => o.value}
+                      isOptionEqualToValue={(a, b) => a.value === b.value}
+                      placeholder="Search component..."
+                      noOptionsText="No components"
+                    />
                   </TableCell>
                   <TableCell>
                     <TextField
