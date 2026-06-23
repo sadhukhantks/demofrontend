@@ -224,11 +224,30 @@ export default function PayRegisterDispSetPage() {
     [],
   );
 
-  // Commit an inline cell edit into row state.
-  const handleProcessRowUpdate = useCallback((newRow: GridRow): GridRow => {
-    setRows((rs) => rs.map((r) => (r.id === newRow.id ? newRow : r)));
-    return newRow;
-  }, []);
+  // Commit an inline cell edit into row state. When a component is chosen and
+  // the Print Label is still blank, default it to the component's name.
+  const handleProcessRowUpdate = useCallback(
+    (newRow: GridRow, oldRow: GridRow): GridRow => {
+      let updated = newRow;
+      const componentChanged =
+        newRow.component_id && newRow.component_id !== oldRow.component_id;
+      const labelBlank = !newRow.desc_print || !newRow.desc_print.trim();
+      if (componentChanged && labelBlank) {
+        const opt = componentOptions.find((o) => o.value === newRow.component_id);
+        if (opt) {
+          // Option label is "CODE — Name" for real components, or a plain label
+          // for meta fields — use just the name part as the default print label.
+          const name = opt.label.includes(" — ")
+            ? opt.label.split(" — ").slice(1).join(" — ").trim()
+            : opt.label;
+          if (name) updated = { ...newRow, desc_print: name };
+        }
+      }
+      setRows((rs) => rs.map((r) => (r.id === updated.id ? updated : r)));
+      return updated;
+    },
+    [componentOptions],
+  );
 
   const buildPayload = useCallback(
     (row: GridRow, isActive: boolean) => ({
