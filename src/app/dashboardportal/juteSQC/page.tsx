@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Box, Card, CardActionArea, CardContent, Typography } from "@mui/material";
-import { FlaskConical, Disc3, Columns3 } from "lucide-react";
+import { FlaskConical, Disc3, Columns3, Layers } from "lucide-react";
 
 type Tile = {
 	href: string;
@@ -30,6 +30,12 @@ const TILES: Tile[] = [
 		title: "Beaming SQC",
 		subtitle: "Beaming quality checks & parameter sampling",
 		icon: <Columns3 size={32} className="text-blue-600" />,
+	},
+	{
+		href: "/dashboardportal/juteSQC/finishing",
+		title: "Finishing SQC",
+		subtitle: "Actual finishing operating parameters by process & machine/quality",
+		icon: <Layers size={32} className="text-blue-600" />,
 	},
 ];
 
