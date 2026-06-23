@@ -4,12 +4,16 @@ import React, { Suspense, useEffect, useState, useCallback, useMemo } from "reac
 import { useRouter, useSearchParams } from "next/navigation";
 import { Box, Typography, Paper, Snackbar, Alert } from "@mui/material";
 import { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
+import { saveAs } from "file-saver";
+import { Download as DownloadIcon, Printer as PrinterIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MuiDataGrid from "@/components/ui/muiDataGrid";
 import { useSelectedCompanyCoId } from "@/hooks/use-selected-company-coid";
 import {
+  exportPayRegister,
   fetchPayRegisterById,
   fetchPayRegisterSalary,
+  printPaySlips,
   updatePayRegister,
 } from "@/utils/hrmsService";
 import type { PayRegisterDetail, PaySalaryRow, FormMode } from "../types/payRegisterTypes";
@@ -28,6 +32,8 @@ function ViewPayRegisterContent() {
   const [salaryColumns, setSalaryColumns] = useState<GridColDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
     open: false, message: "", severity: "success",
   });
@@ -116,6 +122,42 @@ function ViewPayRegisterContent() {
     }
   }, [coId, payRegisterId, router]);
 
+  // Pay Register → Excel export
+  const handleExport = useCallback(async () => {
+    if (!coId || !payRegisterId) return;
+    setExporting(true);
+    try {
+      const blob = await exportPayRegister(coId, payRegisterId);
+      if (!blob || blob.size === 0) {
+        setSnackbar({ open: true, message: "No data to export.", severity: "error" });
+        return;
+      }
+      saveAs(blob, `PayRegister_${payRegisterId}.xlsx`);
+    } catch (err: unknown) {
+      setSnackbar({ open: true, message: err instanceof Error ? err.message : "Failed to export", severity: "error" });
+    } finally {
+      setExporting(false);
+    }
+  }, [coId, payRegisterId]);
+
+  // Pay slips → PDF (one slip per employee)
+  const handlePrintPaySlips = useCallback(async () => {
+    if (!coId || !payRegisterId) return;
+    setPrinting(true);
+    try {
+      const blob = await printPaySlips(coId, payRegisterId);
+      if (!blob || blob.size === 0) {
+        setSnackbar({ open: true, message: "No data for pay slips.", severity: "error" });
+        return;
+      }
+      saveAs(blob, `PaySlips_${payRegisterId}.pdf`);
+    } catch (err: unknown) {
+      setSnackbar({ open: true, message: err instanceof Error ? err.message : "Failed to print pay slips", severity: "error" });
+    } finally {
+      setPrinting(false);
+    }
+  }, [coId, payRegisterId]);
+
   const showApprovalButtons = detail?.approveButton === true;
   const isNotApproved = detail?.status_id != null && String(detail.status_id) !== String(PAY_REGISTER_STATUS.APPROVED);
 
@@ -126,9 +168,29 @@ function ViewPayRegisterContent() {
       {/* Header */}
       <Box className="flex items-center justify-between">
         <Typography variant="h5">View Pay Register</Typography>
-        <Button variant="outline" onClick={() => router.push("/dashboardportal/hrms/payRegister")}>
-          Back
-        </Button>
+        <Box className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex items-center gap-2"
+          >
+            <DownloadIcon size={16} />
+            {exporting ? "Exporting..." : "Pay Register Export"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handlePrintPaySlips}
+            disabled={printing}
+            className="flex items-center gap-2"
+          >
+            <PrinterIcon size={16} />
+            {printing ? "Generating..." : "Pay Slip Print"}
+          </Button>
+          <Button variant="outline" onClick={() => router.push("/dashboardportal/hrms/payRegister")}>
+            Back
+          </Button>
+        </Box>
       </Box>
 
       {/* Pay Register Details Summary */}

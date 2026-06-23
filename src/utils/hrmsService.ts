@@ -358,6 +358,50 @@ export const fetchPayRegisterSalary = async (
   );
 };
 
+// ─── Pay Register Export (.xlsx) / Pay Slip Print (PDF) ────────────
+//
+// Both are GET endpoints returning a binary blob. Backend errors arrive as a
+// JSON { detail } body wrapped in a Blob, so we unwrap it to a readable message.
+
+async function fetchHrmsBlob(url: string): Promise<Blob> {
+  try {
+    const response = await axios.get<Blob>(url, {
+      responseType: "blob",
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
+      let detail = "Download failed";
+      try {
+        const text = await err.response.data.text();
+        const parsed = JSON.parse(text) as { detail?: string };
+        if (parsed?.detail) detail = parsed.detail;
+      } catch {
+        /* non-JSON body — keep the default message */
+      }
+      throw new Error(detail);
+    }
+    throw err instanceof Error ? err : new Error(String(err));
+  }
+}
+
+export const exportPayRegister = (
+  coId: string,
+  payPeriodId: number | string,
+): Promise<Blob> =>
+  fetchHrmsBlob(
+    `${apiRoutesPortalMasters.HRMS_PAY_REGISTER_EXPORT}?co_id=${coId}&pay_period_id=${payPeriodId}`,
+  );
+
+export const printPaySlips = (
+  coId: string,
+  payPeriodId: number | string,
+): Promise<Blob> =>
+  fetchHrmsBlob(
+    `${apiRoutesPortalMasters.HRMS_PAY_REGISTER_PAYSLIPS}?co_id=${coId}&pay_period_id=${payPeriodId}`,
+  );
+
 // ─── Pay Roll (pay_components_custom) ──────────────────────────────
 
 export const fetchPayRollSetup = async (coId: string, branchId?: string | number) => {
