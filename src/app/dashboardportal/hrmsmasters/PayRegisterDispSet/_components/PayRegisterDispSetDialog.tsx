@@ -28,6 +28,7 @@ import {
   type Option,
   type PayRegisterDispSetDialogProps,
   FIXED_VAR_OPTIONS,
+  META_COMPONENT_OPTIONS,
 } from "../types/payRegisterDispSetTypes";
 
 export default function PayRegisterDispSetDialog({
@@ -66,17 +67,20 @@ export default function PayRegisterDispSetDialog({
       try {
         const res = await fetchPaySchemeComponents(coId, payschemeId);
         const list = (res?.data?.data ?? res?.data ?? []) as Array<Record<string, unknown>>;
-        const opts: Option[] = list
+        const schemeOpts: Option[] = list
           .filter((c) => c.component_id != null)
           .map((c) => ({
             label: `${String(c.component_code ?? "")} — ${String(c.component_name ?? "")}`,
             value: String(c.component_id),
           }));
+        // Meta employee-info fields are available for every pay scheme.
+        const opts: Option[] = [...META_COMPONENT_OPTIONS, ...schemeOpts];
         setComponentOptions(opts);
         return opts;
       } catch {
-        setComponentOptions([]);
-        return [];
+        // Meta options stay available even if the scheme's components fail to load.
+        setComponentOptions([...META_COMPONENT_OPTIONS]);
+        return [...META_COMPONENT_OPTIONS];
       }
     },
     [coId],

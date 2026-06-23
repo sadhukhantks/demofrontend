@@ -8,6 +8,7 @@ import { useSelectedCompanyCoId } from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchPayslipPrintComponentList } from "@/utils/hrmsService";
 import PayRegisterDispSetDialog from "./_components/PayRegisterDispSetDialog";
+import { META_COMPONENT_LABELS } from "./types/payRegisterDispSetTypes";
 import type { PayslipPrintComponentRow } from "./types/payRegisterDispSetTypes";
 
 export default function PayRegisterDispSetPage() {
@@ -86,7 +87,16 @@ export default function PayRegisterDispSetPage() {
   const columns = useMemo<GridColDef<PayslipPrintComponentRow>[]>(
     () => [
       { field: "payscheme_name", headerName: "Pay Scheme", flex: 1.4, minWidth: 160 },
-      { field: "component_name", headerName: "Component", flex: 1.4, minWidth: 160 },
+      {
+        field: "component_name",
+        headerName: "Component",
+        flex: 1.4,
+        minWidth: 160,
+        // Meta fields (negative component_id) have no pay_components name to join,
+        // so fall back to their configured label.
+        valueGetter: (value, row) =>
+          value ?? META_COMPONENT_LABELS[String(row.component_id)] ?? "",
+      },
       { field: "desc_print", headerName: "Print Label", flex: 1.2, minWidth: 140 },
       { field: "payslip_order", headerName: "Order", width: 80, type: "number" },
       {
