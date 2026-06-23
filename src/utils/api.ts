@@ -602,6 +602,8 @@ const apiRoutesPortalMasters = {
     HRMS_PAY_REGISTER_UPDATE: `${API_URL}/hrms/pay_register_update`,
     HRMS_PAY_REGISTER_SALARY: `${API_URL}/hrms/pay_register_salary`,
     HRMS_PAY_REGISTER_PROCESS: `${API_URL}/hrms/pay_register_process`,
+    HRMS_PAY_REGISTER_EXPORT: `${API_URL}/hrms/pay_register_export`,
+    HRMS_PAY_REGISTER_PAYSLIPS: `${API_URL}/hrms/pay_register_payslips`,
 
     // HRMS Pay Roll (pay_components_custom) endpoints
     HRMS_PAY_ROLL_SETUP: `${API_URL}/hrms/pay_roll_setup`,
@@ -824,6 +826,11 @@ const apiRoutesPortalMasters = {
     SPINNING_SQC_COUNT_SAVE: `${API_URL}/juteSQC/sqc_count_save`,
     SPINNING_SQC_COUNT_BY_DATE: `${API_URL}/juteSQC/sqc_count_by_date`,
     SPINNING_SQC_COUNT_DELETE: `${API_URL}/juteSQC/sqc_count_delete`,
+    // Weaving Pick SQC / R-08-21 Loom Width & Picks (router prefix /api/juteSQC) — WEAVING_SQC_PICK_DELETE is a base path; caller appends /${id}
+    WEAVING_SQC_PICK_SETUP:   `${API_URL}/juteSQC/weaving_sqc_pick_setup`,
+    WEAVING_SQC_PICK_SAVE:    `${API_URL}/juteSQC/weaving_sqc_pick_save`,
+    WEAVING_SQC_PICK_BY_DATE: `${API_URL}/juteSQC/weaving_sqc_pick_by_date`,
+    WEAVING_SQC_PICK_DELETE:  `${API_URL}/juteSQC/weaving_sqc_pick_delete`,
     // R-08-15 Yarn QR & CV % (router prefix /api/juteSQC) — SPINNING_SQC_QR_CV_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_QR_CV_SETUP: `${API_URL}/juteSQC/sqc_qr_cv_setup`,
     SPINNING_SQC_QR_CV_SAVE: `${API_URL}/juteSQC/sqc_qr_cv_save`,
@@ -901,6 +908,39 @@ const apiRoutesPortalMasters = {
     FINISHING_SQC_SETUP: `${API_URL}/juteSQC/finishing_sqc_setup`,
     FINISHING_SQC_ACTUAL_GRID: `${API_URL}/juteSQC/finishing_sqc_actual_grid`,
     FINISHING_SQC_ACTUAL_SAVE: `${API_URL}/juteSQC/finishing_sqc_actual_save`,
+    // Weaving Quality Master (router prefix /api/weavingMasters) — WEAVING_QUALITY_EDIT/DELETE are
+    // base paths; caller appends /${id}?co_id=...
+    WEAVING_QUALITY_SETUP: `${API_URL}/weavingMasters/weaving_quality_setup`,
+    WEAVING_QUALITY_LIST: `${API_URL}/weavingMasters/weaving_quality_list`,
+    WEAVING_QUALITY_CREATE: `${API_URL}/weavingMasters/weaving_quality_create`,
+    WEAVING_QUALITY_EDIT: `${API_URL}/weavingMasters/weaving_quality_edit`,
+    WEAVING_QUALITY_DELETE: `${API_URL}/weavingMasters/weaving_quality_delete`,
+    // Weaving Standards / Targets Map (router prefix /api/weavingTargetMap) — quality-only;
+    // *_EDIT/*_DELETE are base paths; caller appends /${id}
+    WEAVING_TARGET_MAP_SETUP: `${API_URL}/weavingTargetMap/target_map_setup`,
+    WEAVING_TARGET_MAP_LIST: `${API_URL}/weavingTargetMap/target_map_list`,
+    WEAVING_TARGET_MAP_CREATE: `${API_URL}/weavingTargetMap/target_map_create`,
+    WEAVING_TARGET_MAP_EDIT: `${API_URL}/weavingTargetMap/target_map_edit`,
+    WEAVING_TARGET_MAP_DELETE: `${API_URL}/weavingTargetMap/target_map_delete`,
+    WEAVING_TARGET_MAP_GRID: `${API_URL}/weavingTargetMap/target_map_grid`,
+    WEAVING_TARGET_MAP_BULK_SAVE: `${API_URL}/weavingTargetMap/target_map_bulk_save`,
+    // Weaving Production Entry (router prefix /api/weavingProd) — WEAVING_ENTRY_EDIT/DELETE are
+    // base paths; caller appends /${id}?co_id=...
+    WEAVING_ENTRY_CREATE_SETUP: `${API_URL}/weavingProd/entry_create_setup`,
+    WEAVING_ENTRIES_BY_DATE: `${API_URL}/weavingProd/entries_by_date`,
+    WEAVING_MACHINE_STANDARDS: `${API_URL}/weavingProd/machine_standards`,
+    WEAVING_ENTRY_CREATE: `${API_URL}/weavingProd/entry_create`,
+    WEAVING_ENTRY_EDIT: `${API_URL}/weavingProd/entry_edit`,
+    WEAVING_ENTRY_DELETE: `${API_URL}/weavingProd/entry_delete`,
+    WEAVING_PLANNING_GRID: `${API_URL}/weavingProd/planning_grid`,
+    WEAVING_PLANNING_GRID_SAVE: `${API_URL}/weavingProd/planning_grid_save`,
+    // Loom -> Quality map (router prefix /api/weavingProd)
+    WEAVING_QUALITY_MAP_GET: `${API_URL}/weavingProd/quality_map_get`,
+    WEAVING_QUALITY_MAP_SAVE: `${API_URL}/weavingProd/quality_map_save`,
+    WEAVING_QUALITY_MAP_MAPPED: `${API_URL}/weavingProd/quality_map_mapped`,
+    // Beam-change tab (router prefix /api/weavingProd)
+    WEAVING_BEAM_MAP_GET: `${API_URL}/weavingProd/beam_map_get`,
+    WEAVING_BEAM_MAP_SAVE: `${API_URL}/weavingProd/beam_map_save`,
 };
 
 // Support tickets (Zendesk-style). Raised from Portal/Tenant Admin widgets,
