@@ -103,7 +103,18 @@ export const usePOLineItems = ({
 		(id: string, field: keyof EditableLineItem, rawValue: string | number) => {
 			if (mode === "view") return;
 
-			const value = typeof rawValue === "number" ? String(rawValue) : rawValue;
+			let value = typeof rawValue === "number" ? String(rawValue) : rawValue;
+			if (field === "taxPercentage") {
+				value = value.replace(/[^0-9.]/g, "");
+				if (value !== "" && Number(value) > 100) {
+					toast({
+						variant: "destructive",
+						title: "Invalid tax",
+						description: "Tax percentage cannot exceed 100%.",
+					});
+					value = "100";
+				}
+			}
 
 			if (field === "itemGroup") {
 				setLineItems((prev) =>
