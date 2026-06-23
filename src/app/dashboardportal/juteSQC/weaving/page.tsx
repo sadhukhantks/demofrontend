@@ -1,22 +1,25 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, MenuItem, Tab, Tabs, TextField, Typography } from "@mui/material";
+import { Alert, Box, CircularProgress, MenuItem, Tab, Tabs, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayISO } from "@/app/dashboardportal/juteProduction/spinning/utils/spinningCalc";
+import { useWeavingPickSetup } from "./hooks/useWeavingPickSetup";
+import { useWeavingPickByDate } from "./hooks/useWeavingPickByDate";
 // Shared target-map editor reused across the juteProduction route boundary:
-// the "Actual" tab writes actuals into jute_prod_weaving_target_map (the same
+// the "Actual Speed" tab writes actuals into jute_prod_weaving_target_map (the same
 // table the weaving planning grid reads, value_role='actual'). The editor reuses
 // the existing WEAVING_TARGET_MAP_* endpoints (setup/grid/bulk_save) exactly like
 // Weaving Standards / Targets — only the role differs (actual). Weaving is
-// QUALITY-ONLY (id_type='qid'); the actual params are 'speed' (loom speed,
-// picks/min) and 'picks' (PPI) per quality.
+// QUALITY-ONLY (id_type='qid'); the actual param captured here is 'speed' (loom
+// speed, picks/min) per quality. Actual picks (PPI) are now captured per loom on
+// the Loom Width & Picks tab (R-08-21).
 import TargetMapEditor from "../../juteProduction/masters/weavingTargetMap/_components/TargetMapEditor";
+import PickForm from "./_components/PickForm";
+import PickGrid from "./_components/PickGrid";
 
-// Single tab today; modelled as a tab shell to mirror the spinning SQC page and to
-// leave room for additional weaving SQC observations later.
-const TABS = ["Actual"] as const;
+const TABS = ["Loom Width & Picks (R-08-21)", "Actual Speed"] as const;
 
 export default function WeavingSqcPage() {
 	// HYDRATION RULE: this component reads sidebar context and seeds a date,
@@ -51,7 +54,25 @@ export default function WeavingSqcPage() {
 	);
 	const selectedBranchName = branchOptions.find((b) => Number(b.branch_id) === branchId)?.branch_name;
 
-	// Effective date for the actual snapshot (id_type is fixed 'qid' for weaving).
+	// Tab 0 — Loom Width & Picks (R-08-21): per-loom actual picks/width observations.
+	const [pickDate, setPickDate] = React.useState<string>(todayISO());
+	const {
+		setup: pickSetup,
+		loading: pickSetupLoading,
+		error: pickSetupError,
+	} = useWeavingPickSetup(coId, pickDate, branchId);
+	const {
+		readings: pickReadings,
+		summary: pickSummary,
+		loading: pickLoading,
+		refresh: refreshPick,
+	} = useWeavingPickByDate(coId, pickDate, branchId);
+
+	const onPickSaved = React.useCallback(() => {
+		refreshPick();
+	}, [refreshPick]);
+
+	// Tab 1 — Actual Speed (target-map actuals; id_type is fixed 'qid' for weaving).
 	const [effectiveDate, setEffectiveDate] = React.useState<string>(todayISO());
 
 	if (!mounted) return null;
@@ -78,10 +99,7 @@ export default function WeavingSqcPage() {
 				Weaving SQC
 			</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-				Enter the actual loom speed (picks/min) and actual PPI per weaving quality and date. Saving here
-				writes the actual values into the weaving target map (value_role=&apos;actual&apos;); the weaving
-				production planning grid will then populate the actual columns once an actual exists for a quality
-				on its transaction date. Until an actual is saved here, those columns stay at 0.
+				Capture per-loom width &amp; actual picks (R-08-21) and the actual loom speed per weaving quality.
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
@@ -122,8 +140,44 @@ export default function WeavingSqcPage() {
 						))}
 					</Tabs>
 
-					{/* Tab 1 — Actual (writes weaving target-map actuals: speed + picks) */}
+					{/* Tab 0 — Loom Width & Picks (R-08-21): per-loom actual picks/width */}
 					{tab === 0 ? (
+						<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+							<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+								<Typography variant="subtitle2">Effective date</Typography>
+								<TextField
+									type="date"
+									size="small"
+									value={pickDate}
+									onChange={(e) => setPickDate(e.target.value)}
+									InputLabelProps={{ shrink: true }}
+								/>
+							</Box>
+							{pickSetupError ? <Alert severity="error">{pickSetupError}</Alert> : null}
+							{pickSetupLoading || !pickSetup ? (
+								<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+									<CircularProgress />
+								</Box>
+							) : (
+								<PickForm
+									coId={coId}
+									branchId={branchId}
+									entryDate={pickDate}
+									setup={pickSetup}
+									onSaved={onPickSaved}
+								/>
+							)}
+							<PickGrid
+								readings={pickReadings}
+								summary={pickSummary}
+								loading={pickLoading}
+								onDeleted={onPickSaved}
+							/>
+						</Box>
+					) : null}
+
+					{/* Tab 1 — Actual Speed (writes weaving target-map actuals: speed) */}
+					{tab === 1 ? (
 						<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
 							<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
 								<Typography variant="subtitle2">Effective date</Typography>
@@ -135,6 +189,11 @@ export default function WeavingSqcPage() {
 									InputLabelProps={{ shrink: true }}
 								/>
 							</Box>
+							<Typography variant="body2" color="text.secondary">
+								Enter the actual loom speed (picks/min) per weaving quality and date. Saving here writes
+								the actual values into the weaving target map (value_role=&apos;actual&apos;). Actual picks
+								(PPI) are now captured per loom on the Loom Width &amp; Picks tab.
+							</Typography>
 							<Box>
 								<Typography variant="subtitle2" sx={{ mb: 1 }}>
 									Quality
@@ -145,7 +204,7 @@ export default function WeavingSqcPage() {
 									idType="qid"
 									valueRole="actual"
 									effectiveDate={effectiveDate}
-									paramLabels={{ speed: "Speed (picks/min)", picks: "Picks (PPI)" }}
+									paramLabels={{ speed: "Speed (picks/min)" }}
 								/>
 							</Box>
 						</Box>

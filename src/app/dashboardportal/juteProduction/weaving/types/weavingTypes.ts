@@ -22,10 +22,10 @@ export type WeavingSpellOption = {
 // `jpc` (jugar per cut), `fl` (full length), `ozs_yds` etc. are quality-linked
 // standards resolved server-side; the FE only needs id + labels for the picker.
 export type WeavingQualityOption = {
-	wv_quality_id: number;
+	weaving_quality_id: number;
 	item_id: number | null;
-	wv_quality_code: string;
-	wv_quality_name: string | null;
+	weaving_quality_code: string;
+	weaving_quality_name: string | null;
 };
 
 export type WeavingSetup = {
@@ -42,9 +42,9 @@ export type LoomQualityMapRow = {
 	mech_code: string | null;
 	machine_name: string | null;
 	// Today's SAVED mapping (null = nothing saved yet for this loom).
-	wv_quality_id: number | null;
-	wv_quality_code: string | null;
-	wv_quality_name: string | null;
+	weaving_quality_id: number | null;
+	weaving_quality_code: string | null;
+	weaving_quality_name: string | null;
 	// Prior date's mapping, surfaced as an unsaved-draft suggestion for prefill.
 	prev_quality_id: number | null;
 	prev_quality_code: string | null;
@@ -64,9 +64,9 @@ export type WeavingEntryRow = {
 	mech_code: string | null;
 	machine_name: string | null;
 	// Inherited from the Loom → Quality map — READ-ONLY on the production grid.
-	wv_quality_id: number | null;
-	wv_quality_code: string | null;
-	wv_quality_name: string | null;
+	weaving_quality_id: number | null;
+	weaving_quality_code: string | null;
+	weaving_quality_name: string | null;
 	item_id: number | null;
 	item_code: string | null;
 	// Physical beam holding the warp (beam change tab); read-only display here.
@@ -128,8 +128,8 @@ export type WeavingPlanningGridRow = {
 	mech_code: string | null;
 	item_id: number | null;
 	item_code: string | null;
-	wv_quality_id: number | null;
-	wv_quality_code: string | null;
+	weaving_quality_id: number | null;
+	weaving_quality_code: string | null;
 	beam_no: string | null;
 	fl: number;
 	jpc: number;
@@ -164,8 +164,8 @@ export type WeavingShiftRollupRow = {
 	machine_name: string | null;
 	item_id: number | null;
 	item_code: string | null;
-	wv_quality_id: number | null;
-	wv_quality_code: string | null;
+	weaving_quality_id: number | null;
+	weaving_quality_code: string | null;
 	shift_bucket: string;
 	production_yds: number;
 	production_kg: number;

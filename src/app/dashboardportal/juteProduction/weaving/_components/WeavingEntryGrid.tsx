@@ -178,7 +178,7 @@ export default function WeavingEntryGrid({ coId, branchId, setup, date, spell }:
 							{mapRows.map((r) => {
 								const cell = edits[r.machine_id] ?? { cuts: "", jugar: "" };
 								const entry = entryByMachine[r.machine_id];
-								const mapped = r.wv_quality_id != null;
+								const mapped = r.weaving_quality_id != null;
 
 								// FE PREVIEW ONLY — server is authoritative. Standards (fl/jpc/open/
 								// ozs_yds/speed/picks) are resolved server-side and surfaced on saved
@@ -224,7 +224,7 @@ export default function WeavingEntryGrid({ coId, branchId, setup, date, spell }:
 												<Chip
 													size="small"
 													variant="outlined"
-													label={r.wv_quality_name ?? r.wv_quality_code ?? "—"}
+													label={r.weaving_quality_name ?? r.weaving_quality_code ?? "—"}
 												/>
 											) : (
 												<Chip size="small" color="warning" variant="outlined" label="Not mapped" />

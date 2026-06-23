@@ -43,13 +43,13 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell 
 	const [busy, setBusy] = React.useState(false);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
-	// Seed local edit state (loom -> wv_quality_id) from fetched rows. Prefill from the
+	// Seed local edit state (loom -> weaving_quality_id) from fetched rows. Prefill from the
 	// prior date's mapping when nothing is saved yet today, so the operator only has to
 	// tweak the 1-2 looms whose quality changed.
 	React.useEffect(() => {
 		const seed: Record<number, number | ""> = {};
 		rows.forEach((r) => {
-			seed[r.machine_id] = r.wv_quality_id ?? r.prev_quality_id ?? "";
+			seed[r.machine_id] = r.weaving_quality_id ?? r.prev_quality_id ?? "";
 		});
 		setEdits(seed);
 	}, [rows]);
@@ -60,7 +60,7 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell 
 	const savedMap = React.useMemo(() => {
 		const m: Record<number, number | ""> = {};
 		rows.forEach((r) => {
-			m[r.machine_id] = r.wv_quality_id ?? "";
+			m[r.machine_id] = r.weaving_quality_id ?? "";
 		});
 		return m;
 	}, [rows]);
@@ -73,7 +73,7 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell 
 
 	// Banner: surface the date the draft was prefilled from (first row carrying one).
 	const prevDate = rows.find((r) => r.prev_date)?.prev_date ?? null;
-	const hasCarryForward = rows.some((r) => r.wv_quality_id == null && r.prev_quality_id != null);
+	const hasCarryForward = rows.some((r) => r.weaving_quality_id == null && r.prev_quality_id != null);
 
 	const setQuality = (machineId: number, value: number | "") => {
 		setEdits((prev) => ({ ...prev, [machineId]: value }));
@@ -85,10 +85,10 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell 
 			.map((r) => {
 				const q = edits[r.machine_id];
 				return q !== undefined && q !== ""
-					? { machine_id: r.machine_id, wv_quality_id: Number(q) }
+					? { machine_id: r.machine_id, weaving_quality_id: Number(q) }
 					: null;
 			})
-			.filter((x): x is { machine_id: number; wv_quality_id: number } => x !== null);
+			.filter((x): x is { machine_id: number; weaving_quality_id: number } => x !== null);
 
 		const body = { co_id: Number(coId), branch_id: Number(branchId), tran_date: date, spell, entries };
 		const { error: err } = await fetchWithCookie(
@@ -210,8 +210,8 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell 
 													<em>None</em>
 												</MenuItem>
 												{setup.qualities.map((qq) => (
-													<MenuItem key={qq.wv_quality_id} value={qq.wv_quality_id}>
-														{qq.wv_quality_name ?? qq.wv_quality_code} ({qq.wv_quality_code})
+													<MenuItem key={qq.weaving_quality_id} value={qq.weaving_quality_id}>
+														{qq.weaving_quality_name ?? qq.weaving_quality_code} ({qq.weaving_quality_code})
 													</MenuItem>
 												))}
 											</TextField>
@@ -223,12 +223,12 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell 
 													color="warning"
 													variant="outlined"
 													label={
-														r.wv_quality_id == null && r.prev_quality_id != null
+														r.weaving_quality_id == null && r.prev_quality_id != null
 															? `Unsaved · from ${r.prev_quality_name ?? "prev"}`
 															: "Unsaved"
 													}
 												/>
-											) : r.wv_quality_id != null ? (
+											) : r.weaving_quality_id != null ? (
 												<Chip size="small" color="success" variant="outlined" label="Saved" />
 											) : null}
 										</TableCell>

@@ -826,6 +826,11 @@ const apiRoutesPortalMasters = {
     SPINNING_SQC_COUNT_SAVE: `${API_URL}/juteSQC/sqc_count_save`,
     SPINNING_SQC_COUNT_BY_DATE: `${API_URL}/juteSQC/sqc_count_by_date`,
     SPINNING_SQC_COUNT_DELETE: `${API_URL}/juteSQC/sqc_count_delete`,
+    // Weaving Pick SQC / R-08-21 Loom Width & Picks (router prefix /api/juteSQC) — WEAVING_SQC_PICK_DELETE is a base path; caller appends /${id}
+    WEAVING_SQC_PICK_SETUP:   `${API_URL}/juteSQC/weaving_sqc_pick_setup`,
+    WEAVING_SQC_PICK_SAVE:    `${API_URL}/juteSQC/weaving_sqc_pick_save`,
+    WEAVING_SQC_PICK_BY_DATE: `${API_URL}/juteSQC/weaving_sqc_pick_by_date`,
+    WEAVING_SQC_PICK_DELETE:  `${API_URL}/juteSQC/weaving_sqc_pick_delete`,
     // R-08-15 Yarn QR & CV % (router prefix /api/juteSQC) — SPINNING_SQC_QR_CV_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_QR_CV_SETUP: `${API_URL}/juteSQC/sqc_qr_cv_setup`,
     SPINNING_SQC_QR_CV_SAVE: `${API_URL}/juteSQC/sqc_qr_cv_save`,
