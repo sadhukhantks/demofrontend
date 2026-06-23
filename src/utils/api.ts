@@ -874,6 +874,33 @@ const apiRoutesPortalMasters = {
     BEAMING_ENTRY_DELETE: `${API_URL}/beamingProd/entry_delete`,
     BEAMING_PLANNING_GRID: `${API_URL}/beamingProd/planning_grid`,
     BEAMING_PLANNING_GRID_SAVE: `${API_URL}/beamingProd/planning_grid_save`,
+    // Finishing Spec Sheet (router prefix /api/finishingTargetMap) — clone of beamingTargetMap,
+    // adding the `process` dimension on every call. *_EDIT/*_DELETE are base paths; caller appends /${id}
+    FINISHING_TARGET_MAP_SETUP: `${API_URL}/finishingTargetMap/target_map_setup`,
+    FINISHING_TARGET_MAP_GRID: `${API_URL}/finishingTargetMap/target_map_grid`,
+    FINISHING_TARGET_MAP_BULK_SAVE: `${API_URL}/finishingTargetMap/target_map_bulk_save`,
+    FINISHING_TARGET_MAP_LIST: `${API_URL}/finishingTargetMap/target_map_list`,
+    FINISHING_TARGET_MAP_CREATE: `${API_URL}/finishingTargetMap/target_map_create`,
+    FINISHING_TARGET_MAP_EDIT: `${API_URL}/finishingTargetMap/target_map_edit`,
+    FINISHING_TARGET_MAP_DELETE: `${API_URL}/finishingTargetMap/target_map_delete`,
+    // Finishing Quality Master (router prefix /api/finishingMasters) — cloth (type 1) & bag (type 2)
+    // qualities. *_DETAIL/*_EDIT/*_DELETE are base paths; caller appends /${id}?co_id=...
+    FINISHING_QUALITY_SETUP: `${API_URL}/finishingMasters/quality_setup`,
+    FINISHING_QUALITY_LIST: `${API_URL}/finishingMasters/quality_list`,
+    FINISHING_QUALITY_DETAIL: `${API_URL}/finishingMasters/quality_detail`,
+    FINISHING_QUALITY_CREATE: `${API_URL}/finishingMasters/quality_create`,
+    FINISHING_QUALITY_EDIT: `${API_URL}/finishingMasters/quality_edit`,
+    FINISHING_QUALITY_DELETE: `${API_URL}/finishingMasters/quality_delete`,
+    // Finishing Production Entry (router prefix /api/finishingProd) — built by the production-entry slice.
+    FINISHING_PROD_ENTRY_SETUP: `${API_URL}/finishingProd/entry_setup`,
+    FINISHING_PROD_ENTRY_SAVE: `${API_URL}/finishingProd/entry_save`,
+    FINISHING_PROD_ENTRY_BY_DATE: `${API_URL}/finishingProd/entry_by_date`,
+    FINISHING_PROD_ENTRY_DELETE: `${API_URL}/finishingProd/entry_delete`,
+    // Finishing SQC — ACTUALS ONLY (router prefix /api/juteSQC, shared with Spinning/Beaming SQC).
+    // Proxies to finishingTargetMap with value_role='actual'.
+    FINISHING_SQC_SETUP: `${API_URL}/juteSQC/finishing_sqc_setup`,
+    FINISHING_SQC_ACTUAL_GRID: `${API_URL}/juteSQC/finishing_sqc_actual_grid`,
+    FINISHING_SQC_ACTUAL_SAVE: `${API_URL}/juteSQC/finishing_sqc_actual_save`,
 };
 
 // Support tickets (Zendesk-style). Raised from Portal/Tenant Admin widgets,
