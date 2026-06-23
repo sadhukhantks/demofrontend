@@ -471,6 +471,15 @@ export const updatePayslipPrintComponent = async (
     data,
   );
 
+export const deletePayslipPrintComponent = async (
+  coId: string,
+  payId: number | string,
+) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_PAYSLIP_PRINT_COMPONENT_DELETE}/${payId}?co_id=${coId}`,
+    "DELETE",
+  );
+
 // ─── Pay Roll (pay_components_custom) ──────────────────────────────
 
 export const fetchPayRollSetup = async (coId: string, branchId?: string | number) => {

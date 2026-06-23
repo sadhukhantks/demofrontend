@@ -39,12 +39,13 @@ export const FIXED_VAR_OPTIONS: Option[] = [
  * Employee-info "meta" fields that are NOT real pay_components but can be placed
  * on the register/payslip for ANY pay scheme. They are stored in
  * `tbl_payslip_print_component.component_id` via reserved negative sentinel IDs.
- * Keep these IDs in sync with the backend export/payslip renderer when that side
- * is wired up.
+ * Keep these IDs in sync with the backend export/payslip renderer.
+ *
+ * Emp Code (-1) and Name (-2) are intentionally NOT offered here: the register
+ * always renders them as the leading anchor columns, so configuring them as
+ * separate display columns would be redundant.
  */
 export const META_COMPONENT_OPTIONS: Option[] = [
-  { label: "Emp Code", value: "-1" },
-  { label: "Name", value: "-2" },
   { label: "Department", value: "-3" },
   { label: "PF No", value: "-4" },
   { label: "UAN No", value: "-5" },

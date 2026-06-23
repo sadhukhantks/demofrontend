@@ -42,7 +42,10 @@ export interface PayRegisterDetail {
   fromDateDesc: string | null;
   toDateDesc: string | null;
   paySchemeId: number | null;
+  payscheme: string | null;
+  paySchemeCode: string | null;
   branchId: number | null;
+  branchName: string | null;
   companyId: number | null;
   status: string | null;
   status_id: number | null;

@@ -612,6 +612,7 @@ const apiRoutesPortalMasters = {
     HRMS_PAYSLIP_PRINT_COMPONENT_BY_ID: `${API_URL}/hrms/payslip_print_component_by_id`,
     HRMS_PAYSLIP_PRINT_COMPONENT_CREATE: `${API_URL}/hrms/payslip_print_component_create`,
     HRMS_PAYSLIP_PRINT_COMPONENT_UPDATE: `${API_URL}/hrms/payslip_print_component_update`,
+    HRMS_PAYSLIP_PRINT_COMPONENT_DELETE: `${API_URL}/hrms/payslip_print_component_delete`,
 
     // HRMS Pay Roll (pay_components_custom) endpoints
     HRMS_PAY_ROLL_SETUP: `${API_URL}/hrms/pay_roll_setup`,

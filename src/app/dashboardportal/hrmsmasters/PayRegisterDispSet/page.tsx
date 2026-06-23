@@ -29,6 +29,7 @@ import {
   fetchPayslipPrintComponentList,
   createPayslipPrintComponent,
   updatePayslipPrintComponent,
+  deletePayslipPrintComponent,
 } from "@/utils/hrmsService";
 import {
   type Option,
@@ -310,7 +311,7 @@ export default function PayRegisterDispSetPage() {
     [coId, payschemeId, branchId, notify, updateRow, buildPayload, blankRow],
   );
 
-  // ── Remove a row (local for unsaved, soft-delete for saved) ──────
+  // ── Remove a row (local for unsaved, hard-delete for saved) ──────
   const deleteRow = useCallback(
     async (id: GridRowId) => {
       const row = rowsRef.current.find((r) => r.id === id);
@@ -325,20 +326,16 @@ export default function PayRegisterDispSetPage() {
       if (!coId) return;
       updateRow(id, { saving: true });
       try {
-        const res = await updatePayslipPrintComponent(
-          coId,
-          row.pay_id,
-          buildPayload(row, false),
-        );
+        const res = await deletePayslipPrintComponent(coId, row.pay_id);
         if (res?.error) throw new Error(res.error);
-        notify("Row removed", "success");
+        notify("Row deleted", "success");
         setRows((rs) => rs.filter((r) => r.id !== id));
       } catch (err: unknown) {
         notify(err instanceof Error ? err.message : "Delete failed", "error");
         updateRow(id, { saving: false });
       }
     },
-    [coId, notify, updateRow, buildPayload, blankRow],
+    [coId, notify, updateRow, blankRow],
   );
 
   // ── Columns ──────────────────────────────────────────────────────
@@ -425,7 +422,7 @@ export default function PayRegisterDispSetPage() {
           <GridActionsCellItem
             key="delete"
             icon={<Trash2 size={18} color="#d32f2f" />}
-            label={(params.row as GridRow).pay_id ? "Remove (deactivate)" : "Remove row"}
+            label={(params.row as GridRow).pay_id ? "Delete" : "Remove row"}
             disabled={(params.row as GridRow).saving}
             onClick={() => deleteRow(params.id)}
           />,

@@ -29,6 +29,7 @@ function ViewPayRegisterContent() {
 
   const [detail, setDetail] = useState<PayRegisterDetail | null>(null);
   const [salaryData, setSalaryData] = useState<PaySalaryRow[]>([]);
+  const [totalsRow, setTotalsRow] = useState<PaySalaryRow | null>(null);
   const [salaryColumns, setSalaryColumns] = useState<GridColDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -48,7 +49,9 @@ function ViewPayRegisterContent() {
         const res = await fetchPayRegisterById(coId, payRegisterId);
         if (cancelled) return;
         if (res?.error || !res?.data) throw new Error(res?.error || "Failed to load pay register");
-        const data = res.data as PayRegisterDetail;
+        // Backend wraps the detail as { data: {...} }; unwrap that envelope.
+        const body = res.data as { data?: PayRegisterDetail };
+        const data = (body?.data ?? res.data) as PayRegisterDetail;
         setDetail(data);
       } catch (err: unknown) {
         if (!cancelled) {
@@ -80,6 +83,7 @@ function ViewPayRegisterContent() {
         const body = res.data as {
           data?: PaySalaryRow[];
           columns?: { field: string; headerName: string; minWidth?: number; type?: string }[];
+          totals?: PaySalaryRow | null;
         };
         const rows = body.data ?? [];
         // Use the columns the backend provides (base columns are always present,
@@ -94,6 +98,8 @@ function ViewPayRegisterContent() {
         setSalaryColumns(cols);
         // Ensure each row has a unique id
         setSalaryData(rows.map((row, idx) => ({ ...row, id: (row.id as number) ?? idx })));
+        // Vertical grand-total row (id "__totals__") is pinned at the bottom.
+        setTotalsRow(body.totals ?? null);
       } catch {
         // Silent failure for salary data
       }
@@ -206,12 +212,12 @@ function ViewPayRegisterContent() {
               <Typography variant="body1">{detail.toDateDesc ?? "-"}</Typography>
             </Box>
             <Box>
-              <Typography variant="caption" color="text.secondary">Status</Typography>
-              <Typography variant="body1">{detail.status ?? "-"}</Typography>
+              <Typography variant="caption" color="text.secondary">Pay Scheme</Typography>
+              <Typography variant="body1">{detail.payscheme ?? "-"}</Typography>
             </Box>
             <Box>
-              <Typography variant="caption" color="text.secondary">Pay Period ID</Typography>
-              <Typography variant="body1">{detail.id}</Typography>
+              <Typography variant="caption" color="text.secondary">Status</Typography>
+              <Typography variant="body1">{detail.status ?? "-"}</Typography>
             </Box>
           </Box>
         </Paper>
@@ -221,13 +227,16 @@ function ViewPayRegisterContent() {
       <Paper className="p-4">
         {salaryColumns.length > 0 ? (
           <MuiDataGrid
-            rows={salaryData}
+            rows={totalsRow ? [...salaryData, totalsRow] : salaryData}
             columns={salaryColumns}
-            rowCount={salaryData.length}
+            rowCount={salaryData.length + (totalsRow ? 1 : 0)}
             paginationModel={paginationModel}
             onPaginationModelChange={setPaginationModel}
             loading={loading}
             paginationMode="client"
+            getRowClassName={(params) =>
+              params.row.id === "__totals__" ? "row-grand-total" : ""
+            }
           />
         ) : (
           <Typography variant="body2" color="text.secondary" className="text-center py-8">
