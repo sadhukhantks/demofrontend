@@ -88,7 +88,8 @@ export default function PayRegisterDispSetDialog({
     try {
       // Pay schemes
       const setupRes = await fetchPayslipPrintComponentSetup(coId);
-      const schemes = (setupRes?.data?.pay_schemes ?? []) as Array<Record<string, unknown>>;
+      // fetchWithCookie returns the raw body { data: { pay_schemes: [...] } } (no unwrap)
+      const schemes = (setupRes?.data?.data?.pay_schemes ?? setupRes?.data?.pay_schemes ?? []) as Array<Record<string, unknown>>;
       setSchemeOptions(
         schemes.map((s) => ({
           label: `${String(s.payscheme_code ?? "")} — ${String(s.payscheme_name ?? "")}`,
@@ -107,7 +108,8 @@ export default function PayRegisterDispSetDialog({
 
       if (editId !== undefined) {
         const detailRes = await fetchPayslipPrintComponentById(coId, editId);
-        const rec = (detailRes?.data ?? {}) as Record<string, unknown>;
+        // Backend returns { data: { ...row } }; fetchWithCookie does not unwrap the envelope
+        const rec = (detailRes?.data?.data ?? detailRes?.data ?? {}) as Record<string, unknown>;
         const schemeId = rec.payscheme_id != null ? String(rec.payscheme_id) : "";
         loadedSchemeRef.current = schemeId;
         await loadSchemeComponents(schemeId);
