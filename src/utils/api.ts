@@ -602,6 +602,8 @@ const apiRoutesPortalMasters = {
     HRMS_PAY_REGISTER_UPDATE: `${API_URL}/hrms/pay_register_update`,
     HRMS_PAY_REGISTER_SALARY: `${API_URL}/hrms/pay_register_salary`,
     HRMS_PAY_REGISTER_PROCESS: `${API_URL}/hrms/pay_register_process`,
+    HRMS_PAY_REGISTER_EXPORT: `${API_URL}/hrms/pay_register_export`,
+    HRMS_PAY_REGISTER_PAYSLIPS: `${API_URL}/hrms/pay_register_payslips`,
 
     // HRMS Pay Roll (pay_components_custom) endpoints
     HRMS_PAY_ROLL_SETUP: `${API_URL}/hrms/pay_roll_setup`,
