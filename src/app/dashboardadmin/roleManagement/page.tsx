@@ -1,18 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
-import {
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  TextField,
-  Checkbox,
-  FormControlLabel,
-  Typography,
-} from "@mui/material";
+import { Box, Button, Typography } from "@mui/material";
 import { PencilIcon } from "lucide-react";
 import { SearchablePaginatedTable } from "@/components/ui/searchablePaginatedTable";
 import { Column } from "@/components/ui/datatablewithedit";
@@ -44,23 +32,8 @@ const fetchRoles = async (page: number, search?: string) => {
 };
 
 export default function PortalRoleTablePage() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
-
   const handleEditClick = (role: Role) => {
-    setSelectedRole(role);
-    setIsModalOpen(true);
-  };
-
-  const handleClose = () => {
-    setIsModalOpen(false);
-    setSelectedRole(null);
-  };
-
-  const handleSave = () => {
-    // TODO: API call to update the role
-    console.log("Saving role:", selectedRole);
-    setIsModalOpen(false);
+    window.location.href = `/dashboardadmin/roleManagement/createRole?roleId=${role.role_id}`;
   };
 
   const columns: Column<Role>[] = [
@@ -110,45 +83,6 @@ export default function PortalRoleTablePage() {
 
         <SearchablePaginatedTable columns={columns} fetchFn={fetchRoles} />
       </Box>
-
-      {/* MUI Modal Dialog */}
-      <Dialog open={isModalOpen} onClose={handleClose}>
-        <DialogTitle>Edit Role</DialogTitle>
-        <DialogContent sx={{ minWidth: 400, mt: 1 }}>
-          <TextField
-            label="Role Name"
-            fullWidth
-            margin="dense"
-            value={selectedRole?.role_name || ""}
-            onChange={(e) =>
-              setSelectedRole((prev) =>
-                prev ? { ...prev, role_name: e.target.value } : prev
-              )
-            }
-          />
-
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={selectedRole?.active ?? false}
-                onChange={(e) =>
-                  setSelectedRole((prev) =>
-                    prev ? { ...prev, active: e.target.checked } : prev
-                  )
-                }
-              />
-            }
-            label="Active"
-          />
-        </DialogContent>
-
-        <DialogActions>
-          <Button onClick={handleClose}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} color="primary">
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Box, Card, CardActionArea, CardContent, Typography } from "@mui/material";
-import { Factory, BarChart3, Boxes, Clock, Scale, Gauge, Ruler } from "lucide-react";
+import { Factory, BarChart3, Boxes, Clock, Scale, Gauge, Ruler, Disc3, Container, RotateCw, Timer, Columns3 } from "lucide-react";
 
 type Tile = {
 	href: string;
@@ -54,6 +54,36 @@ const TILES: Tile[] = [
 		title: "Drawing Machine Master",
 		subtitle: "Const meter & wrap limit per drawing machine",
 		icon: <Ruler size={32} className="text-blue-600" />,
+	},
+	{
+		href: "/dashboardportal/juteProduction/spinning",
+		title: "Spinning Production",
+		subtitle: "Doff weights, frame mapping, act count & daily efficiency",
+		icon: <Disc3 size={32} className="text-blue-600" />,
+	},
+	{
+		href: "/dashboardportal/juteProduction/winding",
+		title: "Winding Production",
+		subtitle: "Doff entry, spindle jugar (open/close) & daily quality",
+		icon: <RotateCw size={32} className="text-blue-600" />,
+	},
+	{
+		href: "/dashboardportal/juteProduction/beaming",
+		title: "Beaming Production",
+		subtitle: "Daily beaming production entry",
+		icon: <Columns3 size={32} className="text-blue-600" />,
+	},
+	{
+		href: "/dashboardportal/juteProduction/stoppageHours",
+		title: "Stoppage Hours",
+		subtitle: "Log machine downtime by reason, per date & spell",
+		icon: <Timer size={32} className="text-blue-600" />,
+	},
+	{
+		href: "/dashboardportal/juteProduction/masters/trollyMaster",
+		title: "Trolly Master",
+		subtitle: "Trolly & basket tare weights",
+		icon: <Container size={32} className="text-blue-600" />,
 	},
 ];
 

@@ -178,7 +178,7 @@ export default function IssueEntryForm({ coId, branchId, setup, onSaved }: Props
 					fullWidth
 					disabled={!weights || weights.weights.length === 0}
 				>
-					{weights?.weights.map((w) => (
+					{(weights?.weights ?? []).map((w) => (
 						<MenuItem key={w.wt_per_roll} value={w.wt_per_roll}>
 							{w.wt_per_roll} kg (available: {w.available_rolls})
 						</MenuItem>

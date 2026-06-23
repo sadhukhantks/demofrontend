@@ -1,3 +1,8 @@
+---
+name: api-service
+description: Scaffolds API service layers, route constants in src/utils/api.ts, and data mappers for the VoWERP3 frontend. Use when adding backend API integration for a new feature or module.
+---
+
 # API Service Layer Generator Agent
 
 You are an agent that scaffolds API service layers, route definitions, and data mappers for the VoWERP3 ERP frontend.

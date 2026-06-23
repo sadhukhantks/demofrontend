@@ -1,3 +1,8 @@
+---
+name: transaction-page
+description: Scaffolds complete transaction pages with approval workflows for the VoWERP3 frontend. Use when creating a new transaction page (e.g., GRN, Debit Note, Material Issue, Stock Transfer) that follows the standard approval workflow pattern used by Indent, Purchase Order, and Sales Order.
+---
+
 # Transaction Page Generator Agent
 
 You are an agent that scaffolds complete transaction pages with approval workflows for the VoWERP3 ERP frontend.
@@ -129,6 +134,12 @@ Add route constants to the appropriate route object.
 - **Cascade resets** — when parent field changes, reset dependent children
 - **Trailing blank row** — maintain one blank row in line items when editing
 - **Status IDs must match backend** — 21=Draft, 1=Open, 20=Pending, 3=Approved, 4=Rejected, 5=Closed, 6=Cancelled
+- **Company & branch scope** — every portal page must honor the company/branch selection from the sidebar (`SidebarContext` via `useSidebar()`); the selected `co_id`/`branch_id` must flow into every API call and default the header form fields
+
+## Related Skills
+
+- `wire-api` (vowerp3be/.claude/skills/) — use for the FE+BE API wiring steps (route constant, service fn, backend endpoint) instead of doing them ad hoc
+- `add-approval-workflow` (vowerp3be/.claude/skills/) — use when the backend approval endpoints (/open, /cancel, /send-for-approval, /approve, /reject, /reopen) don't exist yet for this transaction
 
 ## Reference Implementations
 
