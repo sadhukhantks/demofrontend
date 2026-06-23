@@ -605,6 +605,14 @@ const apiRoutesPortalMasters = {
     HRMS_PAY_REGISTER_EXPORT: `${API_URL}/hrms/pay_register_export`,
     HRMS_PAY_REGISTER_PAYSLIPS: `${API_URL}/hrms/pay_register_payslips`,
 
+    // HRMS Pay Register Display Setup (tbl_payslip_print_component) endpoints
+    HRMS_PAYSLIP_PRINT_COMPONENT_LIST: `${API_URL}/hrms/payslip_print_component_list`,
+    HRMS_PAYSLIP_PRINT_COMPONENT_SETUP: `${API_URL}/hrms/payslip_print_component_setup`,
+    HRMS_PAY_SCHEME_COMPONENTS: `${API_URL}/hrms/pay_scheme_components`,
+    HRMS_PAYSLIP_PRINT_COMPONENT_BY_ID: `${API_URL}/hrms/payslip_print_component_by_id`,
+    HRMS_PAYSLIP_PRINT_COMPONENT_CREATE: `${API_URL}/hrms/payslip_print_component_create`,
+    HRMS_PAYSLIP_PRINT_COMPONENT_UPDATE: `${API_URL}/hrms/payslip_print_component_update`,
+
     // HRMS Pay Roll (pay_components_custom) endpoints
     HRMS_PAY_ROLL_SETUP: `${API_URL}/hrms/pay_roll_setup`,
     HRMS_PAY_ROLL_DATA: `${API_URL}/hrms/pay_roll_data`,
