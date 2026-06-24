@@ -738,30 +738,45 @@ function IssueTransactionPageContent() {
 		[]
 	);
 
+	// inward_dtl_id values already on the issue — passed to the picker so added
+	// rows show as "Added", and used here to dedup (one issue line per inward detail).
+	const addedInwardDtlIds = React.useMemo(
+		() => new Set(lineItems.map((l) => l.inwardDtlId).filter(Boolean)),
+		[lineItems]
+	);
+
 	// Handle inserting items from inventory search table
 	const handleInsertFromInventory = React.useCallback(
 		(items: InventoryListItem[]) => {
 			if (mode === "view" || !items.length) return;
 
-			// Map inventory items to editable line items using factory function
-			const newLines: EditableLineItem[] = items.map((item) =>
-				createLineFromInventory(item)
+			const filledLines = lineItems.filter((line) => lineHasAnyData(line));
+			const existing = new Set(
+				filledLines.map((l) => l.inwardDtlId).filter(Boolean)
 			);
 
-			// Add new lines to existing line items (before the trailing blank)
-			setLineItems((prev) => {
-				// Filter out empty trailing lines
-				const filledLines = prev.filter((line) => lineHasAnyData(line));
-				// Add new lines plus a trailing blank
-				return [...filledLines, ...newLines, createBlankLine()];
-			});
+			// Skip rows whose inward detail is already on the issue — adding the same
+			// inward_dtl_id twice would split one inward line into two over-issuing lines.
+			const newLines: EditableLineItem[] = items
+				.filter((item) => !existing.has(String(item.inward_dtl_id ?? "")))
+				.map((item) => createLineFromInventory(item));
+
+			if (!newLines.length) {
+				toast({
+					title: "Already added",
+					description: "This item is already on the issue.",
+				});
+				return;
+			}
+
+			setLineItems([...filledLines, ...newLines, createBlankLine()]);
 
 			toast({
 				title: `Added ${newLines.length} item${newLines.length > 1 ? "s" : ""} to issue`,
 				description: "Enter quantities for each item.",
 			});
 		},
-		[mode, setLineItems]
+		[mode, lineItems, setLineItems]
 	);
 
 	// Wait for client-side hydration to complete before rendering MUI forms
@@ -820,6 +835,7 @@ function IssueTransactionPageContent() {
 						branchId={branchIdForSetup}
 						disabled={!canEdit}
 						onInsertItems={handleInsertFromInventory}
+							addedInwardDtlIds={addedInwardDtlIds}
 					/>
 				) : null}
 			</div>

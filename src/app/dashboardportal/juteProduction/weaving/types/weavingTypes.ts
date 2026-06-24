@@ -73,7 +73,13 @@ export type WeavingEntryRow = {
 	beam_no: string | null;
 	// Operator inputs.
 	cuts: number;
-	jugar: number;
+	// The CLOSING jugar reading entered by the operator (cj; 0 ≤ cj ≤ jpc).
+	close_jugar: number;
+	// DERIVED (read-only, from vw_weaving_daily): open_jugar = last available close
+	// for this loom+quality before this (date, spell); jugar = jugars PRODUCED this
+	// spell. Optional — present on saved rows returned by entries_by_date.
+	open_jugar?: number | null;
+	jugar?: number | null;
 	// Resolved standards (server-side) — read-only display.
 	fl: number | null;
 	jpc: number | null;
@@ -87,6 +93,8 @@ export type WeavingEntryRow = {
 };
 
 // Body for WEAVING_ENTRY_CREATE — quality is NOT sent (inherited from the loom map).
+// The operator sends the CLOSING jugar reading as `close_jugar` (cj); open_jugar and
+// the produced `jugar` are derived server-side (vw_weaving_daily).
 export type WeavingEntryCreateBody = {
 	co_id: number;
 	branch_id: number;
@@ -94,13 +102,13 @@ export type WeavingEntryCreateBody = {
 	spell: string;
 	machine_id: number;
 	cuts: number;
-	jugar: number;
+	close_jugar: number;
 };
 
 // Body for WEAVING_ENTRY_EDIT — editable inputs only (server recomputes).
 export type WeavingEntryEditBody = {
 	cuts: number;
-	jugar: number;
+	close_jugar: number;
 };
 
 // --- Beam Change map (WEAVING_BEAM_MAP_GET) ---
