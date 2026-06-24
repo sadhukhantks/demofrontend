@@ -69,6 +69,10 @@ export const usePOFormSubmission = ({
         discount_mode: item.discountMode,
         discount_value: item.discountValue || undefined,
         remarks: item.remarks || undefined,
+        tax_pct:
+          item.taxPercentage != null && String(item.taxPercentage) !== ""
+            ? Number(item.taxPercentage)
+            : undefined,
         igst_amount: item.igstAmount,
         cgst_amount: item.cgstAmount,
         sgst_amount: item.sgstAmount,

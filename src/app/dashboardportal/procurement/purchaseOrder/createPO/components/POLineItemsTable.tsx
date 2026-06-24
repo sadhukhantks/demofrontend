@@ -299,14 +299,27 @@ export const usePOLineItemColumns = ({
         id: "taxPercentage",
         header: "Tax%",
         width: "0.6fr",
-        minWidth: "65px",
-        renderCell: ({ item }) => (
-          <span className="block truncate text-sm">
-            {item.taxPercentage != null ? `${item.taxPercentage}%` : "-"}
-          </span>
-        ),
+        minWidth: "70px",
+        renderCell: ({ item }) => {
+          const hasTax = item.taxPercentage != null && String(item.taxPercentage) !== "";
+          if (!canEdit) {
+            return (
+              <span className="block truncate text-sm">{hasTax ? `${item.taxPercentage}%` : "-"}</span>
+            );
+          }
+          return (
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={item.taxPercentage ?? ""}
+              onChange={(e) => onFieldChange(item.id, "taxPercentage", e.target.value)}
+              placeholder="0"
+              className="h-8 text-sm"
+            />
+          );
+        },
         getTooltip: ({ item }) =>
-          item.taxPercentage != null ? `Tax: ${item.taxPercentage}%` : undefined,
+          item.taxPercentage != null && String(item.taxPercentage) !== "" ? `Tax: ${item.taxPercentage}%` : undefined,
       },
       {
         id: "amount",

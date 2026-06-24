@@ -885,6 +885,39 @@ const apiRoutesPortalMasters = {
     BEAMING_ENTRY_DELETE: `${API_URL}/beamingProd/entry_delete`,
     BEAMING_PLANNING_GRID: `${API_URL}/beamingProd/planning_grid`,
     BEAMING_PLANNING_GRID_SAVE: `${API_URL}/beamingProd/planning_grid_save`,
+    // Weaving Quality Master (router prefix /api/weavingMasters) — WEAVING_QUALITY_EDIT/DELETE are
+    // base paths; caller appends /${id}?co_id=...
+    WEAVING_QUALITY_SETUP: `${API_URL}/weavingMasters/weaving_quality_setup`,
+    WEAVING_QUALITY_LIST: `${API_URL}/weavingMasters/weaving_quality_list`,
+    WEAVING_QUALITY_CREATE: `${API_URL}/weavingMasters/weaving_quality_create`,
+    WEAVING_QUALITY_EDIT: `${API_URL}/weavingMasters/weaving_quality_edit`,
+    WEAVING_QUALITY_DELETE: `${API_URL}/weavingMasters/weaving_quality_delete`,
+    // Weaving Standards / Targets Map (router prefix /api/weavingTargetMap) — quality-only;
+    // *_EDIT/*_DELETE are base paths; caller appends /${id}
+    WEAVING_TARGET_MAP_SETUP: `${API_URL}/weavingTargetMap/target_map_setup`,
+    WEAVING_TARGET_MAP_LIST: `${API_URL}/weavingTargetMap/target_map_list`,
+    WEAVING_TARGET_MAP_CREATE: `${API_URL}/weavingTargetMap/target_map_create`,
+    WEAVING_TARGET_MAP_EDIT: `${API_URL}/weavingTargetMap/target_map_edit`,
+    WEAVING_TARGET_MAP_DELETE: `${API_URL}/weavingTargetMap/target_map_delete`,
+    WEAVING_TARGET_MAP_GRID: `${API_URL}/weavingTargetMap/target_map_grid`,
+    WEAVING_TARGET_MAP_BULK_SAVE: `${API_URL}/weavingTargetMap/target_map_bulk_save`,
+    // Weaving Production Entry (router prefix /api/weavingProd) — WEAVING_ENTRY_EDIT/DELETE are
+    // base paths; caller appends /${id}?co_id=...
+    WEAVING_ENTRY_CREATE_SETUP: `${API_URL}/weavingProd/entry_create_setup`,
+    WEAVING_ENTRIES_BY_DATE: `${API_URL}/weavingProd/entries_by_date`,
+    WEAVING_MACHINE_STANDARDS: `${API_URL}/weavingProd/machine_standards`,
+    WEAVING_ENTRY_CREATE: `${API_URL}/weavingProd/entry_create`,
+    WEAVING_ENTRY_EDIT: `${API_URL}/weavingProd/entry_edit`,
+    WEAVING_ENTRY_DELETE: `${API_URL}/weavingProd/entry_delete`,
+    WEAVING_PLANNING_GRID: `${API_URL}/weavingProd/planning_grid`,
+    WEAVING_PLANNING_GRID_SAVE: `${API_URL}/weavingProd/planning_grid_save`,
+    // Loom -> Quality map (router prefix /api/weavingProd)
+    WEAVING_QUALITY_MAP_GET: `${API_URL}/weavingProd/quality_map_get`,
+    WEAVING_QUALITY_MAP_SAVE: `${API_URL}/weavingProd/quality_map_save`,
+    WEAVING_QUALITY_MAP_MAPPED: `${API_URL}/weavingProd/quality_map_mapped`,
+    // Beam-change tab (router prefix /api/weavingProd)
+    WEAVING_BEAM_MAP_GET: `${API_URL}/weavingProd/beam_map_get`,
+    WEAVING_BEAM_MAP_SAVE: `${API_URL}/weavingProd/beam_map_save`,
 };
 
 // Support tickets (Zendesk-style). Raised from Portal/Tenant Admin widgets,
