@@ -7,10 +7,22 @@ import IndexWrapper from "@/components/ui/IndexWrapper";
 import {
   Snackbar,
   Alert,
+  IconButton,
+  Tooltip,
+  CircularProgress,
 } from "@mui/material";
+import { FileSpreadsheet } from "lucide-react";
 import { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
+import { fetchPaySchemeById } from "@/utils/hrmsService";
+import { exportToXlsx } from "@/utils/exportToXlsx";
+import {
+  buildExportRows,
+  paySchemeExportFileName,
+  type PaySchemeExportScheme,
+  type PaySchemeExportDetail,
+} from "./utils/paySchemeExport";
 
 interface PaySchemeRow {
   payscheme_id: number;
@@ -37,6 +49,7 @@ export default function PaySchemeCreationPage() {
     page: 0,
   });
   const [searchQuery, setSearchQuery] = useState("");
+  const [exportingId, setExportingId] = useState<number | null>(null);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -82,7 +95,87 @@ export default function PaySchemeCreationPage() {
     setPaginationModel((p) => ({ ...p, page: 0 }));
   };
 
+  // Export a single pay scheme's component breakdown to Excel.
+  const handleExport = useCallback(async (row: PaySchemeGridRow) => {
+    setExportingId(row.payscheme_id);
+    try {
+      const { data, error } = (await fetchPaySchemeById(
+        String(row.co_id ?? ""),
+        String(row.payscheme_id)
+      )) as {
+        data?: {
+          data: {
+            scheme: PaySchemeExportScheme;
+            details: PaySchemeExportDetail[];
+          };
+        };
+        error?: string;
+      };
+
+      if (error || !data?.data) {
+        throw new Error(error || "Failed to load pay scheme details");
+      }
+
+      const { scheme, details } = data.data;
+      const exportRows = buildExportRows(scheme, details);
+
+      if (exportRows.length === 0) {
+        setSnackbar({
+          open: true,
+          message: "No components found for this pay scheme.",
+          severity: "error",
+        });
+        return;
+      }
+
+      exportToXlsx(exportRows, {
+        fileName: paySchemeExportFileName(scheme),
+        sheetName: "Pay Scheme",
+      });
+    } catch (err: unknown) {
+      setSnackbar({
+        open: true,
+        message: err instanceof Error ? err.message : "Export failed",
+        severity: "error",
+      });
+    } finally {
+      setExportingId(null);
+    }
+  }, []);
+
   const columns: GridColDef[] = [
+    {
+      field: "__export",
+      headerName: "Excel",
+      width: 80,
+      sortable: false,
+      filterable: false,
+      align: "center",
+      headerAlign: "center",
+      headerClassName: "bg-[#3ea6da] text-white",
+      renderCell: (p) => {
+        const row = p.row as PaySchemeGridRow;
+        const isExporting = exportingId === row.payscheme_id;
+        return (
+          <Tooltip title="Export to Excel">
+            <span>
+              <IconButton
+                size="small"
+                color="success"
+                disabled={isExporting}
+                onClick={() => handleExport(row)}
+              >
+                {isExporting ? (
+                  <CircularProgress size={16} />
+                ) : (
+                  <FileSpreadsheet size={16} />
+                )}
+              </IconButton>
+            </span>
+          </Tooltip>
+        );
+      },
+    },
     {
       field: "payscheme_code",
       headerName: "Pay Scheme Code",

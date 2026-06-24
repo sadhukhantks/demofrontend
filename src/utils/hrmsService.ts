@@ -402,6 +402,84 @@ export const printPaySlips = (
     `${apiRoutesPortalMasters.HRMS_PAY_REGISTER_PAYSLIPS}?co_id=${coId}&pay_period_id=${payPeriodId}`,
   );
 
+// ─── Pay Register Display Setup (tbl_payslip_print_component) ───────
+
+export const fetchPayslipPrintComponentList = async (
+  coId: string,
+  params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    branch_id?: string;
+    payscheme_id?: number | string;
+  },
+) => {
+  const qs = new URLSearchParams({ co_id: coId });
+  if (params?.page) qs.set("page", String(params.page));
+  if (params?.limit) qs.set("limit", String(params.limit));
+  if (params?.search) qs.set("search", params.search);
+  if (params?.branch_id) qs.set("branch_id", params.branch_id);
+  if (params?.payscheme_id) qs.set("payscheme_id", String(params.payscheme_id));
+  return fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_PAYSLIP_PRINT_COMPONENT_LIST}?${qs.toString()}`,
+    "GET",
+  );
+};
+
+export const fetchPayslipPrintComponentSetup = async (coId: string) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_PAYSLIP_PRINT_COMPONENT_SETUP}?co_id=${coId}`,
+    "GET",
+  );
+
+export const fetchPaySchemeComponents = async (
+  coId: string,
+  payschemeId: number | string,
+) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_PAY_SCHEME_COMPONENTS}?co_id=${coId}&payscheme_id=${payschemeId}`,
+    "GET",
+  );
+
+export const fetchPayslipPrintComponentById = async (
+  coId: string,
+  payId: number | string,
+) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_PAYSLIP_PRINT_COMPONENT_BY_ID}/${payId}?co_id=${coId}`,
+    "GET",
+  );
+
+export const createPayslipPrintComponent = async (
+  coId: string,
+  data: Record<string, unknown>,
+) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_PAYSLIP_PRINT_COMPONENT_CREATE}?co_id=${coId}`,
+    "POST",
+    data,
+  );
+
+export const updatePayslipPrintComponent = async (
+  coId: string,
+  payId: number | string,
+  data: Record<string, unknown>,
+) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_PAYSLIP_PRINT_COMPONENT_UPDATE}/${payId}?co_id=${coId}`,
+    "PUT",
+    data,
+  );
+
+export const deletePayslipPrintComponent = async (
+  coId: string,
+  payId: number | string,
+) =>
+  fetchWithCookie(
+    `${apiRoutesPortalMasters.HRMS_PAYSLIP_PRINT_COMPONENT_DELETE}/${payId}?co_id=${coId}`,
+    "DELETE",
+  );
+
 // ─── Pay Roll (pay_components_custom) ──────────────────────────────
 
 export const fetchPayRollSetup = async (coId: string, branchId?: string | number) => {
