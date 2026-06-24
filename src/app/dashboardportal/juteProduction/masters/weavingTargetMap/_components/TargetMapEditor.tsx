@@ -12,10 +12,10 @@ import TargetGrid, {
 } from "./TargetGrid";
 
 // --- Shared labels ---------------------------------------------------------
-// Weaving standards are QUALITY-ONLY (id_type='qid' = weaving quality). Roles:
-// standard | target | actual. 'actual' is consumed by the Weaving SQC page
-// (reuses these endpoints with value_role='actual'); the Standards page exposes
-// [standard, target]. target params = speed + eff.
+// Weaving standards split by id_type: 'mcid' = Machine (a LOOM, params=speed) and
+// 'qid' = Quality (weaving quality, params=picks/eff). Roles: standard | target |
+// actual. 'actual' is consumed by the Weaving SQC page (reuses these endpoints with
+// value_role='actual'); the Standards page exposes [standard, target].
 
 export const ID_TYPE_LABELS: Record<IdType, string> = { mcid: "Machine", qid: "Quality" };
 export const VALUE_ROLE_LABELS: Record<ValueRole, string> = {
@@ -40,6 +40,8 @@ type Props = {
 	valueRole: ValueRole;
 	effectiveDate: string;
 	paramLabels?: Record<string, string>;
+	/** Label for the ref column in the grid (e.g. "Loom" for mcid). Defaults to "Quality" in TargetGrid. */
+	refLabel?: string;
 };
 
 /**
@@ -59,6 +61,7 @@ export default function TargetMapEditor({
 	valueRole,
 	effectiveDate,
 	paramLabels = PARAM_LABELS,
+	refLabel,
 }: Props) {
 	const [grid, setGrid] = React.useState<TargetGridData>(EMPTY_GRID);
 	const [loading, setLoading] = React.useState(false);
@@ -140,6 +143,7 @@ export default function TargetMapEditor({
 				saving={saving}
 				effectiveDate={effectiveDate}
 				paramLabels={paramLabels}
+				refLabel={refLabel}
 				onSave={(cells) => void handleSave(cells)}
 			/>
 

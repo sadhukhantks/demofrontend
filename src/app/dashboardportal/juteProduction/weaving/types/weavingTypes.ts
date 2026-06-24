@@ -40,6 +40,7 @@ export type WeavingSetup = {
 export type LoomQualityMapRow = {
 	machine_id: number;
 	mech_code: string | null;
+	mech_posting_code: number | null; // machine posting code for quick-search
 	machine_name: string | null;
 	// Today's SAVED mapping (null = nothing saved yet for this loom).
 	weaving_quality_id: number | null;
@@ -200,3 +201,20 @@ export type WeavingValueRole = (typeof VALUE_ROLE_OPTIONS)[number];
 
 // target params = speed + eff (NOT picks — picks is a standard-only param).
 export const TARGET_PARAMS = ["speed", "eff"] as const;
+
+// --- Reduce-Jugar Adjustment grid (WEAVING_ADJUSTMENT_GET / _SAVE) ---
+// One row per loom for a (tran_date, spell): the loom's MAPPED quality plus the current
+// less_production deduction. Editing less_production reduces the row's production_yds in
+// vw_weaving_daily (does not touch open/close jugar carry-forward).
+export type WeavingAdjustmentRow = {
+	machine_id: number;
+	mech_code: string | null;
+	mech_posting_code: number | null;
+	machine_name: string | null;
+	line_no: number | null;
+	weaving_quality_id: number | null;
+	weaving_quality_code: string | null;
+	weaving_quality_name: string | null;
+	weaving_daily_id: number | null;
+	less_production: number; // reduce-jugar deduction (0 = none)
+};

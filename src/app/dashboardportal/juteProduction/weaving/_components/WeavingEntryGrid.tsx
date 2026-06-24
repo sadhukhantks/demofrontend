@@ -5,7 +5,6 @@ import {
 	Alert,
 	Box,
 	Button,
-	Chip,
 	CircularProgress,
 	Snackbar,
 	Table,
@@ -22,13 +21,7 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WeavingSetup, WeavingEntryRow } from "../types/weavingTypes";
 import { useLoomQualityMap } from "../hooks/useLoomQualityMap";
 import { useWeavingEntriesByDate } from "../hooks/useWeavingEntriesByDate";
-import {
-	effectiveJugar,
-	productionYds,
-	productionKg,
-	stdProdYds,
-	efficiency,
-} from "../utils/weavingCalc";
+import { effectiveJugar } from "../utils/weavingCalc";
 
 type Props = {
 	coId: string;
@@ -43,13 +36,7 @@ type CellEdit = { cuts: string; close_jugar: string };
 
 // Loom rows on the production grid never carry a quality dropdown — the quality is
 // MAPPED on the Loom → Quality tab and inherited read-only here (like spinning).
-export default function WeavingEntryGrid({ coId, branchId, setup, date, spell }: Props) {
-	const spellOpt = React.useMemo(
-		() => setup.spells.find((s) => s.spell_code === spell) ?? null,
-		[setup.spells, spell]
-	);
-	const workingHours = spellOpt ? Number(spellOpt.working_hours) : 0;
-
+export default function WeavingEntryGrid({ coId, branchId, date, spell }: Props) {
 	// The mapped quality per loom (read-only source for this grid).
 	const { rows: mapRows, loading: mapLoading, error: mapError } = useLoomQualityMap(
 		coId,
@@ -64,6 +51,7 @@ export default function WeavingEntryGrid({ coId, branchId, setup, date, spell }:
 	const [edits, setEdits] = React.useState<Record<number, CellEdit>>({});
 	const [savingId, setSavingId] = React.useState<number | null>(null);
 	const [snack, setSnack] = React.useState<string | null>(null);
+	const [query, setQuery] = React.useState("");
 
 	// Index existing entries by machine for prefill + edit-vs-create resolution.
 	const entryByMachine = React.useMemo(() => {
@@ -147,6 +135,17 @@ export default function WeavingEntryGrid({ coId, branchId, setup, date, spell }:
 	const loading = mapLoading || entriesLoading;
 	const error = mapError || entriesError;
 
+	const q = query.trim().toLowerCase();
+	const visibleRows =
+		q === ""
+			? mapRows
+			: mapRows.filter(
+					(r) =>
+						String(r.mech_posting_code ?? "").toLowerCase().includes(q) ||
+						(r.mech_code ?? "").toLowerCase().includes(q) ||
+						(r.machine_name ?? "").toLowerCase().includes(q)
+			  );
+
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
 			<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
@@ -155,6 +154,13 @@ export default function WeavingEntryGrid({ coId, branchId, setup, date, spell }:
 					Quality is inherited from the Loom → Quality map (read-only). Enter cuts + closing jugar;
 					Open and the produced Jugar are derived (server/view authoritative).
 				</Typography>
+				<TextField
+					size="small"
+					label="Search loom / posting code"
+					value={query}
+					onChange={(e) => setQuery(e.target.value)}
+					sx={{ minWidth: 240 }}
+				/>
 			</Box>
 
 			{error ? <Alert severity="error">{error}</Alert> : null}
@@ -167,40 +173,33 @@ export default function WeavingEntryGrid({ coId, branchId, setup, date, spell }:
 				<Alert severity="info">No looms found for this date and spell.</Alert>
 			) : (
 				<Box sx={{ width: "100%", overflowX: "auto" }}>
-					<Table size="small" sx={{ minWidth: 980 }}>
+					<Table size="small" sx={{ minWidth: 640 }}>
 						<TableHead>
 							<TableRow>
 								<TableCell>Mc Code</TableCell>
+								<TableCell>Posting</TableCell>
 								<TableCell>Loom</TableCell>
-								<TableCell>Quality</TableCell>
-								<TableCell align="right">Open</TableCell>
 								<TableCell align="right">Cuts</TableCell>
 								<TableCell align="right">Closing Jugar</TableCell>
 								<TableCell align="right">Jugar</TableCell>
-								<TableCell align="right">Prod (yd)</TableCell>
-								<TableCell align="right">Prod (kg)</TableCell>
-								<TableCell align="right">Eff %</TableCell>
 								<TableCell />
 							</TableRow>
 						</TableHead>
 						<TableBody>
-							{mapRows.map((r) => {
+							{visibleRows.map((r) => {
 								const cell = edits[r.machine_id] ?? { cuts: "", close_jugar: "" };
 								const entry = entryByMachine[r.machine_id];
 								const mapped = r.weaving_quality_id != null;
 
-								// FE PREVIEW ONLY — server / vw_weaving_daily is authoritative. Standards
-								// (fl/jpc/open_jugar/ozs_yds/speed/picks) are resolved server-side and
-								// surfaced on saved entries; preview falls back to 0 (showing "—") when not
-								// yet available. open_jugar (oj) is the last available close — read-only.
-								const fl = Number(entry?.fl ?? 0);
+								// FE PREVIEW ONLY — server / vw_weaving_daily is authoritative for the
+								// produced jugar. jpc/open_jugar are resolved server-side and surfaced on
+								// saved entries; preview falls back to 0 (showing "—") when not yet
+								// available. open_jugar (oj) is the last available close — read-only.
 								const jpc = Number(entry?.jpc ?? 0);
 								const openJugar = Number(entry?.open_jugar ?? entry?.open ?? 0);
-								const ozs = Number(entry?.ozs_yds ?? 0);
-								const cutsNum = Number(cell.cuts || 0);
 								const closeJugarNum = Number(cell.close_jugar || 0);
 								// True when the unsaved edits match what is already persisted, so we can
-								// surface the server-authoritative values instead of the FE preview.
+								// surface the server-authoritative value instead of the FE preview.
 								const inSync =
 									entry != null &&
 									cell.cuts === String(entry.cuts ?? "") &&
@@ -213,41 +212,13 @@ export default function WeavingEntryGrid({ coId, branchId, setup, date, spell }:
 										? Number(entry.jugar)
 										: effectiveJugar(jpc, openJugar, closeJugarNum);
 
-								const prodYds =
-									inSync && entry?.production_yds != null
-										? Number(entry.production_yds)
-										: productionYds(cutsNum, fl, derivedJugar, jpc);
-								const prodKg =
-									inSync && entry?.production_kg != null
-										? Number(entry.production_kg)
-										: productionKg(prodYds, ozs);
-								const stdProd =
-									entry?.std_prod_yds != null
-										? Number(entry.std_prod_yds)
-										: stdProdYds(0, workingHours, 0);
-								const eff =
-									inSync && entry?.efficiency != null
-										? Number(entry.efficiency)
-										: efficiency(prodYds, stdProd);
-
 								const fmt = (n: number) => (n ? n : "—");
 
 								return (
 									<TableRow key={r.machine_id}>
 										<TableCell>{r.mech_code}</TableCell>
+										<TableCell>{r.mech_posting_code != null ? r.mech_posting_code : "—"}</TableCell>
 										<TableCell>{r.machine_name}</TableCell>
-										<TableCell>
-											{mapped ? (
-												<Chip
-													size="small"
-													variant="outlined"
-													label={r.weaving_quality_name ?? r.weaving_quality_code ?? "—"}
-												/>
-											) : (
-												<Chip size="small" color="warning" variant="outlined" label="Not mapped" />
-											)}
-										</TableCell>
-										<TableCell align="right">{fmt(openJugar)}</TableCell>
 										<TableCell align="right">
 											<TextField
 												type="number"
@@ -269,9 +240,6 @@ export default function WeavingEntryGrid({ coId, branchId, setup, date, spell }:
 											/>
 										</TableCell>
 										<TableCell align="right">{fmt(derivedJugar)}</TableCell>
-										<TableCell align="right">{fmt(prodYds)}</TableCell>
-										<TableCell align="right">{fmt(prodKg)}</TableCell>
-										<TableCell align="right">{fmt(eff)}</TableCell>
 										<TableCell align="right">
 											<Button
 												variant="contained"
@@ -288,6 +256,11 @@ export default function WeavingEntryGrid({ coId, branchId, setup, date, spell }:
 							})}
 						</TableBody>
 					</Table>
+					{visibleRows.length === 0 ? (
+						<Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+							No looms match the search.
+						</Typography>
+					) : null}
 				</Box>
 			)}
 

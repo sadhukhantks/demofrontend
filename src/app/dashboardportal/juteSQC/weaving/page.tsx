@@ -11,10 +11,10 @@ import { useWeavingPickByDate } from "./hooks/useWeavingPickByDate";
 // the "Actual Speed" tab writes actuals into jute_prod_weaving_target_map (the same
 // table the weaving planning grid reads, value_role='actual'). The editor reuses
 // the existing WEAVING_TARGET_MAP_* endpoints (setup/grid/bulk_save) exactly like
-// Weaving Standards / Targets — only the role differs (actual). Weaving is
-// QUALITY-ONLY (id_type='qid'); the actual param captured here is 'speed' (loom
-// speed, picks/min) per quality. Actual picks (PPI) are now captured per loom on
-// the Loom Width & Picks tab (R-08-21).
+// Weaving Standards / Targets — only the role differs (actual). Actual loom
+// speed is machine-linked (id_type='mcid'); the actual param captured here is
+// 'speed' (loom speed, picks/min) per loom. Actual picks (PPI) are now captured
+// per loom on the Loom Width & Picks tab (R-08-21).
 import TargetMapEditor from "../../juteProduction/masters/weavingTargetMap/_components/TargetMapEditor";
 import PickForm from "./_components/PickForm";
 import PickGrid from "./_components/PickGrid";
@@ -72,7 +72,7 @@ export default function WeavingSqcPage() {
 		refreshPick();
 	}, [refreshPick]);
 
-	// Tab 1 — Actual Speed (target-map actuals; id_type is fixed 'qid' for weaving).
+	// Tab 1 — Actual Speed (target-map actuals; id_type is 'mcid' — loom-linked).
 	const [effectiveDate, setEffectiveDate] = React.useState<string>(todayISO());
 
 	if (!mounted) return null;
@@ -190,18 +190,19 @@ export default function WeavingSqcPage() {
 								/>
 							</Box>
 							<Typography variant="body2" color="text.secondary">
-								Enter the actual loom speed (picks/min) per weaving quality and date. Saving here writes
+								Enter the actual loom speed (picks/min) per loom and date. Saving here writes
 								the actual values into the weaving target map (value_role=&apos;actual&apos;). Actual picks
 								(PPI) are now captured per loom on the Loom Width &amp; Picks tab.
 							</Typography>
 							<Box>
 								<Typography variant="subtitle2" sx={{ mb: 1 }}>
-									Quality
+									Loom
 								</Typography>
 								<TargetMapEditor
 									coId={coId}
 									branchId={branchId}
-									idType="qid"
+									idType="mcid"
+									refLabel="Loom"
 									valueRole="actual"
 									effectiveDate={effectiveDate}
 									paramLabels={{ speed: "Speed (picks/min)" }}

@@ -941,6 +941,8 @@ const apiRoutesPortalMasters = {
     // Beam-change tab (router prefix /api/weavingProd)
     WEAVING_BEAM_MAP_GET: `${API_URL}/weavingProd/beam_map_get`,
     WEAVING_BEAM_MAP_SAVE: `${API_URL}/weavingProd/beam_map_save`,
+    WEAVING_ADJUSTMENT_GET: `${API_URL}/weavingProd/adjustment_get`,
+    WEAVING_ADJUSTMENT_SAVE: `${API_URL}/weavingProd/adjustment_save`,
 };
 
 // Support tickets (Zendesk-style). Raised from Portal/Tenant Admin widgets,

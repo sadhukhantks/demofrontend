@@ -328,7 +328,6 @@ export default function WeavingQualityMasterPage() {
 		{ field: "weaving_quality_name", headerName: "Quality Name", flex: 1, minWidth: 160 },
 		{ field: "ends", headerName: "Ends", width: 90, type: "number" },
 		{ field: "finished_length", headerName: "Fin. Length", width: 110, type: "number" },
-		{ field: "ozs_yds", headerName: "Ozs/Yds", width: 100, type: "number" },
 		{ field: "std_ozs_yds", headerName: "Std Ozs/Yds", width: 120, type: "number" },
 		{ field: "no_of_jugar_per_cut", headerName: "Jugar/Cut", width: 110, type: "number" },
 		{ field: "width", headerName: "Width", width: 90, type: "number" },
@@ -449,14 +448,6 @@ export default function WeavingQualityMasterPage() {
 								label="Finished Length"
 								value={form.finished_length}
 								onChange={(e) => setForm({ ...form, finished_length: e.target.value })}
-								size="small"
-								inputProps={{ step: 0.001, min: 0 }}
-							/>
-							<TextField
-								type="number"
-								label="Ozs/Yds"
-								value={form.ozs_yds}
-								onChange={(e) => setForm({ ...form, ozs_yds: e.target.value })}
 								size="small"
 								inputProps={{ step: 0.001, min: 0 }}
 							/>

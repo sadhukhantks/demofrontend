@@ -6,16 +6,18 @@ import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayISO } from "../../spinning/utils/spinningCalc";
 import type { IdType, ValueRole } from "./_components/TargetGrid";
-import TargetMapEditor, { VALUE_ROLE_LABELS } from "./_components/TargetMapEditor";
+import TargetMapEditor, {
+	ID_TYPE_LABELS,
+	VALUE_ROLE_LABELS,
+} from "./_components/TargetMapEditor";
 
 // --- Header-bar options -----------------------------------------------------
-// Weaving standards/targets are QUALITY-ONLY: id_type is always 'qid' (the loom ->
-// quality map lives elsewhere, so there is no Machine/Quality toggle here). Roles:
-// standard | target (the grid auto-renders whatever params the backend returns for
-// the chosen value_role — target = speed + eff). 'actual' lives only on the
-// Weaving SQC page.
+// Weaving standards/targets are split by Type: Machine ('mcid' — a LOOM, params=speed)
+// and Quality ('qid' = weaving quality, params=picks/eff). Roles: standard | target for
+// both types (the grid auto-renders whatever params the backend returns for the chosen
+// id_type + value_role). 'actual' lives only on the Weaving SQC page.
 
-const WEAVING_ID_TYPE: IdType = "qid";
+const ID_TYPE_OPTIONS: IdType[] = ["mcid", "qid"];
 const VALUE_ROLE_OPTIONS: ValueRole[] = ["standard", "target"];
 
 export default function WeavingTargetMapPage() {
@@ -34,11 +36,12 @@ export default function WeavingTargetMapPage() {
 	);
 	const singleBranchId = branchOptions.length === 1 ? branchOptions[0].branch_id : null;
 
-	// Header bar state. Type is fixed to Quality ('qid') for weaving.
+	// Header bar state. Type is user-picked (Machine | Quality).
+	const [idType, setIdType] = React.useState<IdType | "">("");
 	const [valueRole, setValueRole] = React.useState<ValueRole | "">("");
 	const [effectiveDate, setEffectiveDate] = React.useState<string>(todayISO());
 
-	const ready = !!coId && !!valueRole && !!effectiveDate;
+	const ready = !!coId && !!idType && !!valueRole && !!effectiveDate;
 
 	if (!mounted) return null;
 
@@ -57,14 +60,31 @@ export default function WeavingTargetMapPage() {
 					Weaving Standards
 				</Typography>
 				<Typography variant="body2" color="text.secondary">
-					Standard and target values per weaving quality, effective-dated. Pick a Role and
-					Effective Date, then edit values inline and Save. (Actuals are entered on the Weaving SQC
-					page.)
+					Standard and target values per weaving loom or quality, effective-dated. Pick a Type,
+					Role and Effective Date, then edit values inline and Save. (Actuals are entered on the
+					Weaving SQC page.)
 				</Typography>
 			</Box>
 
 			{/* Header bar (always visible) */}
 			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 3 }}>
+				<TextField
+					select
+					label="Type"
+					size="small"
+					value={idType}
+					onChange={(e) => setIdType(e.target.value as IdType | "")}
+					sx={{ minWidth: 160 }}
+				>
+					<MenuItem value="">
+						<em>Select…</em>
+					</MenuItem>
+					{ID_TYPE_OPTIONS.map((t) => (
+						<MenuItem key={t} value={t}>
+							{ID_TYPE_LABELS[t]}
+						</MenuItem>
+					))}
+				</TextField>
 				<TextField
 					select
 					label="Role"
@@ -94,14 +114,15 @@ export default function WeavingTargetMapPage() {
 			</Box>
 
 			{!ready ? (
-				<Alert severity="info">Select Role and Effective Date to load the grid.</Alert>
+				<Alert severity="info">Select Type, Role and Effective Date to load the grid.</Alert>
 			) : (
 				<TargetMapEditor
 					coId={coId}
 					branchId={singleBranchId}
-					idType={WEAVING_ID_TYPE}
+					idType={idType as IdType}
 					valueRole={valueRole as ValueRole}
 					effectiveDate={effectiveDate}
+					{...(idType === "mcid" ? { refLabel: "Loom" } : {})}
 				/>
 			)}
 		</Box>
