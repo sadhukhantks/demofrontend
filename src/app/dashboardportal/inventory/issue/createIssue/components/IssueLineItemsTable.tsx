@@ -171,7 +171,7 @@ export const useIssueLineItemColumns = ({
 				id: "expenseType",
 				header: "Expense Type",
 				width: "1.1fr",
-				minWidth: "150px",
+				minWidth: "160px",
 				renderCell: ({ item }) => {
 					if (!canEdit) {
 						return (
@@ -203,7 +203,7 @@ export const useIssueLineItemColumns = ({
 				id: "costFactor",
 				header: "Cost Factor",
 				width: "1fr",
-				minWidth: "150px",
+				minWidth: "200px",
 				renderCell: ({ item }) => {
 					if (!canEdit) {
 						return (
