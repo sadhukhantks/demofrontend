@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Box, Card, CardActionArea, CardContent, Typography } from "@mui/material";
-import { Droplets, Layers, Disc3, Scissors, Shirt, Package } from "lucide-react";
+import { Disc3, Scissors, Shirt, Combine, Stamp, Package } from "lucide-react";
 
 type Tile = {
 	href: string;
@@ -14,34 +14,34 @@ type Tile = {
 
 const TILES: Tile[] = [
 	{
-		href: "/dashboardportal/juteProduction/finishing/damping",
-		title: "Damping",
-		subtitle: "Moisten grey cloth before calendering (metres)",
-		icon: <Droplets size={32} className="text-blue-600" />,
-	},
-	{
-		href: "/dashboardportal/juteProduction/finishing/calendering",
-		title: "Calendering",
-		subtitle: "Finish hessian cloth; output weight auto-computed",
-		icon: <Layers size={32} className="text-blue-600" />,
-	},
-	{
 		href: "/dashboardportal/juteProduction/finishing/lapping",
 		title: "Lapping",
-		subtitle: "Wind finished cloth into rolls",
+		subtitle: "Wind finished hessian cloth into rolls",
 		icon: <Disc3 size={32} className="text-blue-600" />,
 	},
 	{
 		href: "/dashboardportal/juteProduction/finishing/cutting",
 		title: "Cutting",
-		subtitle: "Cut calendered cloth into bag pieces",
+		subtitle: "Cut sacking cloth into bag pieces",
 		icon: <Scissors size={32} className="text-blue-600" />,
 	},
 	{
 		href: "/dashboardportal/juteProduction/finishing/hemming",
 		title: "Hemming",
-		subtitle: "Stitch pieces into finished bags",
+		subtitle: "Stitch sacking pieces into finished bags",
 		icon: <Shirt size={32} className="text-blue-600" />,
+	},
+	{
+		href: "/dashboardportal/juteProduction/finishing/herackle",
+		title: "Herackle",
+		subtitle: "Herackle finishing of sacking bags",
+		icon: <Combine size={32} className="text-blue-600" />,
+	},
+	{
+		href: "/dashboardportal/juteProduction/finishing/sacksewing",
+		title: "Sack Sewing",
+		subtitle: "Sew sacking bags into bundles",
+		icon: <Stamp size={32} className="text-blue-600" />,
 	},
 	{
 		href: "/dashboardportal/juteProduction/finishing/balePress",
@@ -58,8 +58,8 @@ export default function FinishingProductionLandingPage() {
 				Finishing Production
 			</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-				Per-process daily production entry — cloth (damping/calendering/lapping) and bags
-				(cutting/hemming/bale press).
+				Per-process daily production entry — hessian cloth (lapping) and sacking bags
+				(cutting/hemming/herackle/sack sewing/bale press).
 			</Typography>
 			<Box
 				sx={{

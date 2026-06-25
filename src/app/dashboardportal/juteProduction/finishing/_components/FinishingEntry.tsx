@@ -1,14 +1,17 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
 	Alert,
 	Box,
+	Button,
 	CircularProgress,
 	MenuItem,
 	TextField,
 	Typography,
 } from "@mui/material";
+import { ArrowLeft } from "lucide-react";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { useFinishingSetup } from "../hooks/useFinishingSetup";
@@ -25,9 +28,8 @@ type Props = {
  * Reusable Finishing daily-entry container for a single sub-process.
  *
  * Honors the SidebarContext company/branch selection on every call, defaults the
- * header date/spell from the sidebar + setup, renders the captured-param inputs
- * dynamically from `entry_setup.param_tokens`, and shows the day's entries with
- * the server-computed read-only columns. Mirrors the Beaming Production page.
+ * header date/spell from the sidebar + setup, and shows the day's entries. The
+ * user captures only the production figure per spell x machine x quality.
  */
 export default function FinishingEntry({ process }: Props) {
 	const config = FINISHING_PROCESS_CONFIG[process];
@@ -116,6 +118,15 @@ export default function FinishingEntry({ process }: Props) {
 
 	return (
 		<Box sx={{ p: { xs: 1.5, md: 3 } }}>
+			<Button
+				component={Link}
+				href="/dashboardportal/juteProduction/finishing"
+				startIcon={<ArrowLeft size={18} />}
+				size="small"
+				sx={{ mb: 1 }}
+			>
+				Back to Finishing
+			</Button>
 			<Typography variant="h5" sx={{ fontWeight: 600 }}>
 				{config.title}
 			</Typography>
@@ -218,7 +229,6 @@ export default function FinishingEntry({ process }: Props) {
 									config={config}
 									date={tranDate}
 									spellId={spellId}
-									paramTokens={setup.param_tokens}
 									refreshKey={entriesRefresh}
 									onEdit={(row) => setEditingEntry(row)}
 								/>

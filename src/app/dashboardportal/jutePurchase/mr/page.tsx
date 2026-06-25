@@ -92,7 +92,7 @@ export default function JuteMRIndexPage() {
 				field: "mr_no",
 				headerName: "MR No",
 				flex: 0.8,
-				minWidth: 100,
+				minWidth: 90,
 				renderCell: (params: GridRenderCellParams<JuteMRRow, string | null>) => (
 					<Typography component="span" variant="body2" color="primary" sx={{ fontWeight: 600 }}>
 						{params.value ?? "-"}
@@ -102,7 +102,8 @@ export default function JuteMRIndexPage() {
 			{
 				field: "mr_date",
 				headerName: "MR Date",
-				minWidth: 120,
+				flex: 0.7,
+				minWidth: 90,
 				renderCell: (params: GridRenderCellParams<JuteMRRow, string>) => (
 					<Typography component="span" variant="body2">
 						{params.value || formatDate(params.row.mr_date_raw) || "-"}
@@ -112,20 +113,20 @@ export default function JuteMRIndexPage() {
 			{
 				field: "branch_name",
 				headerName: "Branch",
-				flex: 1,
-				minWidth: 120,
+				flex: 0.8,
+				minWidth: 80,
 			},
 			{
 				field: "supplier_name",
 				headerName: "Supplier",
-				flex: 1,
-				minWidth: 140,
+				flex: 1.2,
+				minWidth: 110,
 			},
 			{
 				field: "party_name",
 				headerName: "Party",
 				flex: 1,
-				minWidth: 120,
+				minWidth: 100,
 				renderCell: (params: GridRenderCellParams<JuteMRRow, string | null>) => (
 					<Typography component="span" variant="body2">
 						{params.value || "-"}
@@ -135,7 +136,8 @@ export default function JuteMRIndexPage() {
 			{
 				field: "challan_no",
 				headerName: "Challan No",
-				minWidth: 120,
+				flex: 0.7,
+				minWidth: 85,
 				renderCell: (params: GridRenderCellParams<JuteMRRow, string | null>) => (
 					<Typography component="span" variant="body2">
 						{params.value || "-"}
@@ -145,7 +147,8 @@ export default function JuteMRIndexPage() {
 			{
 				field: "gate_entry_no",
 				headerName: "Gate Entry No",
-				minWidth: 120,
+				flex: 0.9,
+				minWidth: 100,
 				renderCell: (params: GridRenderCellParams<JuteMRRow, string | null>) => (
 					<Typography component="span" variant="body2">
 						{params.value || "-"}
@@ -155,7 +158,8 @@ export default function JuteMRIndexPage() {
 			{
 				field: "gate_entry_date",
 				headerName: "Gate Entry Date",
-				minWidth: 130,
+				flex: 0.8,
+				minWidth: 95,
 				renderCell: (params: GridRenderCellParams<JuteMRRow, string>) => (
 					<Typography component="span" variant="body2">
 						{params.value || formatDate(params.row.gate_entry_date_raw) || "-"}
@@ -165,7 +169,8 @@ export default function JuteMRIndexPage() {
 			{
 				field: "mukam",
 				headerName: "Mukam",
-				minWidth: 120,
+				flex: 0.7,
+				minWidth: 80,
 				renderCell: (params: GridRenderCellParams<JuteMRRow, string | null>) => (
 					<Typography component="span" variant="body2">
 						{params.value || "-"}
@@ -175,7 +180,8 @@ export default function JuteMRIndexPage() {
 			{
 				field: "vehicle_no",
 				headerName: "Vehicle No",
-				minWidth: 120,
+				flex: 0.7,
+				minWidth: 85,
 				renderCell: (params: GridRenderCellParams<JuteMRRow, string | null>) => (
 					<Typography component="span" variant="body2">
 						{params.value || "-"}
@@ -185,7 +191,8 @@ export default function JuteMRIndexPage() {
 			{
 				field: "mr_weight",
 				headerName: "MR Weight",
-				minWidth: 110,
+				flex: 0.6,
+				minWidth: 80,
 				type: "number",
 				align: "right",
 				headerAlign: "right",
@@ -198,7 +205,8 @@ export default function JuteMRIndexPage() {
 			{
 				field: "status",
 				headerName: "Status",
-				minWidth: 120,
+				flex: 0.7,
+				minWidth: 95,
 				renderCell: (params: GridRenderCellParams<JuteMRRow, string>) => (
 					<Chip size="small" color={getStatusColor(params.value ?? "")} label={params.value || "Open"} />
 				),

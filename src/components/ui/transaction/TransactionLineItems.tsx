@@ -65,8 +65,10 @@ export function TransactionLineItems<TItem>({
       if (w.endsWith("px")) return w;
       // If a minWidth is specified, wrap in minmax(min, w)
       if (min) return `minmax(${min}, ${w})`;
-      // Default: use minmax with a sensible floor of 80px
-      return `minmax(80px, ${w})`;
+      // Default: minmax(0, w) so columns shrink to fit the container — many-column
+      // tables fit the page width instead of forcing an inner horizontal scrollbar.
+      // ponytail: opt a column out of shrinking by giving it an explicit minWidth.
+      return `minmax(0, ${w})`;
     });
     const parts = allowSelection ? [selectionColumnWidth, ...widths] : widths;
     return parts.join(" ");
@@ -80,8 +82,9 @@ export function TransactionLineItems<TItem>({
       if (w.endsWith("px")) return parseInt(w, 10) || 80;
       // If minWidth is specified, use it
       if (col.minWidth) return parseInt(col.minWidth, 10) || 80;
-      // Default floor per column
-      return 80;
+      // Default: no per-column floor — default columns shrink to fit the container
+      // (paired with minmax(0, w) above) so the table stays within the page width.
+      return 0;
     };
     const baseWidth = columns.reduce((sum, col) => sum + parseMinPx(col), 0);
     const selectionWidth = allowSelection ? 48 : 0;

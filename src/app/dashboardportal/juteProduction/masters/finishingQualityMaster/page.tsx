@@ -3,6 +3,7 @@
 import * as React from "react";
 import {
 	Alert,
+	Autocomplete,
 	Box,
 	Button,
 	Chip,
@@ -40,6 +41,7 @@ type QualityType = typeof QUALITY_TYPE_HESSIAN | typeof QUALITY_TYPE_SACKING;
 type SetupItem = {
 	item_id: number;
 	item_code: string;
+	full_item_code: string | null;
 	item_name: string;
 	item_grp_id: number;
 	item_grp_name: string;
@@ -104,7 +106,8 @@ const toInt = (v: string | undefined): number | null => {
 
 const toStr = (v: number | null | undefined): string => (v === null || v === undefined ? "" : String(v));
 
-const itemLabel = (i: Pick<SetupItem, "item_code" | "item_name">): string => `${i.item_code} — ${i.item_name}`;
+const itemLabel = (i: Pick<SetupItem, "item_code" | "full_item_code" | "item_name">): string =>
+	`${i.full_item_code || i.item_code} — ${i.item_name}`;
 
 type DialogMode = "create" | "edit" | "view";
 
@@ -452,25 +455,37 @@ export default function FinishingQualityMasterPage() {
 							control={control}
 							name="item_id"
 							render={({ field, fieldState }) => (
-								<TextField
-									select
-									label="Item"
+								<Autocomplete
+									options={items}
+									getOptionLabel={itemLabel}
+									value={items.find((it) => String(it.item_id) === field.value) ?? null}
+									onChange={(_, newVal) => field.onChange(newVal ? String(newVal.item_id) : "")}
 									size="small"
-									required
-									value={field.value}
-									onChange={field.onChange}
+									fullWidth
 									disabled={lockIdentity || items.length === 0}
-									error={!!fieldState.error}
-									helperText={
-										fieldState.error?.message ?? (items.length === 0 ? "Loading items…" : undefined)
-									}
-								>
-									{items.map((it) => (
-										<MenuItem key={it.item_id} value={String(it.item_id)}>
-											{itemLabel(it)}
-										</MenuItem>
-									))}
-								</TextField>
+									clearOnEscape
+									isOptionEqualToValue={(opt, val) => opt.item_id === val.item_id}
+									renderOption={(props, option) => {
+										const { key: _key, ...rest } = props;
+										return (
+											<li key={option.item_id} {...rest}>
+												{itemLabel(option)}
+											</li>
+										);
+									}}
+									renderInput={(params) => (
+										<TextField
+											{...params}
+											label="Item"
+											required
+											error={!!fieldState.error}
+											helperText={
+												fieldState.error?.message ??
+												(items.length === 0 ? "Loading items…" : undefined)
+											}
+										/>
+									)}
+								/>
 							)}
 						/>
 
