@@ -16,9 +16,9 @@ export const FINISHING_PROCESSES = [
 
 export type FinishingProcess = (typeof FINISHING_PROCESSES)[number];
 
-// finishing_quality.quality_type — cloth qualities = 1, bag qualities = 2.
-export const FINISHING_QUALITY_TYPE_CLOTH = 1;
-export const FINISHING_QUALITY_TYPE_BAG = 2;
+// finishing_quality.quality_type — hessian qualities = 1, sacking qualities = 2.
+export const FINISHING_QUALITY_TYPE_HESSIAN = 1;
+export const FINISHING_QUALITY_TYPE_SACKING = 2;
 
 // Cloth processes finish hessian cloth; bag processes convert cloth into bags.
 export const FINISHING_CLOTH_PROCESSES: readonly FinishingProcess[] = [
@@ -39,7 +39,7 @@ export type FinishingQualityOption = {
 	finishing_quality_id: number;
 	fin_quality_code: string;
 	fin_quality_name: string;
-	// 1 = cloth, 2 = bag.
+	// 1 = Hessian, 2 = Sacking.
 	quality_type: number;
 };
 

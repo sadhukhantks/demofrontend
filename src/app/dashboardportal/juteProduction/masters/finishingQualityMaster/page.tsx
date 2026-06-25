@@ -27,12 +27,12 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 
 // =============================================================================
-// Quality type discriminator (BE: quality_type 1=cloth, 2=bag)
+// Quality type discriminator (BE: quality_type 1=hessian, 2=sacking — INT, no DB change)
 // =============================================================================
-const QUALITY_TYPE_CLOTH = 1;
-const QUALITY_TYPE_BAG = 2;
+const QUALITY_TYPE_HESSIAN = 1;
+const QUALITY_TYPE_SACKING = 2;
 
-type QualityType = typeof QUALITY_TYPE_CLOTH | typeof QUALITY_TYPE_BAG;
+type QualityType = typeof QUALITY_TYPE_HESSIAN | typeof QUALITY_TYPE_SACKING;
 
 // =============================================================================
 // Setup / list / detail contract types (match BE finishing_masters.py exactly)
@@ -46,16 +46,6 @@ type SetupItem = {
 	item_type_id: number;
 };
 
-type ClothQualityOption = {
-	finishing_quality_id: number;
-	fin_quality_code: string;
-	fin_quality_name: string | null;
-	item_id: number | null;
-	width_in: number | null;
-	oz_per_yd: number | null;
-	branch_id: number | null;
-};
-
 type FinishingQualityRow = {
 	finishing_quality_id: number;
 	co_id: number;
@@ -64,30 +54,16 @@ type FinishingQualityRow = {
 	item_id: number;
 	item_code: string | null;
 	item_name: string | null;
-	fin_quality_code: string;
-	fin_quality_name: string | null;
-	width_in: number | null;
-	ports: number | null;
-	ends: number | null;
-	shots: number | null;
-	oz_per_yd: number | null;
-	std_oz_per_yd: number | null;
-	lead_length: number | null;
-	finished_length: number | null;
-	mc_teeth: number | null;
-	cloth_quality_id: number | null;
-	bag_length_in: number | null;
-	bag_width_in: number | null;
-	mouth_type: string | null;
-	bags_per_bale: number | null;
+	packsheet_wt: number | null;
+	std_bale_weight: number | null;
+	no_of_bags: number | null;
 	active: number;
 };
 
 // =============================================================================
-// Zod schema — quality_type drives which spec fields are required.
-// All numeric spec fields are strings in the form (text inputs) and parsed to
-// numbers (or null) at submit. cloth_quality_id is required when type=bag (BE
-// enforces this too).
+// Zod schema — item is the identity; the three params are all OPTIONAL.
+// Numeric fields are strings in the form (text inputs), parsed to number|null
+// at submit.
 // =============================================================================
 const optionalNumber = z
 	.string()
@@ -96,64 +72,25 @@ const optionalNumber = z
 		message: "Must be a number",
 	});
 
-const formSchema = z
-	.object({
-		quality_type: z.union([z.literal(QUALITY_TYPE_CLOTH), z.literal(QUALITY_TYPE_BAG)]),
-		item_id: z.string().min(1, "Item is required"),
-		fin_quality_code: z.string().min(1, "Quality code is required").max(50),
-		fin_quality_name: z.string().max(100).optional(),
-		// cloth structural specs (quality_type=1)
-		width_in: optionalNumber,
-		ports: optionalNumber,
-		ends: optionalNumber,
-		shots: optionalNumber,
-		oz_per_yd: optionalNumber,
-		std_oz_per_yd: optionalNumber,
-		lead_length: optionalNumber,
-		finished_length: optionalNumber,
-		mc_teeth: optionalNumber,
-		// bag structural specs (quality_type=2)
-		cloth_quality_id: z.string().optional(),
-		bag_length_in: optionalNumber,
-		bag_width_in: optionalNumber,
-		mouth_type: z.string().max(30).optional(),
-		bags_per_bale: optionalNumber,
-	})
-	.superRefine((data, ctx) => {
-		if (data.quality_type === QUALITY_TYPE_BAG && !data.cloth_quality_id) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				message: "Cloth quality is required for a bag quality",
-				path: ["cloth_quality_id"],
-			});
-		}
-	});
+const formSchema = z.object({
+	quality_type: z.union([z.literal(QUALITY_TYPE_HESSIAN), z.literal(QUALITY_TYPE_SACKING)]),
+	item_id: z.string().min(1, "Item is required"),
+	packsheet_wt: optionalNumber,
+	std_bale_weight: optionalNumber,
+	no_of_bags: optionalNumber,
+});
 
 type FormData = z.infer<typeof formSchema>;
 
 const DEFAULT_VALUES: FormData = {
-	quality_type: QUALITY_TYPE_CLOTH,
+	quality_type: QUALITY_TYPE_HESSIAN,
 	item_id: "",
-	fin_quality_code: "",
-	fin_quality_name: "",
-	width_in: "",
-	ports: "",
-	ends: "",
-	shots: "",
-	oz_per_yd: "",
-	std_oz_per_yd: "",
-	lead_length: "",
-	finished_length: "",
-	mc_teeth: "",
-	cloth_quality_id: "",
-	bag_length_in: "",
-	bag_width_in: "",
-	mouth_type: "",
-	bags_per_bale: "",
+	packsheet_wt: "",
+	std_bale_weight: "",
+	no_of_bags: "",
 };
 
-// Parse a form string to number | null (empty -> null). Integer-typed fields use
-// parseInt semantics via Number (they are still whole numbers from the input).
+// Parse a form string to number | null (empty -> null).
 const toNum = (v: string | undefined): number | null => {
 	if (v === undefined || v === "") return null;
 	const n = Number(v);
@@ -189,7 +126,6 @@ export default function FinishingQualityMasterPage() {
 
 	const [rows, setRows] = React.useState<FinishingQualityRow[]>([]);
 	const [items, setItems] = React.useState<SetupItem[]>([]);
-	const [clothQualities, setClothQualities] = React.useState<ClothQualityOption[]>([]);
 	const [loading, setLoading] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
 	const [typeFilter, setTypeFilter] = React.useState<QualityType | "all">("all");
@@ -198,12 +134,11 @@ export default function FinishingQualityMasterPage() {
 	const [mode, setMode] = React.useState<DialogMode>("create");
 	const [editingId, setEditingId] = React.useState<number | null>(null);
 
-	const { control, handleSubmit, reset, watch, setValue, formState } = useForm<FormData>({
+	const { control, handleSubmit, reset, formState } = useForm<FormData>({
 		resolver: zodResolver(formSchema),
 		defaultValues: DEFAULT_VALUES,
 	});
 
-	const watchedType = watch("quality_type");
 	const isView = mode === "view";
 
 	const refresh = React.useCallback(async () => {
@@ -224,17 +159,17 @@ export default function FinishingQualityMasterPage() {
 		void refresh();
 	}, [refresh]);
 
-	// Load create/edit setup (items + cloth qualities) once a company is selected.
+	// Load create/edit setup (items only) once a company is selected.
 	React.useEffect(() => {
 		if (!coId) return;
 		void (async () => {
 			const params = new URLSearchParams({ co_id: String(coId) });
 			if (singleBranchId != null) params.set("branch_id", String(singleBranchId));
-			const { data } = await fetchWithCookie<{
-				data: { items: SetupItem[]; cloth_qualities: ClothQualityOption[] };
-			}>(`${apiRoutesPortalMasters.FINISHING_QUALITY_SETUP}?${params.toString()}`, "GET");
+			const { data } = await fetchWithCookie<{ data: { items: SetupItem[] } }>(
+				`${apiRoutesPortalMasters.FINISHING_QUALITY_SETUP}?${params.toString()}`,
+				"GET"
+			);
 			setItems(data?.data?.items ?? []);
-			setClothQualities(data?.data?.cloth_qualities ?? []);
 		})();
 	}, [coId, singleBranchId]);
 
@@ -247,24 +182,11 @@ export default function FinishingQualityMasterPage() {
 	};
 
 	const rowToForm = (row: FinishingQualityRow): FormData => ({
-		quality_type: row.quality_type === QUALITY_TYPE_BAG ? QUALITY_TYPE_BAG : QUALITY_TYPE_CLOTH,
+		quality_type: row.quality_type === QUALITY_TYPE_SACKING ? QUALITY_TYPE_SACKING : QUALITY_TYPE_HESSIAN,
 		item_id: String(row.item_id),
-		fin_quality_code: row.fin_quality_code ?? "",
-		fin_quality_name: row.fin_quality_name ?? "",
-		width_in: toStr(row.width_in),
-		ports: toStr(row.ports),
-		ends: toStr(row.ends),
-		shots: toStr(row.shots),
-		oz_per_yd: toStr(row.oz_per_yd),
-		std_oz_per_yd: toStr(row.std_oz_per_yd),
-		lead_length: toStr(row.lead_length),
-		finished_length: toStr(row.finished_length),
-		mc_teeth: toStr(row.mc_teeth),
-		cloth_quality_id: toStr(row.cloth_quality_id),
-		bag_length_in: toStr(row.bag_length_in),
-		bag_width_in: toStr(row.bag_width_in),
-		mouth_type: row.mouth_type ?? "",
-		bags_per_bale: toStr(row.bags_per_bale),
+		packsheet_wt: toStr(row.packsheet_wt),
+		std_bale_weight: toStr(row.std_bale_weight),
+		no_of_bags: toStr(row.no_of_bags),
 	});
 
 	const openDetail = async (row: FinishingQualityRow, nextMode: DialogMode) => {
@@ -292,34 +214,13 @@ export default function FinishingQualityMasterPage() {
 		setError(null);
 
 		const branchId = singleBranchId != null ? singleBranchId : branchOptions[0]?.branch_id ?? null;
-		const isBag = values.quality_type === QUALITY_TYPE_BAG;
-
-		// Build the type-specific spec payload; the unused branch's fields go null.
-		const clothSpec = {
-			width_in: toNum(values.width_in),
-			ports: toInt(values.ports),
-			ends: toInt(values.ends),
-			shots: toNum(values.shots),
-			oz_per_yd: toNum(values.oz_per_yd),
-			std_oz_per_yd: toNum(values.std_oz_per_yd),
-			lead_length: toNum(values.lead_length),
-			finished_length: toNum(values.finished_length),
-			mc_teeth: toInt(values.mc_teeth),
-		};
-		const bagSpec = {
-			cloth_quality_id: values.cloth_quality_id ? Number(values.cloth_quality_id) : null,
-			bag_length_in: toNum(values.bag_length_in),
-			bag_width_in: toNum(values.bag_width_in),
-			mouth_type: values.mouth_type?.trim() || null,
-			bags_per_bale: toInt(values.bags_per_bale),
-		};
 
 		if (mode === "edit" && editingId != null) {
 			const body = {
-				fin_quality_code: values.fin_quality_code.trim(),
-				fin_quality_name: values.fin_quality_name?.trim() || null,
 				item_id: Number(values.item_id),
-				...(isBag ? bagSpec : clothSpec),
+				packsheet_wt: toNum(values.packsheet_wt),
+				std_bale_weight: toNum(values.std_bale_weight),
+				no_of_bags: toInt(values.no_of_bags),
 				active: 1,
 			};
 			const { error: err } = await fetchWithCookie(
@@ -337,9 +238,9 @@ export default function FinishingQualityMasterPage() {
 				branch_id: branchId,
 				quality_type: values.quality_type,
 				item_id: Number(values.item_id),
-				fin_quality_code: values.fin_quality_code.trim(),
-				fin_quality_name: values.fin_quality_name?.trim() || null,
-				...(isBag ? bagSpec : clothSpec),
+				packsheet_wt: toNum(values.packsheet_wt),
+				std_bale_weight: toNum(values.std_bale_weight),
+				no_of_bags: toInt(values.no_of_bags),
 			};
 			const { error: err } = await fetchWithCookie(
 				apiRoutesPortalMasters.FINISHING_QUALITY_CREATE,
@@ -358,7 +259,7 @@ export default function FinishingQualityMasterPage() {
 
 	const handleDelete = async (r: FinishingQualityRow) => {
 		if (!coId) return;
-		const label = r.fin_quality_name ? `${r.fin_quality_code} (${r.fin_quality_name})` : r.fin_quality_code;
+		const label = r.item_code ? `${r.item_code} — ${r.item_name ?? ""}`.trim() : String(r.item_id);
 		if (!window.confirm(`Delete finishing quality "${label}"?`)) return;
 		setError(null);
 		const { error: err } = await fetchWithCookie(
@@ -403,14 +304,12 @@ export default function FinishingQualityMasterPage() {
 			headerName: "Type",
 			width: 110,
 			renderCell: (params) =>
-				params.value === QUALITY_TYPE_BAG ? (
-					<Chip label="Bag" size="small" color="secondary" variant="outlined" />
+				params.value === QUALITY_TYPE_SACKING ? (
+					<Chip label="Sacking" size="small" color="secondary" variant="outlined" />
 				) : (
-					<Chip label="Cloth" size="small" variant="outlined" />
+					<Chip label="Hessian" size="small" variant="outlined" />
 				),
 		},
-		{ field: "fin_quality_code", headerName: "Quality Code", width: 160 },
-		{ field: "fin_quality_name", headerName: "Quality Name", flex: 1, minWidth: 160 },
 		{
 			field: "item",
 			headerName: "Item",
@@ -424,22 +323,22 @@ export default function FinishingQualityMasterPage() {
 			},
 		},
 		{
-			field: "width_in",
-			headerName: "Width (in)",
-			width: 110,
+			field: "packsheet_wt",
+			headerName: "Packsheet Wt (kg)",
+			width: 150,
 			type: "number",
 			valueFormatter: (value) => (value != null ? value : "—"),
 		},
 		{
-			field: "oz_per_yd",
-			headerName: "Oz / Yd",
-			width: 100,
+			field: "std_bale_weight",
+			headerName: "Std Bale Wt (kg)",
+			width: 150,
 			type: "number",
 			valueFormatter: (value) => (value != null ? value : "—"),
 		},
 		{
-			field: "bags_per_bale",
-			headerName: "Bags / Bale",
+			field: "no_of_bags",
+			headerName: "No. of Bags",
 			width: 120,
 			type: "number",
 			valueFormatter: (value) => (value != null ? value : "—"),
@@ -462,13 +361,15 @@ export default function FinishingQualityMasterPage() {
 		);
 	}
 
-	const isBagForm = watchedType === QUALITY_TYPE_BAG;
 	const dialogTitle =
 		mode === "create"
 			? "New Finishing Quality"
 			: mode === "edit"
 				? "Edit Finishing Quality"
 				: "Finishing Quality";
+
+	// On edit/view the (quality_type, item) pair is the identity and is locked.
+	const lockIdentity = mode !== "create";
 
 	return (
 		<Box sx={{ p: { xs: 1.5, md: 3 } }}>
@@ -478,8 +379,8 @@ export default function FinishingQualityMasterPage() {
 						Finishing Quality Master
 					</Typography>
 					<Typography variant="body2" color="text.secondary">
-						Cloth (rolls) and bag finishing qualities with their fixed structural specs. Bag qualities
-						reference the cloth quality they are made from.
+						Hessian and sacking finishing qualities keyed by item, with optional packsheet weight,
+						standard bale weight and bag count.
 					</Typography>
 				</Box>
 				<Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
@@ -494,8 +395,8 @@ export default function FinishingQualityMasterPage() {
 						sx={{ minWidth: 140 }}
 					>
 						<MenuItem value="all">All</MenuItem>
-						<MenuItem value={String(QUALITY_TYPE_CLOTH)}>Cloth</MenuItem>
-						<MenuItem value={String(QUALITY_TYPE_BAG)}>Bag</MenuItem>
+						<MenuItem value={String(QUALITY_TYPE_HESSIAN)}>Hessian</MenuItem>
+						<MenuItem value={String(QUALITY_TYPE_SACKING)}>Sacking</MenuItem>
 					</TextField>
 					<Button variant="contained" startIcon={<AddIcon size={18} />} onClick={openCreate}>
 						New Quality
@@ -524,11 +425,11 @@ export default function FinishingQualityMasterPage() {
 				/>
 			</Box>
 
-			<Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
+			<Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
 				<DialogTitle>{dialogTitle}</DialogTitle>
 				<DialogContent>
 					<Box sx={{ display: "grid", gap: 2, mt: 1 }}>
-						{/* Type toggle (locked once a row exists — quality_type is part of the key). */}
+						{/* Quality type + item form the identity — both locked on edit/view. */}
 						<Controller
 							control={control}
 							name="quality_type"
@@ -539,10 +440,10 @@ export default function FinishingQualityMasterPage() {
 									size="small"
 									value={String(field.value)}
 									onChange={(e) => field.onChange(Number(e.target.value) as QualityType)}
-									disabled={mode !== "create"}
+									disabled={lockIdentity}
 								>
-									<MenuItem value={String(QUALITY_TYPE_CLOTH)}>Cloth (rolls)</MenuItem>
-									<MenuItem value={String(QUALITY_TYPE_BAG)}>Bag (pieces / bales)</MenuItem>
+									<MenuItem value={String(QUALITY_TYPE_HESSIAN)}>Hessian</MenuItem>
+									<MenuItem value={String(QUALITY_TYPE_SACKING)}>Sacking</MenuItem>
 								</TextField>
 							)}
 						/>
@@ -558,7 +459,7 @@ export default function FinishingQualityMasterPage() {
 									required
 									value={field.value}
 									onChange={field.onChange}
-									disabled={isView || items.length === 0}
+									disabled={lockIdentity || items.length === 0}
 									error={!!fieldState.error}
 									helperText={
 										fieldState.error?.message ?? (items.length === 0 ? "Loading items…" : undefined)
@@ -573,113 +474,11 @@ export default function FinishingQualityMasterPage() {
 							)}
 						/>
 
-						<Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
-							<Controller
-								control={control}
-								name="fin_quality_code"
-								render={({ field, fieldState }) => (
-									<TextField
-										label="Quality Code"
-										size="small"
-										required
-										value={field.value}
-										onChange={field.onChange}
-										disabled={isView}
-										inputProps={{ maxLength: 50 }}
-										error={!!fieldState.error}
-										helperText={fieldState.error?.message}
-									/>
-								)}
-							/>
-							<Controller
-								control={control}
-								name="fin_quality_name"
-								render={({ field, fieldState }) => (
-									<TextField
-										label="Quality Name"
-										size="small"
-										value={field.value ?? ""}
-										onChange={field.onChange}
-										disabled={isView}
-										inputProps={{ maxLength: 100 }}
-										error={!!fieldState.error}
-										helperText={fieldState.error?.message}
-									/>
-								)}
-							/>
+						<Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" }, gap: 2 }}>
+							<NumField control={control} name="packsheet_wt" label="Packsheet Wt (kg)" disabled={isView} />
+							<NumField control={control} name="std_bale_weight" label="Std Bale Wt (kg)" disabled={isView} />
+							<NumField control={control} name="no_of_bags" label="No. of Bags" disabled={isView} integer />
 						</Box>
-
-						{isBagForm ? (
-							// BAG specs (quality_type=2): cloth_quality_id (required) + bag dims.
-							<>
-								<Controller
-									control={control}
-									name="cloth_quality_id"
-									render={({ field, fieldState }) => (
-										<TextField
-											select
-											label="Cloth Quality (made from)"
-											size="small"
-											required
-											value={field.value ?? ""}
-											onChange={field.onChange}
-											disabled={isView || clothQualities.length === 0}
-											error={!!fieldState.error}
-											helperText={
-												fieldState.error?.message ??
-												(clothQualities.length === 0 ? "No cloth qualities yet" : undefined)
-											}
-										>
-											<MenuItem value="">
-												<em>None</em>
-											</MenuItem>
-											{clothQualities.map((q) => (
-												<MenuItem key={q.finishing_quality_id} value={String(q.finishing_quality_id)}>
-													{q.fin_quality_name
-														? `${q.fin_quality_code} — ${q.fin_quality_name}`
-														: q.fin_quality_code}
-												</MenuItem>
-											))}
-										</TextField>
-									)}
-								/>
-								<Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
-									<NumField control={control} name="bag_length_in" label="Bag Length (in)" disabled={isView} />
-									<NumField control={control} name="bag_width_in" label="Bag Width (in)" disabled={isView} />
-									<Controller
-										control={control}
-										name="mouth_type"
-										render={({ field, fieldState }) => (
-											<TextField
-												label="Mouth Type"
-												size="small"
-												value={field.value ?? ""}
-												onChange={field.onChange}
-												disabled={isView}
-												inputProps={{ maxLength: 30 }}
-												placeholder="open / hemmed / B.Twill"
-												error={!!fieldState.error}
-												helperText={fieldState.error?.message}
-											/>
-										)}
-									/>
-									<NumField control={control} name="bags_per_bale" label="Bags / Bale" disabled={isView} integer />
-								</Box>
-							</>
-						) : (
-							// CLOTH specs (quality_type=1): structural specs.
-							<Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" }, gap: 2 }}>
-								<NumField control={control} name="width_in" label="Width (in)" disabled={isView} />
-								<NumField control={control} name="ports" label="Ports" disabled={isView} integer />
-								<NumField control={control} name="ends" label="Ends" disabled={isView} integer />
-								<NumField control={control} name="shots" label="Shots" disabled={isView} />
-								<NumField control={control} name="oz_per_yd" label="Oz / Yd" disabled={isView} />
-								<NumField control={control} name="std_oz_per_yd" label="Std Oz / Yd" disabled={isView} />
-								<NumField control={control} name="lead_length" label="Lead Length" disabled={isView} />
-								<NumField control={control} name="finished_length" label="Finished Length" disabled={isView} />
-								<NumField control={control} name="mc_teeth" label="M/C Teeth" disabled={isView} integer />
-							</Box>
-						)}
 					</Box>
 				</DialogContent>
 				<DialogActions>
