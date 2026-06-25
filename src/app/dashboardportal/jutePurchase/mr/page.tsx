@@ -391,6 +391,7 @@ export default function JuteMRIndexPage() {
 			onPaginationModelChange={handlePaginationModelChange}
 			loading={loading}
 			showLoadingUntilLoaded
+			autoHeight
 			search={{
 				value: searchValue,
 				onChange: handleSearchChange,

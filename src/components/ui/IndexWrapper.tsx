@@ -70,7 +70,7 @@ function IndexWrapper<RowType extends GridValidRowModel & { id?: string | number
   onPaginationModelChange,
   loading = false,
   showLoadingUntilLoaded = false,
-  autoHeight = false,
+  autoHeight = true,
   search,
   createAction,
   onView,
