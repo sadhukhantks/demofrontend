@@ -15,10 +15,9 @@ import {
 	TextField,
 	Typography,
 } from "@mui/material";
-import { Save as SaveIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
-import type { WeavingSetup, WeavingEntryRow } from "../types/weavingTypes";
+import type { WeavingSetup, WeavingEntryRow, LoomQualityMapRow } from "../types/weavingTypes";
 import { useLoomQualityMap } from "../hooks/useLoomQualityMap";
 import { useWeavingEntriesByDate } from "../hooks/useWeavingEntriesByDate";
 import { effectiveJugar } from "../utils/weavingCalc";
@@ -33,6 +32,13 @@ type Props = {
 
 // The operator enters cuts + the CLOSING jugar reading (close_jugar / cj).
 type CellEdit = { cuts: string; close_jugar: string };
+
+// Compact styling so all columns fit narrow (phone) widths with minimal horizontal scroll.
+const tightCell = { "& .MuiTableCell-root": { px: 0.5, py: 0.75 } } as const;
+const numInputSx = {
+	width: 58,
+	"& .MuiInputBase-input": { px: 0.75, py: 0.5, textAlign: "right" as const },
+};
 
 // Loom rows on the production grid never carry a quality dropdown — the quality is
 // MAPPED on the Loom → Quality tab and inherited read-only here (like spinning).
@@ -146,6 +152,28 @@ export default function WeavingEntryGrid({ coId, branchId, date, spell }: Props)
 						(r.machine_name ?? "").toLowerCase().includes(q)
 			  );
 
+	// Per-row derived state for the grid.
+	const fmt = (n: number) => (n ? n : "—");
+	const deriveRow = (r: LoomQualityMapRow) => {
+		const cell = edits[r.machine_id] ?? { cuts: "", close_jugar: "" };
+		const entry = entryByMachine[r.machine_id];
+		const mapped = r.weaving_quality_id != null;
+		// FE PREVIEW ONLY — server / vw_weaving_daily is authoritative for the produced
+		// jugar. open_jugar (oj) is the last available close — read-only.
+		const jpc = Number(entry?.jpc ?? 0);
+		const openJugar = Number(entry?.open_jugar ?? entry?.open ?? 0);
+		const closeJugarNum = Number(cell.close_jugar || 0);
+		const inSync =
+			entry != null &&
+			cell.cuts === String(entry.cuts ?? "") &&
+			cell.close_jugar === String(entry.close_jugar ?? "");
+		const derivedJugar =
+			inSync && entry?.jugar != null
+				? Number(entry.jugar)
+				: effectiveJugar(jpc, openJugar, closeJugarNum);
+		return { cell, entry, mapped, derivedJugar };
+	};
+
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
 			<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
@@ -159,7 +187,7 @@ export default function WeavingEntryGrid({ coId, branchId, date, spell }: Props)
 					label="Search loom / posting code"
 					value={query}
 					onChange={(e) => setQuery(e.target.value)}
-					sx={{ minWidth: 240 }}
+					sx={{ minWidth: 200 }}
 				/>
 			</Box>
 
@@ -173,70 +201,58 @@ export default function WeavingEntryGrid({ coId, branchId, date, spell }: Props)
 				<Alert severity="info">No looms found for this date and spell.</Alert>
 			) : (
 				<Box sx={{ width: "100%", overflowX: "auto" }}>
-					<Table size="small" sx={{ minWidth: 640 }}>
+					<Table size="small" sx={{ minWidth: 320, ...tightCell }}>
 						<TableHead>
 							<TableRow>
-								<TableCell>Mc Code</TableCell>
-								<TableCell>Posting</TableCell>
 								<TableCell>Loom</TableCell>
 								<TableCell align="right">Cuts</TableCell>
-								<TableCell align="right">Closing Jugar</TableCell>
+								<TableCell align="right">Cl.Jugar</TableCell>
 								<TableCell align="right">Jugar</TableCell>
 								<TableCell />
 							</TableRow>
 						</TableHead>
 						<TableBody>
 							{visibleRows.map((r) => {
-								const cell = edits[r.machine_id] ?? { cuts: "", close_jugar: "" };
-								const entry = entryByMachine[r.machine_id];
-								const mapped = r.weaving_quality_id != null;
-
-								// FE PREVIEW ONLY — server / vw_weaving_daily is authoritative for the
-								// produced jugar. jpc/open_jugar are resolved server-side and surfaced on
-								// saved entries; preview falls back to 0 (showing "—") when not yet
-								// available. open_jugar (oj) is the last available close — read-only.
-								const jpc = Number(entry?.jpc ?? 0);
-								const openJugar = Number(entry?.open_jugar ?? entry?.open ?? 0);
-								const closeJugarNum = Number(cell.close_jugar || 0);
-								// True when the unsaved edits match what is already persisted, so we can
-								// surface the server-authoritative value instead of the FE preview.
-								const inSync =
-									entry != null &&
-									cell.cuts === String(entry.cuts ?? "") &&
-									cell.close_jugar === String(entry.close_jugar ?? "");
-
-								// Derived produced-jugar: use the view value when in sync, else preview
-								// via effectiveJugar(jc, oj, cj).
-								const derivedJugar =
-									inSync && entry?.jugar != null
-										? Number(entry.jugar)
-										: effectiveJugar(jpc, openJugar, closeJugarNum);
-
-								const fmt = (n: number) => (n ? n : "—");
-
+								const { cell, entry, mapped, derivedJugar } = deriveRow(r);
 								return (
 									<TableRow key={r.machine_id}>
-										<TableCell>{r.mech_code}</TableCell>
-										<TableCell>{r.mech_posting_code != null ? r.mech_posting_code : "—"}</TableCell>
-										<TableCell>{r.machine_name}</TableCell>
+										<TableCell>
+											<Typography variant="body2" sx={{ lineHeight: 1.2 }}>
+												{r.mech_code}
+												{r.mech_posting_code != null ? (
+													<Box component="span" sx={{ display: { xs: "none", md: "inline" } }}>
+														{` · #${r.mech_posting_code}`}
+													</Box>
+												) : null}
+											</Typography>
+											<Typography
+												variant="caption"
+												color="text.secondary"
+												sx={{ display: { xs: "none", md: "block" } }}
+											>
+												{r.machine_name}
+											</Typography>
+										</TableCell>
 										<TableCell align="right">
 											<TextField
 												type="number"
 												size="small"
+												slotProps={{ htmlInput: { inputMode: "decimal" } }}
 												value={cell.cuts}
 												onChange={(e) => setCell(r.machine_id, "cuts", e.target.value)}
 												disabled={!mapped}
-												sx={{ width: 90 }}
+												sx={numInputSx}
 											/>
 										</TableCell>
 										<TableCell align="right">
 											<TextField
 												type="number"
 												size="small"
+												slotProps={{ htmlInput: { inputMode: "decimal" } }}
 												value={cell.close_jugar}
 												onChange={(e) => setCell(r.machine_id, "close_jugar", e.target.value)}
 												disabled={!mapped}
-												sx={{ width: 90 }}
+												sx={numInputSx}
 											/>
 										</TableCell>
 										<TableCell align="right">{fmt(derivedJugar)}</TableCell>
@@ -244,9 +260,9 @@ export default function WeavingEntryGrid({ coId, branchId, date, spell }: Props)
 											<Button
 												variant="contained"
 												size="small"
-												startIcon={<SaveIcon size={14} />}
 												onClick={() => handleSave(r.machine_id, mapped)}
 												disabled={!mapped || savingId === r.machine_id}
+												sx={{ minWidth: 0, px: 1 }}
 											>
 												{savingId === r.machine_id ? "…" : entry ? "Update" : "Save"}
 											</Button>

@@ -668,6 +668,18 @@ function IssueTransactionPageContent() {
 			disabled: saving || loading || setupLoading,
 		});
 
+		// At Open (1), Reject is unavailable — backend only rejects from Pending
+		// Approval (20). Offer Cancel instead so an opened issue can be withdrawn
+		// (status → Cancelled, via the same handler used for draft cancel).
+		if (approvalInfo.statusId === 1 && approvalPermissions.canSave) {
+			approvalActions.push({
+				label: "Cancel Issue",
+				onClick: handleCancelDraft,
+				variant: "destructive",
+				disabled: saving || loading || setupLoading || approvalLoading,
+			});
+		}
+
 		return approvalActions.length ? approvalActions : undefined;
 	}, [
 		mode, pageError, setupError, saving, lineItemsValid, setupLoading,

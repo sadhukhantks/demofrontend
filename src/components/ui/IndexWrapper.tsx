@@ -32,6 +32,8 @@ type CommonGridProps<RowType extends GridValidRowModel> = {
   onPaginationModelChange: (model: GridPaginationModel) => void;
   loading?: boolean;
   showLoadingUntilLoaded?: boolean;
+  /** Grow the grid to fit all rows so the page scrolls instead of the grid. */
+  autoHeight?: boolean;
 };
 
 type IndexWrapperProps<RowType extends GridValidRowModel & { id?: string | number }> = CommonGridProps<RowType> & {
@@ -68,6 +70,7 @@ function IndexWrapper<RowType extends GridValidRowModel & { id?: string | number
   onPaginationModelChange,
   loading = false,
   showLoadingUntilLoaded = false,
+  autoHeight = false,
   search,
   createAction,
   onView,
@@ -270,6 +273,7 @@ function IndexWrapper<RowType extends GridValidRowModel & { id?: string | number
           paginationMode="server"
           loading={loading}
           showLoadingUntilLoaded={showLoadingUntilLoaded}
+          autoHeight={autoHeight}
           showToolbar={showToolbar}
           filterMode={filterMode}
           filterModel={filterModel}

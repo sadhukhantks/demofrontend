@@ -20,6 +20,8 @@ interface MuiDataGridProps {
   paginationMode?: 'client' | 'server';
   disableRowSelectionOnClick?: boolean;
   showLoadingUntilLoaded?: boolean;
+  /** Grow the grid to fit all rows so the page scrolls instead of the grid. */
+  autoHeight?: boolean;
   // Toolbar and filtering props
   showToolbar?: boolean;
   filterMode?: 'client' | 'server';
@@ -46,6 +48,7 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
   paginationMode = 'server',
   disableRowSelectionOnClick = true,
   showLoadingUntilLoaded = false,
+  autoHeight = false,
   // Toolbar and filtering props
   showToolbar = false,
   filterMode = 'client',
@@ -72,9 +75,10 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
   // The placeholder must be identical on server and client for initial render
   if (!isMounted) {
     return (
-      <Box 
-        sx={{ 
-          height: 500, 
+      <Box
+        sx={{
+          height: autoHeight ? 'auto' : 500,
+          minHeight: autoHeight ? 200 : undefined,
           width: '100%',
           display: 'flex',
           alignItems: 'center',
@@ -87,7 +91,7 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
 
   return (
     <Box sx={{
-      height: 500,
+      height: autoHeight ? 'auto' : 500,
       width: '100%',
       '& .MuiDataGrid-root': {
         border: 'none',
@@ -101,6 +105,7 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
       <DataGrid
         rows={rows}
         columns={columns}
+        autoHeight={autoHeight}
         getRowId={(row) => row.id ?? row.co_id}
         loading={showLoadingUntilLoaded ? loading : false}
         paginationMode={paginationMode}

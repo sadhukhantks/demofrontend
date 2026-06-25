@@ -88,6 +88,27 @@ export default function SRIndexPage() {
 	// Column definitions
 	const columns = React.useMemo<GridColDef[]>(() => [
 		{
+			field: "sr_no",
+			headerName: "SR No",
+			flex: 1,
+			minWidth: 140,
+			renderCell: (params: GridRenderCellParams<SRRow, string>) => (
+				<Typography component="span" variant="body2" color="secondary">
+					{params.value || "-"}
+				</Typography>
+			),
+		},
+		{
+			field: "sr_date",
+			headerName: "SR Date",
+			minWidth: 120,
+			renderCell: (params: GridRenderCellParams<SRRow, string>) => (
+				<Typography component="span" variant="body2">
+					{formatDate(params.value)}
+				</Typography>
+			),
+		},
+		{
 			field: "inward_no",
 			headerName: "Inward No",
 			flex: 1,
@@ -127,17 +148,6 @@ export default function SRIndexPage() {
 			renderCell: (params: GridRenderCellParams<SRRow, string>) => (
 				<Typography component="span" variant="body2">
 					{formatDate(params.value)}
-				</Typography>
-			),
-		},
-		{
-			field: "sr_no",
-			headerName: "SR No",
-			flex: 1,
-			minWidth: 140,
-			renderCell: (params: GridRenderCellParams<SRRow, string>) => (
-				<Typography component="span" variant="body2" color="secondary">
-					{params.value || "-"}
 				</Typography>
 			),
 		},

@@ -28,6 +28,13 @@ type Props = {
 	spell: string;
 };
 
+// Compact styling so all columns fit narrow (phone) widths with minimal horizontal scroll.
+const tightCell = { "& .MuiTableCell-root": { px: 0.5, py: 0.75 } } as const;
+const numInputSx = {
+	width: 64,
+	"& .MuiInputBase-input": { px: 0.75, py: 0.5, textAlign: "right" as const },
+};
+
 // Reduce-jugar adjustment per loom for a (date, spell). Editing "Reduce Jugar" sets
 // less_production on the loom's daily row, which deducts from production_yds in
 // vw_weaving_daily. Only mapped looms are editable; batch "save all dirty".
@@ -115,7 +122,7 @@ export default function WeavingAdjustmentGrid({ coId, branchId, date, spell }: P
 					label="Search loom / posting code"
 					value={query}
 					onChange={(e) => setQuery(e.target.value)}
-					sx={{ minWidth: 240 }}
+					sx={{ minWidth: 200 }}
 				/>
 				<Button
 					variant="contained"
@@ -144,14 +151,12 @@ export default function WeavingAdjustmentGrid({ coId, branchId, date, spell }: P
 				<Alert severity="info">No looms found for this date and spell.</Alert>
 			) : (
 				<Box sx={{ width: "100%", overflowX: "auto" }}>
-					<Table size="small" sx={{ minWidth: 700 }}>
+					<Table size="small" sx={{ minWidth: 340, ...tightCell }}>
 						<TableHead>
 							<TableRow>
-								<TableCell>Posting</TableCell>
-								<TableCell>Mc Code</TableCell>
 								<TableCell>Loom</TableCell>
 								<TableCell>Quality</TableCell>
-								<TableCell>Reduce Jugar</TableCell>
+								<TableCell align="right">Reduce</TableCell>
 								<TableCell>Status</TableCell>
 							</TableRow>
 						</TableHead>
@@ -165,9 +170,23 @@ export default function WeavingAdjustmentGrid({ coId, branchId, date, spell }: P
 										key={r.machine_id}
 										sx={{ bgcolor: dirty ? "rgba(255, 193, 7, 0.12)" : undefined }}
 									>
-										<TableCell>{r.mech_posting_code ?? "—"}</TableCell>
-										<TableCell>{r.mech_code}</TableCell>
-										<TableCell>{r.machine_name}</TableCell>
+										<TableCell>
+											<Typography variant="body2" sx={{ lineHeight: 1.2 }}>
+												{r.mech_code}
+												{r.mech_posting_code != null ? (
+													<Box component="span" sx={{ display: { xs: "none", md: "inline" } }}>
+														{` · #${r.mech_posting_code}`}
+													</Box>
+												) : null}
+											</Typography>
+											<Typography
+												variant="caption"
+												color="text.secondary"
+												sx={{ display: { xs: "none", md: "block" } }}
+											>
+												{r.machine_name}
+											</Typography>
+										</TableCell>
 										<TableCell>
 											{mapped ? (
 												<Chip
@@ -179,14 +198,15 @@ export default function WeavingAdjustmentGrid({ coId, branchId, date, spell }: P
 												<Chip size="small" color="warning" variant="outlined" label="Not mapped" />
 											)}
 										</TableCell>
-										<TableCell>
+										<TableCell align="right">
 											<TextField
 												type="number"
 												size="small"
+												slotProps={{ htmlInput: { inputMode: "decimal" } }}
 												value={v}
 												onChange={(ev) => setReduce(r.machine_id, ev.target.value)}
 												disabled={!mapped}
-												sx={{ width: 110 }}
+												sx={numInputSx}
 											/>
 										</TableCell>
 										<TableCell>
