@@ -6,9 +6,9 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 import type { FinishingSetup } from "../types/finishingTypes";
 
 // GET FINISHING_PROD_ENTRY_SETUP?co_id&process&branch_id
-// -> { data: { process, machines, qualities, spells, eb_list, param_tokens, entries } }
-// Mirrors useBeamingSetup. `process` is required by the backend, so the hook
-// returns an empty/idle state until co_id + process are present.
+// -> { data: { process, machines, qualities, spells } }
+// `process` is required by the backend, so the hook returns an empty/idle state
+// until co_id + process are present.
 export function useFinishingSetup(
 	coId: string | null | undefined,
 	process: string,

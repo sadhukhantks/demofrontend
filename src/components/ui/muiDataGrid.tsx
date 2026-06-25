@@ -52,7 +52,7 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
   paginationMode = 'server',
   disableRowSelectionOnClick = true,
   showLoadingUntilLoaded = false,
-  autoHeight = false,
+  autoHeight = true,
   // Toolbar and filtering props
   showToolbar = false,
   filterMode = 'client',
