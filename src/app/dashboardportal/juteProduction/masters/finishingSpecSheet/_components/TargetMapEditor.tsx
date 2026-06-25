@@ -26,29 +26,15 @@ export const VALUE_ROLE_LABELS: Record<ValueRole, string> = {
 	actual: "Actual",
 };
 
-// Human labels for all 20 finishing params across every process/role (BE contract
-// §5.1 / constants.FINISHING_PARAMS). The grid renders only the applicable subset.
+// Human labels for the finishing spec-sheet params (BE contract
+// constants.FINISHING_PARAMS). The grid renders only the applicable subset per
+// (process, id_type, value_role) — whatever the backend returns.
 export const PARAM_LABELS: Record<string, string> = {
-	speed: "Speed",
-	spray_rate: "Spray Rate (l/min)",
-	moisture_add_pct: "Moisture Add %",
-	emulsion_pct: "Emulsion %",
-	bowl_temp: "Bowl Temp (°C)",
-	nip_pressure: "Nip Pressure (kg/cm²)",
-	no_of_bowls: "No. of Bowls",
-	finished_width: "Finished Width (in)",
-	oz_per_yd: "Oz / Yd",
-	eff: "Efficiency %",
-	lap_length: "Lap Length (m)",
-	roll_width: "Roll Width (in)",
-	cut_length: "Cut Length (in)",
-	pieces_per_100m: "Pieces / 100m",
-	stitches_per_in: "Stitches / in",
-	hem_allowance: "Hem Allowance (in)",
-	press_pressure: "Press Pressure (t)",
-	cycle_time: "Cycle Time (s)",
-	bags_per_bale: "Bags / Bale",
-	bale_weight: "Bale Weight (kg)",
+	std_prod_yds: "Std Production (yds)",
+	target_pcs: "Target Pcs",
+	pcs_per_bundle: "Pcs / Bundle",
+	bundles: "No. of Bundles",
+	no_of_bales: "No. of Bales",
 };
 
 const EMPTY_GRID: TargetGridData = { params: [], rows: [] };

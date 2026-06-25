@@ -8,11 +8,8 @@ import {
 	Autocomplete,
 	Box,
 	Button,
-	Divider,
-	MenuItem,
 	Snackbar,
 	TextField,
-	Typography,
 } from "@mui/material";
 import { Save as SaveIcon, X as CancelIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
@@ -20,15 +17,14 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 import type {
 	FinishingEntryRow,
 	FinishingEntrySaveBody,
-	FinishingParam,
 	FinishingSaveResult,
 	FinishingSetup,
 } from "../types/finishingTypes";
 import {
-	useFinishingFormSchema,
+	finishingFormSchema,
 	type FinishingFormValues,
 } from "../hooks/useFinishingFormSchema";
-import { paramLabel, type FinishingProcessConfig } from "../_shared/finishingConfig";
+import type { FinishingProcessConfig } from "../_shared/finishingConfig";
 
 type Props = {
 	coId: string;
@@ -43,20 +39,12 @@ type Props = {
 	onCancelEdit: () => void;
 };
 
-function buildDefaultValues(paramTokens: string[]): FinishingFormValues {
-	const params: Record<string, string> = {};
-	for (const token of paramTokens) params[token] = "";
-	return {
-		machineId: "",
-		qualityId: "",
-		spellId: "",
-		ebId: "",
-		inputQty: "",
-		prodQty: "",
-		wastageKg: "",
-		params,
-	};
-}
+const EMPTY_VALUES: FinishingFormValues = {
+	machineId: "",
+	qualityId: "",
+	spellId: "",
+	prodQty: "",
+};
 
 export default function FinishingEntryForm({
 	coId,
@@ -71,7 +59,6 @@ export default function FinishingEntryForm({
 	onCancelEdit,
 }: Props) {
 	const editing = editingEntry != null;
-	const schema = useFinishingFormSchema(setup.param_tokens);
 
 	const {
 		control,
@@ -82,22 +69,12 @@ export default function FinishingEntryForm({
 		watch,
 		formState: { errors, isSubmitting },
 	} = useForm<FinishingFormValues>({
-		resolver: zodResolver(schema),
-		defaultValues: buildDefaultValues(setup.param_tokens),
+		resolver: zodResolver(finishingFormSchema),
+		defaultValues: EMPTY_VALUES,
 	});
 
 	const [error, setError] = React.useState<string | null>(null);
 	const [snack, setSnack] = React.useState<string | null>(null);
-	const [lastResult, setLastResult] = React.useState<FinishingSaveResult | null>(null);
-
-	// Re-seed the form when the set of param tokens changes (process switch) so
-	// the dynamic `params` object always matches the rendered inputs.
-	const tokensKey = setup.param_tokens.join(",");
-	React.useEffect(() => {
-		reset(buildDefaultValues(setup.param_tokens));
-		setLastResult(null);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [tokensKey, reset]);
 
 	// Keep the hidden spellId field in sync with the shared spell selector.
 	React.useEffect(() => {
@@ -110,25 +87,15 @@ export default function FinishingEntryForm({
 	// Prefill the form when a grid row is lifted into edit mode.
 	React.useEffect(() => {
 		if (!editingEntry) return;
-		const params: Record<string, string> = {};
-		for (const token of setup.param_tokens) {
-			const found = editingEntry.params.find((p) => p.param === token);
-			params[token] = found?.value != null ? String(found.value) : "";
-		}
 		reset({
 			machineId: String(editingEntry.machine_id),
 			qualityId: String(editingEntry.finishing_quality_id),
 			spellId: String(editingEntry.spell_id),
-			ebId: editingEntry.eb_id != null ? String(editingEntry.eb_id) : "",
-			inputQty: editingEntry.input_qty != null ? String(editingEntry.input_qty) : "",
 			prodQty: editingEntry.prod_qty != null ? String(editingEntry.prod_qty) : "",
-			wastageKg: editingEntry.wastage_kg != null ? String(editingEntry.wastage_kg) : "",
-			params,
 		});
 		setError(null);
-		setLastResult(null);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [editingEntry, tokensKey, reset]);
+	}, [editingEntry, reset]);
 
 	const watchedSpellId = watch("spellId");
 	const effectiveSpellId =
@@ -147,17 +114,6 @@ export default function FinishingEntryForm({
 			return;
 		}
 
-		const params: FinishingParam[] = setup.param_tokens
-			.map((token) => {
-				const raw = values.params[token];
-				return {
-					param: token,
-					value: raw === "" || raw == null ? null : Number(raw),
-				};
-			})
-			// Only send params the operator actually filled in.
-			.filter((p) => p.value != null);
-
 		const body: FinishingEntrySaveBody = {
 			co_id: Number(coId),
 			branch_id: branchId,
@@ -166,13 +122,8 @@ export default function FinishingEntryForm({
 			process,
 			machine_id: Number(values.machineId),
 			finishing_quality_id: Number(values.qualityId),
-			eb_id: values.ebId !== "" ? Number(values.ebId) : null,
-			input_qty: values.inputQty !== "" ? Number(values.inputQty) : null,
-			input_uom: config.inputUom,
 			prod_qty: Number(values.prodQty),
 			prod_uom: config.prodUom,
-			wastage_kg: values.wastageKg !== "" ? Number(values.wastageKg) : null,
-			params,
 		};
 
 		const { data, error: err } = await fetchWithCookie<{ data: FinishingSaveResult }>(
@@ -185,7 +136,6 @@ export default function FinishingEntryForm({
 			return;
 		}
 		const result = data?.data ?? null;
-		setLastResult(result);
 		setSnack(
 			editing
 				? `Updated ${config.title} entry #${result?.finishing_daily_id}`
@@ -194,7 +144,7 @@ export default function FinishingEntryForm({
 		// Keep machine/spell for rapid sequential entry; clear the rest.
 		const prev = getValues();
 		reset({
-			...buildDefaultValues(setup.param_tokens),
+			...EMPTY_VALUES,
 			machineId: editing ? "" : prev.machineId,
 			spellId: prev.spellId,
 		});
@@ -204,9 +154,8 @@ export default function FinishingEntryForm({
 
 	const handleCancelEdit = () => {
 		onCancelEdit();
-		reset(buildDefaultValues(setup.param_tokens));
+		reset(EMPTY_VALUES);
 		setError(null);
-		setLastResult(null);
 	};
 
 	return (
@@ -222,7 +171,7 @@ export default function FinishingEntryForm({
 					gridTemplateColumns: {
 						xs: "1fr",
 						sm: "repeat(2, minmax(0, 1fr))",
-						md: "repeat(3, minmax(0, 1fr))",
+						md: "repeat(4, minmax(0, 1fr))",
 					},
 				}}
 			>
@@ -294,58 +243,14 @@ export default function FinishingEntryForm({
 					)}
 				/>
 
-				{/* Operator (EB) — optional */}
-				<Controller
-					control={control}
-					name="ebId"
-					render={({ field }) => (
-						<TextField
-							select
-							label="Operator (EB)"
-							value={field.value}
-							onChange={(e) => field.onChange(e.target.value)}
-							size="small"
-							fullWidth
-						>
-							<MenuItem value="">
-								<em>None</em>
-							</MenuItem>
-							{setup.eb_list.map((eb) => (
-								<MenuItem key={eb.eb_id} value={String(eb.eb_id)}>
-									{eb.emp_code} — {eb.eb_name}
-								</MenuItem>
-							))}
-						</TextField>
-					)}
-				/>
-
-				{/* Input qty */}
-				<Controller
-					control={control}
-					name="inputQty"
-					render={({ field }) => (
-						<TextField
-							type="number"
-							label={`Input (${config.inputUom})`}
-							value={field.value}
-							onChange={(e) => field.onChange(e.target.value)}
-							size="small"
-							fullWidth
-							inputProps={{ min: 0, step: "any" }}
-							error={!!errors.inputQty}
-							helperText={errors.inputQty?.message}
-						/>
-					)}
-				/>
-
-				{/* Prod qty */}
+				{/* Production figure */}
 				<Controller
 					control={control}
 					name="prodQty"
 					render={({ field }) => (
 						<TextField
 							type="number"
-							label={`Output (${config.prodUom})`}
+							label={`Production (${config.prodUom})`}
 							value={field.value}
 							onChange={(e) => field.onChange(e.target.value)}
 							size="small"
@@ -356,103 +261,7 @@ export default function FinishingEntryForm({
 						/>
 					)}
 				/>
-
-				{/* Wastage */}
-				<Controller
-					control={control}
-					name="wastageKg"
-					render={({ field }) => (
-						<TextField
-							type="number"
-							label="Wastage (kg)"
-							value={field.value}
-							onChange={(e) => field.onChange(e.target.value)}
-							size="small"
-							fullWidth
-							inputProps={{ min: 0, step: "any" }}
-							error={!!errors.wastageKg}
-							helperText={errors.wastageKg?.message}
-						/>
-					)}
-				/>
 			</Box>
-
-			{/* Dynamic captured process params */}
-			{setup.param_tokens.length > 0 ? (
-				<>
-					<Divider textAlign="left">
-						<Typography variant="caption" color="text.secondary">
-							Process Parameters
-						</Typography>
-					</Divider>
-					<Box
-						sx={{
-							display: "grid",
-							gap: 2,
-							gridTemplateColumns: {
-								xs: "1fr",
-								sm: "repeat(2, minmax(0, 1fr))",
-								md: "repeat(3, minmax(0, 1fr))",
-							},
-						}}
-					>
-						{setup.param_tokens.map((token) => (
-							<Controller
-								key={token}
-								control={control}
-								name={`params.${token}` as const}
-								render={({ field }) => (
-									<TextField
-										type="number"
-										label={paramLabel(token)}
-										value={field.value ?? ""}
-										onChange={(e) => field.onChange(e.target.value)}
-										size="small"
-										fullWidth
-										inputProps={{ step: "any" }}
-										error={!!errors.params?.[token]}
-										helperText={errors.params?.[token]?.message}
-									/>
-								)}
-							/>
-						))}
-					</Box>
-				</>
-			) : null}
-
-			{/* Server-computed read-only snapshot from the last save */}
-			{lastResult ? (
-				<Alert severity="success" sx={{ "& .MuiAlert-message": { width: "100%" } }}>
-					<Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-						Computed (server-authoritative)
-					</Typography>
-					<Box
-						sx={{
-							display: "grid",
-							gap: 1,
-							gridTemplateColumns: {
-								xs: "repeat(2, minmax(0, 1fr))",
-								sm: "repeat(3, minmax(0, 1fr))",
-								md: "repeat(4, minmax(0, 1fr))",
-							},
-						}}
-					>
-						<ReadOnlyStat label="Std Speed" value={lastResult.standards.std_speed} />
-						<ReadOnlyStat label="Target Speed" value={lastResult.standards.target_speed} />
-						<ReadOnlyStat label="P100 Prod" value={lastResult.computed.p100prod} />
-						<ReadOnlyStat label="Std Prod" value={lastResult.computed.std_prod} />
-						<ReadOnlyStat label="Target Prod" value={lastResult.computed.target_prod} />
-						<ReadOnlyStat label="Act Eff %" value={lastResult.computed.act_eff} />
-						{lastResult.computed.prod_wt_kg != null ? (
-							<ReadOnlyStat label="Prod Wt (kg)" value={lastResult.computed.prod_wt_kg} />
-						) : null}
-						<ReadOnlyStat
-							label="Working Hrs"
-							value={lastResult.standards.working_hours}
-						/>
-					</Box>
-				</Alert>
-			) : null}
 
 			{error ? (
 				<Alert severity="error" onClose={() => setError(null)}>
@@ -499,19 +308,6 @@ export default function FinishingEntryForm({
 				onClose={() => setSnack(null)}
 				message={snack ?? ""}
 			/>
-		</Box>
-	);
-}
-
-function ReadOnlyStat({ label, value }: { label: string; value: number | null }) {
-	return (
-		<Box>
-			<Typography variant="caption" color="text.secondary" display="block">
-				{label}
-			</Typography>
-			<Typography variant="body2" sx={{ fontWeight: 600 }}>
-				{value != null ? value : "—"}
-			</Typography>
 		</Box>
 	);
 }

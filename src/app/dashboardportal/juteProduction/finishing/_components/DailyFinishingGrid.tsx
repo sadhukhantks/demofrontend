@@ -8,7 +8,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { FinishingEntryRow } from "../types/finishingTypes";
 import { useFinishingEntriesByDate } from "../hooks/useFinishingEntriesByDate";
-import { paramLabel, type FinishingProcessConfig } from "../_shared/finishingConfig";
+import type { FinishingProcessConfig } from "../_shared/finishingConfig";
 
 type Props = {
 	coId: string;
@@ -17,8 +17,6 @@ type Props = {
 	config: FinishingProcessConfig;
 	date: string;
 	spellId: number | null;
-	// Captured-param tokens for this process — extra read-only columns.
-	paramTokens: string[];
 	// Bumped by the parent after a save to auto-refresh the grid.
 	refreshKey?: number;
 	onEdit: (row: FinishingEntryRow) => void;
@@ -31,7 +29,6 @@ export default function DailyFinishingGrid({
 	config,
 	date,
 	spellId,
-	paramTokens,
 	refreshKey,
 	onEdit,
 }: Props) {
@@ -61,8 +58,8 @@ export default function DailyFinishingGrid({
 		[coId, config.title, refresh]
 	);
 
-	const columns = React.useMemo<GridColDef<FinishingEntryRow>[]>(() => {
-		const base: GridColDef<FinishingEntryRow>[] = [
+	const columns = React.useMemo<GridColDef<FinishingEntryRow>[]>(
+		() => [
 			{
 				field: "actions",
 				headerName: "",
@@ -101,47 +98,14 @@ export default function DailyFinishingGrid({
 			{ field: "fin_quality_code", headerName: "Quality", width: 120 },
 			{ field: "fin_quality_name", headerName: "Quality Name", width: 150 },
 			{
-				field: "input_qty",
-				headerName: `Input (${config.inputUom})`,
-				width: 110,
-				type: "number",
-			},
-			{
 				field: "prod_qty",
-				headerName: `Output (${config.prodUom})`,
-				width: 110,
+				headerName: `Production (${config.prodUom})`,
+				width: 140,
 				type: "number",
 			},
-			{ field: "prod_wt_kg", headerName: "Prod Wt (kg)", width: 110, type: "number" },
-			{ field: "wastage_kg", headerName: "Wastage (kg)", width: 110, type: "number" },
-		];
-
-		const computed: GridColDef<FinishingEntryRow>[] = [
-			{ field: "std_speed", headerName: "Std Spd", width: 90, type: "number" },
-			{ field: "target_speed", headerName: "Tgt Spd", width: 90, type: "number" },
-			{ field: "act_speed", headerName: "Act Spd", width: 90, type: "number" },
-			{ field: "p100prod", headerName: "P100 Prod", width: 110, type: "number" },
-			{ field: "std_prod", headerName: "Std Prod", width: 100, type: "number" },
-			{ field: "target_prod", headerName: "Tgt Prod", width: 100, type: "number" },
-			{ field: "act_eff", headerName: "Act Eff %", width: 100, type: "number" },
-			{ field: "working_hours", headerName: "Work Hrs", width: 90, type: "number" },
-		];
-
-		// One read-only column per captured param (value pulled from the EAV list).
-		const paramCols: GridColDef<FinishingEntryRow>[] = paramTokens.map((token) => ({
-			field: `param_${token}`,
-			headerName: paramLabel(token),
-			width: 130,
-			type: "number",
-			sortable: false,
-			valueGetter: (_value, row) => {
-				const found = row.params?.find((p) => p.param === token);
-				return found?.value ?? null;
-			},
-		}));
-
-		return [...base, ...computed, ...paramCols];
-	}, [handleDelete, onEdit, paramTokens, config.inputUom, config.prodUom]);
+		],
+		[handleDelete, onEdit, config.prodUom]
+	);
 
 	return (
 		<Box>

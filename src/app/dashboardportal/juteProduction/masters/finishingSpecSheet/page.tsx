@@ -22,8 +22,11 @@ const PROCESS_OPTIONS = [
 	"damping",
 	"calendering",
 	"lapping",
+	"rolling",
 	"cutting",
 	"hemming",
+	"herackle",
+	"sacksewing",
 	"balepress",
 ] as const;
 
@@ -31,8 +34,11 @@ const PROCESS_LABELS: Record<(typeof PROCESS_OPTIONS)[number], string> = {
 	damping: "Damping",
 	calendering: "Calendering",
 	lapping: "Lapping",
+	rolling: "Rolling",
 	cutting: "Cutting",
 	hemming: "Hemming",
+	herackle: "Herackle",
+	sacksewing: "Sack Sewing",
 	balepress: "Bale Press",
 };
 

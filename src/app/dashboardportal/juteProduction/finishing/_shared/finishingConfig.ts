@@ -1,14 +1,17 @@
 // Per-process display config for the Finishing Production pages.
 // Drives the friendly titles, the input/prod UoM defaults sent to the backend,
-// and the human labels for the dynamically-rendered captured params.
+// and the human labels for the captured params (qid standards/targets only).
 //
 // UoM defaults match the backend contract (finishing_entry.py):
-//   damping     m   -> m
-//   calendering m   -> m   (+ prod_wt_kg auto from BE for cloth processes)
-//   lapping     m   -> roll
-//   cutting     m   -> pcs
-//   hemming     pcs -> bag
-//   balepress   bag -> bale
+//   damping     m    -> m
+//   calendering m    -> m
+//   lapping     m    -> roll
+//   rolling     roll -> roll
+//   cutting     m    -> pcs
+//   hemming     pcs  -> bag
+//   herackle    m    -> pcs
+//   sacksewing  pcs  -> bag
+//   balepress   bag  -> bale
 
 import type { FinishingProcess } from "../types/finishingTypes";
 
@@ -31,7 +34,7 @@ export const FINISHING_PROCESS_CONFIG: Record<FinishingProcess, FinishingProcess
 	calendering: {
 		process: "calendering",
 		title: "Calendering Production",
-		subtitle: "Finish hessian cloth (metres); output weight auto-computed.",
+		subtitle: "Finish hessian cloth (metres).",
 		inputUom: "m",
 		prodUom: "m",
 	},
@@ -40,6 +43,13 @@ export const FINISHING_PROCESS_CONFIG: Record<FinishingProcess, FinishingProcess
 		title: "Lapping Production",
 		subtitle: "Wind finished cloth into rolls — metres in, rolls out.",
 		inputUom: "m",
+		prodUom: "roll",
+	},
+	rolling: {
+		process: "rolling",
+		title: "Rolling Production",
+		subtitle: "Roll finished hessian cloth.",
+		inputUom: "roll",
 		prodUom: "roll",
 	},
 	cutting: {
@@ -56,6 +66,20 @@ export const FINISHING_PROCESS_CONFIG: Record<FinishingProcess, FinishingProcess
 		inputUom: "pcs",
 		prodUom: "bag",
 	},
+	herackle: {
+		process: "herackle",
+		title: "Herackle Production",
+		subtitle: "Herackle sacking cloth into pieces.",
+		inputUom: "m",
+		prodUom: "pcs",
+	},
+	sacksewing: {
+		process: "sacksewing",
+		title: "Sack Sewing Production",
+		subtitle: "Sew pieces into finished bags — pieces in, bags out.",
+		inputUom: "pcs",
+		prodUom: "bag",
+	},
 	balepress: {
 		process: "balepress",
 		title: "Bale Press Production",
@@ -65,31 +89,15 @@ export const FINISHING_PROCESS_CONFIG: Record<FinishingProcess, FinishingProcess
 	},
 };
 
-// Human labels for all 20 finishing params across every process/role
-// (BE contract §5.1 / constants.FINISHING_PARAMS). The form renders only the
-// applicable subset returned in entry_setup.param_tokens; unknown tokens fall
-// back to the raw token, so this stays robust if the matrix gains a param.
+// Human labels for the captured qid params (standard/target roles only;
+// BE contract constants.FINISHING_PARAMS). Unknown tokens fall back to the
+// raw token, so this stays robust if the matrix gains a param.
 export const PARAM_LABELS: Record<string, string> = {
-	speed: "Speed",
-	spray_rate: "Spray Rate (l/min)",
-	moisture_add_pct: "Moisture Add %",
-	emulsion_pct: "Emulsion %",
-	bowl_temp: "Bowl Temp (°C)",
-	nip_pressure: "Nip Pressure (kg/cm²)",
-	no_of_bowls: "No. of Bowls",
-	finished_width: "Finished Width (in)",
-	oz_per_yd: "Oz / Yd",
-	eff: "Efficiency %",
-	lap_length: "Lap Length (m)",
-	roll_width: "Roll Width (in)",
-	cut_length: "Cut Length (in)",
-	pieces_per_100m: "Pieces / 100m",
-	stitches_per_in: "Stitches / in",
-	hem_allowance: "Hem Allowance (in)",
-	press_pressure: "Press Pressure (t)",
-	cycle_time: "Cycle Time (s)",
-	bags_per_bale: "Bags / Bale",
-	bale_weight: "Bale Weight (kg)",
+	std_prod_yds: "Std Production (yds)",
+	target_pcs: "Target Pcs",
+	pcs_per_bundle: "Pcs / Bundle",
+	bundles: "No. of Bundles",
+	no_of_bales: "No. of Bales",
 };
 
 export function paramLabel(token: string): string {
