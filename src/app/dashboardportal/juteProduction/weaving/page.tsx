@@ -17,6 +17,7 @@ import { useWeavingSetup } from "./hooks/useWeavingSetup";
 import LoomQualityMapGrid from "./_components/LoomQualityMapGrid";
 import WeavingEntryGrid from "./_components/WeavingEntryGrid";
 import WeavingBeamChangeGrid from "./_components/WeavingBeamChangeGrid";
+import WeavingAdjustmentGrid from "./_components/WeavingAdjustmentGrid";
 import WeavingPlanningGrid from "./_components/WeavingPlanningGrid";
 import { todayISO } from "./utils/weavingCalc";
 
@@ -149,6 +150,7 @@ export default function WeavingPage() {
 									<Tab label="Loom → Quality" />
 									<Tab label="Production Entry" />
 									<Tab label="Beam Change" />
+									<Tab label="Production Adjustment" />
 									<Tab label="Planning Grid" />
 								</Tabs>
 							</Box>
@@ -219,6 +221,15 @@ export default function WeavingPage() {
 							) : null}
 
 							{tab === 3 ? (
+								<WeavingAdjustmentGrid
+									coId={coId}
+									branchId={branchId}
+									date={tranDate}
+									spell={spell}
+								/>
+							) : null}
+
+							{tab === 4 ? (
 								<WeavingPlanningGrid
 									coId={coId}
 									branchId={branchId}

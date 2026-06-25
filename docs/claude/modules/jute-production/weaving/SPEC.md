@@ -27,7 +27,7 @@ reference + vowerp3 beaming pattern).
 >    (PPI), **speed** (picks/min), **eff**. Loom-linked (`id_type='mcid'`, `ref_id=machine_id`) params
 >    (optional) = std/target **eff** (loom baseline/target efficiency).
 > 3. **Weaving Production Entry** (`jute_prod_weaving_daily`) — daily per-loom/per-quality production
->    entry (date/shift/spell + loom; rows of quality, **cuts**, **jugar**), with a **server-computed
+>    entry (date/shift/spell + loom; rows of quality, **cuts**, **closing jugar**), with a **server-computed
 >    planning grid** (production yds, production kg, efficiency) — mirroring the Spinning/Beaming
 >    planning grid. Weaving's one extra wrinkle vs beaming is the **jugar open/close carry-forward**
 >    across spells `A1→B1→A2→B2→C` (and the day boundary).
@@ -40,7 +40,7 @@ reference + vowerp3 beaming pattern).
 >
 > **Status: PROPOSED — all open questions resolved 2026-06-23 (§12); ready to build.** Locked: loom
 > machine type = **`'Loom'`, `machine_type_id 7`** (Q1, matches code3i `type_of_mechine=7`); **full
-> jugar carry-forward with recompute cascade** (Q3); standards **quality-linked only** (`qid`; no loom
+> jugar carry-forward via the `vw_weaving_daily` window LAG — FREEZE NOTHING, no recompute cascade** (Q3); standards **quality-linked only** (`qid`; no loom
 > `mcid`) (Q5), qid target = **speed + eff** (Q5b); reuse **Jute Cloth = 5** (Q2); **separate** weaving
 > quality master (Q4); **composite qualities via `_dtl`** like beaming (Q6); **EB via attendance view +
 > beam-change tab** (Q7); build **reports** (Q8); target **dev3** (Q12); kg constant **`× 28.35 / 1000`**
@@ -67,12 +67,12 @@ reference + vowerp3 beaming pattern).
 | # | Decision | Recommended value |
 |---|----------|-------------------|
 | 1 | **Page set** | **Four pages**, mirroring beaming: Quality Master + Standards/Targets Map + Production Entry + Weaving SQC. |
-| 2 | **Production-entry grain** | **Per loom + quality, per spell.** Header = `tran_date, spell_id, machine_id (loom)`; each row = `weaving_quality_id` (**inherited from the Loom→Quality mapping, spinning-style — NOT selected inline**, §6.6), `cuts`, `jugar`. `cuts`/`jugar` are the only operator inputs; production/efficiency **server-computed**. EB/worker resolved via **attendance view** (not entered, Q7); beam via **beam-change tab** (§6.7, Q7). |
-| 3 | **Two legacy engines → one table** | Legacy had `WEAVING_PRODUCTION` (day/spell aggregate, Java) **and** `CUTS_JUGAR_BUFF_1` (per-loom 5-spell, native SQL). vowerp3 **consolidates to one** per-loom/quality/spell snapshot `jute_prod_weaving_daily`; shift/day/quality rollups are **derived by query** (SUM), never stored — exactly like `jute_prod_beaming_daily`. |
+| 2 | **Production-entry grain** | **Per loom + quality, per spell.** Header = `tran_date, spell_id, machine_id (loom)`; each row = `weaving_quality_id` (**inherited from the Loom→Quality mapping, spinning-style — NOT selected inline**, §6.6), `cuts`, `close_jugar`. `cuts`/`close_jugar` (closing jugar reading) are the only operator inputs; `open_jugar` resolves from the last available close, `jugar` (jugars produced) is **derived** (§3); production/efficiency **server-computed**. EB/worker resolved via **attendance view** (not entered, Q7); beam via **beam-change tab** (§6.7, Q7). |
+| 3 | **Two legacy engines → one INPUTS table + a VIEW** (FREEZE NOTHING, 2026-06-24) | Legacy had `WEAVING_PRODUCTION` (day/spell aggregate, Java) **and** `CUTS_JUGAR_BUFF_1` (per-loom 5-spell, native SQL). vowerp3 **consolidates to one** per-loom/quality/spell table `jute_prod_weaving_daily` that stores **inputs only** (`cuts`, `close_jugar`, `less_production` + identity); **every standard/derived/computed column is recomputed on read by `vw_weaving_daily`** (§6.1a) — nothing is frozen. Shift/day/quality rollups are still **derived by query** (SUM over the view). |
 | 4 | **Quality master content** ✅Q4/Q6/Q16 | **Separate** `jute_prod_weaving_quality` (not shared with spinning) stores `item_id, weaving_quality_code, weaving_quality_name, ends, width, ports, reed_porter (distinct from ports, Q16), shrinkage_pct, shots, finished_length, ozs_yds, std_ozs_yds, no_of_jugar_per_cut, jbo_rbo, reed_space, tpi, yarn_count, mc_teeth`. **Composite qualities via `jute_prod_weaving_quality_dtl`** (Q6 — mirror `jute_prod_bm_quality_dtl`). Many qualities per `item_id`. **`no_of_jugar_per_cut` mandatory**; `finished_length` = yds/cut = per piece (Q15). |
 | 5 | **Standards split (target map)** ✅Q5/Q5b | **Quality-linked only (`qid`, `ref_id=weaving_quality_id`)** — **NO loom (`mcid`) standards** (Q5): `speed`(picks/min), `picks`(PPI), `eff` — std; **`speed` + `eff`** — target (Q5b). No FE Type selector (quality-only). |
 | 6 | **Actuals (Weaving SQC)** | The Weaving SQC page captures **`value_role='actual'`** for `speed` (actual loom picks/min) and `picks` (actual PPI), quality-linked (`qid`), effective-dated — reuses `/weavingTargetMap` endpoints (= legacy `tbl_prod_weaving_quality_mapping`). When an actual exists as-of the production date it **overrides** the corresponding standard in the efficiency calc; otherwise the standard is used. |
-| 7 | **Jugar carry-forward** ✅Q3 | **Full** open/close roll-forward (§3, §13 B.5): `open` of a spell = prior spell's `close`; `open_A1` of day N = `close_C` of day N−1 (same loom). **Edits trigger a recompute cascade**: when a spell entry changes, the server recomputes open/close for that loom from the edited spell forward (Q3 rationale — entries change → recalculation needed). |
+| 7 | **Jugar carry-forward** ✅Q3 (revised 2026-06-24; FREEZE NOTHING) | Operator enters **`close_jugar`** (cj, the closing reading, 0≤cj≤jc); **`open_jugar`** (oj), produced **`jugar`**, and `production_yds` are **all computed on read by `vw_weaving_daily`** — NOT stored. `oj` = the view's window `LAG(close_jugar)` over existing active rows `PARTITION BY (co_id, machine_id, weaving_quality_id) ORDER BY (tran_date, spell_rank)` — which inherently skips empty spells (A1.close=12, B1 empty ⇒ A2.open=12; 0 at chain start) and auto-propagates across the day boundary. `jugar = max(0, X−jc if X>jc else X)` with `X=jc−oj+cj`. **No recompute cascade and no compute-on-save** — the LAG over existing rows handles propagation; an edit just changes an input and the next read re-derives everything. |
 | 8 | **Working hours** | `working_hours = max(0, spell_mst.working_hours − Σ jute_prod_stoppage_hours[machine,date,spell])` — wired to the Stoppage Hours module exactly like beaming (§3). |
 | 9 | **No approval workflow** | Direct CRUD + soft delete (`active=0`); no `status_id`, consistent with all of jute production. |
 | 10 | **Target tenant DB** ✅Q12 | **dev3** (QA/dev tenant) for all DDL/seed/testing. |
@@ -112,7 +112,7 @@ Page A  Weaving Quality Master      item → weaving_quality (+ ends, finished_l
                                      ozs_yds, no_of_jugar_per_cut, width, ports, shots)
 Page B  Weaving Standards/Targets    per-quality std/tgt picks, speed, eff (+ optional   [reference data,
         Map                          per-loom eff) — effective-dated                       spngTargetMap clone]
-Page C  Weaving Production Entry      daily: loom + quality + cuts + jugar                 [transaction]
+Page C  Weaving Production Entry      daily: loom + quality + cuts + closing jugar         [transaction]
                                      → server computes production yds/kg + efficiency
 Page D  Weaving SQC (juteSQC)         daily actual picks/speed per quality                 [actuals capture,
         (value_role='actual')        (overrides standards in efficiency calc)               beamingTargetMap clone]
@@ -171,8 +171,9 @@ param keys off.
 | `eb_no` | resolved via **attendance view** (attendance-taker enters ebno; joined for display) | **not entered** (Q7) |
 | `beam_no` | **beam-change tab** — beam mapped to loom on change (spell + date) (§6.7) | **separate tab** (Q7), not a production-row field |
 | `cuts` | entry | **data-entry field** (per row) — full cuts woven |
-| `jugar` | entry | **data-entry field** (per row) — partial cut (carried over) |
-| `open` / `close` (jugar balance) | derived (§3) | **computed** (carry-forward across spells/days) |
+| `close_jugar` (cj) | entry | **data-entry field** (per row) — the closing jugar reading (0 ≤ cj ≤ jc) |
+| `open_jugar` (oj) | resolved (§3) | **last available** close for (loom, quality) before this (date,spell); skips empty spells; 0 at chain start |
+| `jugar` (produced) | derived (§3) | **computed** `X=jc−oj+cj; jugar=X−jc if X>jc else X; max(0,·)` |
 | `production_yds` | derived (§3) | **computed** |
 | `production_kg` / `production_mt` | derived (§3) | **computed** |
 | `efficiency` | derived (§3) | **computed** |
@@ -210,16 +211,26 @@ shift_hours     = spell_mst.working_hours
 idle_hours      = Σ jute_prod_stoppage_hours[machine,date,spell]
 working_hours   = max(0, shift_hours - idle_hours)
 
-# ---- jugar carry-forward (spell order A1 → B1 → A2 → B2 → C, then day boundary) ----
-open_spell      = prior spell's close   (open_A1[day N] = close_C[day N-1] for the same loom; 0 if none)
-close_spell     = jugar    if (cuts > 0 OR jugar > 0)   else open_spell
+# ---- jugar  (oj=open, cj=close ENTERED, jc=jugar_per_cut) -----------------  (REVISED 2026-06-24)
+oj  (open_jugar)  = the LAST AVAILABLE close jugar for this (loom, weaving_quality) strictly before
+                    this (tran_date, spell) in order A1→B1→A2→B2→C then across the day boundary;
+                    0 when none. SKIPS EMPTY SPELLS: if A1.close=12 and B1 has no entry, A2.open=12
+                    (NOT the immediately-prior slot, NOT 0). Quality-scoped.
+cj  (close_jugar) = OPERATOR INPUT — the closing jugar reading (0 ≤ cj ≤ jc; reject cj > jc).
+jc                = jugar_per_cut (above), fixed, > 0.
 
-# ---- production (yards) ---------------------------------------------------  (legacy §13 B.3)
-production_yds  = cuts  * finished_length
-                - open_spell * finished_length / jugar_per_cut
-                + jugar      * finished_length / jugar_per_cut
-#   = full cuts (yds) - opening partial-jugar (yds) + closing partial-jugar (yds).
-#   A 'jugar' is a fractional cut; jugar * FL / jugar_per_cut converts leftover jugars to yards.
+X     = jc - oj + cj
+jugar = (X - jc)  if X > jc     # = (cj - oj)       when cj > oj  (no wrap — advanced within the cut)
+        X         else          # = (jc - oj + cj)  when cj ≤ oj  (wrapped — finished open cut, started new)
+jugar = max(0, jugar)           # jugar (jugars produced this spell) CANNOT be negative
+
+# ---- production (yards) ---------------------------------------------------  (REVISED 2026-06-24)
+production_yds  = (cuts + jugar / jc) * finished_length    # guard jc > 0
+#   = (operator-entered full cuts + the spell's DERIVED produced-jugars as a fraction of a cut) × yds/cut.
+#   Worked (jc=16, FL=L):  A1 oj=0,cuts=10,cj=12 → X=28>16 → jugar=12 → (10+12/16)L = 10.75 L.
+#                          A2 oj=12,cuts=5,cj=4 (B1 empty) → X=8≤16 → jugar=8 → (5+8/16)L = 5.50 L.
+#   Supersedes the legacy `cuts*FL − open*FL/jpc + jugar*FL/jpc` (where jugar was the INPUT);
+#   here close is the input and jugar is derived (§13 B.3 kept as legacy reference only).
 
 # ---- production (kg / MT) -------------------------------------------------  (legacy §13 B.1, B.12)
 production_kg   = production_yds * ozs_yds * 28.35 / 1000   # 28.35 g/oz ⇒ divisor 35.273; round 3 dp (Q13 RESOLVED)
@@ -273,13 +284,15 @@ the entry UI auto-selects by wall-clock hour, and the basis for `spell_mst.worki
 | C  | 22:00–06:00 | 8 |
 
 **Two legacy production models (code3i):** (1) the per-loom **5-spell** `cuts_jugar_buff_1` engine
-(jugar-aware: `cuts*FL − open*FL/jpc + jugar*FL/jpc`) — the spec's headline formula above; and
+(jugar-aware: `cuts*FL − open*FL/jpc + jugar*FL/jpc`, where jugar was an INPUT) — **superseded** by the revised §3 engine (close entered, jugar derived, 2026-06-24); and
 (2) a quality-aggregate **3-spell A/B/C** save path (`weaving_daily_transaction`) where
 `production_yds = cuts*FL` with **no jugar term** (`Weaving_daily_entry.php:263-273`,
 `Loom_hrs_prod_updt.php:239-249`) — there jugar is bookkept separately and not folded into yards.
-vowerp3 keeps model (1) per-loom; the legacy 3-spell rollup maps **A=A1+A2, B=B1+B2, C=C** for
-report parity. ⚠ The jugar-in-yards term is **unverified** — confirm against vow2.0
-`CutsJugarBuff1DAO.java:580-589` before build (if vow2.0 also omits it, the headline formula is wrong).
+vowerp3 keeps model (1) per-loom but **revised the engine 2026-06-24** (§3): `close_jugar` is the
+operator input, `open_jugar` is the last-available close, and `jugar` (produced) is derived — so
+vowerp3's `production_yds = (cuts + jugar/jc)·FL`, NOT the legacy
+`cuts*FL − open*FL/jpc + jugar*FL/jpc` (kept as legacy reference only, §13 B.3). The legacy 3-spell
+rollup maps **A=A1+A2, B=B1+B2, C=C** for report parity.
 
 **Working hours (divergence):** the real legacy source is `daily_attendance.working_hours −
 idle_hours` per ticket/spell, with machine stoppage tracked separately in
@@ -459,27 +472,75 @@ entered on the SQC page**); target params = `speed` + `eff` (Q5b). Plain TS type
 
 ## 6. Page C — Weaving Production Entry
 
-Daily per-loom/per-quality entry with a **server-computed planning grid**. Mirrors **Beaming
-Production Entry** (`juteProduction/beaming/`, `beaming_entry.py`) — **server-authoritative** (the
-server re-resolves standards and recomputes; client-sent computed columns are ignored on save).
+Daily per-loom/per-quality entry. **STORAGE MODEL = FREEZE NOTHING + VIEW (2026-06-24):** the entry
+endpoints **persist operator INPUTS only** (`cuts`, `close_jugar`, `less_production`); every standard
+and derived column is **computed on read by `vw_weaving_daily`** (§6.1a). There is no compute-on-save
+and no recompute cascade — client-sent computed columns are ignored, and a write simply changes an
+input (the next read re-derives everything, including downstream open-jugar via the view's LAG).
 
-### 6.1 Table `jute_prod_weaving_daily` (tenant DB)
+### 6.1 Table `jute_prod_weaving_daily` (tenant DB) — INPUTS ONLY
 
 Grain (locked header) = `(co_id, tran_date, spell_id, machine_id, weaving_quality_id, active=1)`.
-One flat row per loom+quality+spell; identity + inputs + resolved standards + computed outputs all on
-the same row (like `jute_prod_beaming_daily`).
+**STORAGE MODEL = FREEZE NOTHING + VIEW (decided 2026-06-24).** The table stores **only identity +
+operator inputs**. Every resolved-standard and computed-output column is **DROPPED** — all are
+reproducible and are recomputed on read by `vw_weaving_daily` (§6.1a). Nothing is frozen; reads always
+reflect current masters + as-of standards.
 
-| Group | Columns |
+| Group | Columns (the ONLY stored columns) |
 |-------|---------|
 | Identity | `weaving_daily_id` PK · `co_id` idx · `branch_id` · `tran_date` idx · `spell_id` idx · `machine_id` idx (loom) · `weaving_quality_id` idx (**from Loom→Quality map §6.6, not entered**) · `eb_id` null (**resolved via attendance view, not entered** — Q7) · `beam_no` VARCHAR(50) null (**resolved from beam-change map §6.7** — Q7) |
-| Inputs | `cuts` INT NOT NULL · `jugar` INT NOT NULL (default 0) · `less_production` DEC(12,3) null default 0 (operator-entered deduction; legacy `cuts_jugar_buff_1.less_production_{spell}`) |
-| Resolved standards | `finished_length` DEC(12,3) · `ozs_yds` DEC(10,4) · `std_ozs_yds` DEC(10,4) · `no_of_jugar_per_cut` DEC(10,3) · `std_speed`/`act_speed` DEC(12,4) · `std_picks`/`act_picks` DEC(12,4) · `std_eff`/`target_eff` DEC(6,2) · `working_hours` DEC(5,2) |
-| Carry-forward | `open_jugar` INT · `close_jugar` INT |
-| Computed | `production_yds` DEC(14,3) · `production_kg` DEC(14,3) · `production_mt` DEC(14,4) · `std_prod_yds` DEC(14,3) · `target_prod_yds` DEC(14,3) · `efficiency` DEC(6,2) · `std_prod_kg` DEC(14,3) null · `target_kg` DEC(14,3) null (if reported) · `actual_eff` DEC(6,2) null (2nd std-shots-avg efficiency, optional) · `aports` DEC(10,3) null |
+| Inputs | `cuts` INT NOT NULL · `close_jugar` DEC(10,3) null default 0 (operator closing-jugar reading; 0 ≤ cj ≤ `no_of_jugar_per_cut`, **rejected at write time when cj > jc**) · `less_production` DEC(12,3) null default 0 (operator-entered deduction; legacy `cuts_jugar_buff_1.less_production_{spell}`) |
 | Audit | `active` default 1 · `updated_by` · `updated_date_time` |
 
-ORM: `JuteProdWeavingDaily` in `weaving_models.py` (clone `JuteProdBeamingDaily`; add `cuts/jugar/
-open_jugar/close_jugar/finished_length/ozs_yds/no_of_jugar_per_cut`).
+**Dropped (all reproducible — now view-computed, §6.1a):** `open_jugar`, `jugar`, `finished_length`,
+`ozs_yds`, `std_ozs_yds`, `no_of_jugar_per_cut`, `std_speed`, `act_speed`, `std_picks`, `act_picks`,
+`std_eff`, `target_eff`, `working_hours`, `production_yds`, `production_kg`, `production_mt`,
+`std_prod_yds`, `target_prod_yds`, `efficiency`, `std_prod_kg`, `target_kg`, `actual_eff`, `aports`.
+
+ORM: `JuteProdWeavingDaily` in `weaving_models.py` is **slimmed to the inputs-only shape above**
+(`cuts` INT, `close_jugar` DEC(10,3), `less_production` DEC(12,3) + identity/audit). Migration:
+`dbqueries/migrations/alter_weaving_daily_lean_and_view.sql` (drops the 23 cols, changes `close_jugar`
+to DEC(10,3), creates the view); `create_weaving_tables.sql` carries the lean shape + view for fresh
+tenants.
+
+### 6.1a View `vw_weaving_daily` — computes EVERYTHING on read (FREEZE NOTHING)
+
+**Purpose.** A single read-model view that reproduces every derived/standard/computed column from the
+inputs-only base table + current masters + as-of standards, so nothing is frozen and reads always
+track the latest masters. `entries_by_date` and `planning_grid` SELECT from it; the planning grid still
+starts from the quality-map driver rows (mapped looms, even with no entry) LEFT JOIN the view.
+
+**What it computes** (every column, server-authoritative; the §3 formulas):
+- **Labels / display:** `spell_code`, `shift_bucket`, `spell_rank`, `mech_code`, `machine_name`,
+  `line_no`, `item_id/code/name`, `weaving_quality_code/name`, `is_composite` (JOIN machine_mst /
+  item_mst / quality master, like the planning grid).
+- **Inherited quality:** `weaving_quality_id = COALESCE(daily.weaving_quality_id, quality_map.*)` (§6.6).
+- **Quality construction:** `finished_length`, `ozs_yds`, `std_ozs_yds`, `no_of_jugar_per_cut`.
+- **As-of standards (LAST-DATE, branch-agnostic):** `std_speed`/`act_speed`, `std_picks`,
+  `std_eff`/`target_eff` from `jute_prod_weaving_target_map` (id_type=`qid`, ref_id=weaving_quality_id,
+  effective_date ≤ tran_date); **`act_picks` from `vw_weaving_pick_act`** (avg_picks, LAST-DATE by
+  entry_date) — NOT the target map; `eff_speed=COALESCE(act_speed,std_speed)`,
+  `eff_picks=COALESCE(act_picks,std_picks)`.
+- **Working hours:** `max(0, spell_mst.working_hours − Σ jute_prod_stoppage_hours[co,machine,date,spell])`.
+- **open_jugar (window LAG semantics):**
+  ```sql
+  open_jugar = COALESCE(LAG(close_jugar) OVER (
+      PARTITION BY co_id, machine_id, weaving_quality_id
+      ORDER BY tran_date, spell_rank), 0)        -- A1=1,B1=2,A2=3,B2=4,C=5
+  ```
+  Because LAG runs over the **existing active rows only**, it inherently **skips empty spells** (A1
+  close=12, B1 has no row ⇒ A2.open=12) AND **auto-propagates downstream and across the day boundary**.
+- **Derived jugar + production:** `X=jc−oj+cj`; `jugar=GREATEST(0, X−jc if X>jc else X)`;
+  `production_yds=(cuts+jugar/jc)·FL` (guard jc>0); `production_kg`, `production_mt`, `std_prod_yds`
+  (guard 36·eff_picks>0), `efficiency` (guard std_prod_yds>0), `target_prod_yds`, `std_prod_kg`,
+  `target_kg`.
+
+**Freeze-nothing consequences.** Because the open-jugar LAG and standards resolution live in the view,
+the Python **`resolve_open_jugar` and `recompute_cascade` are DELETED** — there is no compute-on-save
+and no cascade. Edits/inserts just persist inputs; the next read recomputes everything (and any
+downstream spell's open auto-shifts). Requires **MySQL 8.0+** for the window function (dev3 = 8.0.42,
+verified 2026-06-24); on < 8.0 substitute a correlated-subquery `open_jugar` (last available close for
+the (co_id, machine_id, weaving_quality_id) strictly before this (tran_date, spell_rank)).
 
 ### 6.2 Endpoints — `weaving_entry.py`, prefix `/api/weavingProd` (Portal)
 
@@ -488,30 +549,35 @@ Mirror beaming_entry.py:
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/entry_create_setup` | looms, spells (no quality picker — quality comes from the map §6.6) |
-| GET | `/entries_by_date` | rows for date/spell/loom (quality **inherited** via COALESCE from the loom→quality map, spinning-style) |
-| GET | `/machine_standards` | resolve std/target/actual params + working_hours as-of date for a (loom, mapped quality) |
-| POST | `/entry_create` | upsert one loom+quality snapshot (server-computed; quality from the map) |
-| PUT | `/entry_edit/{id}` | re-resolve + recompute (triggers carry-forward cascade, §0 row 7) |
+| GET | `/entries_by_date` | rows for date/spell/loom — **SELECT from `vw_weaving_daily`** (quality **inherited** via the view's COALESCE; every derived column computed on read) |
+| GET | `/machine_standards` | resolve std/target/actual params + working_hours as-of date for a (loom, mapped quality) — FE prefill (still calls `resolve_quality_standards`) |
+| POST | `/entry_create` | upsert one loom+quality row — **persists INPUTS only** (validates quality mapped + `cj ≤ jc`); **no compute-on-save** |
+| PUT | `/entry_edit/{id}` | update inputs only — **no re-resolve, no recompute cascade** (the view's LAG auto-propagates) |
 | DELETE | `/entry_delete/{id}` | soft-delete |
-| GET | `/planning_grid` | per-loom/quality planning snapshot — **driver rows sourced from the active loom→quality map** (like spinning), resolve + compute incl. jugar carry-forward |
-| POST | `/planning_grid_save` | batch upsert; **server recomputes** (ignores client computed cols), commit-once |
+| GET | `/planning_grid` | per-loom/quality planning grid — driver rows from the active loom→quality map (mapped looms, even with no entry) **LEFT JOIN `vw_weaving_daily`** (all derived cols from the view) |
+| POST | `/planning_grid_save` | batch upsert; **persists INPUTS only** (ignores any client computed cols), commit-once |
 | GET/POST | `/quality_map_get` · `/quality_map_save` · `/quality_map_mapped` | **Loom→Quality mapping** (§6.6, spinning-style) |
 | GET/POST | `/beam_map_get` · `/beam_map_save` | **Beam-change tab** (§6.7) |
 
 Inputs (`BeamingEntryCreate`-style Pydantic): `co_id, branch_id?, tran_date, spell_id, machine_id,
-cuts (ge 0), jugar (ge 0)`. **`weaving_quality_id` is NOT in the entry body** — it is inherited from
-the loom→quality map (§6.6). `finished_length`, `ozs_yds`, `std_ozs_yds`, `no_of_jugar_per_cut`
-resolve from the quality master; `speed`/`picks`/`eff` from the target map (std, overridden by SQC
-actual); `working_hours` net of stoppage; `eb_id`/`beam_no` resolved (attendance view / beam map).
+cuts (ge 0), close_jugar (ge 0, ≤ no_of_jugar_per_cut)` — the Pydantic field is **`close_jugar`** (not
+`jugar`). **`weaving_quality_id` is NOT in the entry body** — inherited from the loom→quality map
+(§6.6). The endpoint persists ONLY these inputs; all standards/derived columns are **read from
+`vw_weaving_daily`** (which resolves FL/ozs_yds/std_ozs_yds/no_of_jugar_per_cut from the quality master,
+speed/picks/eff from the target map + SQC actual, working_hours net of stoppage, and `eb_id`/`beam_no`
+joins) — see §6.1a.
 
-### 6.3 Service `services/weaving_rules.py` + `services/weaving_standards.py`
+### 6.3 Service `services/weaving_rules.py` + `services/weaving_standards.py` (FREEZE-NOTHING)
 
 - `weaving_standards.resolve_quality_standards(db, co_id, weaving_quality_id, on_date)` — LAST-DATE
-  resolve `qid` std/target/actual `speed`/`picks`/`eff` (quality-only, no `mcid` — Q5); clone
-  `beaming_standards.resolve_machine_standards`.
-- `weaving_rules.compute_weaving_daily(...)` — the §3 formulas incl. **jugar open/close carry-forward**
-  (resolve `open_jugar` from the prior spell/day `close_jugar` for the same loom). Clone
-  `beaming_rules.compute_beaming_daily`; add the carry-forward resolver (query prior close).
+  resolve `qid` std/target/actual `speed`/`picks`/`eff` (quality-only, no `mcid` — Q5; `act_picks` from
+  `vw_weaving_pick_act`). **Retained for `machine_standards` (FE prefill) only** — the daily reads use
+  the view, which resolves standards itself.
+- `weaving_rules.py` — **`resolve_open_jugar`, `close_jugar()`, `recompute_cascade`, and the
+  `compute_weaving_daily` save-path are DELETED.** The view's `open_jugar` LAG (over existing rows)
+  replaces the last-available resolver AND the cascade. **Keep only a thin pure formula module**
+  (`effective_jugar(jc, oj, cj)` returning `max(0, X−jc if X>jc else X)` with `X=jc−oj+cj`, plus
+  `production_yds=(cuts+jugar/jc)·FL`) — for **FE parity + unit tests only**, never on a save path.
 
 ### 6.4 Frontend
 
@@ -523,7 +589,7 @@ useLoomQualityMap, useWeavingBeamMap}.ts`, `_components/{LoomQualityMapGrid, Wea
 WeavingBeamChangeGrid, WeavingPlanningGrid}.tsx`, `utils/weavingCalc.ts` (FE preview of §3, server
 authoritative). **The production grid does NOT have a quality dropdown** — each loom row shows its
 **mapped** quality (read-only, inherited via COALESCE from the loom→quality map, exactly like
-spinning's doff/planning grids); operator types only `cuts`/`jugar`. Honors `co_id`/`branch_id` from
+spinning's doff/planning grids); operator types only `cuts`/`close_jugar` (closing reading). Honors `co_id`/`branch_id` from
 `SidebarContext`. (Clone `FrameMapGrid.tsx` → `LoomQualityMapGrid.tsx`.)
 
 ### 6.5 Loom-Hours / Production-Update page (operator edit — legacy `Loom_hrs_prod_updt.php`)
@@ -663,7 +729,9 @@ Migrations in `dbqueries/migrations/`: `create_weaving_tables.sql` (`jute_prod_w
 (confirm/seed `'Loom'`=id 7), `seed_weaving_menu.sql`, `seed_weaving_sqc_menu.sql`. Tests in
 `src/test/`: `test_weaving_target_map.py`, `test_weaving_entry.py`, `test_weaving_masters.py`,
 `test_weaving_quality_map.py` (carry-forward prefill, upsert, mapped back-stamp),
-`test_weaving_rules.py` (formula/jugar-carry/recompute-cascade coverage).
+`test_weaving_rules.py` (the thin pure formula module: `effective_jugar`/`production_yds` parity — no
+cascade); plus a DB-level check that `vw_weaving_daily` reproduces the §3 worked example
+(open-jugar LAG skips empty spells; A1 oj=0,cuts=10,cj=12,jc=16 ⇒ 10.75·FL; A2 oj=12,cuts=5,cj=4 ⇒ 5.5·FL).
 
 ---
 
@@ -709,7 +777,7 @@ the juteSQC parent; map via `role_menu_map` (left to tenant admin). Use the `add
 | # | Question | Status / answer |
 |---|----------|-----------------|
 | Q1 | **Loom machine type** — exact `machine_type_mst` for looms in dev3? | ✅ **RESOLVED (2026-06-23): `machine_type_name = 'Loom'`, `machine_type_id = 7`** (matches code3i `type_of_mechine=7`). **Overrides** the earlier `'Weaving'` lock. Confirm/seed id 7 in dev3. |
-| Q3 | **Jugar carry-forward** — full roll-forward, or simplified per-spell? | ✅ **RESOLVED — full carry-forward, with recompute cascade** (edits may change entries → server recomputes open/close for the loom from the edited spell forward). |
+| Q3 | **Jugar carry-forward** — full roll-forward, or simplified per-spell? | ✅ **RESOLVED (revised 2026-06-24): close entered, open = last-available, jugar derived — computed by the VIEW (FREEZE NOTHING).** Operator enters `close_jugar`; `open_jugar`, `jugar` and `production_yds` are computed on read by `vw_weaving_daily` (§6.1a) — nothing frozen. `open_jugar` = the view's window `LAG(close_jugar)` over existing active rows for (co_id, machine_id, weaving_quality_id) ORDER BY (tran_date, spell_rank) — skips empty spells, crosses days (A1.close=12, B1 empty ⇒ A2.open=12; 0 at chain start). `jugar=max(0, X−jc if X>jc else X)` with `X=jc−oj+cj`; `production_yds=(cuts+jugar/jc)·FL`. **No recompute cascade, no compute-on-save** — the LAG propagates. |
 | Q5 | **Loom-linked standards** — include optional `mcid` eff, or quality-only? | ✅ **RESOLVED (2026-06-23): quality-only (`qid`)** — **no loom `mcid` standards**. |
 | Q2 | **Item type for woven cloth** — share `Jute Cloth` (item_type 5)? | ✅ **RESOLVED (2026-06-23): yes — reuse `Jute Cloth` (5).** |
 | Q4 | **Quality master vs reuse beaming quality** — separate `jute_prod_weaving_quality`, or extend `jute_prod_bm_quality`? | ✅ **separate** — code3i has a dedicated weaving quality master (`weaving_master` by q_code / `weaving_quality_master` by quality_id), not shared with spinning (`Loom_hrs_prod_updt.php:197,504-508`; `Weaving_daily_entry.php:59-65,221-233`). Confirm which legacy table name is current (two coexist — likely a migration). |
@@ -751,9 +819,9 @@ the juteSQC parent; map via `role_menu_map` (left to tenant admin). Use the `add
 |---------|------------------|-----------|
 | production_kg = (cuts × finished_length × ozs_yds) / 35.2 (⚠ canonical is now `× 28.35 / 1000` = 35.273, §12 Q13) | `WeavingProductionServiceImpl.java:56` | `production_kg` |
 | efficiency = (cuts×FL×100) / ((speed×wh×60)/actual_shots×36) × no_of_loom | `WeavingProductionServiceImpl.java:62` | `efficiency` (per-loom; vowerp3 drops the ×no_of_loom — computed per loom row) |
-| production_{spell} = cuts×FL − open×FL/jugar_per_cut + jugar×FL/jugar_per_cut | `CutsJugarBuff1DAO.java:580-589` | `production_yds` ⭐ |
+| production_{spell} = cuts×FL − open×FL/jugar_per_cut + jugar×FL/jugar_per_cut (legacy; jugar = INPUT) | `CutsJugarBuff1DAO.java:580-589` | `production_yds` — vowerp3 **REVISED** to `(cuts + jugar/jc)·FL` with `close` entered + `jugar` derived (§3, 2026-06-24) |
 | efficiency_{spell} = round(prod×100 / ((speed×wh×60)/(36×actual_shots)),2) | `CutsJugarBuff1DAO.java:616-625` | `efficiency` ⭐ |
-| open/close jugar roll-forward A1→B1→A2→B2→C (+ day boundary) | `CutsJugarBuff1DAO.java:496-540` | `open_spell`/`close_spell` |
+| open/close jugar roll-forward A1→B1→A2→B2→C (+ day boundary) | `CutsJugarBuff1DAO.java:496-540` | `open_jugar` (last-available resolve) / `close_jugar` (entered) — §3 revised 2026-06-24 |
 | quality attrs pulled into buffer (FL, actual_shots, speed, jugar_per_cut; actual_shots overridden from mapping) | `CutsJugarBuff1DAO.java:371-386` | resolved std + SQC override |
 | working_hours/ticket from attendance | `CutsJugarBuff1DAO.java:194-250` | vowerp3: `spell_mst.working_hours` − stoppage |
 | line-wise eff (today + 30-day) = avg of A/B/C spell effs by `line_number` | `CutsJugarDAO.java:488`, `LoomYardsReportImpl.java:214-257` | report rollup (§3) |
@@ -832,9 +900,11 @@ the juteSQC parent; map via `role_menu_map` (left to tenant admin). Use the `add
 
 **Backend** — clone beaming (+ spinning frame-map for quality mapping), rename weaving:
 1. Migration `create_weaving_tables.sql` (`jute_prod_weaving_quality` + **`_dtl`** (Q6),
-   `jute_prod_weaving_target_map`, `jute_prod_weaving_daily`, **`jute_prod_weaving_quality_map`** (§6.6),
-   **`jute_prod_weaving_beam_map`** (§6.7)) + `seed_weaving_loom_machine_type.sql` (confirm/seed
-   `'Loom'`=id 7). Apply to **dev3** via pymysql (run-migration skill).
+   `jute_prod_weaving_target_map`, **lean `jute_prod_weaving_daily` (inputs-only) + `vw_weaving_daily`**,
+   **`jute_prod_weaving_quality_map`** (§6.6), **`jute_prod_weaving_beam_map`** (§6.7)) +
+   `seed_weaving_loom_machine_type.sql` (confirm/seed `'Loom'`=id 7); **`alter_weaving_daily_lean_and_view.sql`**
+   for existing tenants (drops the 23 reproducible cols, `close_jugar`→DEC(10,3), creates the view).
+   Apply to **dev3** via pymysql (run-migration skill).
 2. `weaving_models.py` (clone beaming + `JuteProdWeavingQualityDtl`, `JuteProdWeavingQualityMap`,
    `JuteProdWeavingBeamMap`).
 3. `constants.py` additions (§8) — `WEAVING_MACHINE_TYPE_NAME='Loom'`, `_ID=7`, qid-only params, target = speed+eff.
@@ -842,8 +912,10 @@ the juteSQC parent; map via `role_menu_map` (left to tenant admin). Use the `add
    `spinning_query.py:251-441`) — branch-agnostic LAST-DATE resolve; quality-map carry-forward prefill.
 5. `weaving_masters.py`, `weaving_target_map.py` (`grid_params_for` §5.2, **qid-only**), `weaving_entry.py`
    (production + **quality-map** + **beam-map** endpoints; clone spinning `frame_map_*`).
-6. `services/weaving_standards.py`, `services/weaving_rules.py` (incl. jugar carry-forward **+ recompute
-   cascade** on edit, §0 row 7).
+6. `services/weaving_standards.py` (retained for `machine_standards` prefill); `services/weaving_rules.py`
+   **slimmed to a thin pure formula module** (`effective_jugar` + `production_yds` for FE parity + unit
+   tests) — **`resolve_open_jugar`, `close_jugar()`, `recompute_cascade`, the `compute_weaving_daily`
+   save-path are DELETED** (FREEZE NOTHING — the view's LAG handles open-jugar + propagation, §6.1a).
 7. Register routers in `main.py` (§9). Tests in `src/test/` (incl. `test_weaving_quality_map.py`).
 
 **Frontend** — model on spinning (tabbed entry) + beaming masters:
@@ -856,6 +928,8 @@ the juteSQC parent; map via `role_menu_map` (left to tenant admin). Use the `add
 **Gotchas to preserve:** quality is **mapped (spinning-style), not selected inline** — production grid
 inherits it via COALESCE; loom machine type = **`'Loom'` id 7**; standards **qid-only** (no mcid),
 target = speed+eff; **EB via attendance view, beam via beam-change tab** (not per-row); kg constant
-**`× 28.35 / 1000`**; `no_of_jugar_per_cut` mandatory; jugar carry-forward + **recompute cascade** on
-edit; target-map branch-agnostic single EAV table; production entry server-authoritative; SQC writes
-`value_role='actual'`; do **not** replicate the legacy bugs (§3 note).
+**`× 28.35 / 1000`**; `no_of_jugar_per_cut` mandatory; **FREEZE NOTHING + VIEW** — `jute_prod_weaving_daily`
+stores INPUTS only, `vw_weaving_daily` computes everything on read, jugar carry-forward via the view's
+window **LAG (no recompute cascade, no compute-on-save)**; target-map branch-agnostic single EAV table;
+production entry **persists inputs only**; SQC writes `value_role='actual'`; do **not** replicate the
+legacy bugs (§3 note).

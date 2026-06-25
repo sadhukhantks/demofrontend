@@ -1,6 +1,14 @@
-// Client-side preview mirrors the backend weaving rules (SPEC §3). The server
-// recomputes all values on save/create and is AUTHORITATIVE — these are display-only
-// previews. Structure mirrors spinningCalc.ts / beamingCalc.ts.
+// Client-side preview mirrors the backend weaving rules (SPEC §3, revised 2026-06-24).
+// The server / vw_weaving_daily recomputes all values on read and is AUTHORITATIVE —
+// these are display-only previews. Structure mirrors spinningCalc.ts / beamingCalc.ts.
+//
+// REVISED JUGAR MODEL (2026-06-24): the operator enters the CLOSING jugar reading (cj);
+// open_jugar (oj) is the last available close for this (loom, quality) before this
+// (date, spell); and `jugar` (jugars PRODUCED this spell) is DERIVED:
+//     X     = jc - oj + cj                       (jc = no_of_jugar_per_cut)
+//     jugar = (X - jc) when X > jc else X         (= cj-oj no-wrap; jc-oj+cj wrapped)
+//     jugar = max(0, jugar)
+//     production_yds = (cuts + jugar / jc) * FL   (guard jc > 0)
 //
 // Unit caution: the kg constants (28.35 = ounces→grams, /1000 = grams→kg) and the
 // picks/length conversions (36 = inches→yards) encode the legacy mill audit math.
@@ -10,22 +18,37 @@ function round2(x: number): number {
 	return Math.round(x * 100) / 100;
 }
 
-// production_yds = cuts·FL − open·FL/jpc + jugar·FL/jpc (SPEC §3).
-// FL = full length (yards/cut), jpc = jugar per cut. Returns 0 when fl is falsy and
-// guards jpc div-by-zero by treating the open/jugar terms as 0 when jpc is 0/falsy.
-export function productionYds(
-	cuts: number,
-	fl: number,
-	open: number,
-	jugar: number,
-	jpc: number,
-): number {
+// The authoritative view rounds production_yds / production_kg to 3 dp
+// (efficiency stays at 2 dp). Use round3 for those two outputs to match.
+function round3(x: number): number {
+	return Math.round(x * 1000) / 1000;
+}
+
+// effectiveJugar(jc, oj, cj) = the jugars PRODUCED this spell (derived), SPEC §3.
+//   X = jc - oj + cj; jugar = (X - jc) if X > jc else X; jugar = max(0, jugar).
+// jc = no_of_jugar_per_cut, oj = open_jugar (last available close), cj = closing jugar
+// (operator input). Pure + guarded — returns 0 when jc is falsy/non-positive.
+export function effectiveJugar(jc: number, oj: number, cj: number): number {
+	const j = Number(jc);
+	if (!j || j <= 0) return 0;
+	const open = Number(oj) || 0;
+	const close = Number(cj) || 0;
+	const x = j - open + close;
+	const jugar = x > j ? x - j : x;
+	return Math.max(0, jugar);
+}
+
+// production_yds = (cuts + jugar / jc) * FL (SPEC §3, revised). FL = finished length
+// (yards/cut), jc = no_of_jugar_per_cut, `jugar` = jugars PRODUCED (from effectiveJugar).
+// Returns 0 when fl is falsy; guards jc div-by-zero by dropping the jugar term when
+// jc is 0/falsy.
+export function productionYds(cuts: number, fl: number, jugar: number, jc: number): number {
 	const c = Number(cuts);
 	const f = Number(fl);
 	if (!f) return 0;
-	const j = Number(jpc);
-	const perJugar = j ? f / j : 0;
-	return round2(c * f - Number(open) * perJugar + Number(jugar) * perJugar);
+	const j = Number(jc);
+	const jugarFraction = j ? Number(jugar) / j : 0;
+	return round3((c + jugarFraction) * f);
 }
 
 // production_kg = yds · ozs_yds · 28.35 / 1000 (SPEC §3). ozs_yds = ounces per yard.
@@ -34,7 +57,7 @@ export function productionKg(productionYards: number, ozsYds: number): number {
 	const yds = Number(productionYards);
 	const ozs = Number(ozsYds);
 	if (!yds || !ozs) return 0;
-	return round2((yds * ozs * 28.35) / 1000);
+	return round3((yds * ozs * 28.35) / 1000);
 }
 
 // std_prod_yds = (eff_speed · wh · 60) / (36 · eff_picks) (SPEC §3).
