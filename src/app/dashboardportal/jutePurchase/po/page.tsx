@@ -316,6 +316,7 @@ export default function JutePOIndexPage() {
 			onPaginationModelChange={handlePaginationModelChange}
 			loading={loading}
 			showLoadingUntilLoaded
+			autoHeight
 			search={{
 				value: searchValue,
 				onChange: handleSearchChange,

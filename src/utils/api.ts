@@ -835,6 +835,11 @@ const apiRoutesPortalMasters = {
     SPINNING_SQC_COUNT_SAVE: `${API_URL}/juteSQC/sqc_count_save`,
     SPINNING_SQC_COUNT_BY_DATE: `${API_URL}/juteSQC/sqc_count_by_date`,
     SPINNING_SQC_COUNT_DELETE: `${API_URL}/juteSQC/sqc_count_delete`,
+    // Weaving Pick SQC / R-08-21 Loom Width & Picks (router prefix /api/juteSQC) — WEAVING_SQC_PICK_DELETE is a base path; caller appends /${id}
+    WEAVING_SQC_PICK_SETUP:   `${API_URL}/juteSQC/weaving_sqc_pick_setup`,
+    WEAVING_SQC_PICK_SAVE:    `${API_URL}/juteSQC/weaving_sqc_pick_save`,
+    WEAVING_SQC_PICK_BY_DATE: `${API_URL}/juteSQC/weaving_sqc_pick_by_date`,
+    WEAVING_SQC_PICK_DELETE:  `${API_URL}/juteSQC/weaving_sqc_pick_delete`,
     // R-08-15 Yarn QR & CV % (router prefix /api/juteSQC) — SPINNING_SQC_QR_CV_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_QR_CV_SETUP: `${API_URL}/juteSQC/sqc_qr_cv_setup`,
     SPINNING_SQC_QR_CV_SAVE: `${API_URL}/juteSQC/sqc_qr_cv_save`,
@@ -885,6 +890,33 @@ const apiRoutesPortalMasters = {
     BEAMING_ENTRY_DELETE: `${API_URL}/beamingProd/entry_delete`,
     BEAMING_PLANNING_GRID: `${API_URL}/beamingProd/planning_grid`,
     BEAMING_PLANNING_GRID_SAVE: `${API_URL}/beamingProd/planning_grid_save`,
+    // Finishing Spec Sheet (router prefix /api/finishingTargetMap) — clone of beamingTargetMap,
+    // adding the `process` dimension on every call. *_EDIT/*_DELETE are base paths; caller appends /${id}
+    FINISHING_TARGET_MAP_SETUP: `${API_URL}/finishingTargetMap/target_map_setup`,
+    FINISHING_TARGET_MAP_GRID: `${API_URL}/finishingTargetMap/target_map_grid`,
+    FINISHING_TARGET_MAP_BULK_SAVE: `${API_URL}/finishingTargetMap/target_map_bulk_save`,
+    FINISHING_TARGET_MAP_LIST: `${API_URL}/finishingTargetMap/target_map_list`,
+    FINISHING_TARGET_MAP_CREATE: `${API_URL}/finishingTargetMap/target_map_create`,
+    FINISHING_TARGET_MAP_EDIT: `${API_URL}/finishingTargetMap/target_map_edit`,
+    FINISHING_TARGET_MAP_DELETE: `${API_URL}/finishingTargetMap/target_map_delete`,
+    // Finishing Quality Master (router prefix /api/finishingMasters) — cloth (type 1) & bag (type 2)
+    // qualities. *_DETAIL/*_EDIT/*_DELETE are base paths; caller appends /${id}?co_id=...
+    FINISHING_QUALITY_SETUP: `${API_URL}/finishingMasters/quality_setup`,
+    FINISHING_QUALITY_LIST: `${API_URL}/finishingMasters/quality_list`,
+    FINISHING_QUALITY_DETAIL: `${API_URL}/finishingMasters/quality_detail`,
+    FINISHING_QUALITY_CREATE: `${API_URL}/finishingMasters/quality_create`,
+    FINISHING_QUALITY_EDIT: `${API_URL}/finishingMasters/quality_edit`,
+    FINISHING_QUALITY_DELETE: `${API_URL}/finishingMasters/quality_delete`,
+    // Finishing Production Entry (router prefix /api/finishingProd) — built by the production-entry slice.
+    FINISHING_PROD_ENTRY_SETUP: `${API_URL}/finishingProd/entry_setup`,
+    FINISHING_PROD_ENTRY_SAVE: `${API_URL}/finishingProd/entry_save`,
+    FINISHING_PROD_ENTRY_BY_DATE: `${API_URL}/finishingProd/entry_by_date`,
+    FINISHING_PROD_ENTRY_DELETE: `${API_URL}/finishingProd/entry_delete`,
+    // Finishing SQC — ACTUALS ONLY (router prefix /api/juteSQC, shared with Spinning/Beaming SQC).
+    // Proxies to finishingTargetMap with value_role='actual'.
+    FINISHING_SQC_SETUP: `${API_URL}/juteSQC/finishing_sqc_setup`,
+    FINISHING_SQC_ACTUAL_GRID: `${API_URL}/juteSQC/finishing_sqc_actual_grid`,
+    FINISHING_SQC_ACTUAL_SAVE: `${API_URL}/juteSQC/finishing_sqc_actual_save`,
     // Weaving Quality Master (router prefix /api/weavingMasters) — WEAVING_QUALITY_EDIT/DELETE are
     // base paths; caller appends /${id}?co_id=...
     WEAVING_QUALITY_SETUP: `${API_URL}/weavingMasters/weaving_quality_setup`,
@@ -918,6 +950,8 @@ const apiRoutesPortalMasters = {
     // Beam-change tab (router prefix /api/weavingProd)
     WEAVING_BEAM_MAP_GET: `${API_URL}/weavingProd/beam_map_get`,
     WEAVING_BEAM_MAP_SAVE: `${API_URL}/weavingProd/beam_map_save`,
+    WEAVING_ADJUSTMENT_GET: `${API_URL}/weavingProd/adjustment_get`,
+    WEAVING_ADJUSTMENT_SAVE: `${API_URL}/weavingProd/adjustment_save`,
 };
 
 // Support tickets (Zendesk-style). Raised from Portal/Tenant Admin widgets,

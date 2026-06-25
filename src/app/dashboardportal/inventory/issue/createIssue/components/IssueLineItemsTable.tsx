@@ -43,6 +43,7 @@ export const useIssueLineItemColumns = ({
 				id: "grnNo",
 				header: "GRN No",
 				width: "1fr",
+				minWidth: "90px",
 				renderCell: ({ item }) => (
 					<span className="text-xs font-medium">
 						{item.grnNo || "-"}
@@ -57,6 +58,7 @@ export const useIssueLineItemColumns = ({
 				id: "itemCode",
 				header: "Item Code",
 				width: "0.9fr",
+				minWidth: "110px",
 				renderCell: ({ item }) => (
 					<Tooltip title={item.itemCode || ""} placement="top">
 						<span className="text-xs font-mono truncate block">
@@ -72,6 +74,7 @@ export const useIssueLineItemColumns = ({
 				id: "itemName",
 				header: "Item Name",
 				width: "1.2fr",
+				minWidth: "160px",
 				renderCell: ({ item }) => (
 					<Tooltip title={item.itemName || ""} placement="top">
 						<span className="text-xs truncate block">
@@ -87,6 +90,7 @@ export const useIssueLineItemColumns = ({
 				id: "uom",
 				header: "UOM",
 				width: "0.6fr",
+				minWidth: "70px",
 				renderCell: ({ item }) => (
 					<span className="text-xs">
 						{item.uomName || "-"}
@@ -99,6 +103,7 @@ export const useIssueLineItemColumns = ({
 				id: "availableQty",
 				header: "Avail",
 				width: "0.6fr",
+				minWidth: "70px",
 				renderCell: ({ item }) => (
 					<span className="text-xs text-right block text-gray-500">
 						{item.availableQty ? parseFloat(item.availableQty).toFixed(2) : "-"}
@@ -111,6 +116,7 @@ export const useIssueLineItemColumns = ({
 				id: "quantity",
 				header: "Qty",
 				width: "0.7fr",
+				minWidth: "90px",
 				renderCell: ({ item }) => {
 					if (!canEdit) {
 						return <span className="text-xs text-right block">{item.quantity}</span>;
@@ -152,6 +158,7 @@ export const useIssueLineItemColumns = ({
 				id: "rate",
 				header: "Rate",
 				width: "0.7fr",
+				minWidth: "80px",
 				renderCell: ({ item }) => (
 					<span className="text-xs text-right block">
 						{item.rate ? parseFloat(item.rate).toFixed(2) : "-"}
@@ -164,6 +171,7 @@ export const useIssueLineItemColumns = ({
 				id: "expenseType",
 				header: "Expense Type",
 				width: "1.1fr",
+				minWidth: "160px",
 				renderCell: ({ item }) => {
 					if (!canEdit) {
 						return (
@@ -195,6 +203,7 @@ export const useIssueLineItemColumns = ({
 				id: "costFactor",
 				header: "Cost Factor",
 				width: "1fr",
+				minWidth: "200px",
 				renderCell: ({ item }) => {
 					if (!canEdit) {
 						return (
@@ -226,6 +235,7 @@ export const useIssueLineItemColumns = ({
 				id: "machine",
 				header: "Machine",
 				width: "1fr",
+				minWidth: "150px",
 				renderCell: ({ item }) => {
 					if (!canEdit) {
 						return (
@@ -257,6 +267,7 @@ export const useIssueLineItemColumns = ({
 				id: "remarks",
 				header: "Remarks",
 				width: "0.9fr",
+				minWidth: "150px",
 				renderCell: ({ item }) => {
 					if (!canEdit) {
 						return <span className="text-xs">{item.remarks}</span>;
