@@ -5,6 +5,7 @@ import {
   GridRowsProp,
   GridFilterModel,
   GridSortModel,
+  GridRowClassNameParams,
 } from '@mui/x-data-grid';
 import { Box } from '@mui/material';
 import React, { useState, useEffect } from 'react';
@@ -35,6 +36,9 @@ interface MuiDataGridProps {
   disableColumnSelector?: boolean;
   disableDensitySelector?: boolean;
   disableExport?: boolean;
+  // Optional per-row class hook (e.g. to style a pinned grand-total row).
+  // Return "row-grand-total" to apply the built-in bold/highlight styling.
+  getRowClassName?: (params: GridRowClassNameParams) => string;
 }
 
 const MuiDataGrid: React.FC<MuiDataGridProps> = ({
@@ -62,6 +66,7 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
   disableColumnSelector = false,
   disableDensitySelector = false,
   disableExport = false,
+  getRowClassName,
 }) => {
   // Ensure component is mounted before rendering DataGrid to avoid
   // "Can't perform a React state update on a component that hasn't mounted yet"
@@ -132,6 +137,7 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
         disableColumnFilter={disableColumnFilter}
         disableColumnSelector={disableColumnSelector}
         disableDensitySelector={disableDensitySelector}
+        getRowClassName={getRowClassName}
         sx={{
           '& .MuiDataGrid-columnHeader': {
             backgroundColor: '#3ea6da',
@@ -144,6 +150,14 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
           '& .MuiDataGrid-toolbarContainer': {
             padding: '8px 16px',
             gap: '8px',
+          },
+          // Pinned grand-total row (opt-in via getRowClassName).
+          '& .row-grand-total': {
+            backgroundColor: '#eef6fb',
+            fontWeight: 'bold',
+          },
+          '& .row-grand-total:hover': {
+            backgroundColor: '#e0eff7',
           },
         }}
       />
