@@ -835,6 +835,11 @@ const apiRoutesPortalMasters = {
     SPINNING_SQC_COUNT_SAVE: `${API_URL}/juteSQC/sqc_count_save`,
     SPINNING_SQC_COUNT_BY_DATE: `${API_URL}/juteSQC/sqc_count_by_date`,
     SPINNING_SQC_COUNT_DELETE: `${API_URL}/juteSQC/sqc_count_delete`,
+    // Spreader SQC / R-08-04 Roll Weight (router prefix /api/juteSQC) — SPREADER_SQC_ROLL_WT_DELETE is a base path; caller appends /${id}
+    SPREADER_SQC_ROLL_WT_SETUP: `${API_URL}/juteSQC/get_spreader_roll_wt_setup`,
+    SPREADER_SQC_ROLL_WT_SAVE: `${API_URL}/juteSQC/create_spreader_roll_wt`,
+    SPREADER_SQC_ROLL_WT_BY_DATE: `${API_URL}/juteSQC/get_spreader_roll_wt_by_date`,
+    SPREADER_SQC_ROLL_WT_DELETE: `${API_URL}/juteSQC/spreader_roll_wt_delete`,
     // Weaving Pick SQC / R-08-21 Loom Width & Picks (router prefix /api/juteSQC) — WEAVING_SQC_PICK_DELETE is a base path; caller appends /${id}
     WEAVING_SQC_PICK_SETUP:   `${API_URL}/juteSQC/weaving_sqc_pick_setup`,
     WEAVING_SQC_PICK_SAVE:    `${API_URL}/juteSQC/weaving_sqc_pick_save`,

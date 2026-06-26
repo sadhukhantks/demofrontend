@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Box, Card, CardActionArea, CardContent, Typography } from "@mui/material";
-import { FlaskConical, Disc3, Columns3, Layers } from "lucide-react";
+import { FlaskConical, Disc3, Columns3, Layers, Cog } from "lucide-react";
 
 type Tile = {
 	href: string;
@@ -24,6 +24,12 @@ const TILES: Tile[] = [
 		title: "Spinning SQC",
 		subtitle: "Yarn parameter, actual speed/TPI, RHMR, QR & CV %",
 		icon: <Disc3 size={32} className="text-blue-600" />,
+	},
+	{
+		href: "/dashboardportal/juteSQC/spreader",
+		title: "Spreader SQC",
+		subtitle: "Spreader roll/sliver weight quality checks",
+		icon: <Cog size={32} className="text-blue-600" />,
 	},
 	{
 		href: "/dashboardportal/juteSQC/beaming",
