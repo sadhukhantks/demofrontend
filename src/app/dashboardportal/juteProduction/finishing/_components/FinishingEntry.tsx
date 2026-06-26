@@ -166,7 +166,7 @@ export default function FinishingEntry({ process }: Props) {
 						<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
 							<CircularProgress />
 						</Box>
-					) : setup.machines.length === 0 ? (
+					) : !config.usesEmployee && setup.machines.length === 0 ? (
 						<Alert severity="info">
 							No machines found for this process/branch. Tag machines to the{" "}
 							{config.title.replace(" Production", "")} machine type, then set their

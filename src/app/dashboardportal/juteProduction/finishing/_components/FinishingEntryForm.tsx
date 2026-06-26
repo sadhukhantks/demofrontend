@@ -15,6 +15,7 @@ import { Save as SaveIcon, X as CancelIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type {
+	FinishingEmployeeLookupResult,
 	FinishingEntryRow,
 	FinishingEntrySaveBody,
 	FinishingSaveResult,
@@ -41,6 +42,8 @@ type Props = {
 
 const EMPTY_VALUES: FinishingFormValues = {
 	machineId: "",
+	empCode: "",
+	ebId: "",
 	qualityId: "",
 	spellId: "",
 	prodQty: "",
@@ -59,6 +62,8 @@ export default function FinishingEntryForm({
 	onCancelEdit,
 }: Props) {
 	const editing = editingEntry != null;
+	// Labour process (sacksewing): keyed by a worker (emp_code -> eb_id), no machine.
+	const usesEmployee = config.usesEmployee === true;
 
 	const {
 		control,
@@ -75,6 +80,41 @@ export default function FinishingEntryForm({
 
 	const [error, setError] = React.useState<string | null>(null);
 	const [snack, setSnack] = React.useState<string | null>(null);
+	// Resolved worker display ("emp_code first middle last") + lookup spinner state.
+	const [empName, setEmpName] = React.useState<string | null>(null);
+	const [empLoading, setEmpLoading] = React.useState(false);
+
+	// Resolve an emp_code to its worker (eb_id), branch-scoped. Clears the resolved
+	// eb_id/name first so a stale id can't be saved if the new code is invalid.
+	const lookupEmployee = async (rawCode: string) => {
+		const code = rawCode.trim();
+		setError(null);
+		setEmpName(null);
+		setValue("ebId", "");
+		if (!code) return;
+		if (branchId == null) {
+			setError("Select a branch first.");
+			return;
+		}
+		setEmpLoading(true);
+		const url = `${apiRoutesPortalMasters.FINISHING_PROD_EMPLOYEE_LOOKUP}?co_id=${coId}&branch_id=${branchId}&emp_code=${encodeURIComponent(code)}`;
+		const { data, error: err } = await fetchWithCookie<{ data: FinishingEmployeeLookupResult }>(
+			url,
+			"GET"
+		);
+		setEmpLoading(false);
+		if (err) {
+			setError(err);
+			return;
+		}
+		const res = data?.data ?? null;
+		if (!res) {
+			setError("Emp code not found");
+			return;
+		}
+		setValue("ebId", String(res.eb_id));
+		setEmpName(res.employee_name);
+	};
 
 	// Keep the hidden spellId field in sync with the shared spell selector.
 	React.useEffect(() => {
@@ -88,11 +128,14 @@ export default function FinishingEntryForm({
 	React.useEffect(() => {
 		if (!editingEntry) return;
 		reset({
-			machineId: String(editingEntry.machine_id),
+			machineId: editingEntry.machine_id != null ? String(editingEntry.machine_id) : "",
+			empCode: editingEntry.emp_code ?? "",
+			ebId: editingEntry.eb_id != null ? String(editingEntry.eb_id) : "",
 			qualityId: String(editingEntry.finishing_quality_id),
 			spellId: String(editingEntry.spell_id),
 			prodQty: editingEntry.prod_qty != null ? String(editingEntry.prod_qty) : "",
 		});
+		setEmpName(editingEntry.emp_name ?? null);
 		setError(null);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [editingEntry, reset]);
@@ -120,11 +163,23 @@ export default function FinishingEntryForm({
 			tran_date: date,
 			spell_id: resolvedSpellId,
 			process,
-			machine_id: Number(values.machineId),
 			finishing_quality_id: Number(values.qualityId),
 			prod_qty: Number(values.prodQty),
 			prod_uom: config.prodUom,
 		};
+		if (usesEmployee) {
+			if (!values.ebId) {
+				setError("Enter a valid emp code (look it up first).");
+				return;
+			}
+			body.eb_id = Number(values.ebId);
+		} else {
+			if (!values.machineId) {
+				setError("Select a machine.");
+				return;
+			}
+			body.machine_id = Number(values.machineId);
+		}
 
 		const { data, error: err } = await fetchWithCookie<{ data: FinishingSaveResult }>(
 			apiRoutesPortalMasters.FINISHING_PROD_ENTRY_SAVE,
@@ -141,13 +196,15 @@ export default function FinishingEntryForm({
 				? `Updated ${config.title} entry #${result?.finishing_daily_id}`
 				: `Saved ${config.title} entry #${result?.finishing_daily_id}`
 		);
-		// Keep machine/spell for rapid sequential entry; clear the rest.
+		// Keep machine/spell for rapid sequential entry; clear the rest. Labour processes
+		// clear the worker too (a fresh emp code per entry).
 		const prev = getValues();
 		reset({
 			...EMPTY_VALUES,
 			machineId: editing ? "" : prev.machineId,
 			spellId: prev.spellId,
 		});
+		setEmpName(null);
 		if (editing) onCancelEdit();
 		onSaved();
 	};
@@ -175,36 +232,72 @@ export default function FinishingEntryForm({
 					},
 				}}
 			>
-				{/* Machine */}
-				<Controller
-					control={control}
-					name="machineId"
-					render={({ field }) => (
-						<Autocomplete
-							options={setup.machines}
-							getOptionLabel={(m) => `${m.mech_code} — ${m.machine_name}`}
-							value={
-								setup.machines.find((m) => String(m.machine_id) === field.value) ?? null
-							}
-							onChange={(_, newVal) =>
-								field.onChange(newVal ? String(newVal.machine_id) : "")
-							}
-							size="small"
-							fullWidth
-							disabled={editing}
-							clearOnEscape
-							isOptionEqualToValue={(opt, val) => opt.machine_id === val.machine_id}
-							renderInput={(params) => (
+				{/* Worker (labour processes — sacksewing) OR Machine (all others) */}
+				{usesEmployee ? (
+					<Controller
+						control={control}
+						name="empCode"
+						render={({ field }) => (
+							<Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
 								<TextField
-									{...params}
-									label="Machine"
-									error={!!errors.machineId}
-									helperText={errors.machineId?.message}
+									label="Emp Code"
+									value={field.value}
+									onChange={(e) => {
+										field.onChange(e.target.value);
+										setEmpName(null);
+										setValue("ebId", "");
+									}}
+									onBlur={() => lookupEmployee(field.value)}
+									size="small"
+									fullWidth
+									disabled={editing}
+									error={!!errors.empCode}
+									helperText={empName ?? "Enter emp code, then Tab or Find"}
 								/>
-							)}
-						/>
-					)}
-				/>
+								<Button
+									type="button"
+									variant="outlined"
+									size="small"
+									onClick={() => lookupEmployee(field.value)}
+									disabled={editing || empLoading}
+									sx={{ minHeight: 40 }}
+								>
+									Find
+								</Button>
+							</Box>
+						)}
+					/>
+				) : (
+					<Controller
+						control={control}
+						name="machineId"
+						render={({ field }) => (
+							<Autocomplete
+								options={setup.machines}
+								getOptionLabel={(m) => `${m.mech_code} — ${m.machine_name}`}
+								value={
+									setup.machines.find((m) => String(m.machine_id) === field.value) ?? null
+								}
+								onChange={(_, newVal) =>
+									field.onChange(newVal ? String(newVal.machine_id) : "")
+								}
+								size="small"
+								fullWidth
+								disabled={editing}
+								clearOnEscape
+								isOptionEqualToValue={(opt, val) => opt.machine_id === val.machine_id}
+								renderInput={(params) => (
+									<TextField
+										{...params}
+										label="Machine"
+										error={!!errors.machineId}
+										helperText={errors.machineId?.message}
+									/>
+								)}
+							/>
+						)}
+					/>
+				)}
 
 				{/* Quality */}
 				<Controller

@@ -77,9 +77,14 @@ export type FinishingEntryRow = {
 	spell_id: number;
 	spell_code: string | null;
 	process: string;
-	machine_id: number;
+	// machine_id is NULL for labour processes (sacksewing); eb_id keys the row instead.
+	machine_id: number | null;
 	mech_code: string | null;
 	machine_name: string | null;
+	// Worker (labour processes — sacksewing). emp_code/emp_name resolved for the day grid.
+	eb_id: number | null;
+	emp_code: string | null;
+	emp_name: string | null;
 	finishing_quality_id: number;
 	fin_quality_code: string | null;
 	fin_quality_name: string | null;
@@ -89,14 +94,16 @@ export type FinishingEntryRow = {
 };
 
 // --- Save body (POST /finishingProd/entry_save) ----------------------------
-// User enters only: tran_date, spell, machine, quality, and the production figure.
+// User enters only: tran_date, spell, machine|employee, quality, and the production figure.
+// Labour processes (sacksewing) send eb_id (no machine_id); all others send machine_id.
 export type FinishingEntrySaveBody = {
 	co_id: number;
 	branch_id: number | null;
 	tran_date: string;
 	spell_id: number;
 	process: string;
-	machine_id: number;
+	machine_id?: number | null;
+	eb_id?: number | null;
 	finishing_quality_id: number;
 	prod_qty: number;
 	prod_uom: string;
@@ -104,4 +111,13 @@ export type FinishingEntrySaveBody = {
 
 export type FinishingSaveResult = {
 	finishing_daily_id: number;
+};
+
+// --- Employee lookup (GET /finishingProd/employee_lookup) -------------------
+// Labour processes (sacksewing): resolve an emp_code to its worker, branch-scoped.
+export type FinishingEmployeeLookupResult = {
+	eb_id: number;
+	emp_code: string;
+	// Display name = emp_code + first/middle/last name.
+	employee_name: string;
 };
