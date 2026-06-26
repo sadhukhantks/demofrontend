@@ -912,6 +912,8 @@ const apiRoutesPortalMasters = {
     FINISHING_PROD_ENTRY_SAVE: `${API_URL}/finishingProd/entry_save`,
     FINISHING_PROD_ENTRY_BY_DATE: `${API_URL}/finishingProd/entry_by_date`,
     FINISHING_PROD_ENTRY_DELETE: `${API_URL}/finishingProd/entry_delete`,
+    // Labour processes (sacksewing): resolve emp_code -> eb_id + name, branch-scoped.
+    FINISHING_PROD_EMPLOYEE_LOOKUP: `${API_URL}/finishingProd/employee_lookup`,
     // Finishing SQC — ACTUALS ONLY (router prefix /api/juteSQC, shared with Spinning/Beaming SQC).
     // Proxies to finishingTargetMap with value_role='actual'.
     FINISHING_SQC_SETUP: `${API_URL}/juteSQC/finishing_sqc_setup`,
