@@ -21,6 +21,8 @@ export type FinishingProcessConfig = {
 	subtitle: string;
 	inputUom: string;
 	prodUom: string;
+	// Labour-based process: keyed by a worker (emp_code -> eb_id), NOT a machine.
+	usesEmployee?: boolean;
 };
 
 export const FINISHING_PROCESS_CONFIG: Record<FinishingProcess, FinishingProcessConfig> = {
@@ -76,9 +78,10 @@ export const FINISHING_PROCESS_CONFIG: Record<FinishingProcess, FinishingProcess
 	sacksewing: {
 		process: "sacksewing",
 		title: "Sack Sewing Production",
-		subtitle: "Sew pieces into finished bags — pieces in, bags out.",
+		subtitle: "Sew pieces into finished bags — entered per worker (emp code), no machine.",
 		inputUom: "pcs",
 		prodUom: "bag",
+		usesEmployee: true,
 	},
 	balepress: {
 		process: "balepress",

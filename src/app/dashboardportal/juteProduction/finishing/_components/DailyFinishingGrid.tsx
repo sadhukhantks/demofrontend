@@ -93,8 +93,15 @@ export default function DailyFinishingGrid({
 			{ field: "finishing_daily_id", headerName: "ID", width: 70 },
 			{ field: "tran_date", headerName: "Date", width: 110 },
 			{ field: "spell_code", headerName: "Spell", width: 80 },
-			{ field: "mech_code", headerName: "Mc Code", width: 100 },
-			{ field: "machine_name", headerName: "Machine", width: 150 },
+			...(config.usesEmployee
+				? [
+						{ field: "emp_code", headerName: "Emp Code", width: 110 },
+						{ field: "emp_name", headerName: "Employee", width: 180 },
+					]
+				: [
+						{ field: "mech_code", headerName: "Mc Code", width: 100 },
+						{ field: "machine_name", headerName: "Machine", width: 150 },
+					]),
 			{ field: "fin_quality_code", headerName: "Quality", width: 120 },
 			{ field: "fin_quality_name", headerName: "Quality Name", width: 150 },
 			{
@@ -104,7 +111,7 @@ export default function DailyFinishingGrid({
 				type: "number",
 			},
 		],
-		[handleDelete, onEdit, config.prodUom]
+		[handleDelete, onEdit, config.prodUom, config.usesEmployee]
 	);
 
 	return (
