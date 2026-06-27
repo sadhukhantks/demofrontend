@@ -855,6 +855,16 @@ const apiRoutesPortalMasters = {
     CARD_SLIVER_WT_SAVE: `${API_URL}/juteSQC/create_card_sliver_wt`,
     CARD_SLIVER_WT_BY_DATE: `${API_URL}/juteSQC/get_card_sliver_wt_by_date`,
     CARD_SLIVER_WT_DELETE: `${API_URL}/juteSQC/card_sliver_wt_delete`,
+    // Finisher Drawing SQC / R-08-12/13/14 Finisher Drawing Sliver Weight (router prefix /api/juteSQC) — multi-row create; FIN_DRAW_SLIVER_WT_DELETE is a base path; caller appends /${id}
+    FIN_DRAW_SLIVER_WT_SETUP: `${API_URL}/juteSQC/get_fin_draw_sliver_wt_setup`,
+    FIN_DRAW_SLIVER_WT_SAVE: `${API_URL}/juteSQC/create_fin_draw_sliver_wt`,
+    FIN_DRAW_SLIVER_WT_BY_DATE: `${API_URL}/juteSQC/get_fin_draw_sliver_wt_by_date`,
+    FIN_DRAW_SLIVER_WT_DELETE: `${API_URL}/juteSQC/fin_draw_sliver_wt_delete`,
+    // Drawhead & Finisher Card SQC / R-08-08/09/10 Draw Sliver Weight (router prefix /api/juteSQC) — multi-row create; DRAW_SLIVER_WT_DELETE is a base path; caller appends /${id}
+    DRAW_SLIVER_WT_SETUP: `${API_URL}/juteSQC/get_draw_sliver_wt_setup`,
+    DRAW_SLIVER_WT_SAVE: `${API_URL}/juteSQC/create_draw_sliver_wt`,
+    DRAW_SLIVER_WT_BY_DATE: `${API_URL}/juteSQC/get_draw_sliver_wt_by_date`,
+    DRAW_SLIVER_WT_DELETE: `${API_URL}/juteSQC/draw_sliver_wt_delete`,
     // Weaving Pick SQC / R-08-21 Loom Width & Picks (router prefix /api/juteSQC) — WEAVING_SQC_PICK_DELETE is a base path; caller appends /${id}
     WEAVING_SQC_PICK_SETUP:   `${API_URL}/juteSQC/weaving_sqc_pick_setup`,
     WEAVING_SQC_PICK_SAVE:    `${API_URL}/juteSQC/weaving_sqc_pick_save`,
@@ -865,6 +875,16 @@ const apiRoutesPortalMasters = {
     SPINNING_SQC_QR_CV_SAVE: `${API_URL}/juteSQC/sqc_qr_cv_save`,
     SPINNING_SQC_QR_CV_BY_DATE: `${API_URL}/juteSQC/sqc_qr_cv_by_date`,
     SPINNING_SQC_QR_CV_DELETE: `${API_URL}/juteSQC/sqc_qr_cv_delete`,
+    // R-08-15A Yarn QR% & CV% (Special Purpose) (router prefix /api/juteSQC) — header + 12-reading grid; QR_CV_15A_SQC_DELETE is a base path; caller appends /${id}
+    QR_CV_15A_SQC_SETUP: `${API_URL}/juteSQC/qr_cv_15a_setup`,
+    QR_CV_15A_SQC_SAVE: `${API_URL}/juteSQC/qr_cv_15a_save`,
+    QR_CV_15A_SQC_BY_DATE: `${API_URL}/juteSQC/qr_cv_15a_by_date`,
+    QR_CV_15A_SQC_DELETE: `${API_URL}/juteSQC/qr_cv_15a_delete`,
+    // R-08-17 Yarn TPI & TPI CV% (router prefix /api/juteSQC) — header + 20-reading TPI grid; YARN_TPI_SQC_DELETE is a base path; caller appends /${id}
+    YARN_TPI_SQC_SETUP: `${API_URL}/juteSQC/yarn_tpi_setup`,
+    YARN_TPI_SQC_SAVE: `${API_URL}/juteSQC/yarn_tpi_save`,
+    YARN_TPI_SQC_BY_DATE: `${API_URL}/juteSQC/yarn_tpi_by_date`,
+    YARN_TPI_SQC_DELETE: `${API_URL}/juteSQC/yarn_tpi_delete`,
     // RHMR (Temperature / Humidity per date + spell) — SPINNING_SQC_RHMR_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_RHMR_SETUP: `${API_URL}/juteSQC/sqc_rhmr_setup`,
     SPINNING_SQC_RHMR_SEARCH: `${API_URL}/juteSQC/sqc_rhmr_search`,
