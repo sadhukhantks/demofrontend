@@ -885,6 +885,12 @@ const apiRoutesPortalMasters = {
     YARN_TPI_SQC_SAVE: `${API_URL}/juteSQC/yarn_tpi_save`,
     YARN_TPI_SQC_BY_DATE: `${API_URL}/juteSQC/yarn_tpi_by_date`,
     YARN_TPI_SQC_DELETE: `${API_URL}/juteSQC/yarn_tpi_delete`,
+    // R-08-18 Beam MR% (router prefix /api/juteSQC) — single reading-set per save (5 MR% readings); BEAM_MR_DELETE POSTs {beam_mr_id, co_id}
+    BEAM_MR_CREATE_SETUP: `${API_URL}/juteSQC/get_beam_mr_create_setup`,
+    BEAM_MR_CREATE: `${API_URL}/juteSQC/create_beam_mr`,
+    BEAM_MR_BY_DATE: `${API_URL}/juteSQC/get_beam_mr_by_date`,
+    BEAM_MR_TABLE: `${API_URL}/juteSQC/get_beam_mr_table`,
+    BEAM_MR_DELETE: `${API_URL}/juteSQC/delete_beam_mr`,
     // RHMR (Temperature / Humidity per date + spell) — SPINNING_SQC_RHMR_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_RHMR_SETUP: `${API_URL}/juteSQC/sqc_rhmr_setup`,
     SPINNING_SQC_RHMR_SEARCH: `${API_URL}/juteSQC/sqc_rhmr_search`,
