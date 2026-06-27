@@ -295,6 +295,11 @@ export default function BreakerCardForm({ coId, branchId, entryDate, setup, onSa
 										<Autocomplete
 											options={setup.qualities}
 											getOptionLabel={(opt) => `${opt.item_name} (${opt.item_code})`}
+											renderOption={(props, opt) => (
+												<li {...props} key={opt.item_id}>
+													{opt.item_name} ({opt.item_code})
+												</li>
+											)}
 											value={
 												r.itemId === ""
 													? null
