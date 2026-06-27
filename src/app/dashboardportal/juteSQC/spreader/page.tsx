@@ -7,12 +7,15 @@ import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayISO } from "./utils/spreaderCalc";
 import { useSqcRollWtSetup } from "./hooks/useSqcRollWtSetup";
 import { useSqcRollWtByDate } from "./hooks/useSqcRollWtByDate";
+import { useSqcSliverWtSetup } from "./hooks/useSqcSliverWtSetup";
+import { useSqcSliverWtByDate } from "./hooks/useSqcSliverWtByDate";
 import RollWtForm from "./_components/RollWtForm";
 import RollWtGrid from "./_components/RollWtGrid";
+import SliverWtForm from "./_components/SliverWtForm";
+import SliverWtGrid from "./_components/SliverWtGrid";
 
-// Single tab for now — R-08-03 Roll Sliver Weight is the immediate follow-up
-// (same page, second tab) per the R-08-04 build plan.
-const TABS = ["R-08-04 Roll Weight"] as const;
+// Two Spreader SQC reports share this page as tabs.
+const TABS = ["R-08-04 Roll Weight", "R-08-03 Sliver Weight"] as const;
 
 export default function SpreaderSqcPage() {
 	// HYDRATION RULE: this component reads sidebar context and seeds a date,
@@ -64,6 +67,23 @@ export default function SpreaderSqcPage() {
 		refreshRollWt();
 	}, [refreshRollWt]);
 
+	// Tab 1 — R-08-03 Sliver Weight: per-machine/quality variable 1–12 readings by date.
+	const [sliverWtDate, setSliverWtDate] = React.useState<string>(todayISO());
+	const {
+		setup: sliverWtSetup,
+		loading: sliverWtSetupLoading,
+		error: sliverWtSetupError,
+	} = useSqcSliverWtSetup(coId, sliverWtDate, branchId);
+	const {
+		readings: sliverWtReadings,
+		loading: sliverWtLoading,
+		refresh: refreshSliverWt,
+	} = useSqcSliverWtByDate(coId, sliverWtDate, branchId);
+
+	const onSliverWtSaved = React.useCallback(() => {
+		refreshSliverWt();
+	}, [refreshSliverWt]);
+
 	if (!mounted) return null;
 
 	if (!coId) {
@@ -88,7 +108,8 @@ export default function SpreaderSqcPage() {
 				Spreader SQC
 			</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-				Capture spreader roll-weight bench readings (R-08-04) per machine and raw-jute quality.
+				Capture spreader roll-weight (R-08-04) and sliver-weight (R-08-03) bench readings per
+				machine and raw-jute quality.
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
@@ -162,6 +183,42 @@ export default function SpreaderSqcPage() {
 								machines={rollWtSetup?.machines ?? []}
 								loading={rollWtLoading}
 								onDeleted={onRollWtSaved}
+							/>
+						</Box>
+					) : null}
+
+					{/* Tab 1 — R-08-03 Sliver Weight */}
+					{tab === 1 ? (
+						<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+							<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+								<Typography variant="subtitle2">Entry date</Typography>
+								<TextField
+									type="date"
+									size="small"
+									value={sliverWtDate}
+									onChange={(e) => setSliverWtDate(e.target.value)}
+									InputLabelProps={{ shrink: true }}
+								/>
+							</Box>
+							{sliverWtSetupError ? <Alert severity="error">{sliverWtSetupError}</Alert> : null}
+							{sliverWtSetupLoading || !sliverWtSetup ? (
+								<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+									<CircularProgress />
+								</Box>
+							) : (
+								<SliverWtForm
+									coId={coId}
+									branchId={branchId}
+									entryDate={sliverWtDate}
+									setup={sliverWtSetup}
+									onSaved={onSliverWtSaved}
+								/>
+							)}
+							<SliverWtGrid
+								coId={coId}
+								readings={sliverWtReadings}
+								loading={sliverWtLoading}
+								onDeleted={onSliverWtSaved}
 							/>
 						</Box>
 					) : null}
