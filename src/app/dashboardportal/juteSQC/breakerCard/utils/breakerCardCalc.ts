@@ -1,15 +1,13 @@
 // Client-side preview for R-08-05/06/07 Breaker Card (Coarse-Side SWT). Mirrors
 // the backend compute_breaker_card_stats (build plan §2). The server recomputes
 // and persists every value on save and is AUTHORITATIVE; this only reproduces the
-// math for live per-row display so the inspector sees the corrected sliver weight,
-// CV% and band pass/fail before saving the whole sheet.
+// math for live per-row display so the inspector sees the corrected sliver weight
+// and CV% before saving the whole sheet.
 //
-// Verified worked example (report spec §5):
-//   Row1 HESSIAN std16: WT 20.32, MR% 29 → Corr 20.32×116/129 = 18.26;
-//   corrected cuts → sdev 0.795, cv 0.0436 (4.36%).
-//   Row3 SACKING WEFT std20: Corr 20.40×120/132.25 = 18.51, cv 0.0240 (2.40%).
+// The quality linkage is a BATCH, which has no single std, so the preview always
+// uses DEFAULT_STD_MR_PCT (16, breaker default) and no CV band.
 
-// Default per-quality standard moisture regain % when no satellite value is set.
+// Standard moisture regain % used for every batch row (a batch has no per-row std).
 export const DEFAULT_STD_MR_PCT = 16;
 
 function round2(x: number): number {
@@ -77,16 +75,16 @@ export type BreakerCardPreview = {
 // Empty/invalid readings are dropped pairwise (a weight without its MR%, or vice
 // versa, is ignored). Returns null when no usable reading pair exists yet.
 //
-// Corr Wt follows the cached-value path: avg-then-correct (avgWt corrected by
-// avgMr), which matches the sheet exactly. The CV% uses the per-cut corrected
-// series' sample stdev over the corrected sliver weight.
+// A batch has no single std, so the preview always uses std 16 with NO CV band
+// (withinBand is always null). Corr Wt follows the cached-value path:
+// avg-then-correct (avgWt corrected by avgMr), which matches the sheet exactly.
+// The CV% uses the per-cut corrected series' sample stdev over the corrected
+// sliver weight.
 export function computeRowPreview(
 	weightStrings: string[],
 	mrStrings: string[],
-	stdMrPct: number | null | undefined,
-	stdCvHigh: number | null | undefined,
 ): BreakerCardPreview | null {
-	const stdMr = stdMrPct == null ? DEFAULT_STD_MR_PCT : Number(stdMrPct);
+	const stdMr = DEFAULT_STD_MR_PCT;
 
 	const observed: number[] = [];
 	const mr: number[] = [];
@@ -125,7 +123,7 @@ export function computeRowPreview(
 		corrWt,
 		sdev,
 		cvPct: round2(cv * 100),
-		withinBand: cvWithinBand(cv, stdCvHigh),
+		withinBand: null, // batch has no std → no CV band
 		n: observed.length,
 	};
 }

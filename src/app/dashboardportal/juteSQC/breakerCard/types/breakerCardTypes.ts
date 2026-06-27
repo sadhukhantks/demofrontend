@@ -1,10 +1,14 @@
 // Types for the Breaker Card SQC screen (R-08-05/06/07 Coarse-Side SWT — carding
 // stage). Mirrors the backend /api/juteSQC breaker-card endpoints. This is a
-// MULTI-ROW report: one date sheet holds many (machine, spell, quality) reading
+// MULTI-ROW report: one date sheet holds many (machine, spell, batch) reading
 // sets, each with exactly 4 cut weights + 4 MR%. The server recomputes and
 // persists every calc_* value on save and is AUTHORITATIVE; the FE only previews
-// the math for live display. A per-quality GRAND-AVERAGE block is recomputed by
+// the math for live display. A per-batch GRAND-AVERAGE block is recomputed by
 // the server at read time (NOT stored) and returned alongside the rows.
+//
+// The quality linkage is a BATCH (jute_batch_plan), not a single line quality. A
+// batch has no single std, so std MR always falls back to 16 (breaker default)
+// and the CV band is unevaluated (cv_within_band null).
 //
 // Dates are 'YYYY-MM-DD' strings; the backend returns floats already.
 
@@ -35,27 +39,23 @@ export type BreakerMachine = {
 	branch_id?: number | null;
 };
 
-// A line quality (item_mst under parent group item_type_id = 5 "Jute Cloth").
-// std_mr_pct / std_cv_low / std_cv_high are snapshotted from the
-// jute_draw_quality_std satellite at (item_id, process='BREAKER'). All three are
-// nullable: when std_mr_pct is null the server falls back to base 16, and when
-// std_cv_high is null no CV pass/fail band is applied (cv_within_band = null).
-export type LineQualityOption = {
-	item_id: number;
-	item_code: string;
-	item_name: string;
-	std_mr_pct?: number | null;
-	std_cv_low?: number | null;
-	std_cv_high?: number | null;
+// A batch (jute_batch_plan) — a named mix of raw-jute qualities created in Jute
+// Batch Plan. plan_name is the display label. A batch has no single std, so the
+// preview always uses std 16 (breaker default) and no CV band.
+export type BatchOption = {
+	batch_plan_id: number;
+	plan_name: string;
+	branch_id?: number | null;
+	line_qty?: number;
 };
 
 // ─── Setup payload ───────────────────────────────────────────────────────────
 
-// GET get_breaker_card_swt_setup -> {"data": {machines, spells, qualities, entries}}.
+// GET get_breaker_card_swt_setup -> {"data": {machines, spells, batches, entries}}.
 export type BreakerCardSetup = {
 	machines: BreakerMachine[];
 	spells: SqcSpell[];
-	qualities: LineQualityOption[];
+	batches: BatchOption[];
 	entries: BreakerCardReadingRow[];
 };
 
@@ -75,6 +75,9 @@ export type BreakerCardReadingRow = {
 	spell_id?: number | null;
 	spell_code?: string | null;
 	spell_name?: string | null;
+	batch_plan_id?: number | null;
+	batch_plan_name?: string | null;
+	// Legacy line-quality fields — still present on old rows, not used.
 	item_id?: number | null;
 	item_code?: string | null;
 	item_name?: string | null;
@@ -92,14 +95,13 @@ export type BreakerCardReadingRow = {
 	cv_within_band?: number | null; // 1 pass / 0 fail / null when no band seeded
 };
 
-// ─── Per-quality GRAND-AVERAGE block ─────────────────────────────────────────
-// Recomputed at read by the server across that date's rows for the quality:
+// ─── Per-batch GRAND-AVERAGE block ───────────────────────────────────────────
+// Recomputed at read by the server across that date's rows for the batch:
 //   OBS  = mean(calc_wt), MR%  = mean(calc_mr_pct), CORR = mean(calc_corr_wt),
 //   CV%  = stdev(pooled corrected cuts) / mean(pooled corrected cuts) (ratio).
 export type BreakerCardGrandAverage = {
-	item_id?: number | null;
-	item_code?: string | null;
-	item_name?: string | null;
+	batch_plan_id?: number | null;
+	batch_plan_name?: string | null;
 	std_mr_pct?: number | null;
 	std_cv_low?: number | null;
 	std_cv_high?: number | null;
@@ -121,12 +123,12 @@ export type BreakerCardByDateResponse = {
 // ─── Save payload (multi-row) ────────────────────────────────────────────────
 
 // One input row in the create payload. Empty selects → null. weights / mr_pcts
-// are exactly-4 numeric arrays; the server snapshots std MR + CV band per
-// (item_id, BREAKER) and recomputes all calc_* values per row.
+// are exactly-4 numeric arrays; the server recomputes all calc_* values per row
+// (std MR fixed at 16 for a batch, no CV band). batch_plan_id is REQUIRED.
 export type BreakerCardRow = {
 	mc_id: number | null;
 	spell_id: number | null;
-	item_id: number | null;
+	batch_plan_id: number | null;
 	weights: number[];
 	mr_pcts: number[];
 };
@@ -148,7 +150,7 @@ export type BreakerCardSavePayload = {
 export const breakerCardRowSchema = z.object({
 	mc_id: z.number().int().positive().nullable(),
 	spell_id: z.number().int().positive().nullable(),
-	item_id: z.number().int().positive().nullable(),
+	batch_plan_id: z.number({ error: "A batch must be selected" }).int().positive("A batch must be selected"),
 	weights: z
 		.array(z.number())
 		.refine((arr) => arr.length === BREAKER_CARD_READINGS, `Enter all ${BREAKER_CARD_READINGS} cut weights`)

@@ -46,7 +46,7 @@ export default function BreakerCardSqcPage() {
 	);
 	const selectedBranchName = branchOptions.find((b) => Number(b.branch_id) === branchId)?.branch_name;
 
-	// R-08-05/06/07 Breaker Card: per (machine, spell, quality) bench readings by date.
+	// R-08-05/06/07 Breaker Card: per (machine, spell, batch) bench readings by date.
 	const [entryDate, setEntryDate] = React.useState<string>(todayISO());
 	const {
 		setup,
@@ -89,8 +89,8 @@ export default function BreakerCardSqcPage() {
 			</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 				Capture breaker-card coarse-side sliver weight (R-08-05/06/07) — one sheet, many (machine,
-				spell, line-quality) reading sets, each corrected to the quality&apos;s STD MR% with a
-				per-quality grand average.
+				spell, batch) reading sets, each linked to a batch (jute batch plan) and corrected to the
+				breaker STD MR% 16 with a per-batch grand average.
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
