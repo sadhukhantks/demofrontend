@@ -32,6 +32,12 @@ const TILES: Tile[] = [
 		icon: <Cog size={32} className="text-blue-600" />,
 	},
 	{
+		href: "/dashboardportal/juteSQC/breakerCard",
+		title: "Breaker Card SQC",
+		subtitle: "Breaker-card coarse-side sliver weight (R-08-05/06/07) & grand averages",
+		icon: <Grid2x2 size={32} className="text-blue-600" />,
+	},
+	{
 		href: "/dashboardportal/juteSQC/beaming",
 		title: "Beaming SQC",
 		subtitle: "Beaming quality checks & parameter sampling",

@@ -845,6 +845,11 @@ const apiRoutesPortalMasters = {
     SPREADER_SLIVER_WT_SAVE: `${API_URL}/juteSQC/create_spreader_sliver_wt`,
     SPREADER_SLIVER_WT_BY_DATE: `${API_URL}/juteSQC/get_spreader_sliver_wt_by_date`,
     SPREADER_SLIVER_WT_DELETE: `${API_URL}/juteSQC/spreader_sliver_wt_delete`,
+    // Breaker Card SQC / R-08-05/06/07 Coarse-Side SWT (router prefix /api/juteSQC) — multi-row create; BREAKER_CARD_SWT_DELETE is a base path; caller appends /${id}
+    BREAKER_CARD_SWT_SETUP: `${API_URL}/juteSQC/get_breaker_card_swt_setup`,
+    BREAKER_CARD_SWT_SAVE: `${API_URL}/juteSQC/create_breaker_card_swt`,
+    BREAKER_CARD_SWT_BY_DATE: `${API_URL}/juteSQC/get_breaker_card_swt_by_date`,
+    BREAKER_CARD_SWT_DELETE: `${API_URL}/juteSQC/breaker_card_swt_delete`,
     // Weaving Pick SQC / R-08-21 Loom Width & Picks (router prefix /api/juteSQC) — WEAVING_SQC_PICK_DELETE is a base path; caller appends /${id}
     WEAVING_SQC_PICK_SETUP:   `${API_URL}/juteSQC/weaving_sqc_pick_setup`,
     WEAVING_SQC_PICK_SAVE:    `${API_URL}/juteSQC/weaving_sqc_pick_save`,
