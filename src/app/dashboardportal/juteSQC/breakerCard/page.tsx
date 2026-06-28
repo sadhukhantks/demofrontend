@@ -1,0 +1,173 @@
+"use client";
+
+import * as React from "react";
+import { Alert, Box, CircularProgress, MenuItem, Tab, Tabs, TextField, Typography } from "@mui/material";
+import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import { todayISO } from "./utils/breakerCardCalc";
+import { useBreakerCardSetup } from "./hooks/useBreakerCardSetup";
+import { useBreakerCardByDate } from "./hooks/useBreakerCardByDate";
+import BreakerCardForm from "./_components/BreakerCardForm";
+import BreakerCardGrid from "./_components/BreakerCardGrid";
+
+// Single-stage page; one tab for the multi-machine breaker-card SWT sheet.
+const TABS = ["R-08-05/06/07 Breaker Card"] as const;
+
+export default function BreakerCardSqcPage() {
+	// HYDRATION RULE: this component reads sidebar context and seeds a date,
+	// so defer render until mounted to avoid SSR hydration mismatch.
+	const [mounted, setMounted] = React.useState(false);
+	React.useEffect(() => {
+		setMounted(true);
+	}, []);
+
+	const { coId } = useSelectedCompanyCoId();
+	const { selectedBranches, selectedCompany } = useSidebarContext();
+	const [tab, setTab] = React.useState(0);
+
+	// Branch resolution: 1 sidebar branch → auto-use it; several → user must pick one.
+	const sidebarBranchIds = React.useMemo(() => selectedBranches.map(Number), [selectedBranches]);
+	const [pageBranchId, setPageBranchId] = React.useState<number | "">("");
+	React.useEffect(() => {
+		if (sidebarBranchIds.length === 1) {
+			setPageBranchId(sidebarBranchIds[0]);
+		} else if (sidebarBranchIds.length === 0) {
+			setPageBranchId("");
+		} else {
+			setPageBranchId((prev) =>
+				prev !== "" && sidebarBranchIds.includes(prev as number) ? prev : ""
+			);
+		}
+	}, [sidebarBranchIds]);
+	const branchId = pageBranchId === "" ? null : (pageBranchId as number);
+	const branchOptions = React.useMemo(
+		() => (selectedCompany?.branches ?? []).filter((b) => sidebarBranchIds.includes(Number(b.branch_id))),
+		[selectedCompany, sidebarBranchIds]
+	);
+	const selectedBranchName = branchOptions.find((b) => Number(b.branch_id) === branchId)?.branch_name;
+
+	// R-08-05/06/07 Breaker Card: per (machine, spell, batch) bench readings by date.
+	const [entryDate, setEntryDate] = React.useState<string>(todayISO());
+	const {
+		setup,
+		loading: setupLoading,
+		error: setupError,
+	} = useBreakerCardSetup(coId, entryDate, branchId);
+	const {
+		rows,
+		grandAverages,
+		loading: byDateLoading,
+		refresh: refreshByDate,
+	} = useBreakerCardByDate(coId, entryDate, branchId);
+
+	const onSaved = React.useCallback(() => {
+		refreshByDate();
+	}, [refreshByDate]);
+
+	if (!mounted) return null;
+
+	if (!coId) {
+		return (
+			<Alert severity="warning" sx={{ m: 2 }}>
+				Select a company to continue.
+			</Alert>
+		);
+	}
+
+	if (sidebarBranchIds.length === 0) {
+		return (
+			<Alert severity="warning" sx={{ m: 2 }}>
+				Select at least one branch in the sidebar to continue.
+			</Alert>
+		);
+	}
+
+	return (
+		<Box sx={{ p: { xs: 1.5, md: 3 } }}>
+			<Typography variant="h5" sx={{ fontWeight: 600 }}>
+				Breaker Card SQC
+			</Typography>
+			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+				Capture breaker-card coarse-side sliver weight (R-08-05/06/07) — one sheet, many (machine,
+				spell, batch) reading sets, each linked to a batch (jute batch plan) and corrected to the
+				breaker STD MR% 16 with a per-batch grand average.
+			</Typography>
+
+			{sidebarBranchIds.length > 1 ? (
+				<TextField
+					select
+					size="small"
+					label="Branch"
+					value={pageBranchId}
+					onChange={(e) => setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))}
+					sx={{ mb: 2, minWidth: 240 }}
+				>
+					{branchOptions.map((b) => (
+						<MenuItem key={b.branch_id} value={Number(b.branch_id)}>
+							{b.branch_name}
+						</MenuItem>
+					))}
+				</TextField>
+			) : selectedBranchName ? (
+				<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+					Branch: {selectedBranchName}
+				</Typography>
+			) : null}
+
+			{branchId == null ? (
+				<Alert severity="info">Select a branch to load Breaker Card SQC data.</Alert>
+			) : (
+				<>
+					<Tabs
+						value={tab}
+						onChange={(_, v) => setTab(v)}
+						variant="scrollable"
+						scrollButtons="auto"
+						allowScrollButtonsMobile
+						sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}
+					>
+						{TABS.map((label) => (
+							<Tab key={label} label={label} sx={{ minHeight: 44 }} />
+						))}
+					</Tabs>
+
+					{tab === 0 ? (
+						<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+							<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+								<Typography variant="subtitle2">Entry date</Typography>
+								<TextField
+									type="date"
+									size="small"
+									value={entryDate}
+									onChange={(e) => setEntryDate(e.target.value)}
+									InputLabelProps={{ shrink: true }}
+								/>
+							</Box>
+							{setupError ? <Alert severity="error">{setupError}</Alert> : null}
+							{setupLoading || !setup ? (
+								<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+									<CircularProgress />
+								</Box>
+							) : (
+								<BreakerCardForm
+									coId={coId}
+									branchId={branchId}
+									entryDate={entryDate}
+									setup={setup}
+									onSaved={onSaved}
+								/>
+							)}
+							<BreakerCardGrid
+								coId={coId}
+								rows={rows}
+								grandAverages={grandAverages}
+								loading={byDateLoading}
+								onDeleted={onSaved}
+							/>
+						</Box>
+					) : null}
+				</>
+			)}
+		</Box>
+	);
+}
