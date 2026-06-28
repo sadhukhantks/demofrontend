@@ -903,6 +903,12 @@ const apiRoutesPortalMasters = {
     FABRIC_CONSTRUCTION_BY_DATE: `${API_URL}/juteSQC/get_fabric_construction_by_date`,
     FABRIC_CONSTRUCTION_TABLE: `${API_URL}/juteSQC/get_fabric_construction_table`,
     FABRIC_CONSTRUCTION_DELETE: `${API_URL}/juteSQC/delete_fabric_construction`,
+    // R-08-21 Width & Picks (router prefix /api/juteSQC) — one save = one (date, cloth-quality) group (header std_width_cm/std_picks + N loom reading rows); WIDTH_PICKS_DELETE POSTs {width_picks_id, co_id}
+    WIDTH_PICKS_CREATE_SETUP: `${API_URL}/juteSQC/width_picks_create_setup`,
+    WIDTH_PICKS_CREATE: `${API_URL}/juteSQC/create_width_picks`,
+    WIDTH_PICKS_BY_DATE: `${API_URL}/juteSQC/get_width_picks_by_date`,
+    WIDTH_PICKS_TABLE: `${API_URL}/juteSQC/get_width_picks_table`,
+    WIDTH_PICKS_DELETE: `${API_URL}/juteSQC/delete_width_picks`,
     // RHMR (Temperature / Humidity per date + spell) — SPINNING_SQC_RHMR_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_RHMR_SETUP: `${API_URL}/juteSQC/sqc_rhmr_setup`,
     SPINNING_SQC_RHMR_SEARCH: `${API_URL}/juteSQC/sqc_rhmr_search`,
