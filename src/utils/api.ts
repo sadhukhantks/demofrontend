@@ -891,6 +891,12 @@ const apiRoutesPortalMasters = {
     BEAM_MR_BY_DATE: `${API_URL}/juteSQC/get_beam_mr_by_date`,
     BEAM_MR_TABLE: `${API_URL}/juteSQC/get_beam_mr_table`,
     BEAM_MR_DELETE: `${API_URL}/juteSQC/delete_beam_mr`,
+    // R-08-20 Cutting Length (router prefix /api/juteSQC) — one save = one date's reading-set (header + 20 cut-length readings); CUTTING_LENGTH_DELETE POSTs {cutting_length_id, co_id}
+    CUTTING_LENGTH_CREATE_SETUP: `${API_URL}/juteSQC/cutting_length_create_setup`,
+    CUTTING_LENGTH_CREATE: `${API_URL}/juteSQC/create_cutting_length`,
+    CUTTING_LENGTH_BY_DATE: `${API_URL}/juteSQC/get_cutting_length_by_date`,
+    CUTTING_LENGTH_TABLE: `${API_URL}/juteSQC/get_cutting_length_table`,
+    CUTTING_LENGTH_DELETE: `${API_URL}/juteSQC/delete_cutting_length`,
     // R-08-19 Fabric Construction (router prefix /api/juteSQC) — one save = one cloth-quality block (header + up to 5 sample rows); FABRIC_CONSTRUCTION_DELETE POSTs {fabric_const_id, co_id}
     FABRIC_CONSTRUCTION_CREATE_SETUP: `${API_URL}/juteSQC/get_fabric_construction_create_setup`,
     FABRIC_CONSTRUCTION_CREATE: `${API_URL}/juteSQC/create_fabric_construction`,
