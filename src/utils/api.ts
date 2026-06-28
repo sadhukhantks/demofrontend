@@ -915,6 +915,12 @@ const apiRoutesPortalMasters = {
     BAG_WEIGHT_BY_DATE: `${API_URL}/juteSQC/get_bag_weight_by_date`,
     BAG_WEIGHT_TABLE: `${API_URL}/juteSQC/get_bag_weight_table`,
     BAG_WEIGHT_DELETE: `${API_URL}/juteSQC/delete_bag_weight`,
+    // R-08-02 Emulsion (router prefix /api/juteSQC) — daily batching jute-oil recipe log; one save = ONE flat row per date (NO readings array). Header: oil_used/tank/measured oil_pct + std band (snapshot) + additive columns. Server computes theoretical_oil_pct (reference) and oil_pct_status (OK/LOW/HIGH); EMULSION_DELETE POSTs {emulsion_id, co_id}
+    EMULSION_CREATE_SETUP: `${API_URL}/juteSQC/emulsion_create_setup`,
+    EMULSION_CREATE: `${API_URL}/juteSQC/create_emulsion`,
+    EMULSION_BY_DATE: `${API_URL}/juteSQC/get_emulsion_by_date`,
+    EMULSION_TABLE: `${API_URL}/juteSQC/get_emulsion_table`,
+    EMULSION_DELETE: `${API_URL}/juteSQC/delete_emulsion`,
     // R-08-24 Bag Checking (router prefix /api/juteSQC) — finished-bag acceptance inspection; one save = one (date, bag type) block (header: vendor_name/id_code free text + 7 std snapshots + N per-bag detail rows with 7 measures + defects); BAG_CHECK_DELETE POSTs {bag_check_id, co_id}
     BAG_CHECK_CREATE_SETUP: `${API_URL}/juteSQC/bag_check_create_setup`,
     BAG_CHECK_CREATE: `${API_URL}/juteSQC/create_bag_check`,
