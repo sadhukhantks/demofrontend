@@ -897,6 +897,12 @@ const apiRoutesPortalMasters = {
     CUTTING_LENGTH_BY_DATE: `${API_URL}/juteSQC/get_cutting_length_by_date`,
     CUTTING_LENGTH_TABLE: `${API_URL}/juteSQC/get_cutting_length_table`,
     CUTTING_LENGTH_DELETE: `${API_URL}/juteSQC/delete_cutting_length`,
+    // R-08-25 Packing MR% (router prefix /api/juteSQC) — one save = one (date, quality column) reading-set (header + 10 MR% readings); group roll-up by quality_group; PACKING_MR_DELETE POSTs {packing_mr_id, co_id}
+    PACKING_MR_CREATE_SETUP: `${API_URL}/juteSQC/packing_mr_create_setup`,
+    PACKING_MR_CREATE: `${API_URL}/juteSQC/create_packing_mr`,
+    PACKING_MR_BY_DATE: `${API_URL}/juteSQC/get_packing_mr_by_date`,
+    PACKING_MR_TABLE: `${API_URL}/juteSQC/get_packing_mr_table`,
+    PACKING_MR_DELETE: `${API_URL}/juteSQC/delete_packing_mr`,
     // R-08-19 Fabric Construction (router prefix /api/juteSQC) — one save = one cloth-quality block (header + up to 5 sample rows); FABRIC_CONSTRUCTION_DELETE POSTs {fabric_const_id, co_id}
     FABRIC_CONSTRUCTION_CREATE_SETUP: `${API_URL}/juteSQC/get_fabric_construction_create_setup`,
     FABRIC_CONSTRUCTION_CREATE: `${API_URL}/juteSQC/create_fabric_construction`,
