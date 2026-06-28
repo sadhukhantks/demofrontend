@@ -915,6 +915,12 @@ const apiRoutesPortalMasters = {
     BAG_WEIGHT_BY_DATE: `${API_URL}/juteSQC/get_bag_weight_by_date`,
     BAG_WEIGHT_TABLE: `${API_URL}/juteSQC/get_bag_weight_table`,
     BAG_WEIGHT_DELETE: `${API_URL}/juteSQC/delete_bag_weight`,
+    // Humidity Recording (router prefix /api/juteSQC) — plant-wide dept temp/RH log; one save = one (date, dept, round) reading-set (header + 1..3 spot readings {spot_label, reading_time, temp_c, rh_pct}); server computes avg_temp/avg_rh; HUMIDITY_DELETE POSTs {humidity_id, co_id}
+    HUMIDITY_CREATE_SETUP: `${API_URL}/juteSQC/humidity_create_setup`,
+    HUMIDITY_CREATE: `${API_URL}/juteSQC/create_humidity`,
+    HUMIDITY_BY_DATE: `${API_URL}/juteSQC/get_humidity_by_date`,
+    HUMIDITY_TABLE: `${API_URL}/juteSQC/get_humidity_table`,
+    HUMIDITY_DELETE: `${API_URL}/juteSQC/delete_humidity`,
     // R-08-02 Emulsion (router prefix /api/juteSQC) — daily batching jute-oil recipe log; one save = ONE flat row per date (NO readings array). Header: oil_used/tank/measured oil_pct + std band (snapshot) + additive columns. Server computes theoretical_oil_pct (reference) and oil_pct_status (OK/LOW/HIGH); EMULSION_DELETE POSTs {emulsion_id, co_id}
     EMULSION_CREATE_SETUP: `${API_URL}/juteSQC/emulsion_create_setup`,
     EMULSION_CREATE: `${API_URL}/juteSQC/create_emulsion`,
