@@ -891,6 +891,12 @@ const apiRoutesPortalMasters = {
     BEAM_MR_BY_DATE: `${API_URL}/juteSQC/get_beam_mr_by_date`,
     BEAM_MR_TABLE: `${API_URL}/juteSQC/get_beam_mr_table`,
     BEAM_MR_DELETE: `${API_URL}/juteSQC/delete_beam_mr`,
+    // R-08-19 Fabric Construction (router prefix /api/juteSQC) — one save = one cloth-quality block (header + up to 5 sample rows); FABRIC_CONSTRUCTION_DELETE POSTs {fabric_const_id, co_id}
+    FABRIC_CONSTRUCTION_CREATE_SETUP: `${API_URL}/juteSQC/get_fabric_construction_create_setup`,
+    FABRIC_CONSTRUCTION_CREATE: `${API_URL}/juteSQC/create_fabric_construction`,
+    FABRIC_CONSTRUCTION_BY_DATE: `${API_URL}/juteSQC/get_fabric_construction_by_date`,
+    FABRIC_CONSTRUCTION_TABLE: `${API_URL}/juteSQC/get_fabric_construction_table`,
+    FABRIC_CONSTRUCTION_DELETE: `${API_URL}/juteSQC/delete_fabric_construction`,
     // RHMR (Temperature / Humidity per date + spell) — SPINNING_SQC_RHMR_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_RHMR_SETUP: `${API_URL}/juteSQC/sqc_rhmr_setup`,
     SPINNING_SQC_RHMR_SEARCH: `${API_URL}/juteSQC/sqc_rhmr_search`,
