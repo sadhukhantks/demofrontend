@@ -909,6 +909,12 @@ const apiRoutesPortalMasters = {
     WIDTH_PICKS_BY_DATE: `${API_URL}/juteSQC/get_width_picks_by_date`,
     WIDTH_PICKS_TABLE: `${API_URL}/juteSQC/get_width_picks_table`,
     WIDTH_PICKS_DELETE: `${API_URL}/juteSQC/delete_width_picks`,
+    // R-08-22 Stitch (router prefix /api/juteSQC) — finishing sewing-stitch-density QC; one save = one (date, sewing machine) reading-set (header std_stitch + 5 stitch counts); STITCH_DELETE POSTs {stitch_id, co_id}
+    STITCH_CREATE_SETUP: `${API_URL}/juteSQC/stitch_create_setup`,
+    STITCH_CREATE: `${API_URL}/juteSQC/create_stitch`,
+    STITCH_BY_DATE: `${API_URL}/juteSQC/get_stitch_by_date`,
+    STITCH_TABLE: `${API_URL}/juteSQC/get_stitch_table`,
+    STITCH_DELETE: `${API_URL}/juteSQC/delete_stitch`,
     // RHMR (Temperature / Humidity per date + spell) — SPINNING_SQC_RHMR_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_RHMR_SETUP: `${API_URL}/juteSQC/sqc_rhmr_setup`,
     SPINNING_SQC_RHMR_SEARCH: `${API_URL}/juteSQC/sqc_rhmr_search`,
