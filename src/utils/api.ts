@@ -933,6 +933,12 @@ const apiRoutesPortalMasters = {
     STITCH_BY_DATE: `${API_URL}/juteSQC/get_stitch_by_date`,
     STITCH_TABLE: `${API_URL}/juteSQC/get_stitch_table`,
     STITCH_DELETE: `${API_URL}/juteSQC/delete_stitch`,
+    // R-08-28 Fabric Fault (router prefix /api/juteSQC) — weaving woven-cloth defect tally; one save = one inspected piece (header + fixed 15-fault count array); day roll-up server-computed; FABRIC_FAULT_DELETE POSTs {fabric_fault_id, co_id}
+    FABRIC_FAULT_CREATE_SETUP: `${API_URL}/juteSQC/fabric_fault_create_setup`,
+    FABRIC_FAULT_CREATE: `${API_URL}/juteSQC/create_fabric_fault`,
+    FABRIC_FAULT_BY_DATE: `${API_URL}/juteSQC/get_fabric_fault_by_date`,
+    FABRIC_FAULT_TABLE: `${API_URL}/juteSQC/get_fabric_fault_table`,
+    FABRIC_FAULT_DELETE: `${API_URL}/juteSQC/delete_fabric_fault`,
     // RHMR (Temperature / Humidity per date + spell) — SPINNING_SQC_RHMR_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_RHMR_SETUP: `${API_URL}/juteSQC/sqc_rhmr_setup`,
     SPINNING_SQC_RHMR_SEARCH: `${API_URL}/juteSQC/sqc_rhmr_search`,
