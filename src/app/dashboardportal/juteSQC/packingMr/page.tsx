@@ -9,6 +9,9 @@ import { usePackingMrSetup } from "./hooks/usePackingMrSetup";
 import { usePackingMrByDate } from "./hooks/usePackingMrByDate";
 import PackingMrForm from "./_components/PackingMrForm";
 import PackingMrGrid from "./_components/PackingMrGrid";
+import SqcPrintButton from "../_shared/SqcPrintButton";
+import type { PrintColumn, PrintSection, SqcPrintReport } from "../_shared/printReport";
+import { PACKING_MR_READINGS, QUALITY_GROUPS } from "./types/packingMrTypes";
 
 export default function PackingMrSqcPage() {
 	// HYDRATION RULE: this component reads sidebar context and seeds a date,
@@ -60,6 +63,75 @@ export default function PackingMrSqcPage() {
 		refreshByDate();
 		setReloadKey((k) => k + 1);
 	}, [refreshByDate]);
+
+	// ─── Day-level print: ALL of the selected date's loaded columns in one report.
+	// Mirrors the grid — quality columns grouped into HESSIAN / SACKING tables
+	// (quality, construction, 10 readings, Avg MR%), each footed with the
+	// server-weighted group average. No shift/spell split (this report is date-only).
+	const getReport = React.useCallback((): SqcPrintReport | null => {
+		if (columns.length === 0) return null;
+
+		const readingHeaders = Array.from({ length: PACKING_MR_READINGS }, (_, i) => i);
+		const tableColumns: PrintColumn[] = [
+			{ key: "quality", label: "Quality" },
+			{ key: "construction", label: "Construction" },
+			...readingHeaders.map((i) => ({
+				key: `r${i}`,
+				label: String(i + 1),
+				align: "right" as const,
+			})),
+			{ key: "avg_mr", label: "Avg MR%", align: "right" as const },
+		];
+
+		const sections: PrintSection[] = QUALITY_GROUPS.map((group) => {
+			const groupCols = columns.filter((c) => c.quality_group === group);
+			const summary = groupSummaries.find((s) => s.quality_group === group);
+			const rows = groupCols.map((c) => {
+				const row: Record<string, string | number | null | undefined> = {
+					quality:
+						c.item_name ??
+						c.quality_label ??
+						(c.item_id != null ? `Item #${c.item_id}` : null),
+					construction: c.construction_code ?? null,
+					avg_mr: c.avg_mr != null ? Number(c.avg_mr).toFixed(1) : null,
+				};
+				for (const i of readingHeaders) {
+					const v = c.readings?.[i];
+					row[`r${i}`] = v != null && Number.isFinite(Number(v)) ? Number(v).toFixed(1) : null;
+				}
+				return row;
+			});
+			const footerRows =
+				summary?.group_avg_mr != null
+					? [
+							{
+								quality: `Average ${group}${
+									summary.column_count != null ? ` (${summary.column_count} column(s))` : ""
+								}`,
+								construction: "",
+								avg_mr: Number(summary.group_avg_mr).toFixed(1),
+							},
+						]
+					: undefined;
+			return {
+				kind: "table" as const,
+				title: group,
+				columns: tableColumns,
+				rows,
+				footerRows,
+				emptyText: `No ${group} quality columns for this date.`,
+			};
+		});
+
+		return {
+			reportTitle: "Packing MR% SQC",
+			reportCode: "R-08-26",
+			companyName: selectedCompany?.co_name,
+			branchName: selectedBranchName,
+			reportDate: entryDate,
+			sections,
+		};
+	}, [columns, groupSummaries, selectedCompany, selectedBranchName, entryDate]);
 
 	if (!mounted) return null;
 
@@ -125,6 +197,12 @@ export default function PackingMrSqcPage() {
 							onChange={(e) => setEntryDate(e.target.value)}
 							InputLabelProps={{ shrink: true }}
 						/>
+						<Box sx={{ ml: "auto" }}>
+							<SqcPrintButton
+								getReport={getReport}
+								disabled={byDateLoading || columns.length === 0}
+							/>
+						</Box>
 					</Box>
 					{setupError ? <Alert severity="error">{setupError}</Alert> : null}
 					{setupLoading || !setup ? (

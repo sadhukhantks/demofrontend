@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Box, Card, CardActionArea, CardContent, Typography } from "@mui/material";
-import { FlaskConical, Disc3, Columns3, Layers, Cog } from "lucide-react";
+import { FlaskConical, Disc3, Columns3, Layers, Cog, Grid2x2 } from "lucide-react";
 
 type Tile = {
 	href: string;

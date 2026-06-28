@@ -18,6 +18,8 @@ import { useWeavingPickByDate } from "./hooks/useWeavingPickByDate";
 import TargetMapEditor from "../../juteProduction/masters/weavingTargetMap/_components/TargetMapEditor";
 import PickForm from "./_components/PickForm";
 import PickGrid from "./_components/PickGrid";
+import SqcPrintButton from "../_shared/SqcPrintButton";
+import type { SqcPrintReport, PrintColumn } from "../_shared/printReport";
 
 const TABS = ["Loom Width & Picks (R-08-21)", "Actual Speed"] as const;
 
@@ -71,6 +73,85 @@ export default function WeavingSqcPage() {
 	const onPickSaved = React.useCallback(() => {
 		refreshPick();
 	}, [refreshPick]);
+
+	// Day-level print (R-08-21). Mirrors the on-screen PickGrid: one consolidated
+	// report for the whole selected date (never split by shift/spell). The readings
+	// table reproduces the grid columns; the per-quality summary (server-computed
+	// averages from vw_weaving_pick_act) is rendered as a second table.
+	const buildPickReport = React.useCallback((): SqcPrintReport | null => {
+		if (pickLoading || pickReadings.length === 0) return null;
+
+		const fmt = (value: number | null | undefined, dp = 2): string =>
+			value != null ? Number(value).toFixed(dp) : "";
+		const qualityLabel = (r: {
+			weaving_quality_code: string | null;
+			weaving_quality_name: string | null;
+			weaving_quality_id: number;
+		}): string => {
+			const label = `${r.weaving_quality_code ?? ""} — ${r.weaving_quality_name ?? ""}`.trim();
+			return label === "—" ? `Quality #${r.weaving_quality_id}` : label;
+		};
+
+		const readingColumns: PrintColumn[] = [
+			{ key: "entry_date", label: "Date" },
+			{ key: "quality", label: "Quality" },
+			{ key: "loom", label: "Loom" },
+			{ key: "width", label: "Width", align: "right" },
+			{ key: "picks", label: "Pick / PPI", align: "right" },
+		];
+		const readingRows = pickReadings.map((r) => {
+			const loom = `${r.mech_code ?? ""} ${r.machine_name ?? ""}`.trim();
+			return {
+				entry_date: r.entry_date,
+				quality: qualityLabel(r),
+				loom: loom === "" ? `Loom #${r.machine_id}` : loom,
+				width: fmt(r.width),
+				picks: fmt(r.picks),
+			};
+		});
+
+		const summaryColumns: PrintColumn[] = [
+			{ key: "quality", label: "Quality" },
+			{ key: "avg_picks", label: "Avg PPI", align: "right" },
+			{ key: "std_picks", label: "Std Dev", align: "right" },
+			{ key: "min_picks", label: "Min", align: "right" },
+			{ key: "max_picks", label: "Max", align: "right" },
+			{ key: "n_obs", label: "N", align: "right" },
+			{ key: "avg_width", label: "Avg Width", align: "right" },
+		];
+		const summaryRows = pickSummary.map((r) => ({
+			quality: qualityLabel(r),
+			avg_picks: fmt(r.avg_picks),
+			std_picks: fmt(r.std_picks),
+			min_picks: fmt(r.min_picks),
+			max_picks: fmt(r.max_picks),
+			n_obs: r.n_obs,
+			avg_width: fmt(r.avg_width),
+		}));
+
+		return {
+			reportTitle: "Weaving (Loom Width & Picks) SQC",
+			reportCode: "R-08-21",
+			companyName: selectedCompany?.co_name,
+			branchName: selectedBranchName,
+			reportDate: pickDate,
+			sections: [
+				{
+					kind: "table",
+					title: "Loom Width & Pick Readings",
+					columns: readingColumns,
+					rows: readingRows,
+				},
+				{
+					kind: "table",
+					title: "Pick / PPI Summary by Quality",
+					columns: summaryColumns,
+					rows: summaryRows,
+					emptyText: "No readings yet for this date.",
+				},
+			],
+		};
+	}, [pickLoading, pickReadings, pickSummary, selectedCompany, selectedBranchName, pickDate]);
 
 	// Tab 1 — Actual Speed (target-map actuals; id_type is 'mcid' — loom-linked).
 	const [effectiveDate, setEffectiveDate] = React.useState<string>(todayISO());
@@ -151,6 +232,10 @@ export default function WeavingSqcPage() {
 									value={pickDate}
 									onChange={(e) => setPickDate(e.target.value)}
 									InputLabelProps={{ shrink: true }}
+								/>
+								<SqcPrintButton
+									getReport={buildPickReport}
+									disabled={pickLoading || pickReadings.length === 0}
 								/>
 							</Box>
 							{pickSetupError ? <Alert severity="error">{pickSetupError}</Alert> : null}
