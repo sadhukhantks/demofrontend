@@ -909,6 +909,12 @@ const apiRoutesPortalMasters = {
     BAG_WEIGHT_BY_DATE: `${API_URL}/juteSQC/get_bag_weight_by_date`,
     BAG_WEIGHT_TABLE: `${API_URL}/juteSQC/get_bag_weight_table`,
     BAG_WEIGHT_DELETE: `${API_URL}/juteSQC/delete_bag_weight`,
+    // R-08-24 Bag Checking (router prefix /api/juteSQC) — finished-bag acceptance inspection; one save = one (date, bag type) block (header: vendor_name/id_code free text + 7 std snapshots + N per-bag detail rows with 7 measures + defects); BAG_CHECK_DELETE POSTs {bag_check_id, co_id}
+    BAG_CHECK_CREATE_SETUP: `${API_URL}/juteSQC/bag_check_create_setup`,
+    BAG_CHECK_CREATE: `${API_URL}/juteSQC/create_bag_check`,
+    BAG_CHECK_BY_DATE: `${API_URL}/juteSQC/get_bag_check_by_date`,
+    BAG_CHECK_TABLE: `${API_URL}/juteSQC/get_bag_check_table`,
+    BAG_CHECK_DELETE: `${API_URL}/juteSQC/delete_bag_check`,
     // R-08-21 Width & Picks (router prefix /api/juteSQC) — one save = one (date, cloth-quality) group (header std_width_cm/std_picks + N loom reading rows); WIDTH_PICKS_DELETE POSTs {width_picks_id, co_id}
     WIDTH_PICKS_CREATE_SETUP: `${API_URL}/juteSQC/width_picks_create_setup`,
     WIDTH_PICKS_CREATE: `${API_URL}/juteSQC/create_width_picks`,
