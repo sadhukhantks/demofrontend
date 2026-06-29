@@ -9,6 +9,27 @@ import { useBeamMrSetup } from "./hooks/useBeamMrSetup";
 import { useBeamMrByDate } from "./hooks/useBeamMrByDate";
 import BeamMrForm from "./_components/BeamMrForm";
 import BeamMrGrid from "./_components/BeamMrGrid";
+import SqcPrintButton from "../_shared/SqcPrintButton";
+import type { SqcPrintReport, PrintColumn, PrintSection } from "../_shared/printReport";
+import {
+	BEAM_MR_READINGS,
+	QUALITY_GROUPS,
+	type BeamMrRow,
+	type QualityGroup,
+} from "./types/beamMrTypes";
+
+function machineLabel(r: BeamMrRow): string {
+	if (r.machine_name) return `${r.machine_name}${r.mech_code ? ` (${r.mech_code})` : ""}`;
+	return r.mc_id != null ? `MC #${r.mc_id}` : "—";
+}
+
+function spellLabel(r: BeamMrRow): string {
+	return r.spell_code ?? (r.spell_id != null ? `Spell #${r.spell_id}` : "—");
+}
+
+function fmt(n: number | null | undefined, dp = 2): string {
+	return n != null && Number.isFinite(Number(n)) ? Number(n).toFixed(dp) : "—";
+}
 
 export default function BeamMrSqcPage() {
 	// HYDRATION RULE: this component reads sidebar context and seeds a date,
@@ -57,6 +78,75 @@ export default function BeamMrSqcPage() {
 	const onSaved = React.useCallback(() => {
 		refreshByDate();
 	}, [refreshByDate]);
+
+	// Day-level print: ONE consolidated report covering the whole entry date.
+	// Mirrors the on-screen grid — two table sub-sections (HESSIAN, SACKING) with
+	// the same columns/labels; spell is an ordinary data column (never a filter).
+	// The per-group overall_avg_mr summary is rendered as a bold footer row.
+	const getReport = React.useCallback((): SqcPrintReport | null => {
+		if (rows.length === 0) return null;
+
+		const readingCols: PrintColumn[] = Array.from(
+			{ length: BEAM_MR_READINGS },
+			(_, i) => ({ key: `mr_${i}`, label: `MR% ${i + 1}`, align: "right" as const }),
+		);
+		const columns: PrintColumn[] = [
+			{ key: "machine", label: "Machine" },
+			{ key: "quality", label: "Quality" },
+			{ key: "spell", label: "Spell" },
+			...readingCols,
+			{ key: "avg_mr", label: "Avg MR%", align: "right" },
+			{ key: "std", label: "Std", align: "right" },
+			{ key: "deviation", label: "Deviation", align: "right" },
+		];
+
+		const summaryByGroup = new Map(groupSummaries.map((s) => [s.quality_group, s]));
+
+		const sections: PrintSection[] = QUALITY_GROUPS.map((group: QualityGroup) => {
+			const groupRows = rows.filter((r) => r.quality_group === group);
+			const summary = summaryByGroup.get(group);
+			const footerRows =
+				summary != null
+					? [
+							{
+								machine: "Overall Avg MR%",
+								avg_mr: fmt(summary.overall_avg_mr),
+								std: fmt(summary.std_mr_pct),
+							},
+						]
+					: undefined;
+			return {
+				kind: "table" as const,
+				title: group,
+				columns,
+				rows: groupRows.map((r) => {
+					const row: Record<string, string> = {
+						machine: machineLabel(r),
+						quality: r.item_name ?? (r.item_id != null ? `Item #${r.item_id}` : "—"),
+						spell: spellLabel(r),
+						avg_mr: fmt(r.avg_mr),
+						std: fmt(r.std_mr_pct),
+						deviation: fmt(r.deviation),
+					};
+					for (let i = 0; i < BEAM_MR_READINGS; i++) {
+						row[`mr_${i}`] = fmt(r.readings?.[i]);
+					}
+					return row;
+				}),
+				footerRows,
+				emptyText: `No ${group} reading-sets for this date.`,
+			};
+		});
+
+		return {
+			reportTitle: "Beam MR% SQC",
+			reportCode: "R-08-18",
+			companyName: selectedCompany?.co_name,
+			branchName: selectedBranchName,
+			reportDate: entryDate,
+			sections,
+		};
+	}, [rows, groupSummaries, selectedCompany, selectedBranchName, entryDate]);
 
 	if (!mounted) return null;
 
@@ -122,6 +212,12 @@ export default function BeamMrSqcPage() {
 							onChange={(e) => setEntryDate(e.target.value)}
 							InputLabelProps={{ shrink: true }}
 						/>
+						<Box sx={{ ml: "auto" }}>
+							<SqcPrintButton
+								getReport={getReport}
+								disabled={byDateLoading || rows.length === 0}
+							/>
+						</Box>
 					</Box>
 					{setupError ? <Alert severity="error">{setupError}</Alert> : null}
 					{setupLoading || !setup ? (

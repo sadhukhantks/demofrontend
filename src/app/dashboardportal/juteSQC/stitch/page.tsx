@@ -9,6 +9,9 @@ import { useStitchSetup } from "./hooks/useStitchSetup";
 import { useStitchByDate } from "./hooks/useStitchByDate";
 import StitchForm from "./_components/StitchForm";
 import StitchGrid from "./_components/StitchGrid";
+import SqcPrintButton from "../_shared/SqcPrintButton";
+import type { SqcPrintReport, PrintColumn } from "../_shared/printReport";
+import { STITCH_READINGS, type StitchRow } from "./types/stitchTypes";
 
 export default function StitchSqcPage() {
 	// HYDRATION RULE: this component reads sidebar context and seeds a date,
@@ -59,6 +62,64 @@ export default function StitchSqcPage() {
 		refreshByDate();
 		setReloadKey((k) => k + 1);
 	}, [refreshByDate]);
+
+	// ─── Day-level Print (R-08-22) ────────────────────────────────────────────
+	// One consolidated report for the selected date — mirrors the "Reading-sets
+	// for this date" detail grid (Machine, 5 stitch counts, Std, Avg, Flag,
+	// Inspector). No shift/spell on this report; nothing to split.
+	const fmtNum = React.useCallback((n: number | null | undefined, dp = 2): string => {
+		return n != null && Number.isFinite(Number(n)) ? Number(n).toFixed(dp) : "";
+	}, []);
+	const machineLabel = React.useCallback((r: StitchRow): string => {
+		if (r.machine_name) return `${r.machine_name}${r.mech_code ? ` (${r.mech_code})` : ""}`;
+		return r.mc_id != null ? `MC #${r.mc_id}` : "";
+	}, []);
+
+	const getReport = React.useCallback((): SqcPrintReport | null => {
+		if (rows.length === 0) return null;
+		const readingIdx = Array.from({ length: STITCH_READINGS }, (_, i) => i);
+		const columns: PrintColumn[] = [
+			{ key: "machine", label: "Machine" },
+			...readingIdx.map<PrintColumn>((i) => ({
+				key: `r${i}`,
+				label: `#${i + 1}`,
+				align: "right",
+			})),
+			{ key: "std", label: "Std", align: "right" },
+			{ key: "avg", label: "Avg", align: "right" },
+			{ key: "flag", label: "Flag", align: "center" },
+			{ key: "inspector", label: "Inspector" },
+		];
+		const tableRows = rows.map((r) => {
+			const row: Record<string, string> = {
+				machine: machineLabel(r),
+				std: fmtNum(r.std_stitch),
+				avg: fmtNum(r.avg),
+				flag: r.flag ?? "",
+				inspector: r.inspector_name ?? "",
+			};
+			readingIdx.forEach((i) => {
+				row[`r${i}`] = fmtNum(r.readings?.[i]);
+			});
+			return row;
+		});
+		return {
+			reportTitle: "Stitch SQC",
+			reportCode: "R-08-22",
+			companyName: selectedCompany?.co_name,
+			branchName: selectedBranchName,
+			reportDate: entryDate,
+			sections: [
+				{
+					kind: "table",
+					title: "Reading-sets for this date",
+					columns,
+					rows: tableRows,
+					emptyText: "No stitch reading-sets for this date.",
+				},
+			],
+		};
+	}, [rows, machineLabel, fmtNum, selectedCompany, selectedBranchName, entryDate]);
 
 	if (!mounted) return null;
 
@@ -122,6 +183,11 @@ export default function StitchSqcPage() {
 							value={entryDate}
 							onChange={(e) => setEntryDate(e.target.value)}
 							InputLabelProps={{ shrink: true }}
+						/>
+						<Box sx={{ flexGrow: 1 }} />
+						<SqcPrintButton
+							getReport={getReport}
+							disabled={byDateLoading || rows.length === 0}
 						/>
 					</Box>
 					{setupError ? <Alert severity="error">{setupError}</Alert> : null}

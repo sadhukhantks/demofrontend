@@ -9,6 +9,45 @@ import { useQrCv15aSetup } from "./hooks/useQrCv15aSetup";
 import { useQrCv15aByDate } from "./hooks/useQrCv15aByDate";
 import QrCv15aForm from "./_components/QrCv15aForm";
 import QrCv15aGrid from "./_components/QrCv15aGrid";
+import SqcPrintButton from "../_shared/SqcPrintButton";
+import type { SqcPrintReport, PrintColumn } from "../_shared/printReport";
+import type { QrCv15aGroup } from "./types/qrCv15aTypes";
+
+// Mirror the on-screen grid columns (summary, not the per-reading expand panel).
+const QR_CV_15A_PRINT_COLUMNS: PrintColumn[] = [
+	{ key: "quality", label: "QUALITY" },
+	{ key: "drawing", label: "3RD DRAWING" },
+	{ key: "spinning", label: "SPINNING FRAME" },
+	{ key: "observed_count", label: "OBS COUNT", align: "right" },
+	{ key: "mr_pct", label: "MR %", align: "right" },
+	{ key: "avg_bs", label: "AVG B/S", align: "right" },
+	{ key: "max", label: "MAX", align: "right" },
+	{ key: "min", label: "MIN", align: "right" },
+	{ key: "std_dev", label: "STD DEV", align: "right" },
+	{ key: "qr_pct", label: "QR %", align: "right" },
+	{ key: "cv_pct", label: "CV %", align: "right" },
+	{ key: "qr_at_min", label: "QR % @MIN", align: "right" },
+];
+
+function printFmt(value: number | null | undefined, digits = 2): string {
+	return value != null ? Number(value).toFixed(digits) : "—";
+}
+
+function printQualityLabel(row: QrCv15aGroup): string {
+	return row.item_name ?? row.item_code ?? `Yarn #${row.item_id}`;
+}
+
+function printDrawingLabel(row: QrCv15aGroup): string {
+	return (
+		row.drawing_mech_code ??
+		row.drawing_machine_name ??
+		(row.drawing_mc_id != null ? `MC #${row.drawing_mc_id}` : "—")
+	);
+}
+
+function printSpinningLabel(row: QrCv15aGroup): string {
+	return row.mech_code ?? row.machine_name ?? (row.mc_id != null ? `MC #${row.mc_id}` : "—");
+}
 
 export default function QrCv15aSqcPage() {
 	// HYDRATION RULE: this component reads sidebar context and seeds a date,
@@ -47,6 +86,40 @@ export default function QrCv15aSqcPage() {
 	const onSaved = React.useCallback(() => {
 		refreshByDate();
 	}, [refreshByDate]);
+
+	// Day-level print: all of the selected date's loaded groups in one report.
+	const getPrintReport = React.useCallback((): SqcPrintReport | null => {
+		if (groups.length === 0) return null;
+		const rows = groups.map((g) => ({
+			quality: printQualityLabel(g),
+			drawing: printDrawingLabel(g),
+			spinning: printSpinningLabel(g),
+			observed_count: printFmt(g.observed_count),
+			mr_pct: printFmt(g.mr_pct),
+			avg_bs: printFmt(g.stats?.avg_bs),
+			max: printFmt(g.stats?.max),
+			min: printFmt(g.stats?.min),
+			std_dev: printFmt(g.stats?.std_dev),
+			qr_pct: printFmt(g.stats?.qr_pct),
+			cv_pct: printFmt(g.stats?.cv_pct),
+			qr_at_min: printFmt(g.stats?.qr_at_min),
+		}));
+		return {
+			reportTitle: "Yarn QR% & CV% (15A) SQC",
+			reportCode: "R-08-15A",
+			companyName: selectedCompany?.co_name,
+			branchName: selectedBranchName,
+			reportDate: entryDate,
+			sections: [
+				{
+					kind: "table",
+					columns: QR_CV_15A_PRINT_COLUMNS,
+					rows,
+					emptyText: "No groups recorded for this day.",
+				},
+			],
+		};
+	}, [groups, selectedCompany, selectedBranchName, entryDate]);
 
 	if (!mounted) return null;
 
@@ -110,6 +183,11 @@ export default function QrCv15aSqcPage() {
 							value={entryDate}
 							onChange={(e) => setEntryDate(e.target.value)}
 							InputLabelProps={{ shrink: true }}
+						/>
+						<Box sx={{ flexGrow: 1 }} />
+						<SqcPrintButton
+							getReport={getPrintReport}
+							disabled={byDateLoading || groups.length === 0}
 						/>
 					</Box>
 					{setupError ? <Alert severity="error">{setupError}</Alert> : null}

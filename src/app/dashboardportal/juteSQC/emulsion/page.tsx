@@ -9,6 +9,14 @@ import { useEmulsionSetup } from "./hooks/useEmulsionSetup";
 import { useEmulsionByDate } from "./hooks/useEmulsionByDate";
 import EmulsionForm from "./_components/EmulsionForm";
 import EmulsionGrid from "./_components/EmulsionGrid";
+import SqcPrintButton from "../_shared/SqcPrintButton";
+import type { SqcPrintReport, PrintColumn } from "../_shared/printReport";
+import { ADDITIVE_FIELDS, ADDITIVE_LABELS } from "./types/emulsionTypes";
+
+// Format a numeric cell to 2dp, mirroring the grid's fmt() (em-dash for blanks).
+function fmtCell(n: number | null | undefined, dp = 2): string {
+	return n != null && Number.isFinite(Number(n)) ? Number(n).toFixed(dp) : "—";
+}
 
 export default function EmulsionSqcPage() {
 	// HYDRATION RULE: this component reads sidebar context and seeds a date,
@@ -59,6 +67,63 @@ export default function EmulsionSqcPage() {
 		refreshByDate();
 		setReloadKey((k) => k + 1);
 	}, [refreshByDate]);
+
+	// Day-level print: ONE consolidated report of all of the selected date's loaded
+	// rows (never per-shift). Columns mirror the by-date grid (machine, oil used,
+	// tank, MEASURED oil %, server theoretical %, the snapshotted band, status) plus
+	// the additive recipe columns the grid shows in its expand row.
+	const printColumns = React.useMemo<PrintColumn[]>(
+		() => [
+			{ key: "machine", label: "Machine" },
+			{ key: "oil_used", label: "Oil used", align: "right" },
+			{ key: "tank", label: "Tank", align: "right" },
+			{ key: "oil_pct", label: "Oil % (meas.)", align: "right" },
+			{ key: "theoretical", label: "Theoretical %", align: "right" },
+			{ key: "band", label: "Band", align: "center" },
+			{ key: "status", label: "Status", align: "center" },
+			...ADDITIVE_FIELDS.map((f) => ({
+				key: f,
+				label: ADDITIVE_LABELS[f],
+				align: "right" as const,
+			})),
+			{ key: "spreader_rolls_made", label: "Spreader rolls made", align: "right" },
+			{ key: "others", label: "Others" },
+			{ key: "prepared_by", label: "Prepared by" },
+		],
+		[],
+	);
+
+	const getReport = React.useCallback((): SqcPrintReport | null => {
+		if (rows.length === 0) return null;
+		return {
+			reportTitle: "Emulsion SQC",
+			reportCode: "R-08-02",
+			companyName: selectedCompany?.co_name,
+			branchName: selectedBranchName,
+			reportDate: entryDate,
+			sections: [
+				{
+					kind: "table",
+					columns: printColumns,
+					rows: rows.map((r) => ({
+						machine: r.machine_name ?? "—",
+						oil_used: fmtCell(r.oil_used_ltr),
+						tank: fmtCell(r.tank_capacity_ltr),
+						oil_pct: fmtCell(r.oil_pct_in_emulsion),
+						theoretical: fmtCell(r.theoretical_oil_pct),
+						band: `${fmtCell(r.std_oil_pct_low)}–${fmtCell(r.std_oil_pct_high)}`,
+						status: r.oil_pct_status ?? "—",
+						...Object.fromEntries(ADDITIVE_FIELDS.map((f) => [f, fmtCell(r[f])])),
+						spreader_rolls_made:
+							r.spreader_rolls_made != null ? String(r.spreader_rolls_made) : "—",
+						others: r.others || "—",
+						prepared_by: r.prepared_by || "—",
+					})),
+					emptyText: "No emulsion records for this date.",
+				},
+			],
+		};
+	}, [rows, selectedCompany, selectedBranchName, entryDate, printColumns]);
 
 	if (!mounted) return null;
 
@@ -125,6 +190,12 @@ export default function EmulsionSqcPage() {
 							onChange={(e) => setEntryDate(e.target.value)}
 							InputLabelProps={{ shrink: true }}
 						/>
+						<Box sx={{ ml: "auto" }}>
+							<SqcPrintButton
+								getReport={getReport}
+								disabled={byDateLoading || rows.length === 0}
+							/>
+						</Box>
 					</Box>
 					{setupError ? <Alert severity="error">{setupError}</Alert> : null}
 					{setupLoading || !setup ? (

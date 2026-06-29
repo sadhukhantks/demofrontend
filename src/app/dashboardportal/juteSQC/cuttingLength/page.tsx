@@ -9,6 +9,14 @@ import { useCuttingLengthSetup } from "./hooks/useCuttingLengthSetup";
 import { useCuttingLengthByDate } from "./hooks/useCuttingLengthByDate";
 import CuttingLengthForm from "./_components/CuttingLengthForm";
 import CuttingLengthGrid from "./_components/CuttingLengthGrid";
+import SqcPrintButton from "../_shared/SqcPrintButton";
+import type { SqcPrintReport, PrintColumn } from "../_shared/printReport";
+import { CUTTING_LENGTH_READINGS } from "./types/cuttingLengthTypes";
+
+// Format a numeric value for the printout; em-dash placeholder for empty.
+function fmtPrint(n: number | null | undefined, dp = 2): string {
+	return n != null && Number.isFinite(Number(n)) ? Number(n).toFixed(dp) : "—";
+}
 
 export default function CuttingLengthSqcPage() {
 	// HYDRATION RULE: this component reads sidebar context and seeds a date,
@@ -59,6 +67,60 @@ export default function CuttingLengthSqcPage() {
 		refreshByDate();
 		setReloadKey((k) => k + 1);
 	}, [refreshByDate]);
+
+	// Day-level print: ONE consolidated report of every reading-set loaded for the
+	// selected date. No shift/spell split (this report has none). Mirrors the
+	// on-screen by-date detail: quality, std, the 20 readings, then the server
+	// avg / sample-stdev / cv% / deviation.
+	const printColumns = React.useMemo<PrintColumn[]>(() => {
+		const readingCols: PrintColumn[] = Array.from({ length: CUTTING_LENGTH_READINGS }, (_, i) => ({
+			key: `r${i + 1}`,
+			label: `R${i + 1}`,
+			align: "right" as const,
+		}));
+		return [
+			{ key: "quality", label: "Quality" },
+			{ key: "std_length", label: "Std", align: "right" },
+			...readingCols,
+			{ key: "avg", label: "Avg", align: "right" },
+			{ key: "stdev", label: "Std dev", align: "right" },
+			{ key: "cv_pct", label: "CV %", align: "right" },
+			{ key: "deviation", label: "Deviation", align: "right" },
+		];
+	}, []);
+
+	const getReport = React.useCallback((): SqcPrintReport | null => {
+		if (rows.length === 0) return null;
+		const reportRows = rows.map((r) => {
+			const row: Record<string, string> = {
+				quality: r.item_name ?? (r.item_id != null ? `Item #${r.item_id}` : "No quality"),
+				std_length: fmtPrint(r.std_length),
+				avg: fmtPrint(r.avg),
+				stdev: fmtPrint(r.stdev, 4),
+				cv_pct: fmtPrint(r.cv_pct, 4),
+				deviation: fmtPrint(r.deviation),
+			};
+			for (let i = 0; i < CUTTING_LENGTH_READINGS; i++) {
+				row[`r${i + 1}`] = fmtPrint(r.readings?.[i]);
+			}
+			return row;
+		});
+		return {
+			reportTitle: "Cutting Length SQC",
+			reportCode: "R-08-20",
+			companyName: selectedCompany?.co_name,
+			branchName: selectedBranchName,
+			reportDate: entryDate,
+			sections: [
+				{
+					kind: "table",
+					columns: printColumns,
+					rows: reportRows,
+					emptyText: "No cutting-length reading-sets for this date.",
+				},
+			],
+		};
+	}, [rows, selectedCompany, selectedBranchName, entryDate, printColumns]);
 
 	if (!mounted) return null;
 
@@ -124,6 +186,12 @@ export default function CuttingLengthSqcPage() {
 							onChange={(e) => setEntryDate(e.target.value)}
 							InputLabelProps={{ shrink: true }}
 						/>
+						<Box sx={{ ml: "auto" }}>
+							<SqcPrintButton
+								getReport={getReport}
+								disabled={byDateLoading || rows.length === 0}
+							/>
+						</Box>
 					</Box>
 					{setupError ? <Alert severity="error">{setupError}</Alert> : null}
 					{setupLoading || !setup ? (

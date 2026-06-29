@@ -9,6 +9,14 @@ import { useHumiditySetup } from "./hooks/useHumiditySetup";
 import { useHumidityByDate } from "./hooks/useHumidityByDate";
 import HumidityForm from "./_components/HumidityForm";
 import HumidityGrid from "./_components/HumidityGrid";
+import SqcPrintButton from "../_shared/SqcPrintButton";
+import type { PrintCell, PrintColumn, PrintSection, SqcPrintReport } from "../_shared/printReport";
+
+const ROUND_LABELS: Record<number, string> = { 1: "Morning", 2: "Noon", 3: "Evening" };
+
+function fmtPrint(n: number | null | undefined, dp = 2): string {
+	return n != null && Number.isFinite(Number(n)) ? Number(n).toFixed(dp) : "—";
+}
 
 export default function HumiditySqcPage() {
 	// HYDRATION RULE: this component reads sidebar context and seeds a date,
@@ -59,6 +67,61 @@ export default function HumiditySqcPage() {
 		refreshByDate();
 		setReloadKey((k) => k + 1);
 	}, [refreshByDate]);
+
+	// Day-level print: one consolidated report for the selected report_date.
+	// Mirrors the grid's by-date view — one table per department; rows are the
+	// spot readings of each round (round shown as an ordinary column), and a bold
+	// footer row per round carries the server-computed avg temp/RH.
+	const totalRounds = React.useMemo(
+		() => departments.reduce((acc, d) => acc + d.rounds.length, 0),
+		[departments],
+	);
+
+	const getReport = React.useCallback((): SqcPrintReport | null => {
+		if (departments.length === 0) return null;
+
+		const columns: PrintColumn[] = [
+			{ key: "round", label: "Round" },
+			{ key: "spot", label: "Spot" },
+			{ key: "time", label: "Time" },
+			{ key: "temp", label: "Temp (°C)", align: "right" },
+			{ key: "rh", label: "RH %", align: "right" },
+		];
+
+		const sections: PrintSection[] = departments.map((dept) => {
+			const rows: Array<Record<string, PrintCell>> = [];
+			const footerRows: Array<Record<string, PrintCell>> = [];
+			for (const round of dept.rounds) {
+				const label = round.round_label ?? ROUND_LABELS[round.round_no] ?? `Round ${round.round_no}`;
+				round.spots.forEach((s, i) => {
+					rows.push({
+						round: label,
+						spot: s.spot_label ?? `Spot ${i + 1}`,
+						time: s.reading_time ?? "—",
+						temp: fmtPrint(s.temp_c),
+						rh: fmtPrint(s.rh_pct),
+					});
+				});
+				footerRows.push({
+					round: `${label} — Avg`,
+					spot: "",
+					time: "",
+					temp: fmtPrint(round.avg_temp),
+					rh: fmtPrint(round.avg_rh),
+				});
+			}
+			return { kind: "table", title: dept.dept_desc, columns, rows, footerRows };
+		});
+
+		return {
+			reportTitle: "Humidity Recording SQC",
+			reportCode: "R-08-HUM",
+			companyName: selectedCompany?.co_name,
+			branchName: selectedBranchName,
+			reportDate,
+			sections,
+		};
+	}, [departments, selectedCompany, selectedBranchName, reportDate]);
 
 	if (!mounted) return null;
 
@@ -122,6 +185,10 @@ export default function HumiditySqcPage() {
 							value={reportDate}
 							onChange={(e) => setReportDate(e.target.value)}
 							InputLabelProps={{ shrink: true }}
+						/>
+						<SqcPrintButton
+							getReport={getReport}
+							disabled={byDateLoading || totalRounds === 0}
 						/>
 					</Box>
 					{setupError ? <Alert severity="error">{setupError}</Alert> : null}

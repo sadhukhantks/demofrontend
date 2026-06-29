@@ -13,6 +13,8 @@ import RollWtForm from "./_components/RollWtForm";
 import RollWtGrid from "./_components/RollWtGrid";
 import SliverWtForm from "./_components/SliverWtForm";
 import SliverWtGrid from "./_components/SliverWtGrid";
+import SqcPrintButton from "../_shared/SqcPrintButton";
+import type { SqcPrintReport, PrintColumn } from "../_shared/printReport";
 
 // Two Spreader SQC reports share this page as tabs.
 const TABS = ["R-08-04 Roll Weight", "R-08-03 Sliver Weight"] as const;
@@ -67,6 +69,71 @@ export default function SpreaderSqcPage() {
 		refreshRollWt();
 	}, [refreshRollWt]);
 
+	// R-08-04 day print: every loaded row for the date, spell as an ordinary
+	// column. Mirrors the grid's columns + server-computed calc_* averages.
+	const rollWtStdMap = React.useMemo(() => {
+		const m = new Map<number, number | null>();
+		for (const mc of rollWtSetup?.machines ?? []) m.set(mc.machine_id, mc.wt_per_roll ?? null);
+		return m;
+	}, [rollWtSetup]);
+
+	const getRollWtReport = React.useCallback((): SqcPrintReport | null => {
+		if (rollWtReadings.length === 0) return null;
+		const columns: PrintColumn[] = [
+			{ key: "spell", label: "Spell" },
+			{ key: "machine", label: "Machine" },
+			{ key: "quality", label: "Quality" },
+			{ key: "feeder", label: "Feeder" },
+			{ key: "std_mr_pct", label: "Std MR%", align: "right" },
+			{ key: "std", label: "Std Roll Wt", align: "right" },
+			{ key: "avg_obs", label: "Avg Obs", align: "right" },
+			{ key: "avg_corr", label: "Avg Corr", align: "right" },
+			{ key: "avg_mr_pct", label: "Avg MR%", align: "right" },
+			{ key: "stdev_corr", label: "Stdev Corr", align: "right" },
+			{ key: "cv_pct", label: "CV %", align: "right" },
+			{ key: "heavy_light", label: "Heavy / Light", align: "center" },
+		];
+		const rows = rollWtReadings.map((r) => {
+			const mcId = r.machine_id ?? r.mc_id ?? null;
+			const std = mcId != null ? rollWtStdMap.get(mcId) ?? null : null;
+			const avgCorr = r.calc_avg_corr ?? null;
+			const canCompare = std != null && std !== 0 && avgCorr != null;
+			const heavyLight = canCompare
+				? avgCorr > std
+					? "HEAVY"
+					: avgCorr < std
+					? "LIGHT"
+					: "—"
+				: "—";
+			return {
+				spell: r.spell_code ?? r.spell_name ?? (r.spell_id != null ? `Spell #${r.spell_id}` : "—"),
+				machine: r.machine_name
+					? `${r.machine_name}${r.mech_code ? ` (${r.mech_code})` : ""}`
+					: r.mc_id != null
+					? `MC #${r.mc_id}`
+					: "—",
+				quality: r.item_name ?? r.item_code ?? (r.item_id != null ? `Quality #${r.item_id}` : "—"),
+				feeder: r.feeder_name ?? "—",
+				std_mr_pct: r.std_mr_pct != null ? r.std_mr_pct.toFixed(2) : "—",
+				std: std != null ? std.toFixed(2) : "—",
+				avg_obs: r.calc_avg_obs != null ? r.calc_avg_obs.toFixed(2) : "—",
+				avg_corr: avgCorr != null ? avgCorr.toFixed(2) : "—",
+				avg_mr_pct: r.calc_avg_mr_pct != null ? r.calc_avg_mr_pct.toFixed(2) : "—",
+				stdev_corr: r.calc_stdev_corr != null ? r.calc_stdev_corr.toFixed(4) : "—",
+				cv_pct: r.calc_cv_pct != null ? `${(r.calc_cv_pct * 100).toFixed(2)}%` : "—",
+				heavy_light: heavyLight,
+			};
+		});
+		return {
+			reportTitle: "Spreader SQC — Roll Weight",
+			reportCode: "R-08-04",
+			companyName: selectedCompany?.co_name,
+			branchName: selectedBranchName,
+			reportDate: rollWtDate,
+			sections: [{ kind: "table", columns, rows }],
+		};
+	}, [rollWtReadings, rollWtStdMap, selectedCompany, selectedBranchName, rollWtDate]);
+
 	// Tab 1 — R-08-03 Sliver Weight: per-machine/quality variable 1–12 readings by date.
 	const [sliverWtDate, setSliverWtDate] = React.useState<string>(todayISO());
 	const {
@@ -83,6 +150,49 @@ export default function SpreaderSqcPage() {
 	const onSliverWtSaved = React.useCallback(() => {
 		refreshSliverWt();
 	}, [refreshSliverWt]);
+
+	// R-08-03 day print: every loaded row for the date, spell as an ordinary
+	// column. Mirrors the grid's columns + server-computed calc_* averages
+	// (no machine std comparison, matching the on-screen grid).
+	const getSliverWtReport = React.useCallback((): SqcPrintReport | null => {
+		if (sliverWtReadings.length === 0) return null;
+		const columns: PrintColumn[] = [
+			{ key: "spell", label: "Spell" },
+			{ key: "machine", label: "Machine" },
+			{ key: "quality", label: "Quality" },
+			{ key: "category", label: "Category" },
+			{ key: "std_mr_pct", label: "Std MR%", align: "right" },
+			{ key: "avg_obs", label: "Avg Obs", align: "right" },
+			{ key: "avg_corr", label: "Avg Corr", align: "right" },
+			{ key: "avg_mr", label: "Avg MR%", align: "right" },
+			{ key: "stdev", label: "StDev", align: "right" },
+			{ key: "cv_pct", label: "CV %", align: "right" },
+		];
+		const rows = sliverWtReadings.map((r) => ({
+			spell: r.spell_code ?? r.spell_name ?? (r.spell_id != null ? `Spell #${r.spell_id}` : "—"),
+			machine: r.machine_name
+				? `${r.machine_name}${r.mech_code ? ` (${r.mech_code})` : ""}`
+				: r.mc_id != null
+				? `MC #${r.mc_id}`
+				: "—",
+			quality: r.item_name ?? r.item_code ?? (r.item_id != null ? `Quality #${r.item_id}` : "—"),
+			category: r.category && r.category.trim() !== "" ? r.category : "—",
+			std_mr_pct: r.std_mr_pct != null ? r.std_mr_pct.toFixed(2) : "—",
+			avg_obs: r.calc_avg_obs != null ? r.calc_avg_obs.toFixed(2) : "—",
+			avg_corr: r.calc_avg_corr != null ? r.calc_avg_corr.toFixed(2) : "—",
+			avg_mr: r.calc_avg_mr != null ? r.calc_avg_mr.toFixed(2) : "—",
+			stdev: r.calc_stdev != null ? r.calc_stdev.toFixed(4) : "—",
+			cv_pct: r.calc_cv_pct != null ? `${(r.calc_cv_pct * 100).toFixed(2)}%` : "—",
+		}));
+		return {
+			reportTitle: "Spreader SQC — Sliver Weight",
+			reportCode: "R-08-03",
+			companyName: selectedCompany?.co_name,
+			branchName: selectedBranchName,
+			reportDate: sliverWtDate,
+			sections: [{ kind: "table", columns, rows }],
+		};
+	}, [sliverWtReadings, selectedCompany, selectedBranchName, sliverWtDate]);
 
 	if (!mounted) return null;
 
@@ -162,6 +272,12 @@ export default function SpreaderSqcPage() {
 									onChange={(e) => setRollWtDate(e.target.value)}
 									InputLabelProps={{ shrink: true }}
 								/>
+								<Box sx={{ ml: "auto" }}>
+									<SqcPrintButton
+										getReport={getRollWtReport}
+										disabled={rollWtLoading || rollWtReadings.length === 0}
+									/>
+								</Box>
 							</Box>
 							{rollWtSetupError ? <Alert severity="error">{rollWtSetupError}</Alert> : null}
 							{rollWtSetupLoading || !rollWtSetup ? (
@@ -199,6 +315,12 @@ export default function SpreaderSqcPage() {
 									onChange={(e) => setSliverWtDate(e.target.value)}
 									InputLabelProps={{ shrink: true }}
 								/>
+								<Box sx={{ ml: "auto" }}>
+									<SqcPrintButton
+										getReport={getSliverWtReport}
+										disabled={sliverWtLoading || sliverWtReadings.length === 0}
+									/>
+								</Box>
 							</Box>
 							{sliverWtSetupError ? <Alert severity="error">{sliverWtSetupError}</Alert> : null}
 							{sliverWtSetupLoading || !sliverWtSetup ? (
