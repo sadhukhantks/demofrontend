@@ -4,16 +4,23 @@ import * as React from "react";
 import { Alert, Box, MenuItem, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import { fetchWithCookie } from "@/utils/apiClient2";
 import { todayISO } from "@/app/dashboardportal/juteProduction/spinning/utils/spinningCalc";
 import { apiRoutesPortalMasters } from "@/utils/api";
-import type { IdType } from "@/app/dashboardportal/juteProduction/masters/finishingSpecSheet/_components/TargetGrid";
+import type {
+	IdType,
+	TargetGridData,
+} from "@/app/dashboardportal/juteProduction/masters/finishingSpecSheet/_components/TargetGrid";
 // The Finishing SQC page captures ACTUAL operating parameters into the SAME
 // spec-sheet table the standards/targets live in (value_role='actual'). It reuses
 // the finishingSpecSheet TargetMapEditor pointed at the SQC actual endpoints —
 // no SQL or grid logic is duplicated (BE: src/juteSQC/finishing_sqc.py).
 import TargetMapEditor, {
 	ID_TYPE_LABELS,
+	PARAM_LABELS,
 } from "@/app/dashboardportal/juteProduction/masters/finishingSpecSheet/_components/TargetMapEditor";
+import SqcPrintButton from "../_shared/SqcPrintButton";
+import type { PrintCell, PrintColumn, SqcPrintReport } from "../_shared/printReport";
 
 const PROCESS_OPTIONS = [
 	"damping",
@@ -74,6 +81,84 @@ export default function FinishingSqcPage() {
 
 	const ready = !!coId && !!process && !!idType && !!effectiveDate;
 
+	// Day-level print data: mirror the rows TargetMapEditor renders for the active
+	// (process, id_type, value_role='actual') at the selected effective date. The
+	// editor owns its own fetch internally; we read the same grid endpoint here
+	// purely to feed the day-level Print button (no shift split — the date is the
+	// day; the grid only ever shows one process/type for that day).
+	const [printGrid, setPrintGrid] = React.useState<TargetGridData>({ params: [], rows: [] });
+	const [printLoading, setPrintLoading] = React.useState(false);
+
+	React.useEffect(() => {
+		let cancelled = false;
+		if (!ready || branchId == null) {
+			setPrintGrid({ params: [], rows: [] });
+			return;
+		}
+		const load = async () => {
+			setPrintLoading(true);
+			const params = new URLSearchParams({
+				co_id: String(coId),
+				process,
+				id_type: idType as IdType,
+				value_role: "actual",
+				effective_date: effectiveDate,
+				branch_id: String(branchId),
+			});
+			const { data } = await fetchWithCookie<{ data: TargetGridData }>(
+				`${apiRoutesPortalMasters.FINISHING_SQC_ACTUAL_GRID}?${params.toString()}`,
+				"GET"
+			);
+			if (!cancelled) {
+				setPrintGrid(data?.data ?? { params: [], rows: [] });
+				setPrintLoading(false);
+			}
+		};
+		void load();
+		return () => {
+			cancelled = true;
+		};
+	}, [ready, coId, branchId, process, idType, effectiveDate]);
+
+	const getReport = React.useCallback((): SqcPrintReport | null => {
+		if (printGrid.rows.length === 0) return null;
+		const columns: PrintColumn[] = [
+			{ key: "ref_code", label: "Code" },
+			{ key: "ref_name", label: ID_TYPE_LABELS[idType as IdType] ?? "Machine / Quality" },
+			...printGrid.params.map<PrintColumn>((p) => ({
+				key: p,
+				label: PARAM_LABELS[p] ?? p,
+				align: "right",
+			})),
+		];
+		const rows = printGrid.rows.map((r) => {
+			const row: Record<string, PrintCell> = {
+				ref_code: r.ref_code ?? "",
+				ref_name: r.ref_name ?? r.ref_id,
+			};
+			printGrid.params.forEach((p) => {
+				row[p] = r.cells[p]?.value ?? null;
+			});
+			return row;
+		});
+		const processLabel =
+			PROCESS_LABELS[process as (typeof PROCESS_OPTIONS)[number]] ?? process;
+		return {
+			reportTitle: "Finishing SQC",
+			reportCode: "R-08-FIN",
+			companyName: selectedCompany?.co_name,
+			branchName: selectedBranchName,
+			reportDate: effectiveDate,
+			headerFields: [
+				{ label: "Process", value: processLabel },
+				{ label: "Type", value: ID_TYPE_LABELS[idType as IdType] ?? String(idType) },
+			],
+			sections: [
+				{ kind: "table", title: `${processLabel} — Actual`, columns, rows },
+			],
+		};
+	}, [printGrid, idType, process, selectedCompany, selectedBranchName, effectiveDate]);
+
 	if (!mounted) return null;
 
 	if (!coId) {
@@ -94,9 +179,15 @@ export default function FinishingSqcPage() {
 
 	return (
 		<Box sx={{ p: { xs: 1.5, md: 3 } }}>
-			<Typography variant="h5" sx={{ fontWeight: 600 }}>
-				Finishing SQC
-			</Typography>
+			<Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
+				<Typography variant="h5" sx={{ fontWeight: 600 }}>
+					Finishing SQC
+				</Typography>
+				<SqcPrintButton
+					getReport={getReport}
+					disabled={printLoading || printGrid.rows.length === 0}
+				/>
+			</Box>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 				Capture the actual finishing operating parameters per process and machine / quality. Saving here
 				writes the actual values into the finishing spec sheet (value_role=&apos;actual&apos;); finishing
