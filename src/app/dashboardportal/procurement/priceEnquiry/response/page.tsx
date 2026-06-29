@@ -14,8 +14,7 @@ import {
 	Autocomplete,
 	TextField,
 } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import SaveIcon from "@mui/icons-material/Save";
+import { ArrowLeft as ArrowBackIcon, Save as SaveIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { toast } from "@/hooks/use-toast";
@@ -56,7 +55,6 @@ interface ResponseFromAPI {
 	gross_amount: number | null;
 	net_amount: number | null;
 	items: Array<{
-		enquiry_response_dtl_id: number;
 		enquiry_dtl_id: number;
 		item_id: number;
 		item_code: string;

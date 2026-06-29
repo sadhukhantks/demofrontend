@@ -434,6 +434,8 @@ const apiRoutesPortalMasters = {
     ENQUIRY_SEND_FOR_APPROVAL: `${API_URL}/priceEnquiry/send_for_approval`,
     ENQUIRY_APPROVE: `${API_URL}/priceEnquiry/approve_enquiry`,
     ENQUIRY_REJECT: `${API_URL}/priceEnquiry/reject_enquiry`,
+    ENQUIRY_CANCEL: `${API_URL}/priceEnquiry/cancel_enquiry`,
+    ENQUIRY_REOPEN: `${API_URL}/priceEnquiry/reopen_enquiry`,
 
     INWARD_TABLE: `${API_URL}/procurementInward/get_inward_table`,
     GET_INWARD_SETUP_1: `${API_URL}/procurementInward/get_inward_setup_1`,

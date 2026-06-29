@@ -37,6 +37,8 @@ import {
 	sendEnquiryForApproval,
 	approveEnquiry,
 	rejectEnquiry,
+	cancelEnquiry,
+	reopenEnquiry,
 } from "@/utils/enquiryService";
 import type {
 	EnquiryLineItem,
@@ -424,6 +426,28 @@ function EnquiryPageContent() {
 	}, [branchValue, lineItems, selectedSuppliers, formValues, mode, requestedId, router, getMenuId, toast]);
 
 	// ── Approval actions ──
+	// Re-fetch the enquiry after a workflow action so the status chip, action
+	// buttons, and approval permissions reflect the new state immediately
+	// (router.refresh() alone does not re-run this client component's fetch).
+	const refreshEnquiryState = React.useCallback(async () => {
+		if (!requestedId || !coId) return;
+		try {
+			const data = await getEnquiryById(requestedId, coId);
+			const raw = data as Record<string, unknown>;
+			setEnquiryStatusId(Number(raw.status_id) || STATUS_IDS.DRAFT);
+			setEnquiryStatusName(String(raw.status_name || "Draft"));
+			setApprovalPermissions(
+				(raw.approval_permissions as Record<string, boolean>) ?? {},
+			);
+			if (Array.isArray(raw.responses)) {
+				setResponses(raw.responses as EnquiryResponseSummary[]);
+			}
+		} catch {
+			// Fall back to a router refresh if the inline reload fails.
+			router.refresh();
+		}
+	}, [requestedId, coId, router]);
+
 	const handleSendForApproval = React.useCallback(async () => {
 		try {
 			const menuId = getMenuId();
@@ -433,12 +457,12 @@ function EnquiryPageContent() {
 			}
 			await sendEnquiryForApproval(requestedId, menuId);
 			toast({ title: "Enquiry sent for approval" });
-			router.refresh();
+			await refreshEnquiryState();
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : "Failed to send for approval";
 			toast({ variant: "destructive", title: "Error", description: msg });
 		}
-	}, [requestedId, getMenuId, router, toast]);
+	}, [requestedId, getMenuId, refreshEnquiryState, toast]);
 
 	const handleApprove = React.useCallback(async () => {
 		try {
@@ -446,12 +470,12 @@ function EnquiryPageContent() {
 			if (!menuId) return;
 			await approveEnquiry(requestedId, menuId);
 			toast({ title: "Enquiry approved" });
-			router.refresh();
+			await refreshEnquiryState();
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : "Approval failed";
 			toast({ variant: "destructive", title: "Error", description: msg });
 		}
-	}, [requestedId, getMenuId, router, toast]);
+	}, [requestedId, getMenuId, refreshEnquiryState, toast]);
 
 	const handleReject = React.useCallback(async () => {
 		try {
@@ -459,12 +483,34 @@ function EnquiryPageContent() {
 			if (!menuId) return;
 			await rejectEnquiry(requestedId, menuId, "Rejected");
 			toast({ title: "Enquiry rejected" });
-			router.refresh();
+			await refreshEnquiryState();
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : "Rejection failed";
 			toast({ variant: "destructive", title: "Error", description: msg });
 		}
-	}, [requestedId, getMenuId, router, toast]);
+	}, [requestedId, getMenuId, refreshEnquiryState, toast]);
+
+	const handleCancel = React.useCallback(async () => {
+		try {
+			await cancelEnquiry(requestedId);
+			toast({ title: "Enquiry cancelled" });
+			await refreshEnquiryState();
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : "Cancellation failed";
+			toast({ variant: "destructive", title: "Error", description: msg });
+		}
+	}, [requestedId, refreshEnquiryState, toast]);
+
+	const handleReopen = React.useCallback(async () => {
+		try {
+			await reopenEnquiry(requestedId);
+			toast({ title: "Enquiry reopened" });
+			await refreshEnquiryState();
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : "Reopen failed";
+			toast({ variant: "destructive", title: "Error", description: msg });
+		}
+	}, [requestedId, refreshEnquiryState, toast]);
 
 	// ── Navigation ──
 	const navigateToCreateResponse = React.useCallback(
@@ -564,6 +610,18 @@ function EnquiryPageContent() {
 							Reject
 						</Button>
 					)}
+					{mode === "view" &&
+						(enquiryStatusId === STATUS_IDS.DRAFT || enquiryStatusId === STATUS_IDS.OPEN) && (
+							<Button variant="outlined" color="error" onClick={handleCancel}>
+								Cancel Enquiry
+							</Button>
+						)}
+					{mode === "view" &&
+						(enquiryStatusId === STATUS_IDS.CANCELLED || enquiryStatusId === STATUS_IDS.REJECTED) && (
+							<Button variant="outlined" color="primary" onClick={handleReopen}>
+								Reopen
+							</Button>
+						)}
 				</div>
 			</div>
 
@@ -604,8 +662,12 @@ function EnquiryPageContent() {
 				) : (
 					<EnquiryLineItemsTable
 						items={lineItems}
-						mode={isEditable ? mode : "view"}
-						onRemove={isEditable ? handleRemoveItem : undefined}
+						canEdit={isEditable}
+						onRemoveItems={
+							isEditable
+								? (ids) => ids.forEach((id) => handleRemoveItem(id))
+								: undefined
+						}
 					/>
 				)}
 			</Paper>

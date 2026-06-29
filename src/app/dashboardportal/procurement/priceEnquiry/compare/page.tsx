@@ -13,9 +13,11 @@ import {
 	Divider,
 	Chip,
 } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import {
+	ArrowLeft as ArrowBackIcon,
+	CheckCircle as CheckCircleIcon,
+	ShoppingCart as ShoppingCartIcon,
+} from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { toast } from "@/hooks/use-toast";

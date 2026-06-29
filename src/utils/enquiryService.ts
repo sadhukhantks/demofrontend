@@ -7,6 +7,13 @@ import type {
 	POPrefillData,
 	IndentLineItemForEnquiry,
 } from "@/app/dashboardportal/procurement/priceEnquiry/createEnquiry/types/enquiryTypes";
+import {
+	parseEnvelope,
+	enquirySetupSchema,
+	comparisonResponseDetailSchema,
+	poPrefillSchema,
+} from "@/app/dashboardportal/procurement/priceEnquiry/createEnquiry/utils/enquirySchemas";
+import { z } from "zod";
 
 // ---------------------------------------------------------------------------
 // Response types
@@ -75,7 +82,7 @@ export async function fetchEnquirySetup(
 		throw new Error("Empty enquiry setup response.");
 	}
 
-	return data;
+	return parseEnvelope(enquirySetupSchema, data, "enquiry setup") as EnquirySetupData;
 }
 
 // ---------------------------------------------------------------------------
@@ -145,7 +152,15 @@ export async function getEnquiryById(
 		throw new Error("Empty enquiry detail response.");
 	}
 
-	return data;
+	// The backend wraps the detail in a `{ data: {...} }` envelope while
+	// `fetchWithCookie` returns the raw body, so unwrap it here. Callers read
+	// fields (status_id, items, suppliers, ...) directly off the result.
+	const inner =
+		typeof data === "object" && data !== null && "data" in (data as Record<string, unknown>)
+			? (data as Record<string, unknown>).data
+			: data;
+
+	return inner as EnquiryDetails;
 }
 
 // ---------------------------------------------------------------------------
@@ -266,7 +281,7 @@ export async function getResponsesForComparison(
 	const query = new URLSearchParams({ enquiry_id: String(enquiryId) });
 
 	const { data, error } = await fetchWithCookie<ComparisonResponse>(
-		`${apiRoutesPortalMasters.ENQUIRY_COMPARISON}?${query.toString()}`,
+		`${apiRoutesPortalMasters.ENQUIRY_GET_COMPARISON}?${query.toString()}`,
 		"GET",
 	);
 
@@ -278,7 +293,12 @@ export async function getResponsesForComparison(
 		throw new Error("Empty comparison response.");
 	}
 
-	return data;
+	const responses = parseEnvelope(
+		z.array(comparisonResponseDetailSchema),
+		data,
+		"comparison",
+	) as ComparisonResponseDetail[];
+	return { data: responses };
 }
 
 /**
@@ -323,7 +343,7 @@ export async function getPOPrefillData(
 	const query = new URLSearchParams({ response_id: String(responseId) });
 
 	const { data, error } = await fetchWithCookie<POPrefillData>(
-		`${apiRoutesPortalMasters.ENQUIRY_PO_PREFILL}?${query.toString()}`,
+		`${apiRoutesPortalMasters.ENQUIRY_GET_PO_PREFILL}?${query.toString()}`,
 		"GET",
 	);
 
@@ -335,7 +355,7 @@ export async function getPOPrefillData(
 		throw new Error("Empty PO prefill response.");
 	}
 
-	return data;
+	return parseEnvelope(poPrefillSchema, data, "PO prefill") as POPrefillData;
 }
 
 // ---------------------------------------------------------------------------
@@ -428,6 +448,52 @@ export async function rejectEnquiry(
 
 	if (!data) {
 		throw new Error("Empty response from reject enquiry API.");
+	}
+
+	return data;
+}
+
+/**
+ * Cancel a Draft or Open enquiry (-> Cancelled).
+ */
+export async function cancelEnquiry(
+	enquiryId: string | number,
+): Promise<EnquiryStatusChangeResponse> {
+	const { data, error } = await fetchWithCookie<EnquiryStatusChangeResponse>(
+		apiRoutesPortalMasters.ENQUIRY_CANCEL,
+		"POST",
+		{ enquiry_id: String(enquiryId) },
+	);
+
+	if (error) {
+		throw new Error(error);
+	}
+
+	if (!data) {
+		throw new Error("Empty response from cancel enquiry API.");
+	}
+
+	return data;
+}
+
+/**
+ * Reopen a Cancelled or Rejected enquiry back to Draft.
+ */
+export async function reopenEnquiry(
+	enquiryId: string | number,
+): Promise<EnquiryStatusChangeResponse> {
+	const { data, error } = await fetchWithCookie<EnquiryStatusChangeResponse>(
+		apiRoutesPortalMasters.ENQUIRY_REOPEN,
+		"POST",
+		{ enquiry_id: String(enquiryId) },
+	);
+
+	if (error) {
+		throw new Error(error);
+	}
+
+	if (!data) {
+		throw new Error("Empty response from reopen enquiry API.");
 	}
 
 	return data;

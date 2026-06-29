@@ -184,6 +184,9 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
 										size="small"
 										checked={selectedResponseId === resp.proc_price_enquiry_response_id}
 										onChange={() => onSelectResponse(resp.proc_price_enquiry_response_id)}
+										inputProps={{
+											"aria-label": `Select quote from ${resp.supp_name ?? "supplier"}`,
+										}}
 									/>
 									<Typography sx={HEADER_SX}>{resp.supp_name}</Typography>
 									{resp.is_selected === 1 && (
