@@ -273,7 +273,7 @@ export default function BeamingEntryForm({
 				/>
 				<TextField
 					type="number"
-					label="Act Cuts"
+					label="Act Cuts/Beam"
 					value={actCuts}
 					onChange={(e) => setActCuts(e.target.value)}
 					size="small"
