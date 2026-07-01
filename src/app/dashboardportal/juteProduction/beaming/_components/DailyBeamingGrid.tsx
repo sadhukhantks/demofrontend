@@ -85,7 +85,7 @@ export default function DailyBeamingGrid({ coId, branchId, date, spellId, refres
 			{ field: "item_code", headerName: "Item", width: 110 },
 			{ field: "bm_quality_code", headerName: "bm_quality", width: 140 },
 			{ field: "beam_no", headerName: "Beam No", width: 110 },
-			{ field: "act_cuts", headerName: "Act Cuts", width: 90, type: "number" },
+			{ field: "act_cuts", headerName: "Act Cuts/Beam", width: 120, type: "number" },
 			{ field: "no_of_beam", headerName: "No. Beams", width: 100, type: "number" },
 			// RPM / Act Spd are read-only here — sourced from the server and filled by
 			// the future Beaming SQC tab (like Spinning SQC); 0/blank until then.

@@ -20,7 +20,7 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WeavingSetup, WeavingEntryRow, LoomQualityMapRow } from "../types/weavingTypes";
 import { useLoomQualityMap } from "../hooks/useLoomQualityMap";
 import { useWeavingEntriesByDate } from "../hooks/useWeavingEntriesByDate";
-import { effectiveJugar } from "../utils/weavingCalc";
+import { totalJugar } from "../utils/weavingCalc";
 
 type Props = {
 	coId: string;
@@ -158,19 +158,14 @@ export default function WeavingEntryGrid({ coId, branchId, date, spell }: Props)
 		const cell = edits[r.machine_id] ?? { cuts: "", close_jugar: "" };
 		const entry = entryByMachine[r.machine_id];
 		const mapped = r.weaving_quality_id != null;
-		// FE PREVIEW ONLY — server / vw_weaving_daily is authoritative for the produced
-		// jugar. open_jugar (oj) is the last available close — read-only.
+		// FE PREVIEW ONLY — server / vw_weaving_daily is authoritative. total_jugar =
+		// cuts·jpc + cj − oj − adj; open_jugar (oj) is the last available close (read-only)
+		// and adjustment jugar (adj) lives on the Adjustment tab, so it is 0 here.
 		const jpc = Number(entry?.jpc ?? 0);
 		const openJugar = Number(entry?.open_jugar ?? entry?.open ?? 0);
 		const closeJugarNum = Number(cell.close_jugar || 0);
-		const inSync =
-			entry != null &&
-			cell.cuts === String(entry.cuts ?? "") &&
-			cell.close_jugar === String(entry.close_jugar ?? "");
-		const derivedJugar =
-			inSync && entry?.jugar != null
-				? Number(entry.jugar)
-				: effectiveJugar(jpc, openJugar, closeJugarNum);
+		const cutsNum = Number(cell.cuts || 0);
+		const derivedJugar = totalJugar(cutsNum, jpc, openJugar, closeJugarNum);
 		return { cell, entry, mapped, derivedJugar };
 	};
 
@@ -180,7 +175,8 @@ export default function WeavingEntryGrid({ coId, branchId, date, spell }: Props)
 				<Typography variant="subtitle2">Production entry (per loom)</Typography>
 				<Typography variant="caption" color="text.secondary">
 					Quality is inherited from the Loom → Quality map (read-only). Enter cuts + closing jugar;
-					Open and the produced Jugar are derived (server/view authoritative).
+					Open and Total Jugar (cuts·jpc + close − open − adjustment) are derived
+					(server/view authoritative; adjustment applied on the Adjustment tab).
 				</Typography>
 				<TextField
 					size="small"
@@ -207,7 +203,7 @@ export default function WeavingEntryGrid({ coId, branchId, date, spell }: Props)
 								<TableCell>Loom</TableCell>
 								<TableCell align="right">Cuts</TableCell>
 								<TableCell align="right">Cl.Jugar</TableCell>
-								<TableCell align="right">Jugar</TableCell>
+								<TableCell align="right">Tot.Jugar</TableCell>
 								<TableCell />
 							</TableRow>
 						</TableHead>

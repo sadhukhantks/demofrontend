@@ -26,7 +26,12 @@ function rollupRowId(r: WeavingShiftRollupRow): string {
 	return `${r.machine_id}:${r.item_id}:${r.weaving_quality_id}:${r.shift_bucket}`;
 }
 
-const num = { type: "number" as const, width: 90 };
+// Round every numeric cell to a whole number for display.
+const roundInt = (value: number | string | null) =>
+	value == null || value === "" ? "" : String(Math.round(Number(value)));
+const numCol = { type: "number" as const, valueFormatter: roundInt };
+
+const num = { ...numCol, width: 90 };
 
 export default function WeavingPlanningGrid({ coId, branchId, date, spell }: Props) {
 	const { data, loading, error, refresh } = useWeavingPlanningGrid(coId, branchId, date, spell);
@@ -41,29 +46,25 @@ export default function WeavingPlanningGrid({ coId, branchId, date, spell }: Pro
 	const columns = React.useMemo<GridColDef<WeavingPlanningGridRow>[]>(
 		() => [
 			{ field: "mech_code", headerName: "Loom", width: 100 },
+			{ field: "std_speed", headerName: "Std Spd", ...num },
 			{ field: "spell_code", headerName: "Spell", width: 80 },
 			{ field: "item_code", headerName: "Item", width: 110 },
 			{ field: "weaving_quality_code", headerName: "Quality", width: 140 },
-			{ field: "beam_no", headerName: "Beam No", width: 110 },
-			{ field: "fl", headerName: "FL", ...num },
-			{ field: "jpc", headerName: "JPC", ...num },
-			{ field: "open", headerName: "Open", ...num },
 			{ field: "ozs_yds", headerName: "Ozs/Yd", ...num },
+			{ field: "std_picks", headerName: "Actual PPI", ...num },
+			{ field: "finished_length", headerName: "FL", ...num },
+			{ field: "open_jugar", headerName: "Open Jugar", ...num },
 			{ field: "cuts", headerName: "Cuts", ...num },
-			{ field: "jugar", headerName: "Jugar", ...num },
-			{ field: "std_speed", headerName: "Std Spd", ...num },
-			{ field: "target_speed", headerName: "Tgt Spd", ...num },
-			{ field: "actual_speed", headerName: "Act Spd", ...num },
-			{ field: "std_picks", headerName: "Std PPI", ...num },
-			{ field: "eff_picks", headerName: "Eff PPI", ...num },
-			{ field: "std_eff", headerName: "Std Eff %", width: 100, type: "number" },
-			{ field: "target_eff", headerName: "Tgt Eff %", width: 100, type: "number" },
-			{ field: "working_hours", headerName: "Working Hrs", width: 110, type: "number" },
-			{ field: "std_prod_yds", headerName: "Std Prod (yd)", width: 120, type: "number" },
-			{ field: "target_prod", headerName: "Tgt Prod (yd)", width: 120, type: "number" },
-			{ field: "production_yds", headerName: "Prod (yd)", width: 120, type: "number" },
-			{ field: "production_kg", headerName: "Prod (kg)", width: 120, type: "number" },
-			{ field: "efficiency", headerName: "Eff %", width: 100, type: "number" },
+			{ field: "close_jugar", headerName: "Close Jugar", ...num },
+			{ field: "less_production", headerName: "Adj Jugar", ...num },
+			{ field: "jugar", headerName: "Prod Jugar", ...num },
+			{ field: "working_hours", headerName: "Working Hrs", width: 110, ...numCol },
+			{ field: "std_prod_yds", headerName: "100% Prod (yd)", width: 120, ...numCol },
+			{ field: "std_prod_eff", headerName: "Std Prod (yd)", width: 120, ...numCol },
+			{ field: "production_yds", headerName: "Prod (yd)", width: 120, ...numCol },
+			{ field: "production_kg", headerName: "Prod (kg)", width: 120, ...numCol },
+			{ field: "std_eff", headerName: "Std Eff %", width: 100, ...numCol },
+			{ field: "efficiency", headerName: "Act Eff %", width: 100, ...numCol },
 		],
 		[]
 	);
@@ -74,9 +75,9 @@ export default function WeavingPlanningGrid({ coId, branchId, date, spell }: Pro
 			{ field: "item_code", headerName: "Item", width: 110 },
 			{ field: "weaving_quality_code", headerName: "Quality", width: 140 },
 			{ field: "shift_bucket", headerName: "Shift", width: 80 },
-			{ field: "production_yds", headerName: "Prod (yd)", width: 120, type: "number" },
-			{ field: "production_kg", headerName: "Prod (kg)", width: 120, type: "number" },
-			{ field: "efficiency", headerName: "Eff %", width: 100, type: "number" },
+			{ field: "production_yds", headerName: "Prod (yd)", width: 120, ...numCol },
+			{ field: "production_kg", headerName: "Prod (kg)", width: 120, ...numCol },
+			{ field: "efficiency", headerName: "Eff %", width: 100, ...numCol },
 		],
 		[]
 	);

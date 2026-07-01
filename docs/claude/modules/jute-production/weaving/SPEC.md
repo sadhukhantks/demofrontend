@@ -173,7 +173,7 @@ param keys off.
 | `cuts` | entry | **data-entry field** (per row) — full cuts woven |
 | `close_jugar` (cj) | entry | **data-entry field** (per row) — the closing jugar reading (0 ≤ cj ≤ jc) |
 | `open_jugar` (oj) | resolved (§3) | **last available** close for (loom, quality) before this (date,spell); skips empty spells; 0 at chain start |
-| `jugar` (produced) | derived (§3) | **computed** `X=jc−oj+cj; jugar=X−jc if X>jc else X; max(0,·)` |
+| `jugar` (= total_jugar) | derived (§3) | **computed** `cuts·jc + cj − oj − less_production` (no wrap/clamp) |
 | `production_yds` | derived (§3) | **computed** |
 | `production_kg` / `production_mt` | derived (§3) | **computed** |
 | `efficiency` | derived (§3) | **computed** |
@@ -202,51 +202,52 @@ finished_length = jute_prod_weaving_quality.finished_length        # yds per ful
 ozs_yds         = jute_prod_weaving_quality.ozs_yds                 # ounces per yard (fixed)
 jugar_per_cut   = jute_prod_weaving_quality.no_of_jugar_per_cut     # jugars per full cut (fixed, > 0)
 std_speed       = qid/standard/speed     # picks/min
-std_picks       = qid/standard/picks     # PPI (legacy 'actual_shots')
+std_picks       = AVG(picks) from vw_weaving_pick_act for EXACT tran_date   # "actual PPI" (REVISED 2026-06-30)
+#   = SQC R-08-21 jute_sqc_weaving_pick daily quality-average; no SQC that day ⇒ 0 (no last-date, no target-map fallback)
 act_speed       = qid/actual/speed       # Weaving SQC; NULL ⇒ use std_speed
-act_picks       = qid/actual/picks       # Weaving SQC; NULL ⇒ use std_picks
+act_picks       = vw_weaving_pick_act LAST-DATE   # VESTIGIAL — no longer used in std-prod
 eff_speed       = COALESCE(act_speed, std_speed)   # speed used in std-prod denominator (legacy override)
-eff_picks       = COALESCE(act_picks, std_picks)   # picks used in std-prod denominator (legacy override)
+eff_picks       = COALESCE(act_picks, std_picks)   # VESTIGIAL — std-prod now divides by std_picks directly
 shift_hours     = spell_mst.working_hours
 idle_hours      = Σ jute_prod_stoppage_hours[machine,date,spell]
 working_hours   = max(0, shift_hours - idle_hours)
 
-# ---- jugar  (oj=open, cj=close ENTERED, jc=jugar_per_cut) -----------------  (REVISED 2026-06-24)
+# ---- jugar  (oj=open, cj=close ENTERED, jc=jugar_per_cut, adj=less_production) -  (REVISED 2026-06-30)
 oj  (open_jugar)  = the LAST AVAILABLE close jugar for this (loom, weaving_quality) strictly before
                     this (tran_date, spell) in order A1→B1→A2→B2→C then across the day boundary;
                     0 when none. SKIPS EMPTY SPELLS: if A1.close=12 and B1 has no entry, A2.open=12
                     (NOT the immediately-prior slot, NOT 0). Quality-scoped.
 cj  (close_jugar) = OPERATOR INPUT — the closing jugar reading (0 ≤ cj ≤ jc; reject cj > jc).
 jc                = jugar_per_cut (above), fixed, > 0.
+adj (less_production) = reduce-jugar deduction from the Adjustment tab (COALESCE 0).
 
-X     = jc - oj + cj
-jugar = (X - jc)  if X > jc     # = (cj - oj)       when cj > oj  (no wrap — advanced within the cut)
-        X         else          # = (jc - oj + cj)  when cj ≤ oj  (wrapped — finished open cut, started new)
-jugar = max(0, jugar)           # jugar (jugars produced this spell) CANNOT be negative
+total_jugar = cuts * jc + cj - oj - adj    # straight count, NO wrap, NO clamp.
+#   The cuts*jc term keeps total_jugar ≥ 0 in practice, so no max(0,·) guard is applied.
+#   The reported `jugar` column == total_jugar.
 
-# ---- production (yards) ---------------------------------------------------  (REVISED 2026-06-24)
-production_yds  = (cuts + jugar / jc) * finished_length    # guard jc > 0
-#   = (operator-entered full cuts + the spell's DERIVED produced-jugars as a fraction of a cut) × yds/cut.
-#   Worked (jc=16, FL=L):  A1 oj=0,cuts=10,cj=12 → X=28>16 → jugar=12 → (10+12/16)L = 10.75 L.
-#                          A2 oj=12,cuts=5,cj=4 (B1 empty) → X=8≤16 → jugar=8 → (5+8/16)L = 5.50 L.
-#   Supersedes the legacy `cuts*FL − open*FL/jpc + jugar*FL/jpc` (where jugar was the INPUT);
-#   here close is the input and jugar is derived (§13 B.3 kept as legacy reference only).
+# ---- production (yards) ---------------------------------------------------  (REVISED 2026-06-30)
+production_yds  = total_jugar * finished_length / jc    # guard jc > 0
+#   Worked (jc=16, FL=L):  A1 oj=0,cuts=10,cj=12 → total=172 → 172/16·L = 10.75 L.
+#                          A2 oj=12,cuts=5,cj=4 (B1 empty) → total=72 → 72/16·L = 4.50 L.
+#   Supersedes the 2026-06-24 wrap model (X=jc−oj+cj; jugar=X−jc if X>jc else X; (cuts+jugar/jc)·FL):
+#   cuts are now rolled into total_jugar directly and the cyclic-counter wrap is dropped.
 
 # ---- production (kg / MT) -------------------------------------------------  (legacy §13 B.1, B.12)
 production_kg   = production_yds * ozs_yds * 28.35 / 1000   # 28.35 g/oz ⇒ divisor 35.273; round 3 dp (Q13 RESOLVED)
 #   (was /35.2 — a ~0.2%-off placeholder; both authoritative loom calculators + code3i use 28.35/1000.)
 production_mt   = production_kg / 1000
 
-# ---- 100% / standard-possible production (yards) for the spell ------------  (denominator of §13 B.4)
-std_prod_yds    = (eff_speed * working_hours * 60) / (36 * eff_picks)
-#   eff_speed * working_hours * 60 = total picks the loom could insert this spell;
-#   ÷ (36 * eff_picks) converts picks → standard yards.
+# ---- "100prod" = 100% / standard-possible production (yards) --------------  (REVISED 2026-06-30)
+std_prod_yds    = (eff_speed * working_hours * 60) / (36 * std_picks)   # divide by std_picks (actual PPI), NOT eff_picks
+#   "100prod" — theoretical max at 100% efficiency; no SQC that day ⇒ std_picks 0 ⇒ 100prod 0 ⇒ efficiency 0.
 
-# ---- efficiency (%) -------------------------------------------------------  (legacy §13 B.4)
-efficiency      = production_yds * 100 / std_prod_yds                         # guard std_prod_yds > 0
-#   = production_yds * 100 * 36 * eff_picks / (eff_speed * working_hours * 60)
+# ---- "std prod" = efficiency-weighted standard production -----------------  (NEW 2026-06-30)
+std_prod_eff    = std_prod_yds * std_eff / 100          # 100prod × std eff%; planning_grid serializer (not the view)
 
-# ---- target production (optional, for the planning grid) ------------------
+# ---- efficiency (%) -------------------------------------------------------  (ACTUAL eff vs 100prod)
+efficiency      = production_yds * 100 / std_prod_yds                         # guard std_prod_yds(100prod) > 0
+
+# ---- target production (optional; not shown on planning grid) -------------
 target_prod_yds = std_prod_yds * tgt_eff / 100          # if a qid/target/eff exists
 
 # ---- standard production kg (legacy code3i — uses the STANDARD basis weight) --  (Weaving_daily_entry.php:315-318)

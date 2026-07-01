@@ -140,23 +140,28 @@ export type WeavingPlanningGridRow = {
 	weaving_quality_id: number | null;
 	weaving_quality_code: string | null;
 	beam_no: string | null;
-	fl: number;
-	jpc: number;
-	open: number;
+	// Field names MUST match the planning_grid serializer keys (weaving_entry.py) — the
+	// hook binds the raw JSON, so an abbreviated name renders a blank column.
+	finished_length: number;
+	no_of_jugar_per_cut: number;
+	open_jugar: number;
+	close_jugar: number;
+	less_production: number; // adjustment jugar
 	ozs_yds: number;
 	cuts: number;
-	jugar: number;
+	jugar: number; // = total_jugar (cuts·jc + cj − oj − adj)
 	std_speed: number;
-	target_speed: number;
-	actual_speed: number;
+	target_speed: number; // NOTE: BE does not yet serialize a target speed — always blank
+	act_speed: number;
 	std_picks: number;
 	eff_picks: number;
 	std_eff: number;
 	target_eff: number;
 	working_hours: number;
 	// LENGTH basis (yards).
-	std_prod_yds: number;
-	target_prod: number;
+	std_prod_yds: number; // "100prod" — 100% efficiency theoretical (denominator of actual eff)
+	target_prod_yds: number;
+	std_prod_eff: number; // "std prod" = std_prod_yds × std_eff / 100
 	production_yds: number;
 	// WEIGHT basis (kg) — reported only, never divided by the yards std_prod_yds.
 	production_kg: number;

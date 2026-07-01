@@ -563,7 +563,6 @@ function JuteMREditPageContent() {
 				columns: lineItemColumns,
 				getItemId: (item: MRLineItem) => item.id,
 				canEdit: canEdit,
-				onRemoveSelected: () => {},
 				title: "Line Items",
 				subtitle: `${lineItems.length} items | Total Accepted Weight: ${totalAcceptedWeight.toFixed(2)}`,
 			}}
