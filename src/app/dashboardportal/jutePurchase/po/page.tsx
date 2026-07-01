@@ -27,6 +27,10 @@ type JutePORow = {
 	mukam: string;
 	vehicle_type: string;
 	vehicle_qty: number | null;
+	received_lorries: number | null;
+	pending_lorries: number | null;
+	received_qty_qtl: number | null;
+	pending_qty_qtl: number | null;
 	status: string;
 };
 
@@ -157,6 +161,50 @@ export default function JutePOIndexPage() {
 				),
 			},
 			{
+				field: "received_lorries",
+				headerName: "Lorries Received",
+				minWidth: 120,
+				type: "number",
+				renderCell: (params: GridRenderCellParams<JutePORow, number | null>) => (
+					<Typography component="span" variant="body2">
+						{params.value ?? "-"}
+					</Typography>
+				),
+			},
+			{
+				field: "pending_lorries",
+				headerName: "Lorries Pending",
+				minWidth: 120,
+				type: "number",
+				renderCell: (params: GridRenderCellParams<JutePORow, number | null>) => (
+					<Typography component="span" variant="body2">
+						{params.value ?? "-"}
+					</Typography>
+				),
+			},
+			{
+				field: "received_qty_qtl",
+				headerName: "Qty Received (Qtl)",
+				minWidth: 130,
+				type: "number",
+				renderCell: (params: GridRenderCellParams<JutePORow, number | null>) => (
+					<Typography component="span" variant="body2">
+						{params.value ?? "-"}
+					</Typography>
+				),
+			},
+			{
+				field: "pending_qty_qtl",
+				headerName: "Qty Pending (Qtl)",
+				minWidth: 130,
+				type: "number",
+				renderCell: (params: GridRenderCellParams<JutePORow, number | null>) => (
+					<Typography component="span" variant="body2">
+						{params.value ?? "-"}
+					</Typography>
+				),
+			},
+			{
 				field: "status",
 				headerName: "Status",
 				minWidth: 120,
@@ -222,6 +270,10 @@ export default function JutePOIndexPage() {
 					mukam: (r.mukam ?? r.mukam_name ?? "") as string,
 					vehicle_type: (r.vehicle_type ?? r.vehicleType ?? "") as string,
 					vehicle_qty: (r.vehicle_qty ?? r.vehicleQty ?? r.no_of_vehicles ?? null) as number | null,
+					received_lorries: (r.received_lorries ?? null) as number | null,
+					pending_lorries: (r.pending_lorries ?? null) as number | null,
+					received_qty_qtl: (r.received_qty_qtl ?? null) as number | null,
+					pending_qty_qtl: (r.pending_qty_qtl ?? null) as number | null,
 					status: (r.status ?? r.status_name ?? r.po_status ?? "Pending") as string,
 				};
 			});
