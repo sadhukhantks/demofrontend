@@ -286,17 +286,7 @@ export function ApprovalActionsBar({
   );
 
   const visibleButtons = React.useMemo(
-    () => {
-      const buttons = getVisibleButtons(approvalInfo, permissions, handlers);
-      console.log("[ApprovalActionsBar] Visible buttons", { 
-        buttons, 
-        approvalInfo, 
-        permissions, 
-        handlers,
-        buttonCount: buttons.length 
-      });
-      return buttons;
-    },
+    () => getVisibleButtons(approvalInfo, permissions, handlers),
     [approvalInfo, permissions, handlers]
   );
 
@@ -325,14 +315,9 @@ export function ApprovalActionsBar({
             variant={button.variant === "primary" || button.variant === "success" ? "default" : button.variant}
             size="sm"
             onClick={(e) => {
-              console.log(`[ApprovalActionsBar] Button clicked: ${button.id}`, { button, handlers });
               e.preventDefault();
               e.stopPropagation();
-              if (button.onClick) {
-                button.onClick();
-              } else {
-                console.warn(`[ApprovalActionsBar] No onClick handler for button: ${button.id}`);
-              }
+              button.onClick?.();
             }}
             disabled={button.disabled || disabled || loading}
             className={button.variant === "success" ? "bg-green-600 hover:bg-green-700 text-white" : ""}
