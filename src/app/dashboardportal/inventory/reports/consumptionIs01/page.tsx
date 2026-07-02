@@ -1,0 +1,67 @@
+"use client";
+import React, { Suspense } from "react";
+import { Box, CircularProgress } from "@mui/material";
+import { GridColDef } from "@mui/x-data-grid";
+import ReportPanel from "@/components/reports/ReportPanel";
+import { numCol } from "@/components/reports/ReportGrid";
+import { useReportBranches } from "@/components/reports/useReportBranches";
+import { currentMonthRange } from "@/components/reports/reportDates";
+import {
+  fetchIssueConsumption,
+  type ConsumptionRow,
+} from "@/utils/inventoryReportService";
+
+const columns: GridColDef<ConsumptionRow>[] = [
+  { field: "department", headerName: "Department", flex: 1, minWidth: 150 },
+  { field: "cost_factor", headerName: "Cost Center", flex: 1, minWidth: 140 },
+  { field: "item_name", headerName: "Item", flex: 1, minWidth: 180 },
+  numCol("production", "Production"),
+  numCol("overhauling", "Overhauling"),
+  numCol("maintenance", "Maintenance"),
+  numCol("capital", "Capital"),
+  numCol("general", "General"),
+  numCol("total", "Total", 130),
+];
+
+function Content() {
+  const { coId, branches, initialBranchId, dateParam } = useReportBranches();
+  const { from, to } = currentMonthRange();
+  return (
+    <ReportPanel
+      title="Consumption Report IS-01 (Dept + Cost Center + Item)"
+      branches={branches}
+      initialBranchId={initialBranchId}
+      dates="range"
+      initialDateFrom={from}
+      initialDateTo={dateParam || to}
+      fetcher={(f) =>
+        coId == null
+          ? Promise.resolve([])
+          : fetchIssueConsumption("dept_cost_item", {
+              coId,
+              branchId: f.branchId,
+              dateFrom: f.dateFrom,
+              dateTo: f.dateTo,
+            })
+      }
+      columns={columns}
+      getRowId={(r) => r.id}
+      sortField="department"
+      exportName="consumption-is01"
+    />
+  );
+}
+
+export default function ConsumptionIs01Page() {
+  return (
+    <Suspense
+      fallback={
+        <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+          <CircularProgress />
+        </Box>
+      }
+    >
+      <Content />
+    </Suspense>
+  );
+}
