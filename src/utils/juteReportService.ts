@@ -3,6 +3,15 @@ import { fetchWithCookie } from "./apiClient2";
 import { apiRoutesPortalMasters } from "./api";
 import type {
   JuteStockReportRow,
+  JuteQtyWiseReportRow,
+  JuteWithValueRow,
+  JuteTxnSummaryRow,
+  JutePeriodWiseRow,
+  JuteMrInStockRow,
+  JuteMrWiseRow,
+  JuteGodownWiseRow,
+  JutePercentClaimsRow,
+  JuteMukhamMoistureRow,
   BatchCostReportRow,
   MrListReportRow,
   PaginatedReportApiResponse,
@@ -31,6 +40,160 @@ export async function fetchBatchCostReport(
     throw new Error(result.error ?? "Failed to fetch batch cost report");
   }
   return result.data.data;
+}
+
+export async function fetchJuteQtyWiseReport(
+  branchId: number,
+  dateFrom: string,
+  dateTo: string,
+): Promise<JuteQtyWiseReportRow[]> {
+  const qs = new URLSearchParams({
+    branch_id: String(branchId),
+    date_from: dateFrom,
+    date_to: dateTo,
+  });
+  const url = `${apiRoutesPortalMasters.JUTE_REPORT_QTY_WISE}?${qs.toString()}`;
+  const result =
+    await fetchWithCookie<ReportApiResponse<JuteQtyWiseReportRow>>(url);
+  if (result.error || !result.data) {
+    throw new Error(result.error ?? "Failed to fetch jute quantity wise report");
+  }
+  return result.data.data;
+}
+
+function dateRangeUrl(
+  route: string,
+  branchId: number,
+  dateFrom: string,
+  dateTo: string,
+): string {
+  const qs = new URLSearchParams({
+    branch_id: String(branchId),
+    date_from: dateFrom,
+    date_to: dateTo,
+  });
+  return `${route}?${qs.toString()}`;
+}
+
+export function fetchJutePercentClaims(
+  branchId: number,
+  dateFrom: string,
+  dateTo: string,
+): Promise<JutePercentClaimsRow[]> {
+  const url = dateRangeUrl(
+    apiRoutesPortalMasters.JUTE_REPORT_PERCENT_CLAIMS,
+    branchId,
+    dateFrom,
+    dateTo,
+  );
+  return fetchBranchReport<JutePercentClaimsRow>(
+    url,
+    "Failed to fetch percent claims report",
+  );
+}
+
+export function fetchJuteMukhamMoisture(
+  branchId: number,
+  dateFrom: string,
+  dateTo: string,
+): Promise<JuteMukhamMoistureRow[]> {
+  const url = dateRangeUrl(
+    apiRoutesPortalMasters.JUTE_REPORT_MUKHAM_MOISTURE,
+    branchId,
+    dateFrom,
+    dateTo,
+  );
+  return fetchBranchReport<JuteMukhamMoistureRow>(
+    url,
+    "Failed to fetch mukham moisture report",
+  );
+}
+
+export async function fetchJuteWithValue(
+  branchId: number,
+  dateFrom: string,
+  dateTo: string,
+): Promise<JuteWithValueRow[]> {
+  const qs = new URLSearchParams({
+    branch_id: String(branchId),
+    date_from: dateFrom,
+    date_to: dateTo,
+  });
+  const url = `${apiRoutesPortalMasters.JUTE_REPORT_WITH_VALUE}?${qs.toString()}`;
+  const result = await fetchWithCookie<ReportApiResponse<JuteWithValueRow>>(url);
+  if (result.error || !result.data) {
+    throw new Error(result.error ?? "Failed to fetch jute with value report");
+  }
+  return result.data.data;
+}
+
+export async function fetchJuteTxnSummary(
+  branchId: number,
+  dateFrom: string,
+  dateTo: string,
+  type: "R" | "I" | "ALL" = "ALL",
+  search?: string,
+): Promise<JuteTxnSummaryRow[]> {
+  const qs = new URLSearchParams({
+    branch_id: String(branchId),
+    date_from: dateFrom,
+    date_to: dateTo,
+    type,
+  });
+  if (search) qs.append("search", search);
+  const url = `${apiRoutesPortalMasters.JUTE_REPORT_TXN_SUMMARY}?${qs.toString()}`;
+  const result = await fetchWithCookie<ReportApiResponse<JuteTxnSummaryRow>>(url);
+  if (result.error || !result.data) {
+    throw new Error(result.error ?? "Failed to fetch issue/receipt summary");
+  }
+  return result.data.data;
+}
+
+export async function fetchJutePeriodWise(
+  branchId: number,
+  dateFrom: string,
+  dateTo: string,
+  period: "month" | "day",
+): Promise<JutePeriodWiseRow[]> {
+  const qs = new URLSearchParams({
+    branch_id: String(branchId),
+    date_from: dateFrom,
+    date_to: dateTo,
+    period,
+  });
+  const url = `${apiRoutesPortalMasters.JUTE_REPORT_PERIOD_WISE}?${qs.toString()}`;
+  const result = await fetchWithCookie<ReportApiResponse<JutePeriodWiseRow>>(url);
+  if (result.error || !result.data) {
+    throw new Error(result.error ?? "Failed to fetch period wise report");
+  }
+  return result.data.data;
+}
+
+/** Cluster B reports are current-position, branch-scoped only (no date). */
+async function fetchBranchReport<T>(
+  url: string,
+  errMsg: string,
+): Promise<T[]> {
+  const result = await fetchWithCookie<ReportApiResponse<T>>(url);
+  if (result.error || !result.data) {
+    throw new Error(result.error ?? errMsg);
+  }
+  return result.data.data;
+}
+
+export function fetchJuteMrInStock(branchId: number): Promise<JuteMrInStockRow[]> {
+  const url = `${apiRoutesPortalMasters.JUTE_REPORT_MR_IN_STOCK}?branch_id=${branchId}`;
+  return fetchBranchReport<JuteMrInStockRow>(url, "Failed to fetch MR in stock report");
+}
+
+export function fetchJuteMrWise(branchId: number): Promise<JuteMrWiseRow[]> {
+  const url = `${apiRoutesPortalMasters.JUTE_REPORT_MR_WISE}?branch_id=${branchId}`;
+  return fetchBranchReport<JuteMrWiseRow>(url, "Failed to fetch MR wise report");
+}
+
+export function fetchJuteGodownWise(branchId: number): Promise<JuteGodownWiseRow[]> {
+  const url = `${apiRoutesPortalMasters.JUTE_REPORT_GODOWN_WISE}?branch_id=${branchId}`;
+  return fetchBranchReport<JuteGodownWiseRow>(url, "Failed to fetch godown wise report");
 }
 
 export interface FetchMrListParams {
