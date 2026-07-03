@@ -40,6 +40,7 @@ const apiRoutes ={
     PORTAL_MENU_ITEMS: `${API_URL}/admin/PortalData/portal_menu_items`,
     PORTAL_MENU_PERMISSIONS: `${API_URL}/admin/PortalData/portal_menu_permissions`,
     PORTAL_MENU_PERMISSION_CHECK: `${API_URL}/admin/PortalData/portal_menu_permissions/check`,
+    REPORT_MENU_TREE: `${API_URL}/admin/PortalData/report_menu_tree`,
 
 
     ROLES_CONSOLE_CONSOLE: `${API_URL}/consoleAdmin/roles_console_admin`,
@@ -380,6 +381,15 @@ const apiRoutesPortalMasters = {
 
     // Jute Reports
     JUTE_REPORT_STOCK: `${API_URL}/juteReports/stock`,
+    JUTE_REPORT_QTY_WISE: `${API_URL}/juteReports/qty-wise`,
+    JUTE_REPORT_TXN_SUMMARY: `${API_URL}/juteReports/txn-summary`,
+    JUTE_REPORT_PERIOD_WISE: `${API_URL}/juteReports/period-wise`,
+    JUTE_REPORT_WITH_VALUE: `${API_URL}/juteReports/with-value`,
+    JUTE_REPORT_PERCENT_CLAIMS: `${API_URL}/juteReports/percent-claims`,
+    JUTE_REPORT_MUKHAM_MOISTURE: `${API_URL}/juteReports/mukham-moisture`,
+    JUTE_REPORT_MR_IN_STOCK: `${API_URL}/juteReports/mr-in-stock`,
+    JUTE_REPORT_MR_WISE: `${API_URL}/juteReports/mr-wise`,
+    JUTE_REPORT_GODOWN_WISE: `${API_URL}/juteReports/godown-wise`,
     JUTE_REPORT_BATCH_COST: `${API_URL}/juteReports/batch-cost`,
     JUTE_REPORT_MR_LIST: `${API_URL}/juteReports/mr-list`,
     JUTE_REPORT_TALLY_DOWNLOAD: `${API_URL}/juteReports/tally-download`,
@@ -491,6 +501,15 @@ const apiRoutesPortalMasters = {
     ISSUE_INVENTORY_LIST: `${API_URL}/inventoryIssue/get_inventory_list`,
     ISSUE_COST_FACTORS: `${API_URL}/inventoryIssue/get_cost_factors`,
     ISSUE_MACHINES: `${API_URL}/inventoryIssue/get_machines`,
+
+    // Inventory Report endpoints
+    INVENTORY_STOCK_REPORT: `${API_URL}/inventoryReports/inventory-stock`,
+    ISSUE_ITEMWISE_REPORT: `${API_URL}/inventoryReports/issue-itemwise`,
+    ITEM_LEDGER_REPORT: `${API_URL}/inventoryReports/item-ledger`,
+    INVENTORY_MINMAX_REPORT: `${API_URL}/inventoryReports/inventory-minmax`,
+    ITEM_MONTHWISE_REPORT: `${API_URL}/inventoryReports/item-monthwise`,
+    ISSUE_CONSUMPTION_REPORT: `${API_URL}/inventoryReports/issue-consumption`,
+    ISSUE_MACHINEWISE_REPORT: `${API_URL}/inventoryReports/issue-machinewise`,
 
     // Sales Quotation endpoints
     QUOTATION_TABLE: `${API_URL}/salesQuotation/get_quotation_table`,
