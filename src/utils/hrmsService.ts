@@ -803,6 +803,21 @@ export const fetchAttendanceCreateSetup = async (
   );
 };
 
+/** Leave-conflict check for the Mark Attendance form (from vw_leave_dates). */
+export const fetchAttendanceLeaveStatus = async (
+  ebId: number | string,
+  attendanceDate: string,
+) => {
+  const qs = new URLSearchParams({
+    eb_id: String(ebId),
+    attendance_date: attendanceDate,
+  });
+  return fetchWithCookie(
+    `${apiRoutesPortalMasters.ATTENDANCE_LEAVE_STATUS}?${qs.toString()}`,
+    "GET",
+  );
+};
+
 export const fetchMachinesByDesignation = async (
   branchId: string | number,
   designationId?: number | string,

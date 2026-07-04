@@ -801,6 +801,7 @@ const apiRoutesPortalMasters = {
     ATTENDANCE_APPROVE: `${API_URL}/hrms/daily_attendance_approve`,
     ATTENDANCE_REJECT: `${API_URL}/hrms/daily_attendance_reject`,
     ATTENDANCE_CREATE_SETUP: `${API_URL}/hrms/attendance_create_setup`,
+    ATTENDANCE_LEAVE_STATUS: `${API_URL}/hrms/attendance_leave_status`,
     ATTENDANCE_MACHINES: `${API_URL}/hrms/attendance_machines_by_designation`,
     // Attendance register report — served by the Flask mobileapp mounted at the
     // backend root (no /hrms prefix). vowerp3be/src/mobileapp/src/attendance/attendance.py

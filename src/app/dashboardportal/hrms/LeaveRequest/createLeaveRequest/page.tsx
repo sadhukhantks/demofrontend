@@ -60,6 +60,7 @@ function CreateLeaveRequestContent() {
     values,
     setValues,
     updateField,
+    updateEbNo,
     statusId,
     workerName,
     workerInvalid,
@@ -92,8 +93,8 @@ function CreateLeaveRequestContent() {
     [],
   );
 
-  const validateAndGetPayload = useCallback(() => {
-    const parsed = leaveRequestFormSchema.safeParse(values);
+  const validateAndGetPayload = useCallback((ebId: number) => {
+    const parsed = leaveRequestFormSchema.safeParse({ ...values, eb_id: ebId });
     if (!parsed.success) {
       const firstError =
         parsed.error.issues[0]?.message ?? "Validation failed";
@@ -112,7 +113,11 @@ function CreateLeaveRequestContent() {
   }, [values, showSnack]);
 
   const handleSave = useCallback(async () => {
-    const payload = validateAndGetPayload();
+    // Resolve the emp code via API if it hasn't been (e.g. save clicked before
+    // the blur lookup ran), then validate against that fresh eb_id.
+    let ebId = values.eb_id;
+    if (values.eb_no && !ebId) ebId = await lookupWorker();
+    const payload = validateAndGetPayload(ebId);
     if (!payload) return;
     setSaving(true);
     try {
@@ -132,7 +137,16 @@ function CreateLeaveRequestContent() {
     } finally {
       setSaving(false);
     }
-  }, [validateAndGetPayload, mode, id, router, showSnack]);
+  }, [
+    values.eb_id,
+    values.eb_no,
+    lookupWorker,
+    validateAndGetPayload,
+    mode,
+    id,
+    router,
+    showSnack,
+  ]);
 
   const handleApprove = useCallback(async () => {
     if (!id) return;
@@ -277,9 +291,7 @@ function CreateLeaveRequestContent() {
               label="Employee Code"
               size="small"
               value={values.eb_no}
-              onChange={(e) =>
-                updateField("eb_no", e.target.value.toUpperCase())
-              }
+              onChange={(e) => updateEbNo(e.target.value)}
               onBlur={() => lookupWorker()}
               disabled={isView || mode === "edit"}
             />

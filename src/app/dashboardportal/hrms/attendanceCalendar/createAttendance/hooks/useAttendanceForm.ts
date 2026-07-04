@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   fetchAttendanceById,
   fetchAttendanceCreateSetup,
+  fetchAttendanceLeaveStatus,
   fetchDesignationsBySubDept,
   fetchMachinesByDesignation,
   fetchWorkerByEbNo,
@@ -75,6 +76,11 @@ export function useAttendanceForm(params: {
   const [machineOptions, setMachineOptions] = useState<MachineOption[]>([]);
   const [approveButton, setApproveButton] = useState(false);
   const [rejectButton, setRejectButton] = useState(false);
+  // Leave conflict for the selected employee + date (from vw_leave_dates).
+  const [leaveStatus, setLeaveStatus] = useState<{
+    on_leave: boolean;
+    payable: string | null;
+  } | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -279,6 +285,30 @@ export function useAttendanceForm(params: {
     }));
   }, []);
 
+  // Leave check: whenever a valid employee + date is set, verify the date is
+  // not a leave date (vw_leave_dates). Runs after EB-No lookup resolves eb_id
+  // and again if the date changes.
+  useEffect(() => {
+    if (!values.eb_id || !values.attendance_date) {
+      setLeaveStatus(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error: err } = await fetchAttendanceLeaveStatus(
+        values.eb_id,
+        values.attendance_date,
+      );
+      if (cancelled || err || !data?.data) return;
+      setLeaveStatus(
+        data.data as { on_leave: boolean; payable: string | null },
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [values.eb_id, values.attendance_date]);
+
   // Apply the sidebar's default branch once available (create mode).
   useEffect(() => {
     if (mode !== "create" || !defaultBranchId) return;
@@ -300,6 +330,7 @@ export function useAttendanceForm(params: {
     machineOptions,
     approveButton,
     rejectButton,
+    leaveStatus,
     loadingDetail,
     error,
     setError,

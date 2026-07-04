@@ -72,6 +72,7 @@ function SearchSelect({
   onChange,
   disabled,
   required,
+  isOptionDisabled,
 }: {
   label: string;
   value: string;
@@ -79,6 +80,8 @@ function SearchSelect({
   onChange: (value: string) => void;
   disabled?: boolean;
   required?: boolean;
+  /** Grey out (but still show) individual options by their value. */
+  isOptionDisabled?: (value: string) => boolean;
 }) {
   const selected = options.find((o) => o.value === value) ?? null;
   return (
@@ -88,6 +91,9 @@ function SearchSelect({
       value={selected}
       disabled={disabled}
       getOptionLabel={(o) => o.label}
+      getOptionDisabled={
+        isOptionDisabled ? (o) => isOptionDisabled(o.value) : undefined
+      }
       isOptionEqualToValue={(o, v) => o.value === v.value}
       onChange={(_, v) => onChange(v ? v.value : "")}
       renderInput={(params) => (
@@ -128,6 +134,7 @@ function CreateAttendanceContent() {
     machineOptions,
     approveButton,
     rejectButton,
+    leaveStatus,
     loadingDetail,
     error,
     setError,
@@ -150,6 +157,20 @@ function CreateAttendanceContent() {
   const canApprove = mode !== "create" && approveButton && !isView;
   const canReject = mode !== "create" && rejectButton && !isView;
   const disabled = isView || !canEdit;
+
+  // Leave conflict (vw_leave_dates): unpaid leave blocks the save entirely;
+  // paid leave (payable='Y') permits only Cash / OT, not Regular.
+  const leaveBlocked = Boolean(
+    leaveStatus?.on_leave && leaveStatus.payable !== "Y",
+  );
+  const leavePaidOnly = Boolean(
+    leaveStatus?.on_leave && leaveStatus.payable === "Y",
+  );
+  // Save is deactivated while the leave check fails — a leave date blocks the
+  // save outright, and a paid leave date still blocks it until the type is
+  // switched off Regular. It reactivates the moment the selection is valid.
+  const leaveInvalid =
+    leaveBlocked || (leavePaidOnly && values.attendance_type === "R");
 
   // Searchable-select option lists.
   const branchOpts = useMemo<Opt[]>(
@@ -194,6 +215,20 @@ function CreateAttendanceContent() {
       showSnack(parsed.error.issues[0]?.message ?? "Validation failed", "error");
       return;
     }
+    if (leaveBlocked) {
+      showSnack(
+        "Employee is on leave on this date — attendance cannot be saved",
+        "error",
+      );
+      return;
+    }
+    if (leavePaidOnly && parsed.data.attendance_type === "R") {
+      showSnack(
+        "Employee is on paid leave — only Cash or Over Time is allowed, not Regular",
+        "error",
+      );
+      return;
+    }
     setSaving(true);
     try {
       if (mode === "create") {
@@ -212,7 +247,7 @@ function CreateAttendanceContent() {
     } finally {
       setSaving(false);
     }
-  }, [values, mode, id, router, showSnack]);
+  }, [values, mode, id, router, showSnack, leaveBlocked, leavePaidOnly]);
 
   const handleApprove = useCallback(async () => {
     if (!id) return;
@@ -287,6 +322,17 @@ function CreateAttendanceContent() {
       </Box>
 
       {error ? <Alert severity="error">{error}</Alert> : null}
+
+      {leaveBlocked ? (
+        <Alert severity="error">
+          Employee is on leave on the selected date. Attendance cannot be saved.
+        </Alert>
+      ) : leavePaidOnly ? (
+        <Alert severity="warning">
+          Employee is on paid leave on this date — only Cash or Over Time
+          attendance is allowed, not Regular.
+        </Alert>
+      ) : null}
 
       {/* Section 1: Employee / name / date / mark / source */}
       <Paper sx={sectionSx}>
@@ -371,6 +417,7 @@ function CreateAttendanceContent() {
             onChange={(v) => updateField("attendance_type", v)}
             disabled={disabled}
             required
+            isOptionDisabled={(v) => leavePaidOnly && v === "R"}
           />
           <SearchSelect
             label="Spell"
@@ -513,7 +560,7 @@ function CreateAttendanceContent() {
           Cancel
         </Button>
         {canEdit ? (
-          <Button onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving || leaveInvalid}>
             {saving ? "Saving..." : mode === "create" ? "Submit" : "Update"}
           </Button>
         ) : null}
