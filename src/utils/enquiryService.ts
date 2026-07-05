@@ -11,7 +11,9 @@ import {
 	parseEnvelope,
 	enquirySetupSchema,
 	comparisonResponseDetailSchema,
+	responseDetailSchema,
 	poPrefillSchema,
+	type ResponseDetail,
 } from "@/app/dashboardportal/procurement/priceEnquiry/createEnquiry/utils/enquirySchemas";
 import { z } from "zod";
 
@@ -21,9 +23,7 @@ import { z } from "zod";
 
 export type EnquiryTableResponse = {
 	data: Array<Record<string, unknown>>;
-	total?: number;
-	page?: number;
-	page_size?: number;
+	totalCount?: number;
 };
 
 export type EnquiryCreateResponse = {
@@ -91,17 +91,16 @@ export async function fetchEnquirySetup(
 
 /**
  * Fetch paginated list of price enquiries for the table view.
+ * The backend scopes the list by `branch_ids` (comma-separated).
  */
 export async function fetchEnquiryTable(params: {
-	co_id: string;
-	branch_id?: string;
+	branch_ids: Array<string | number>;
 	page?: number;
 	page_size?: number;
 	search?: string;
 	status?: string;
 }): Promise<EnquiryTableResponse> {
-	const query = new URLSearchParams({ co_id: params.co_id });
-	if (params.branch_id) query.set("branch_id", params.branch_id);
+	const query = new URLSearchParams({ branch_ids: params.branch_ids.join(",") });
 	if (params.page != null) query.set("page", String(params.page));
 	if (params.page_size != null) query.set("page_size", String(params.page_size));
 	if (params.search) query.set("search", params.search);
@@ -129,15 +128,23 @@ export async function fetchEnquiryTable(params: {
 
 /**
  * Fetch a single enquiry by ID, including items, suppliers, and responses.
+ *
+ * Pass `menuId` whenever approval actions matter: the backend only computes
+ * `approval_permissions` (canApprove / canReject / ...) when it receives a
+ * menu_id, so omitting it hides the Approve/Reject buttons.
  */
 export async function getEnquiryById(
 	enquiryId: string | number,
-	coId: string | number,
+	coId?: string | number | null,
+	menuId?: string | number | null,
 ): Promise<EnquiryDetails> {
-	const query = new URLSearchParams({
-		enquiry_id: String(enquiryId),
-		co_id: String(coId),
-	});
+	const query = new URLSearchParams({ enquiry_id: String(enquiryId) });
+	if (coId != null && String(coId).length > 0) {
+		query.set("co_id", String(coId));
+	}
+	if (menuId != null && String(menuId).length > 0) {
+		query.set("menu_id", String(menuId));
+	}
 
 	const { data, error } = await fetchWithCookie<EnquiryDetails>(
 		`${apiRoutesPortalMasters.GET_ENQUIRY_BY_ID}?${query.toString()}`,
@@ -267,6 +274,30 @@ export async function updateEnquiryResponse(payload: unknown): Promise<ResponseC
 	return data ?? { message: "Response updated successfully." };
 }
 
+/**
+ * Fetch a single supplier response (header + lines) for the view/edit page.
+ */
+export async function getResponseById(
+	responseId: string | number,
+): Promise<ResponseDetail> {
+	const query = new URLSearchParams({ response_id: String(responseId) });
+
+	const { data, error } = await fetchWithCookie<unknown>(
+		`${apiRoutesPortalMasters.ENQUIRY_GET_RESPONSE_BY_ID}?${query.toString()}`,
+		"GET",
+	);
+
+	if (error) {
+		throw new Error(error);
+	}
+
+	if (!data) {
+		throw new Error("Empty response detail.");
+	}
+
+	return parseEnvelope(responseDetailSchema, data, "response detail");
+}
+
 // ---------------------------------------------------------------------------
 // Response Comparison & Selection
 // ---------------------------------------------------------------------------
@@ -363,6 +394,18 @@ export async function getPOPrefillData(
 // ---------------------------------------------------------------------------
 
 /**
+ * Workflow endpoints wrap their result in the standard `{ data: {...} }`
+ * envelope; unwrap it so callers read status fields directly.
+ */
+function unwrapStatusChange(body: unknown): EnquiryStatusChangeResponse {
+	const inner =
+		body && typeof body === "object" && "data" in (body as Record<string, unknown>)
+			? (body as Record<string, unknown>).data
+			: body;
+	return inner as EnquiryStatusChangeResponse;
+}
+
+/**
  * Send an enquiry for approval.
  */
 export async function sendEnquiryForApproval(
@@ -388,7 +431,7 @@ export async function sendEnquiryForApproval(
 		throw new Error("Empty response from send for approval API.");
 	}
 
-	return data;
+	return unwrapStatusChange(data);
 }
 
 /**
@@ -417,7 +460,7 @@ export async function approveEnquiry(
 		throw new Error("Empty response from approve enquiry API.");
 	}
 
-	return data;
+	return unwrapStatusChange(data);
 }
 
 /**
@@ -450,7 +493,7 @@ export async function rejectEnquiry(
 		throw new Error("Empty response from reject enquiry API.");
 	}
 
-	return data;
+	return unwrapStatusChange(data);
 }
 
 /**
@@ -473,7 +516,31 @@ export async function cancelEnquiry(
 		throw new Error("Empty response from cancel enquiry API.");
 	}
 
-	return data;
+	return unwrapStatusChange(data);
+}
+
+/**
+ * Record that the RFQ document was issued to suppliers (all invited
+ * suppliers, or the subset in `supplierIds`).
+ */
+export async function markRfqSent(
+	enquiryId: string | number,
+	supplierIds?: Array<string | number>,
+): Promise<void> {
+	const payload: Record<string, unknown> = { enquiry_id: String(enquiryId) };
+	if (supplierIds && supplierIds.length > 0) {
+		payload.supplier_ids = supplierIds.map(String);
+	}
+
+	const { error } = await fetchWithCookie(
+		apiRoutesPortalMasters.ENQUIRY_MARK_RFQ_SENT,
+		"POST",
+		payload,
+	);
+
+	if (error) {
+		throw new Error(error);
+	}
 }
 
 /**
@@ -496,5 +563,5 @@ export async function reopenEnquiry(
 		throw new Error("Empty response from reopen enquiry API.");
 	}
 
-	return data;
+	return unwrapStatusChange(data);
 }

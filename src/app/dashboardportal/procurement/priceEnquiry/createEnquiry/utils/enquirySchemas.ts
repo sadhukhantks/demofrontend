@@ -95,6 +95,50 @@ export const comparisonResponseSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Single response (view/edit page)
+// ---------------------------------------------------------------------------
+
+export const responseDetailItemSchema = z.object({
+	enquiry_dtl_id: z.number().nullable().optional(),
+	item_id: z.number(),
+	item_code: z.string().nullable().optional(),
+	item_name: z.string().nullable().optional(),
+	item_make_id: z.number().nullable().optional(),
+	item_make_name: z.string().nullable().optional(),
+	uom_id: z.number().nullable().optional(),
+	uom_name: z.string().nullable().optional(),
+	qty: numericNullable.optional(),
+	rate: numericNullable.optional(),
+	discount_mode: z.number().nullable().optional(),
+	discount_value: numericNullable.optional(),
+	discount_amount: numericNullable.optional(),
+	gross_amount: numericNullable.optional(),
+	net_amount: numericNullable.optional(),
+	remarks: z.string().nullable().optional(),
+});
+
+export const responseDetailSchema = z.object({
+	proc_price_enquiry_response_id: z.number(),
+	enquiry_id: z.number().nullable().optional(),
+	supplier_id: z.number(),
+	supplier_branch_id: z.number().nullable().optional(),
+	supp_name: z.string().nullable().optional(),
+	supp_code: z.string().nullable().optional(),
+	response_date: z.string().nullable().optional(),
+	credit_days: z.number().nullable().optional(),
+	delivery_days: z.number().nullable().optional(),
+	payment_terms: z.string().nullable().optional(),
+	terms_conditions: z.string().nullable().optional(),
+	remarks: z.string().nullable().optional(),
+	is_selected: z.number().default(0),
+	gross_amount: numericNullable.optional(),
+	net_amount: numericNullable.optional(),
+	items: z.array(responseDetailItemSchema).default([]),
+});
+
+export type ResponseDetail = z.infer<typeof responseDetailSchema>;
+
+// ---------------------------------------------------------------------------
 // PO prefill
 // ---------------------------------------------------------------------------
 

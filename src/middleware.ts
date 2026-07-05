@@ -63,7 +63,7 @@ export async function middleware(request: NextRequest) {
 
     if (pathname.startsWith('/dashboardportal')) {
       try {
-        const action = determinePortalAction(pathname);
+        const action = determinePortalAction(pathname, url.search);
         const permissionRes = await fetch(apiRoutes.PORTAL_MENU_PERMISSION_CHECK, {
           method: 'POST',
           headers: {

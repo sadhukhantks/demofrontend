@@ -12,6 +12,7 @@ import {
 	Typography,
 	Chip,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import type { ComparisonResponseDetail } from "../../createEnquiry/types/enquiryTypes";
 
 // ---------------------------------------------------------------------------
@@ -118,7 +119,9 @@ const ComparisonSummary: React.FC<ComparisonSummaryProps> = ({
 								key={resp.proc_price_enquiry_response_id}
 								hover
 								sx={{
-									backgroundColor: isSelected ? "primary.50" : undefined,
+									backgroundColor: isSelected
+										? (theme) => alpha(theme.palette.primary.main, 0.08)
+										: undefined,
 								}}
 							>
 								<TableCell sx={CELL_SX}>
