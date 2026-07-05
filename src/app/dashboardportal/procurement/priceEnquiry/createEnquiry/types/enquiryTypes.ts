@@ -205,6 +205,9 @@ export type ResponseFormData = {
 
 /**
  * Individual line item within a supplier response form.
+ *
+ * `uomId`/`itemMakeId` mirror the enquiry line so the saved response detail
+ * rows carry the same unit/make identity (PO prefill depends on them).
  */
 export type ResponseLineItem = {
 	id: string;
@@ -212,6 +215,8 @@ export type ResponseLineItem = {
 	itemId: number;
 	itemCode: string;
 	itemName: string;
+	itemMakeId: number | null;
+	uomId: number | null;
 	uomName: string;
 	qty: number;
 	rate: number | null;

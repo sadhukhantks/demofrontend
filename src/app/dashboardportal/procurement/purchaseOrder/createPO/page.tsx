@@ -26,6 +26,7 @@ import {
   type PODetails,
 } from "@/utils/poService";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import { getPOPrefillData } from "@/utils/enquiryService";
 import { toast } from "@/hooks/use-toast";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { useMenuId } from "@/hooks/useMenuId";
@@ -515,12 +516,11 @@ function POTransactionPageContent() {
     const fetchEnquiryPrefill = async () => {
       setLoading(true);
       try {
-        const url = `${apiRoutesPortalMasters.ENQUIRY_GET_PO_PREFILL}?response_id=${encodeURIComponent(enquiryResponseId)}`;
-        const { data: result, error } = await fetchWithCookie(url, "GET");
+        // The service validates the payload with Zod at the boundary.
+        const prefillData = await getPOPrefillData(enquiryResponseId);
         if (cancelled) return;
-        if (error) throw new Error(error);
 
-        const prefill = (result as Record<string, unknown>)?.data as Record<string, unknown> | undefined;
+        const prefill = prefillData as unknown as Record<string, unknown>;
         if (!prefill) throw new Error("No prefill data returned");
 
         const defaultValues = buildDefaultFormValues();
@@ -556,7 +556,7 @@ function POTransactionPageContent() {
           quantity: item.qty != null ? Number(item.qty) : 0,
           rate: item.rate != null ? Number(item.rate) : 0,
           uom: item.uom_id != null ? String(item.uom_id) : "",
-          discountMode: item.discount_mode != null ? Number(item.discount_mode) : DISCOUNT_MODE.NONE,
+          discountMode: item.discount_mode != null ? Number(item.discount_mode) : 0,
           discountValue: item.discount_value != null ? Number(item.discount_value) : 0,
           discountAmount: item.discount_amount != null ? Number(item.discount_amount) : 0,
           amount: 0,

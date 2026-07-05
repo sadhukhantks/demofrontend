@@ -43,7 +43,10 @@ export function EnquirySupplierSelect({
 	onSuppliersChange,
 	readOnly = false,
 }: EnquirySupplierSelectProps) {
-	// Build enriched options with supplier code, deduping by value (party_id)
+	// Build enriched options with supplier code, deduping by value (party_id).
+	// Suppliers already selected on the enquiry but missing from the current
+	// setup options (e.g. later deactivated) are merged in so they stay
+	// visible and are not silently dropped on the next selection change.
 	const options = React.useMemo<SupplierOption[]>(() => {
 		const seen = new Set<string>();
 		const out: SupplierOption[] = [];
@@ -57,8 +60,18 @@ export function EnquirySupplierSelect({
 				code: raw?.supp_code ?? "",
 			});
 		}
+		for (const entry of selectedSuppliers) {
+			const value = String(entry.supplierId);
+			if (seen.has(value)) continue;
+			seen.add(value);
+			out.push({
+				label: entry.supplierName,
+				value,
+				code: entry.supplierCode ?? "",
+			});
+		}
 		return out;
-	}, [supplierOptions, suppliers]);
+	}, [supplierOptions, suppliers, selectedSuppliers]);
 
 	// Map selected suppliers to option values for the autocomplete
 	const selectedValues = React.useMemo<SupplierOption[]>(
@@ -76,7 +89,7 @@ export function EnquirySupplierSelect({
 				return {
 					supplierId: Number(opt.value),
 					supplierName: raw?.supp_name ?? opt.label,
-					supplierCode: raw?.supp_code ?? "",
+					supplierCode: raw?.supp_code ?? opt.code ?? "",
 				};
 			});
 			onSuppliersChange(entries);

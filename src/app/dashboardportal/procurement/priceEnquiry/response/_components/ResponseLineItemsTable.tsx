@@ -190,7 +190,14 @@ const ResponseLineItemsTable: React.FC<ResponseLineItemsTableProps> = ({
 										size="small"
 										value={item.rate ?? ""}
 										onChange={handleNumberInput(idx, "rate")}
-										slotProps={{ htmlInput: { min: 0, step: "0.01", style: { textAlign: "right" } } }}
+										slotProps={{
+											htmlInput: {
+												min: 0,
+												step: "0.01",
+												style: { textAlign: "right" },
+												"aria-label": `Rate for ${item.itemName || item.itemCode}`,
+											},
+										}}
 										sx={{ width: 110 }}
 									/>
 								)}
@@ -208,6 +215,11 @@ const ResponseLineItemsTable: React.FC<ResponseLineItemsTableProps> = ({
 										size="small"
 										value={item.discountMode ?? 0}
 										onChange={handleSelectChange(idx)}
+										slotProps={{
+											htmlInput: {
+												"aria-label": `Discount mode for ${item.itemName || item.itemCode}`,
+											},
+										}}
 										sx={{ width: 120 }}
 									>
 										{DISCOUNT_MODE_OPTIONS.map((opt) => (
@@ -230,7 +242,14 @@ const ResponseLineItemsTable: React.FC<ResponseLineItemsTableProps> = ({
 										value={item.discountValue ?? ""}
 										onChange={handleNumberInput(idx, "discountValue")}
 										disabled={(item.discountMode ?? 0) === 0}
-										slotProps={{ htmlInput: { min: 0, step: "0.01", style: { textAlign: "right" } } }}
+										slotProps={{
+											htmlInput: {
+												min: 0,
+												step: "0.01",
+												style: { textAlign: "right" },
+												"aria-label": `Discount value for ${item.itemName || item.itemCode}`,
+											},
+										}}
 										sx={{ width: 110 }}
 									/>
 								)}

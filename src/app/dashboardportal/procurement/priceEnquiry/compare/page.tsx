@@ -18,8 +18,11 @@ import {
 	CheckCircle as CheckCircleIcon,
 	ShoppingCart as ShoppingCartIcon,
 } from "lucide-react";
-import { fetchWithCookie } from "@/utils/apiClient2";
-import { apiRoutesPortalMasters } from "@/utils/api";
+import {
+	getEnquiryById,
+	getResponsesForComparison,
+	selectEnquiryResponse,
+} from "@/utils/enquiryService";
 import { toast } from "@/hooks/use-toast";
 import type {
 	EnquiryDetails,
@@ -120,46 +123,16 @@ function ComparisonPageContent() {
 				}
 
 				// Fetch enquiry details and comparison data in parallel
-				const [enquiryResult, comparisonResult] = await Promise.all([
-					fetchWithCookie(
-						`${apiRoutesPortalMasters.GET_ENQUIRY_BY_ID}?enquiry_id=${encodeURIComponent(enquiryId)}`,
-						"GET",
-					),
-					fetchWithCookie(
-						`${apiRoutesPortalMasters.ENQUIRY_GET_COMPARISON}?enquiry_id=${encodeURIComponent(enquiryId)}`,
-						"GET",
-					),
+				const [rawEnquiry, comparisonResult] = await Promise.all([
+					getEnquiryById(enquiryId),
+					getResponsesForComparison(enquiryId),
 				]);
-
-				if (enquiryResult.error) {
-					throw new Error(enquiryResult.error);
-				}
-				if (comparisonResult.error) {
-					throw new Error(comparisonResult.error);
-				}
-
-				// Parse enquiry details
-				const rawEnquiry = (
-					enquiryResult.data &&
-					typeof enquiryResult.data === "object" &&
-					"data" in (enquiryResult.data as Record<string, unknown>)
-						? (enquiryResult.data as Record<string, unknown>).data
-						: enquiryResult.data
-				) as EnquiryDetails | null;
 
 				if (!rawEnquiry) {
 					throw new Error("Enquiry not found.");
 				}
 
-				// Parse comparison responses
-				const compData = comparisonResult.data as Record<string, unknown> | null;
-				const rawResponses = (
-					compData && "data" in compData
-						? compData.data
-						: compData
-				) as ComparisonResponseDetail[] | null;
-
-				const responseList = Array.isArray(rawResponses) ? rawResponses : [];
+				const responseList = comparisonResult.data;
 
 				if (!cancelled) {
 					setEnquiryDetails(rawEnquiry);
@@ -219,20 +192,7 @@ function ComparisonPageContent() {
 		setSelecting(true);
 
 		try {
-			const payload = {
-				enquiry_id: Number(enquiryId),
-				response_id: selectedResponseId,
-			};
-
-			const { error: apiError } = await fetchWithCookie(
-				apiRoutesPortalMasters.ENQUIRY_SELECT_RESPONSE,
-				"POST",
-				payload,
-			);
-
-			if (apiError) {
-				throw new Error(apiError);
-			}
+			await selectEnquiryResponse(selectedResponseId, enquiryId);
 
 			// Update local state to reflect selection
 			setResponses((prev) =>

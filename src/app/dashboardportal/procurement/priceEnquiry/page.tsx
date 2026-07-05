@@ -3,8 +3,7 @@
 import * as React from "react";
 import { Alert, Chip, Typography, Button } from "@mui/material";
 import type { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
-import { fetchWithCookie } from "@/utils/apiClient2";
-import { apiRoutesPortalMasters } from "@/utils/api";
+import { fetchEnquiryTable } from "@/utils/enquiryService";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { useRouter } from "next/navigation";
 import { useMenuId } from "@/hooks/useMenuId";
@@ -16,6 +15,7 @@ import {
 	editUrl,
 	hubUrl,
 } from "./createEnquiry/utils/enquiryRoutes";
+import { ENQUIRY_STATUS_IDS } from "./createEnquiry/utils/enquiryConstants";
 
 type EnquiryRow = {
 	id: string | number;
@@ -98,11 +98,10 @@ export default function PriceEnquiryIndexPage() {
 		[router, getMenuId],
 	);
 
+	// Only Draft enquiries are actually rewritable (the backend enforces a
+	// draft-only guard on update), so only offer Edit for drafts.
 	const isRowEditable = React.useCallback(
-		(row: EnquiryRow) => {
-			const s = String(row.status ?? "").toLowerCase().trim();
-			return s !== "approved" && s !== "closed";
-		},
+		(row: EnquiryRow) => Number(row.status_id) === ENQUIRY_STATUS_IDS.DRAFT,
 		[],
 	);
 
@@ -181,42 +180,49 @@ export default function PriceEnquiryIndexPage() {
 			filterable: false,
 			renderCell: (params) => {
 				const row = params.row as EnquiryRow;
-				const statusLower = String(row.status ?? "").toLowerCase().trim();
-				const isApproved = statusLower === "approved" || statusLower === "closed";
+				const statusId = Number(row.status_id);
+				// Quotes can only be recorded while the enquiry is Approved (3);
+				// a Closed (5) enquiry is finished but can still be compared.
+				const canAddQuote = statusId === ENQUIRY_STATUS_IDS.APPROVED;
+				const canCompare =
+					(statusId === ENQUIRY_STATUS_IDS.APPROVED || statusId === ENQUIRY_STATUS_IDS.CLOSED) &&
+					Number(row.response_count) > 0;
 				return (
 					<div className="flex gap-1">
-						{isApproved && (
-							<>
-								<Button
-									size="small"
-									variant="outlined"
-									onClick={(e) => {
-										e.stopPropagation();
-										router.push(createResponseUrl(String(row.id), null, getMenuId()));
-									}}
-								>
-									Add Quote
-								</Button>
-								{Number(row.response_count) > 0 && (
-									<Button
-										size="small"
-										variant="outlined"
-										color="secondary"
-										onClick={(e) => {
-											e.stopPropagation();
-											router.push(compareUrl(String(row.id), getMenuId()));
-										}}
-									>
-										Compare
-									</Button>
-								)}
-							</>
+						{canAddQuote && (
+							<Button
+								size="small"
+								variant="outlined"
+								onClick={(e) => {
+									e.stopPropagation();
+									router.push(createResponseUrl(String(row.id), null, getMenuId()));
+								}}
+							>
+								Add Quote
+							</Button>
+						)}
+						{canCompare && (
+							<Button
+								size="small"
+								variant="outlined"
+								color="secondary"
+								onClick={(e) => {
+									e.stopPropagation();
+									router.push(compareUrl(String(row.id), getMenuId()));
+								}}
+							>
+								Compare
+							</Button>
 						)}
 					</div>
 				);
 			},
 		},
 	], [router, getMenuId]);
+
+	// Monotonic id so a slow, out-of-order response can never overwrite the
+	// rows of a newer request (rapid pagination/search changes).
+	const fetchSeqRef = React.useRef(0);
 
 	const fetchEnquiries = React.useCallback(async () => {
 		if (selectedBranches.length === 0) {
@@ -227,31 +233,20 @@ export default function PriceEnquiryIndexPage() {
 			return;
 		}
 
+		const seq = ++fetchSeqRef.current;
 		setLoading(true);
 		setErrorMessage(null);
 
 		try {
-			const query = new URLSearchParams({
-				page: String(paginationModel.page + 1),
-				page_size: String(paginationModel.pageSize),
-				branch_ids: selectedBranches.join(","),
+			const result = await fetchEnquiryTable({
+				branch_ids: selectedBranches,
+				page: paginationModel.page + 1,
+				page_size: paginationModel.pageSize,
+				search: searchValue.trim() || undefined,
 			});
-			const trimmedSearch = searchValue.trim();
-			if (trimmedSearch) query.set("search", trimmedSearch);
+			if (seq !== fetchSeqRef.current) return;
 
-			const url = `${apiRoutesPortalMasters.ENQUIRY_TABLE}?${query.toString()}`;
-			const { data, error } = await fetchWithCookie(url, "GET");
-
-			if (error) {
-				throw new Error(error);
-			}
-
-			const responseData = data as Record<string, unknown> | undefined;
-			const rawRows = Array.isArray(responseData?.data)
-				? (responseData.data as Record<string, unknown>[])
-				: Array.isArray(data)
-					? (data as Record<string, unknown>[])
-					: [];
+			const rawRows = Array.isArray(result.data) ? result.data : [];
 
 			const mappedRows: EnquiryRow[] = rawRows.map((row) => {
 				const rawDate = (row.price_enquiry_date ?? row.enquiry_date ?? "") as string;
@@ -266,20 +261,23 @@ export default function PriceEnquiryIndexPage() {
 					supplier_count: Number(row.supplier_count ?? 0),
 					response_count: Number(row.response_count ?? 0),
 					status: (row.status_name ?? row.status ?? "Draft") as string,
-					status_id: Number(row.status_id ?? 21),
+					status_id: Number(row.status_id ?? ENQUIRY_STATUS_IDS.DRAFT),
 				};
 			});
 
 			setRows(mappedRows);
-			const total = Number(responseData?.totalCount ?? responseData?.total ?? mappedRows.length ?? 0);
+			const total = Number(result.totalCount ?? mappedRows.length);
 			setTotalRows(Number.isNaN(total) ? mappedRows.length : total);
 		} catch (err) {
+			if (seq !== fetchSeqRef.current) return;
 			const message = err instanceof Error ? err.message : "Failed to load price enquiries";
 			setErrorMessage(message);
 			setRows([]);
 			setTotalRows(0);
 		} finally {
-			setLoading(false);
+			if (seq === fetchSeqRef.current) {
+				setLoading(false);
+			}
 		}
 	}, [paginationModel.page, paginationModel.pageSize, searchValue, selectedBranches]);
 
