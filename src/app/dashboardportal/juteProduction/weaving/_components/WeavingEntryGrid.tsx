@@ -161,7 +161,9 @@ export default function WeavingEntryGrid({ coId, branchId, date, spell }: Props)
 		// FE PREVIEW ONLY — server / vw_weaving_daily is authoritative. total_jugar =
 		// cuts·jpc + cj − oj − adj; open_jugar (oj) is the last available close (read-only)
 		// and adjustment jugar (adj) lives on the Adjustment tab, so it is 0 here.
-		const jpc = Number(entry?.jpc ?? 0);
+		// jpc: light endpoint aliases it directly; fall back to the raw column name
+		// and finally to the mapped quality row (unsaved looms have no entry yet).
+		const jpc = Number(entry?.jpc ?? entry?.no_of_jugar_per_cut ?? r.no_of_jugar_per_cut ?? 0);
 		const openJugar = Number(entry?.open_jugar ?? entry?.open ?? 0);
 		const closeJugarNum = Number(cell.close_jugar || 0);
 		const cutsNum = Number(cell.cuts || 0);

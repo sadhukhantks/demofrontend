@@ -1045,6 +1045,8 @@ const apiRoutesPortalMasters = {
     // base paths; caller appends /${id}?co_id=...
     WEAVING_ENTRY_CREATE_SETUP: `${API_URL}/weavingProd/entry_create_setup`,
     WEAVING_ENTRIES_BY_DATE: `${API_URL}/weavingProd/entries_by_date`,
+    // Light table-direct read for the entry grid: inputs + open_jugar + jpc only.
+    WEAVING_ENTRY_INPUTS_BY_DATE: `${API_URL}/weavingProd/entry_inputs_by_date`,
     WEAVING_MACHINE_STANDARDS: `${API_URL}/weavingProd/machine_standards`,
     WEAVING_ENTRY_CREATE: `${API_URL}/weavingProd/entry_create`,
     WEAVING_ENTRY_EDIT: `${API_URL}/weavingProd/entry_edit`,
