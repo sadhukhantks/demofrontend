@@ -14,18 +14,21 @@ import {
 	Autocomplete,
 	TextField,
 } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import SaveIcon from "@mui/icons-material/Save";
-import { fetchWithCookie } from "@/utils/apiClient2";
-import { apiRoutesPortalMasters } from "@/utils/api";
+import { ArrowLeft as ArrowBackIcon, Save as SaveIcon } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import {
+	getEnquiryById,
+	getResponseById,
+	addEnquiryResponse,
+	updateEnquiryResponse,
+} from "@/utils/enquiryService";
 import type {
 	EnquiryDetails,
 	EnquiryDetailItem,
 	EnquirySupplierInfo,
-	ResponseFormData,
 	ResponseLineItem,
 } from "../createEnquiry/types/enquiryTypes";
+import type { ResponseDetail } from "../createEnquiry/utils/enquirySchemas";
 import {
 	DISCOUNT_MODE,
 } from "../createEnquiry/utils/enquiryConstants";
@@ -40,37 +43,6 @@ import type { EditableLineField } from "./_components/ResponseLineItemsTable";
 // ---------------------------------------------------------------------------
 
 type PageMode = "create" | "edit" | "view";
-
-/** Raw response data returned from backend when fetching an existing response. */
-interface ResponseFromAPI {
-	proc_price_enquiry_response_id: number;
-	enquiry_id: number;
-	supplier_id: number;
-	supp_name: string;
-	response_date: string;
-	delivery_days: number | null;
-	credit_days: number | null;
-	payment_terms: string | null;
-	terms_conditions: string | null;
-	remarks: string | null;
-	gross_amount: number | null;
-	net_amount: number | null;
-	items: Array<{
-		enquiry_response_dtl_id: number;
-		enquiry_dtl_id: number;
-		item_id: number;
-		item_code: string;
-		item_name: string;
-		uom_name: string;
-		qty: number;
-		rate: number | null;
-		discount_mode: number | null;
-		discount_value: number | null;
-		discount_amount: number | null;
-		gross_amount: number | null;
-		net_amount: number | null;
-	}>;
-}
 
 /** Supplier option used in create mode for supplier selection. */
 interface SupplierOption {
@@ -129,6 +101,8 @@ const recalcLine = (line: ResponseLineItem): ResponseLineItem => {
 
 /**
  * Map enquiry detail items to response line items (blank rate/discount).
+ * uom/make identity is carried over so the saved quote rows keep the same
+ * unit and make as the enquiry line (PO prefill depends on them).
  */
 const mapEnquiryItemsToLines = (items: EnquiryDetailItem[]): ResponseLineItem[] =>
 	items.map((item) =>
@@ -138,6 +112,8 @@ const mapEnquiryItemsToLines = (items: EnquiryDetailItem[]): ResponseLineItem[] 
 			itemId: item.item_id,
 			itemCode: item.item_code,
 			itemName: item.item_name,
+			itemMakeId: item.item_make_id ?? null,
+			uomId: item.uom_id ?? null,
 			uomName: item.uom_name,
 			qty: item.qty,
 			rate: null,
@@ -152,22 +128,24 @@ const mapEnquiryItemsToLines = (items: EnquiryDetailItem[]): ResponseLineItem[] 
 /**
  * Map an existing API response to line items.
  */
-const mapResponseAPIToLines = (resp: ResponseFromAPI): ResponseLineItem[] =>
+const mapResponseAPIToLines = (resp: ResponseDetail): ResponseLineItem[] =>
 	(resp.items ?? []).map((item) =>
 		recalcLine({
 			id: generateLineId(),
-			enquiryDtlId: item.enquiry_dtl_id,
+			enquiryDtlId: item.enquiry_dtl_id ?? 0,
 			itemId: item.item_id,
-			itemCode: item.item_code,
-			itemName: item.item_name,
-			uomName: item.uom_name,
-			qty: item.qty,
-			rate: item.rate,
-			discountMode: item.discount_mode,
-			discountValue: item.discount_value,
-			discountAmount: item.discount_amount,
-			grossAmount: item.gross_amount,
-			netAmount: item.net_amount,
+			itemCode: item.item_code ?? "",
+			itemName: item.item_name ?? "",
+			itemMakeId: item.item_make_id ?? null,
+			uomId: item.uom_id ?? null,
+			uomName: item.uom_name ?? "",
+			qty: item.qty ?? 0,
+			rate: item.rate ?? null,
+			discountMode: item.discount_mode ?? null,
+			discountValue: item.discount_value ?? null,
+			discountAmount: item.discount_amount ?? null,
+			grossAmount: item.gross_amount ?? null,
+			netAmount: item.net_amount ?? null,
 		}),
 	);
 
@@ -272,18 +250,7 @@ function ResponseRecordingContent() {
 					throw new Error("Missing enquiry_id parameter.");
 				}
 
-				const enquiryUrl = `${apiRoutesPortalMasters.GET_ENQUIRY_BY_ID}?enquiry_id=${encodeURIComponent(enquiryId)}`;
-				const { data: enquiryData, error: enquiryError } = await fetchWithCookie(enquiryUrl, "GET");
-
-				if (enquiryError) {
-					throw new Error(enquiryError);
-				}
-
-				const rawEnquiry = (
-					enquiryData && typeof enquiryData === "object" && "data" in (enquiryData as Record<string, unknown>)
-						? (enquiryData as Record<string, unknown>).data
-						: enquiryData
-				) as EnquiryDetails | null;
+				const rawEnquiry = await getEnquiryById(enquiryId);
 
 				if (!rawEnquiry) {
 					throw new Error("Enquiry not found.");
@@ -328,18 +295,7 @@ function ResponseRecordingContent() {
 						throw new Error("Missing response_id parameter for edit/view mode.");
 					}
 
-					const responseUrl = `${apiRoutesPortalMasters.ENQUIRY_GET_RESPONSE_BY_ID}?response_id=${encodeURIComponent(responseIdParam)}`;
-					const { data: responseData, error: responseError } = await fetchWithCookie(responseUrl, "GET");
-
-					if (responseError) {
-						throw new Error(responseError);
-					}
-
-					const rawResponse = (
-						responseData && typeof responseData === "object" && "data" in (responseData as Record<string, unknown>)
-							? (responseData as Record<string, unknown>).data
-							: responseData
-					) as ResponseFromAPI | null;
+					const rawResponse = await getResponseById(responseIdParam);
 
 					if (!rawResponse) {
 						throw new Error("Response not found.");
@@ -352,8 +308,8 @@ function ResponseRecordingContent() {
 							responseDate: rawResponse.response_date
 								? rawResponse.response_date.slice(0, 10)
 								: todayISO(),
-							deliveryDays: rawResponse.delivery_days,
-							creditDays: rawResponse.credit_days,
+							deliveryDays: rawResponse.delivery_days ?? null,
+							creditDays: rawResponse.credit_days ?? null,
 							paymentTerms: rawResponse.payment_terms ?? "",
 							termsConditions: rawResponse.terms_conditions ?? "",
 							remarks: rawResponse.remarks ?? "",
@@ -361,7 +317,7 @@ function ResponseRecordingContent() {
 						setLineItems(mapResponseAPIToLines(rawResponse));
 						setSelectedSupplier({
 							supplier_id: rawResponse.supplier_id,
-							supp_name: rawResponse.supp_name,
+							supp_name: rawResponse.supp_name ?? "",
 						});
 					}
 				}
@@ -463,13 +419,38 @@ function ResponseRecordingContent() {
 			return;
 		}
 
-		// Validate at least one item has a rate
-		const filledItems = lineItems.filter((item) => item.rate != null && item.rate > 0);
-		if (filledItems.length === 0) {
+		// Only lines the supplier actually quoted are saved; a partial quote is
+		// valid, but there must be at least one quoted line.
+		const quotedItems = lineItems.filter((item) => item.rate != null && item.rate !== 0);
+		if (quotedItems.length === 0) {
 			toast({
 				variant: "destructive",
 				title: "Validation Error",
 				description: "Please enter a rate for at least one item.",
+			});
+			return;
+		}
+
+		const negativeLine = quotedItems.find(
+			(item) => (item.rate ?? 0) < 0 || (item.discountValue ?? 0) < 0,
+		);
+		if (negativeLine) {
+			toast({
+				variant: "destructive",
+				title: "Validation Error",
+				description: `Rate and discount cannot be negative (${negativeLine.itemName || negativeLine.itemCode}).`,
+			});
+			return;
+		}
+
+		const overDiscounted = quotedItems.find(
+			(item) => (item.discountAmount ?? 0) > (item.grossAmount ?? 0),
+		);
+		if (overDiscounted) {
+			toast({
+				variant: "destructive",
+				title: "Validation Error",
+				description: `Discount exceeds the line amount (${overDiscounted.itemName || overDiscounted.itemCode}).`,
 			});
 			return;
 		}
@@ -486,9 +467,12 @@ function ResponseRecordingContent() {
 				payment_terms: headerValues.paymentTerms || null,
 				terms_conditions: headerValues.termsConditions || null,
 				remarks: headerValues.remarks || null,
-				items: lineItems.map((item) => ({
+				items: quotedItems.map((item) => ({
 					enquiry_dtl_id: item.enquiryDtlId,
 					item_id: item.itemId,
+					item_make_id: item.itemMakeId,
+					uom_id: item.uomId,
+					qty: item.qty,
 					rate: item.rate ?? 0,
 					discount_mode: item.discountMode ?? 0,
 					discount_value: item.discountValue ?? 0,
@@ -498,22 +482,11 @@ function ResponseRecordingContent() {
 				})),
 			};
 
-			let url: string;
-			let method: string;
-
 			if (mode === "edit" && responseId) {
 				payload.response_id = responseId;
-				url = apiRoutesPortalMasters.ENQUIRY_UPDATE_RESPONSE;
-				method = "PUT";
+				await updateEnquiryResponse(payload);
 			} else {
-				url = apiRoutesPortalMasters.ENQUIRY_ADD_RESPONSE;
-				method = "POST";
-			}
-
-			const { data, error: apiError } = await fetchWithCookie(url, method, payload);
-
-			if (apiError) {
-				throw new Error(apiError);
+				await addEnquiryResponse(payload);
 			}
 
 			toast({

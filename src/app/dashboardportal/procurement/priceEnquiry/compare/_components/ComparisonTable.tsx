@@ -14,6 +14,7 @@ import {
 	Chip,
 	Box,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import type {
 	EnquiryDetailItem,
 	ComparisonResponseDetail,
@@ -53,20 +54,38 @@ const findResponseItem = (
 	response.items.find((i) => i.enquiry_dtl_id === enquiryDtlId);
 
 /**
- * Compute totals for a single response.
+ * A line counts as quoted only when the supplier actually priced it. Lines
+ * with no rate (or a zero-rate placeholder with no amount) are "not quoted"
+ * and must not win lowest-price highlighting at 0.00.
  */
-const computeResponseTotals = (response: ComparisonResponseDetail) => {
+const isQuotedItem = (item: ComparisonItemDetail | undefined): item is ComparisonItemDetail =>
+	item != null && item.rate != null && item.rate !== 0 && item.net_amount != null;
+
+/**
+ * Compute totals for a single response, counting only quoted lines.
+ */
+const computeResponseTotals = (
+	response: ComparisonResponseDetail,
+	items: EnquiryDetailItem[],
+) => {
 	let totalGross = 0;
+	let totalDiscount = 0;
 	let totalNet = 0;
-	for (const item of response.items) {
-		totalGross += item.gross_amount ?? 0;
-		totalNet += item.net_amount ?? 0;
+	let quotedCount = 0;
+	for (const enquiryItem of items) {
+		const rItem = findResponseItem(response, enquiryItem.enquiry_dtl_id);
+		if (!isQuotedItem(rItem)) continue;
+		quotedCount += 1;
+		totalGross += rItem.gross_amount ?? 0;
+		totalDiscount += rItem.discount_amount ?? 0;
+		totalNet += rItem.net_amount ?? 0;
 	}
-	return { totalGross, totalNet };
+	return { totalGross, totalDiscount, totalNet, quotedCount };
 };
 
 /**
  * Find the lowest net amount per item across responses (for highlighting).
+ * Unquoted lines are excluded.
  */
 const findLowestNetPerItem = (
 	items: EnquiryDetailItem[],
@@ -77,7 +96,7 @@ const findLowestNetPerItem = (
 		let lowest = Infinity;
 		for (const response of responses) {
 			const rItem = findResponseItem(response, enquiryItem.enquiry_dtl_id);
-			if (rItem?.net_amount != null && rItem.net_amount < lowest) {
+			if (isQuotedItem(rItem) && rItem.net_amount != null && rItem.net_amount < lowest) {
 				lowest = rItem.net_amount;
 			}
 		}
@@ -105,6 +124,8 @@ const CELL_SX = {
 	borderColor: "divider",
 };
 
+// Only the first column sticks; making several columns sticky at left:0
+// stacks them on top of each other during horizontal scroll.
 const STICKY_CELL_SX = {
 	...CELL_SX,
 	position: "sticky" as const,
@@ -112,6 +133,9 @@ const STICKY_CELL_SX = {
 	backgroundColor: "background.paper",
 	zIndex: 2,
 };
+
+const lowestBgSx = { backgroundColor: (theme: { palette: { success: { main: string } } }) => alpha(theme.palette.success.main, 0.12) };
+const selectedHeaderBgSx = { backgroundColor: (theme: { palette: { primary: { main: string } } }) => alpha(theme.palette.primary.main, 0.08) };
 
 // ---------------------------------------------------------------------------
 // Component
@@ -122,7 +146,8 @@ const STICKY_CELL_SX = {
  *
  * - Rows correspond to enquiry items.
  * - Each supplier response gets its own column group showing rate, discount, and net.
- * - The lowest net amount per item is highlighted in green.
+ * - The lowest net amount per quoted item is highlighted; unquoted lines show "—".
+ * - Suppliers who quoted only part of the items are flagged as partial.
  * - A radio button in the header row enables selecting the winning quote.
  */
 const ComparisonTable: React.FC<ComparisonTableProps> = ({
@@ -137,17 +162,19 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
 	);
 
 	const responseTotals = React.useMemo(
-		() => responses.map((r) => computeResponseTotals(r)),
-		[responses],
+		() => responses.map((r) => computeResponseTotals(r, items)),
+		[responses, items],
 	);
 
+	// Only complete quotes (all items priced) compete for the lowest total —
+	// a partial quote's total covers fewer lines and is not comparable.
 	const lowestTotalNet = React.useMemo(() => {
 		let lowest = Infinity;
 		for (const t of responseTotals) {
-			if (t.totalNet < lowest) lowest = t.totalNet;
+			if (t.quotedCount === items.length && t.totalNet < lowest) lowest = t.totalNet;
 		}
 		return lowest === Infinity ? null : lowest;
-	}, [responseTotals]);
+	}, [responseTotals, items.length]);
 
 	if (responses.length === 0) {
 		return (
@@ -164,34 +191,50 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
 				<TableHead>
 					{/* Top row: supplier names with radio */}
 					<TableRow>
-						<TableCell sx={{ ...STICKY_CELL_SX, zIndex: 3, minWidth: 200 }} colSpan={4}>
+						<TableCell sx={{ ...CELL_SX, minWidth: 200 }} colSpan={4}>
 							<Typography sx={HEADER_SX}>Item Details</Typography>
 						</TableCell>
-						{responses.map((resp) => (
-							<TableCell
-								key={resp.proc_price_enquiry_response_id}
-								colSpan={3}
-								align="center"
-								sx={{
-									...CELL_SX,
-									backgroundColor: selectedResponseId === resp.proc_price_enquiry_response_id
-										? "primary.50"
-										: "action.hover",
-								}}
-							>
-								<Box display="flex" alignItems="center" justifyContent="center" gap={0.5}>
-									<Radio
-										size="small"
-										checked={selectedResponseId === resp.proc_price_enquiry_response_id}
-										onChange={() => onSelectResponse(resp.proc_price_enquiry_response_id)}
-									/>
-									<Typography sx={HEADER_SX}>{resp.supp_name}</Typography>
-									{resp.is_selected === 1 && (
-										<Chip size="small" label="Selected" color="success" sx={{ ml: 0.5 }} />
-									)}
-								</Box>
-							</TableCell>
-						))}
+						{responses.map((resp, idx) => {
+							const totals = responseTotals[idx];
+							const isPartial = totals.quotedCount < items.length;
+							return (
+								<TableCell
+									key={resp.proc_price_enquiry_response_id}
+									colSpan={3}
+									align="center"
+									sx={{
+										...CELL_SX,
+										...(selectedResponseId === resp.proc_price_enquiry_response_id
+											? selectedHeaderBgSx
+											: { backgroundColor: "action.hover" }),
+									}}
+								>
+									<Box display="flex" alignItems="center" justifyContent="center" gap={0.5} flexWrap="wrap">
+										<Radio
+											size="small"
+											checked={selectedResponseId === resp.proc_price_enquiry_response_id}
+											onChange={() => onSelectResponse(resp.proc_price_enquiry_response_id)}
+											inputProps={{
+												"aria-label": `Select quote from ${resp.supp_name ?? "supplier"}`,
+											}}
+										/>
+										<Typography sx={HEADER_SX}>{resp.supp_name}</Typography>
+										{resp.is_selected === 1 && (
+											<Chip size="small" label="Selected" color="success" sx={{ ml: 0.5 }} />
+										)}
+										{isPartial && (
+											<Chip
+												size="small"
+												variant="outlined"
+												color="warning"
+												label={`Partial ${totals.quotedCount}/${items.length}`}
+												sx={{ ml: 0.5 }}
+											/>
+										)}
+									</Box>
+								</TableCell>
+							);
+						})}
 					</TableRow>
 
 					{/* Sub-header: column labels */}
@@ -199,13 +242,13 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
 						<TableCell sx={{ ...STICKY_CELL_SX, zIndex: 3 }}>
 							<Typography sx={HEADER_SX}>Code</Typography>
 						</TableCell>
-						<TableCell sx={STICKY_CELL_SX}>
+						<TableCell sx={CELL_SX}>
 							<Typography sx={HEADER_SX}>Item Name</Typography>
 						</TableCell>
-						<TableCell sx={STICKY_CELL_SX}>
+						<TableCell sx={CELL_SX}>
 							<Typography sx={HEADER_SX}>UOM</Typography>
 						</TableCell>
-						<TableCell sx={STICKY_CELL_SX} align="right">
+						<TableCell sx={CELL_SX} align="right">
 							<Typography sx={HEADER_SX}>Qty</Typography>
 						</TableCell>
 						{responses.map((resp) => (
@@ -231,47 +274,49 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
 							<TableCell sx={STICKY_CELL_SX}>
 								<Typography variant="body2">{item.item_code}</Typography>
 							</TableCell>
-							<TableCell sx={{ ...STICKY_CELL_SX, left: "auto" }}>
+							<TableCell sx={CELL_SX}>
 								<Typography variant="body2">{item.item_name}</Typography>
 							</TableCell>
-							<TableCell sx={{ ...STICKY_CELL_SX, left: "auto" }}>
+							<TableCell sx={CELL_SX}>
 								<Typography variant="body2">{item.uom_name}</Typography>
 							</TableCell>
-							<TableCell sx={{ ...STICKY_CELL_SX, left: "auto" }} align="right">
+							<TableCell sx={CELL_SX} align="right">
 								<Typography variant="body2">{item.qty}</Typography>
 							</TableCell>
 
 							{responses.map((resp) => {
 								const rItem = findResponseItem(resp, item.enquiry_dtl_id);
+								const quoted = isQuotedItem(rItem);
 								const isLowest =
-									rItem?.net_amount != null &&
+									quoted &&
+									rItem.net_amount != null &&
 									lowestNetMap.get(item.enquiry_dtl_id) === rItem.net_amount;
 
 								return (
 									<React.Fragment key={`cell-${resp.proc_price_enquiry_response_id}-${item.enquiry_dtl_id}`}>
 										<TableCell sx={CELL_SX} align="right">
-											<Typography variant="body2">
-												{formatCurrency(rItem?.rate)}
+											<Typography variant="body2" color={quoted ? undefined : "text.disabled"}>
+												{quoted ? formatCurrency(rItem.rate) : "—"}
 											</Typography>
 										</TableCell>
 										<TableCell sx={CELL_SX} align="right">
-											<Typography variant="body2">
-												{formatCurrency(rItem?.discount_amount)}
+											<Typography variant="body2" color={quoted ? undefined : "text.disabled"}>
+												{quoted ? formatCurrency(rItem.discount_amount) : "—"}
 											</Typography>
 										</TableCell>
 										<TableCell
 											sx={{
 												...CELL_SX,
-												backgroundColor: isLowest ? "success.50" : undefined,
+												...(isLowest ? lowestBgSx : {}),
 											}}
 											align="right"
 										>
 											<Typography
 												variant="body2"
 												fontWeight={isLowest ? 700 : 400}
-												color={isLowest ? "success.main" : undefined}
+												color={isLowest ? "success.main" : quoted ? undefined : "text.disabled"}
 											>
-												{formatCurrency(rItem?.net_amount)}
+												{quoted ? formatCurrency(rItem.net_amount) : "—"}
 											</Typography>
 										</TableCell>
 									</React.Fragment>
@@ -284,7 +329,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
 					<TableRow sx={{ backgroundColor: "action.selected" }}>
 						<TableCell sx={STICKY_CELL_SX} colSpan={4} align="right">
 							<Typography variant="body2" fontWeight={700}>
-								Totals
+								Totals (quoted lines)
 							</Typography>
 						</TableCell>
 						{responses.map((resp, idx) => {
@@ -294,18 +339,17 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
 							return (
 								<React.Fragment key={`total-${resp.proc_price_enquiry_response_id}`}>
 									<TableCell sx={CELL_SX} align="right">
-										<Typography variant="body2" fontWeight={700}>
-											{formatCurrency(totals.totalGross)}
-										</Typography>
+										<Typography variant="body2" fontWeight={700}>-</Typography>
 									</TableCell>
 									<TableCell sx={CELL_SX} align="right">
-										{/* Discount total column */}
-										<Typography variant="body2" fontWeight={700}>-</Typography>
+										<Typography variant="body2" fontWeight={700}>
+											{formatCurrency(totals.totalDiscount)}
+										</Typography>
 									</TableCell>
 									<TableCell
 										sx={{
 											...CELL_SX,
-											backgroundColor: isLowestTotal ? "success.50" : undefined,
+											...(isLowestTotal ? lowestBgSx : {}),
 										}}
 										align="right"
 									>

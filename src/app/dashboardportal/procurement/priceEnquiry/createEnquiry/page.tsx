@@ -37,12 +37,16 @@ import {
 	sendEnquiryForApproval,
 	approveEnquiry,
 	rejectEnquiry,
+	cancelEnquiry,
+	reopenEnquiry,
+	markRfqSent,
 } from "@/utils/enquiryService";
 import type {
 	EnquiryLineItem,
 	EnquirySupplierEntry,
 	EnquirySetupData,
 	EnquiryResponseSummary,
+	EnquirySupplierInfo,
 	IndentLineItemForEnquiry,
 } from "./types/enquiryTypes";
 import { ENQUIRY_STATUS_IDS as STATUS_IDS } from "./utils/enquiryConstants";
@@ -59,6 +63,7 @@ import { useEnquirySelectOptions } from "./hooks/useEnquirySelectOptions";
 import { EnquiryHeaderForm } from "./_components/EnquiryHeaderForm";
 import { EnquiryLineItemsTable } from "./_components/EnquiryLineItemsTable";
 import { EnquirySupplierSelect } from "./_components/EnquirySupplierSelect";
+import { EnquiryPreview, type EnquiryPreviewHeader } from "./_components/EnquiryPreview";
 
 function PageLoading() {
 	return (
@@ -119,6 +124,14 @@ function EnquiryPageContent() {
 	const [loading, setLoading] = React.useState(mode !== "create");
 	const [pageError, setPageError] = React.useState<string | null>(null);
 	const [saving, setSaving] = React.useState(false);
+	// Guards workflow actions (approve/cancel/...) against double submits.
+	const [actionBusy, setActionBusy] = React.useState(false);
+	// enquiry_type has no form field, so keep it out of MuiForm state (which
+	// replaces values wholesale) or edits would silently reset it to Regular.
+	const [enquiryType, setEnquiryType] = React.useState<string>("Regular");
+	// Tracks the last branch seen so a user-driven branch change can
+	// cascade-reset indent-sourced line items.
+	const lastBranchRef = React.useRef<string>("");
 
 	const { supplierOptions, expenseOptions, projectOptions } = useEnquirySelectOptions({ setupData });
 
@@ -127,6 +140,10 @@ function EnquiryPageContent() {
 	const [enquiryStatusName, setEnquiryStatusName] = React.useState<string>("Draft");
 	const [approvalPermissions, setApprovalPermissions] = React.useState<Record<string, boolean>>({});
 	const [responses, setResponses] = React.useState<EnquiryResponseSummary[]>([]);
+	// Raw supplier rows (incl. sent_status) + header info for the RFQ document.
+	const [rawSuppliers, setRawSuppliers] = React.useState<EnquirySupplierInfo[]>([]);
+	const [previewHeader, setPreviewHeader] = React.useState<EnquiryPreviewHeader>({});
+	const [rfqPreviewOpen, setRfqPreviewOpen] = React.useState(false);
 
 	// ── Indent items dialog ──
 	const [indentDialogOpen, setIndentDialogOpen] = React.useState(false);
@@ -178,13 +195,18 @@ function EnquiryPageContent() {
 
 	// ── Load enquiry data in edit/view mode ──
 	React.useEffect(() => {
-		if (mode === "create" || !requestedId || !coId) return;
+		if (mode === "create") return;
+		if (!requestedId) {
+			setLoading(false);
+			setPageError("Missing enquiry id — open this page from the enquiry list.");
+			return;
+		}
+		if (!coId) return;
 		let cancelled = false;
 		const load = async () => {
 			setLoading(true);
 			try {
-				const menuId = getMenuId();
-				const data = await getEnquiryById(requestedId, coId);
+				const data = await getEnquiryById(requestedId, coId, menuIdFromUrl || undefined);
 				if (cancelled) return;
 
 				const raw = data as Record<string, unknown>;
@@ -195,14 +217,16 @@ function EnquiryPageContent() {
 					setApprovalPermissions(raw.approval_permissions as Record<string, boolean>);
 				}
 
+				setEnquiryType(String(raw.enquiry_type || "Regular"));
+
 				const nextValues: Record<string, unknown> = {
 					branch: raw.branch_id != null ? String(raw.branch_id) : "",
 					date: raw.price_enquiry_date ? String(raw.price_enquiry_date).split("T")[0] : "",
 					expense_type: raw.expense_type_id != null ? String(raw.expense_type_id) : "",
 					project: raw.project_id != null ? String(raw.project_id) : "",
 					remarks: raw.remarks ?? "",
-					enquiry_type: raw.enquiry_type ?? "Regular",
 				};
+				lastBranchRef.current = String(nextValues.branch ?? "");
 				setInitialValues(nextValues);
 				setFormValues(nextValues);
 				bumpFormKey();
@@ -232,7 +256,18 @@ function EnquiryPageContent() {
 						supplierCode: String(s.supp_code || ""),
 					} satisfies EnquirySupplierEntry));
 					setSelectedSuppliers(suppliers);
+					setRawSuppliers(raw.suppliers as EnquirySupplierInfo[]);
 				}
+
+				setPreviewHeader({
+					enquiryNo: String(raw.price_enquiry_squence_no || raw.enquiry_no || ""),
+					enquiryDate: raw.price_enquiry_date ? String(raw.price_enquiry_date) : undefined,
+					branchName: raw.branch_name ? String(raw.branch_name) : undefined,
+					companyName: raw.co_name ? String(raw.co_name) : undefined,
+					expenseType: raw.expense_type_name ? String(raw.expense_type_name) : undefined,
+					project: raw.project_name ? String(raw.project_name) : undefined,
+					remarks: raw.remarks ? String(raw.remarks) : undefined,
+				});
 
 				if (Array.isArray(raw.responses)) {
 					setResponses(raw.responses as EnquiryResponseSummary[]);
@@ -250,7 +285,7 @@ function EnquiryPageContent() {
 		};
 		void load();
 		return () => { cancelled = true; };
-	}, [mode, requestedId, coId, getMenuId, setInitialValues, setFormValues, bumpFormKey, setLineItems, setSelectedSuppliers]);
+	}, [mode, requestedId, coId, menuIdFromUrl, setInitialValues, setFormValues, bumpFormKey, setLineItems, setSelectedSuppliers]);
 
 	// ── Header form schema ──
 	const headerSchema = React.useMemo<Schema>(() => ({
@@ -294,9 +329,23 @@ function EnquiryPageContent() {
 	}), [branchOptions, expenseOptions, projectOptions]);
 
 	// ── Handle form values change ──
+	// Changing the branch invalidates any indent-sourced lines (indent items
+	// are branch-scoped), so cascade-reset them rather than let an enquiry be
+	// saved under branch B with branch A's indent lines.
 	const handleFormValuesChange = React.useCallback((values: Record<string, unknown>) => {
+		const nextBranch = values.branch != null ? String(values.branch) : "";
+		const prevBranch = lastBranchRef.current;
+		lastBranchRef.current = nextBranch;
+		if (prevBranch && nextBranch && prevBranch !== nextBranch) {
+			setLineItems((items) => {
+				if (items.length > 0) {
+					toast({ title: "Branch changed — indent items cleared" });
+				}
+				return items.length > 0 ? [] : items;
+			});
+		}
 		setFormValues(values);
-	}, [setFormValues]);
+	}, [setFormValues, setLineItems]);
 
 	// ── Open indent items dialog ──
 	const handleOpenIndentDialog = React.useCallback(async () => {
@@ -374,6 +423,10 @@ function EnquiryPageContent() {
 			toast({ variant: "destructive", title: "Please select a branch" });
 			return;
 		}
+		if (!formValues.date || String(formValues.date).trim() === "") {
+			toast({ variant: "destructive", title: "Please select an enquiry date" });
+			return;
+		}
 		if (lineItems.length === 0) {
 			toast({ variant: "destructive", title: "Please add at least one item" });
 			return;
@@ -391,7 +444,7 @@ function EnquiryPageContent() {
 				expense_type_id: formValues.expense_type || null,
 				project_id: formValues.project || null,
 				remarks: formValues.remarks || null,
-				enquiry_type: formValues.enquiry_type || "Regular",
+				enquiry_type: enquiryType || "Regular",
 				items: lineItems.map((li) => ({
 					item_id: li.itemId,
 					item_make_id: li.itemMakeId,
@@ -421,50 +474,128 @@ function EnquiryPageContent() {
 		} finally {
 			setSaving(false);
 		}
-	}, [branchValue, lineItems, selectedSuppliers, formValues, mode, requestedId, router, getMenuId, toast]);
+	}, [branchValue, lineItems, selectedSuppliers, formValues, enquiryType, mode, requestedId, router, getMenuId, toast]);
 
 	// ── Approval actions ──
-	const handleSendForApproval = React.useCallback(async () => {
+	// Re-fetch the enquiry after a workflow action so the status chip, action
+	// buttons, and approval permissions reflect the new state immediately
+	// (router.refresh() alone does not re-run this client component's fetch).
+	const refreshEnquiryState = React.useCallback(async () => {
+		if (!requestedId || !coId) return;
 		try {
-			const menuId = getMenuId();
-			if (!menuId) {
-				toast({ variant: "destructive", title: "Menu ID not available" });
-				return;
+			const data = await getEnquiryById(requestedId, coId, getMenuId() || undefined);
+			const raw = data as Record<string, unknown>;
+			setEnquiryStatusId(Number(raw.status_id) || STATUS_IDS.DRAFT);
+			setEnquiryStatusName(String(raw.status_name || "Draft"));
+			setApprovalPermissions(
+				(raw.approval_permissions as Record<string, boolean>) ?? {},
+			);
+			if (Array.isArray(raw.responses)) {
+				setResponses(raw.responses as EnquiryResponseSummary[]);
 			}
+			if (Array.isArray(raw.suppliers)) {
+				setRawSuppliers(raw.suppliers as EnquirySupplierInfo[]);
+			}
+		} catch {
+			// Fall back to a router refresh if the inline reload fails.
+			router.refresh();
+		}
+	}, [requestedId, coId, getMenuId, router]);
+
+	const handleSendForApproval = React.useCallback(async () => {
+		if (actionBusy) return;
+		const menuId = getMenuId();
+		if (!menuId) {
+			toast({ variant: "destructive", title: "Menu ID not available" });
+			return;
+		}
+		setActionBusy(true);
+		try {
 			await sendEnquiryForApproval(requestedId, menuId);
 			toast({ title: "Enquiry sent for approval" });
-			router.refresh();
+			await refreshEnquiryState();
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : "Failed to send for approval";
 			toast({ variant: "destructive", title: "Error", description: msg });
+		} finally {
+			setActionBusy(false);
 		}
-	}, [requestedId, getMenuId, router, toast]);
+	}, [actionBusy, requestedId, getMenuId, refreshEnquiryState, toast]);
 
 	const handleApprove = React.useCallback(async () => {
+		if (actionBusy) return;
+		const menuId = getMenuId();
+		if (!menuId) return;
+		setActionBusy(true);
 		try {
-			const menuId = getMenuId();
-			if (!menuId) return;
 			await approveEnquiry(requestedId, menuId);
 			toast({ title: "Enquiry approved" });
-			router.refresh();
+			await refreshEnquiryState();
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : "Approval failed";
 			toast({ variant: "destructive", title: "Error", description: msg });
+		} finally {
+			setActionBusy(false);
 		}
-	}, [requestedId, getMenuId, router, toast]);
+	}, [actionBusy, requestedId, getMenuId, refreshEnquiryState, toast]);
 
 	const handleReject = React.useCallback(async () => {
+		if (actionBusy) return;
+		const menuId = getMenuId();
+		if (!menuId) return;
+		setActionBusy(true);
 		try {
-			const menuId = getMenuId();
-			if (!menuId) return;
 			await rejectEnquiry(requestedId, menuId, "Rejected");
 			toast({ title: "Enquiry rejected" });
-			router.refresh();
+			await refreshEnquiryState();
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : "Rejection failed";
 			toast({ variant: "destructive", title: "Error", description: msg });
+		} finally {
+			setActionBusy(false);
 		}
-	}, [requestedId, getMenuId, router, toast]);
+	}, [actionBusy, requestedId, getMenuId, refreshEnquiryState, toast]);
+
+	const handleCancel = React.useCallback(async () => {
+		if (actionBusy) return;
+		setActionBusy(true);
+		try {
+			await cancelEnquiry(requestedId);
+			toast({ title: "Enquiry cancelled" });
+			await refreshEnquiryState();
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : "Cancellation failed";
+			toast({ variant: "destructive", title: "Error", description: msg });
+		} finally {
+			setActionBusy(false);
+		}
+	}, [actionBusy, requestedId, refreshEnquiryState, toast]);
+
+	const handleReopen = React.useCallback(async () => {
+		if (actionBusy) return;
+		setActionBusy(true);
+		try {
+			await reopenEnquiry(requestedId);
+			toast({ title: "Enquiry reopened" });
+			await refreshEnquiryState();
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : "Reopen failed";
+			toast({ variant: "destructive", title: "Error", description: msg });
+		} finally {
+			setActionBusy(false);
+		}
+	}, [actionBusy, requestedId, refreshEnquiryState, toast]);
+
+	// ── RFQ print → mark suppliers as sent ──
+	const handleRfqPrinted = React.useCallback(async (supplierIds: number[]) => {
+		try {
+			await markRfqSent(requestedId, supplierIds.length > 0 ? supplierIds : undefined);
+			await refreshEnquiryState();
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : "Failed to record RFQ as sent";
+			toast({ variant: "destructive", title: "Error", description: msg });
+		}
+	}, [requestedId, refreshEnquiryState, toast]);
 
 	// ── Navigation ──
 	const navigateToCreateResponse = React.useCallback(
@@ -540,6 +671,11 @@ function EnquiryPageContent() {
 					)}
 				</div>
 				<div className="flex gap-2 flex-wrap">
+					{mode === "view" && isApproved && (
+						<Button variant="outlined" onClick={() => setRfqPreviewOpen(true)}>
+							Print RFQ
+						</Button>
+					)}
 					{isEditable && (
 						<Button
 							variant="contained"
@@ -550,20 +686,32 @@ function EnquiryPageContent() {
 						</Button>
 					)}
 					{mode === "view" && enquiryStatusId === STATUS_IDS.DRAFT && (
-						<Button variant="contained" color="primary" onClick={handleSendForApproval}>
+						<Button variant="contained" color="primary" onClick={handleSendForApproval} disabled={actionBusy}>
 							Send for Approval
 						</Button>
 					)}
 					{mode === "view" && approvalPermissions.canApprove && (
-						<Button variant="contained" color="success" onClick={handleApprove}>
+						<Button variant="contained" color="success" onClick={handleApprove} disabled={actionBusy}>
 							Approve
 						</Button>
 					)}
 					{mode === "view" && approvalPermissions.canReject && (
-						<Button variant="contained" color="error" onClick={handleReject}>
+						<Button variant="contained" color="error" onClick={handleReject} disabled={actionBusy}>
 							Reject
 						</Button>
 					)}
+					{mode === "view" &&
+						(enquiryStatusId === STATUS_IDS.DRAFT || enquiryStatusId === STATUS_IDS.OPEN) && (
+							<Button variant="outlined" color="error" onClick={handleCancel} disabled={actionBusy}>
+								Cancel Enquiry
+							</Button>
+						)}
+					{mode === "view" &&
+						(enquiryStatusId === STATUS_IDS.CANCELLED || enquiryStatusId === STATUS_IDS.REJECTED) && (
+							<Button variant="outlined" color="primary" onClick={handleReopen} disabled={actionBusy}>
+								Reopen
+							</Button>
+						)}
 				</div>
 			</div>
 
@@ -604,8 +752,12 @@ function EnquiryPageContent() {
 				) : (
 					<EnquiryLineItemsTable
 						items={lineItems}
-						mode={isEditable ? mode : "view"}
-						onRemove={isEditable ? handleRemoveItem : undefined}
+						canEdit={isEditable}
+						onRemoveItems={
+							isEditable
+								? (ids) => ids.forEach((id) => handleRemoveItem(id))
+								: undefined
+						}
 					/>
 				)}
 			</Paper>
@@ -656,6 +808,8 @@ function EnquiryPageContent() {
 							{selectedSuppliers.map((s) => {
 								const resp = responses.find((r) => r.supplier_id === s.supplierId);
 								const respId = resp?.proc_price_enquiry_response_id;
+								const rawSupp = rawSuppliers.find((rs) => rs.supplier_id === s.supplierId);
+								const rfqSent = Number(rawSupp?.sent_status ?? 0) === 1;
 								return (
 									<TableRow key={s.supplierId} hover>
 										<TableCell>{s.supplierName}</TableCell>
@@ -668,15 +822,19 @@ function EnquiryPageContent() {
 											{resp?.net_amount != null ? resp.net_amount : "-"}
 										</TableCell>
 										<TableCell>
-											{resp ? (
-												resp.is_selected === 1 ? (
-													<Chip size="small" color="success" label="Selected" />
+											<div className="flex gap-1">
+												{resp ? (
+													resp.is_selected === 1 ? (
+														<Chip size="small" color="success" label="Selected" />
+													) : (
+														<Chip size="small" color="info" label="Received" />
+													)
+												) : rfqSent ? (
+													<Chip size="small" color="primary" variant="outlined" label="RFQ Sent" />
 												) : (
-													<Chip size="small" color="info" label="Received" />
-												)
-											) : (
-												<Chip size="small" label="Pending" />
-											)}
+													<Chip size="small" label="Pending" />
+												)}
+											</div>
 										</TableCell>
 										<TableCell align="right">
 											<div className="flex gap-1 justify-end">
@@ -717,12 +875,23 @@ function EnquiryPageContent() {
 				</Paper>
 			)}
 
+			{/* RFQ Print Preview */}
+			<EnquiryPreview
+				open={rfqPreviewOpen}
+				onClose={() => setRfqPreviewOpen(false)}
+				header={previewHeader}
+				items={lineItems}
+				suppliers={rawSuppliers}
+				onPrinted={handleRfqPrinted}
+			/>
+
 			{/* Indent Items Selection Dialog */}
 			<Dialog
 				open={indentDialogOpen}
 				onClose={() => {
 					setIndentDialogOpen(false);
 					setIndentSearchQuery("");
+					setSelectedIndentIds(new Set());
 				}}
 				maxWidth="md"
 				fullWidth
@@ -804,6 +973,7 @@ function EnquiryPageContent() {
 						onClick={() => {
 							setIndentDialogOpen(false);
 							setIndentSearchQuery("");
+							setSelectedIndentIds(new Set());
 						}}
 					>
 						Cancel

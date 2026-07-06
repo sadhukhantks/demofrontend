@@ -104,6 +104,7 @@ export const usePOFormSubmission = ({
         delivery_timeline: Number(merged.delivery_timeline ?? 0),
         project: String(merged.project ?? ""),
         expense_type: String(merged.expense_type ?? ""),
+        price_enquiry_id: merged.price_enquiry_id ? String(merged.price_enquiry_id) : undefined,
         po_type: merged.po_type ? String(merged.po_type) : undefined,
         contact_person: merged.contact_person ? String(merged.contact_person) : undefined,
         contact_no: merged.contact_no ? String(merged.contact_no) : undefined,
