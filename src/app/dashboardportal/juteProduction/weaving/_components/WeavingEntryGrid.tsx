@@ -196,8 +196,8 @@ export default function WeavingEntryGrid({ coId, branchId, date, spell }: Props)
 			) : mapRows.length === 0 ? (
 				<Alert severity="info">No looms found for this date and spell.</Alert>
 			) : (
-				<Box sx={{ width: "100%", overflowX: "auto" }}>
-					<Table size="small" sx={{ minWidth: 320, ...tightCell }}>
+				<Box sx={{ width: "100%", overflow: "auto", maxHeight: "calc(100vh - 320px)" }}>
+					<Table size="small" stickyHeader sx={{ minWidth: 320, ...tightCell }}>
 						<TableHead>
 							<TableRow>
 								<TableCell>Loom</TableCell>
