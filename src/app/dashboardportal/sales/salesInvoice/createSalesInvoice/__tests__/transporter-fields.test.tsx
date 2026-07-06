@@ -12,14 +12,14 @@ describe("Sales Invoice - Transporter and e-Invoice Fields", () => {
     it("should map invoice details to form values with new transporter fields", () => {
       const defaultValues = buildDefaultFormValues();
       const details = {
-        branch: "1",
+        branchId: "1",
         invoiceDate: "2026-04-01T00:00:00Z",
         party: "10",
         transporter: "5",
-        transporter_branch_id: 2,
-        transporter_gst_no: "19ABC",
-        transporter_doc_no: "LR123",
-        transporter_doc_date: "2026-04-01",
+        transporterBranchId: 2,
+        transporterGstNo: "19ABC",
+        transporterDocNo: "LR123",
+        transporterDocDate: "2026-04-01",
       };
 
       const formValues = mapInvoiceDetailsToFormValues(details, defaultValues);
@@ -33,11 +33,11 @@ describe("Sales Invoice - Transporter and e-Invoice Fields", () => {
     it("should map invoice details to form values with new buyer order fields", () => {
       const defaultValues = buildDefaultFormValues();
       const details = {
-        branch: "1",
+        branchId: "1",
         invoiceDate: "2026-04-01T00:00:00Z",
         party: "10",
-        buyer_order_no: "PO-001",
-        buyer_order_date: "2026-03-28",
+        buyerOrderNo: "PO-001",
+        buyerOrderDate: "2026-03-28",
       };
 
       const formValues = mapInvoiceDetailsToFormValues(details, defaultValues);
@@ -49,13 +49,13 @@ describe("Sales Invoice - Transporter and e-Invoice Fields", () => {
     it("should map invoice details to form values with new e-invoice fields", () => {
       const defaultValues = buildDefaultFormValues();
       const details = {
-        branch: "1",
+        branchId: "1",
         invoiceDate: "2026-04-01T00:00:00Z",
         party: "10",
         irn: "abc123",
-        ack_no: "ack123",
-        ack_date: "2026-04-01",
-        qr_code: "qr_data",
+        ackNo: "ack123",
+        ackDate: "2026-04-01",
+        qrCode: "qr_data",
       };
 
       const formValues = mapInvoiceDetailsToFormValues(details, defaultValues);
@@ -78,7 +78,7 @@ describe("Sales Invoice - Transporter and e-Invoice Fields", () => {
         },
       ];
       const details = {
-        branch: "1",
+        branchId: "1",
         invoiceDate: "2026-04-01T00:00:00Z",
         party: "10",
         e_invoice_submission_history: history,
@@ -224,12 +224,12 @@ describe("Sales Invoice - Transporter and e-Invoice Fields", () => {
       };
 
       const details = {
-        branch: originalValues.branch,
+        branchId: originalValues.branch,
         invoiceDate: originalValues.date + "T00:00:00Z",
-        transporter_doc_no: originalValues.transporter_doc_no,
-        buyer_order_no: originalValues.buyer_order_no,
+        transporterDocNo: originalValues.transporter_doc_no,
+        buyerOrderNo: originalValues.buyer_order_no,
         irn: originalValues.irn,
-        ack_no: originalValues.ack_no,
+        ackNo: originalValues.ack_no,
       };
 
       const mapped = mapInvoiceDetailsToFormValues(details, defaultValues);

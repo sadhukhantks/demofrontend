@@ -50,7 +50,7 @@ export default function SalesReportsPage() {
     <Box sx={{ p: 3 }}>
       <Typography
         variant="h5"
-        sx={{ color: "#0C3C60", fontWeight: "bold", mb: 2 }}
+        sx={{ color: "text.primary", fontWeight: "bold", mb: 2 }}
       >
         Sales Reports
       </Typography>
