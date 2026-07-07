@@ -21,6 +21,16 @@ import {
 } from "@/utils/quotationService";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { toast } from "@/hooks/use-toast";
+import { fetchEnquiryLinesForQuotation } from "@/utils/enquiryService";
+import {
+	Button as MuiButton,
+	Dialog as MuiDialog,
+	DialogActions as MuiDialogActions,
+	DialogContent as MuiDialogContent,
+	DialogTitle as MuiDialogTitle,
+	TextField as MuiTextField,
+	Typography as MuiTypography,
+} from "@mui/material";
 import { useMenuId } from "@/hooks/useMenuId";
 import { useCompanyName } from "@/hooks/useCompanyName";
 import { useCompanyLogo } from "@/hooks/useCompanyLogo";
@@ -76,6 +86,7 @@ function QuotationTransactionPageContent() {
 	const requestedId = searchParams?.get("id") || "";
 	const branchIdFromUrl = searchParams?.get("branch_id") || "";
 	const menuIdFromUrl = searchParams?.get("menu_id") || "";
+	const salesEnquiryIdFromUrl = searchParams?.get("sales_enquiry_id") || "";
 
 	const mode: MuiFormMode = modeParam === "edit" ? "edit" : modeParam === "view" ? "view" : "create";
 
@@ -298,6 +309,116 @@ function QuotationTransactionPageContent() {
 		},
 		[mode, setLineItems, lineHasAnyData, itemGroupCache, itemGroupLoading, ensureItemGroupData]
 	);
+
+	// ---- From Enquiry (AMCL enquiry flow): prefill lines with the confirmed
+	// cost basis and price them as cost × (1 + overhead%) × (1 + margin%) ----
+	const [salesEnquiryId, setSalesEnquiryId] = React.useState<string | null>(
+		mode === "create" && salesEnquiryIdFromUrl ? salesEnquiryIdFromUrl : null
+	);
+	const [sourceEnquiryNo, setSourceEnquiryNo] = React.useState<string | null>(null);
+	const [enquiryPricingOpen, setEnquiryPricingOpen] = React.useState(mode === "create" && Boolean(salesEnquiryIdFromUrl));
+	const [enquiryOverheadPct, setEnquiryOverheadPct] = React.useState("");
+	const [enquiryMarginPct, setEnquiryMarginPct] = React.useState("");
+	const [enquiryPrefillBusy, setEnquiryPrefillBusy] = React.useState(false);
+
+	// Edit/view of an enquiry-linked quotation: carry the link from the details.
+	React.useEffect(() => {
+		if (!quotationDetails) return;
+		if (quotationDetails.salesEnquiryId) setSalesEnquiryId(String(quotationDetails.salesEnquiryId));
+		if (quotationDetails.enquiryNo) setSourceEnquiryNo(String(quotationDetails.enquiryNo));
+	}, [quotationDetails]);
+
+	const applyEnquiryPrefill = React.useCallback(async () => {
+		if (!salesEnquiryIdFromUrl) return;
+		setEnquiryPrefillBusy(true);
+		try {
+			const { data, error } = await fetchEnquiryLinesForQuotation(salesEnquiryIdFromUrl);
+			if (error) throw new Error(error);
+			const enquiryHeader = (data?.master?.enquiry ?? {}) as Record<string, unknown>;
+			const sourceLines = (data?.data ?? []).filter((line) => line.item_id != null);
+			if (!sourceLines.length) {
+				throw new Error("This enquiry has no costed item lines to quote (new items must be created first).");
+			}
+
+			const overhead = Number(enquiryOverheadPct) || 0;
+			const margin = Number(enquiryMarginPct) || 0;
+			const newLines: EditableLineItem[] = sourceLines.map((line) => {
+				const base = line.confirmed_cost_per_unit != null ? Number(line.confirmed_cost_per_unit) : null;
+				const computedRate =
+					base != null
+						? Math.round(base * (1 + overhead / 100) * (1 + margin / 100) * 100) / 100
+						: line.target_price != null
+							? Number(line.target_price)
+							: null;
+				return {
+					id: crypto.randomUUID?.() ?? String(Date.now() + Math.random()),
+					itemGroup: line.item_grp_id != null ? String(line.item_grp_id) : "",
+					item: String(line.item_id),
+					itemMake: "",
+					hsnCode: line.hsn_code ?? "",
+					quantity: line.qty != null ? String(line.qty) : "",
+					rate: computedRate != null ? String(computedRate) : "",
+					uom: line.uom_id != null ? String(line.uom_id) : "",
+					discountValue: "",
+					remarks: line.remarks ?? "",
+					enquiryDtlId: String(line.enquiry_dtl_id),
+					costSnapshotId: line.cost_snapshot_id != null ? String(line.cost_snapshot_id) : null,
+					baseCost: base,
+					overheadPct: base != null ? overhead : null,
+					marginPct: base != null ? margin : null,
+				};
+			});
+
+			const groupIds = [...new Set(newLines.map((l) => l.itemGroup).filter((gid) => gid && /^\d+$/.test(gid)))];
+			for (const gid of groupIds) {
+				if (!itemGroupCache[gid] && !itemGroupLoading[gid]) {
+					void ensureItemGroupData(gid);
+				}
+			}
+
+			setLineItems(() => [...newLines, createBlankLine()]);
+
+			const partyId = enquiryHeader.party_id != null ? String(enquiryHeader.party_id) : "";
+			const enquiryBranch = enquiryHeader.branch_id != null ? String(enquiryHeader.branch_id) : "";
+			setFormValues((prev) => ({
+				...prev,
+				...(partyId ? { customer: partyId } : {}),
+				...(enquiryBranch ? { branch: enquiryBranch } : {}),
+			}));
+			if (enquiryBranch) setLockedBranchId(enquiryBranch);
+			setFormKey((k) => k + 1);
+			setSourceEnquiryNo(enquiryHeader.enquiry_no != null ? String(enquiryHeader.enquiry_no) : null);
+
+			const unpriced = sourceLines.filter((line) => line.confirmed_cost_per_unit == null).length;
+			toast({
+				title: `Pre-filled ${newLines.length} line${newLines.length > 1 ? "s" : ""} from the enquiry`,
+				description: unpriced
+					? `${unpriced} line(s) have no confirmed cost — rates left at the customer's target price.`
+					: "Rates computed from the confirmed cost basis. Adjust as needed.",
+			});
+			setEnquiryPricingOpen(false);
+		} catch (error) {
+			toast({
+				variant: "destructive",
+				title: "Unable to pre-fill from enquiry",
+				description: error instanceof Error ? error.message : "Please try again.",
+			});
+			setEnquiryPricingOpen(false);
+			setSalesEnquiryId(null);
+		} finally {
+			setEnquiryPrefillBusy(false);
+		}
+	}, [
+		salesEnquiryIdFromUrl,
+		enquiryOverheadPct,
+		enquiryMarginPct,
+		itemGroupCache,
+		itemGroupLoading,
+		ensureItemGroupData,
+		setLineItems,
+		setFormValues,
+		setFormKey,
+	]);
 
 	const { taxType } = useQuotationTaxCalculations({
 		coConfig,
@@ -613,6 +734,7 @@ function QuotationTransactionPageContent() {
 		filledLineItems,
 		isLineItemsReady,
 		requestedId,
+		salesEnquiryId,
 	});
 
 	const primaryActionLabel = mode === "create" ? "Create" : "Save";
@@ -634,7 +756,7 @@ function QuotationTransactionPageContent() {
 		<>
 		<TransactionWrapper
 			title={pageTitle}
-			subtitle={mode === "create" ? "Create a new sales quotation" : mode === "edit" ? "Edit sales quotation" : "View sales quotation details"}
+			subtitle={`${mode === "create" ? "Create a new sales quotation" : mode === "edit" ? "Edit sales quotation" : "View sales quotation details"}${sourceEnquiryNo ? ` — from enquiry ${sourceEnquiryNo}` : salesEnquiryId ? ` — from enquiry #${salesEnquiryId}` : ""}`}
 			metadata={metadata}
 			statusChip={statusChipProps}
 			backAction={{ onClick: () => router.push("/dashboardportal/sales/quotation") }}
@@ -723,6 +845,42 @@ function QuotationTransactionPageContent() {
 			excludeItemIds={excludeItemIds}
 			title="Select Items for Quotation"
 		/>
+		<MuiDialog open={enquiryPricingOpen} onClose={() => setEnquiryPricingOpen(false)} maxWidth="xs" fullWidth>
+			<MuiDialogTitle>Price from Enquiry Costing</MuiDialogTitle>
+			<MuiDialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "12px !important" }}>
+				<MuiTypography variant="body2" color="text.secondary">
+					Lines will be pre-filled from the enquiry&apos;s confirmed cost basis. Enter the overhead and margin to
+					apply on top of cost — the computed rate stays editable per line (decision Q1: entered per quote).
+				</MuiTypography>
+				<MuiTextField
+					label="Overhead %"
+					size="small"
+					type="number"
+					value={enquiryOverheadPct}
+					onChange={(e) => setEnquiryOverheadPct(e.target.value)}
+				/>
+				<MuiTextField
+					label="Margin %"
+					size="small"
+					type="number"
+					value={enquiryMarginPct}
+					onChange={(e) => setEnquiryMarginPct(e.target.value)}
+				/>
+			</MuiDialogContent>
+			<MuiDialogActions>
+				<MuiButton
+					onClick={() => {
+						setEnquiryPricingOpen(false);
+						setSalesEnquiryId(null);
+					}}
+				>
+					Skip
+				</MuiButton>
+				<MuiButton variant="contained" onClick={applyEnquiryPrefill} disabled={enquiryPrefillBusy}>
+					{enquiryPrefillBusy ? "Loading…" : "Pre-fill Lines"}
+				</MuiButton>
+			</MuiDialogActions>
+		</MuiDialog>
 		</>
 	);
 }

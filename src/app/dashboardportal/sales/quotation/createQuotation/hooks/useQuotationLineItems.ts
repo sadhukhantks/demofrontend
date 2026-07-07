@@ -75,6 +75,11 @@ export const useQuotationLineItems = ({
 		cgstAmount: line.cgst,
 		sgstAmount: line.sgst,
 		taxAmount: (line.igst ?? 0) + (line.cgst ?? 0) + (line.sgst ?? 0),
+		enquiryDtlId: line.enquiryDtlId ?? null,
+		costSnapshotId: line.costSnapshotId ?? null,
+		baseCost: line.baseCost ?? null,
+		overheadPct: line.overheadPct ?? null,
+		marginPct: line.marginPct ?? null,
 	}), []);
 
 	const handleLineFieldChange = React.useCallback(

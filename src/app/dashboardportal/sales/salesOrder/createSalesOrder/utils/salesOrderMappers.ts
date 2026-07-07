@@ -403,6 +403,9 @@ export const mapSalesOrderDetailsToFormValues = (
 		buyerOrderNo?: string | null;
 		buyerOrderDate?: string | null;
 		deliveryDays?: number | null;
+		committedDeliveryDate?: string | null;
+		advanceAmount?: number | null;
+		advanceNote?: string | null;
 		freightCharges?: number | null;
 		footerNote?: string | null;
 		internalNote?: string | null;
@@ -451,6 +454,11 @@ export const mapSalesOrderDetailsToFormValues = (
 	delivery_days: details.deliveryDays != null
 		? String(details.deliveryDays)
 		: toStringValue(defaultValues.delivery_days),
+	committed_delivery_date: normalizeDate(details.committedDeliveryDate) || toStringValue(defaultValues.committed_delivery_date),
+	advance_amount: details.advanceAmount != null
+		? String(details.advanceAmount)
+		: toStringValue(defaultValues.advance_amount),
+	advance_note: toStringValue(details.advanceNote ?? defaultValues.advance_note),
 	freight_charges: details.freightCharges != null
 		? String(details.freightCharges)
 		: toStringValue(defaultValues.freight_charges),
