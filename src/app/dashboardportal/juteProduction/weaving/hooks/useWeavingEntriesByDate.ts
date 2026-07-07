@@ -5,8 +5,10 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WeavingEntryRow } from "../types/weavingTypes";
 
-// GET WEAVING_ENTRIES_BY_DATE?co_id&tran_date&branch_id&spell?&machine_id?
-// -> { data: WeavingEntryRow[] }. Mirrors useDoffEntriesByDate / useBeamingEntriesByDate.
+// GET WEAVING_ENTRY_INPUTS_BY_DATE?co_id&tran_date&branch_id&spell?&machine_id?
+// -> { data: WeavingEntryRow[] } (light rows: inputs + open_jugar + jpc/fl — no
+// standards/pick/stoppage probes; ~7x fewer per-row lookups than entries_by_date).
+// Mirrors useDoffEntriesByDate / useBeamingEntriesByDate.
 export function useWeavingEntriesByDate(
 	coId: string | null | undefined,
 	tranDate: string,
@@ -30,7 +32,7 @@ export function useWeavingEntriesByDate(
 		}
 		let cancelled = false;
 		setLoading(true);
-		let url = `${apiRoutesPortalMasters.WEAVING_ENTRIES_BY_DATE}?co_id=${coId}&tran_date=${tranDate}&branch_id=${branchId}`;
+		let url = `${apiRoutesPortalMasters.WEAVING_ENTRY_INPUTS_BY_DATE}?co_id=${coId}&tran_date=${tranDate}&branch_id=${branchId}`;
 		if (spell) url += `&spell=${spell}`;
 		if (machineId != null) url += `&machine_id=${machineId}`;
 		void fetchWithCookie<{ data: WeavingEntryRow[] }>(url, "GET").then(({ data, error: err }) => {

@@ -96,6 +96,12 @@ export const useSRLineItems = ({ header }: UseSRLineItemsParams): UseSRLineItems
 						return recalculateLineItem(updated);
 					}
 
+					// Handle tax_percentage change: recalculate GST
+					if (field === "tax_percentage") {
+						const updated = { ...item, tax_percentage: Number(value) || 0 };
+						return recalculateLineItem(updated);
+					}
+
 					return { ...item, [field]: value };
 				}),
 			);
