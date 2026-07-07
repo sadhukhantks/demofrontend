@@ -371,13 +371,24 @@ export const useSRLineItemColumns = ({
 			{
 				id: "tax_percentage",
 				header: "Tax %",
-				width: "0.4fr",
-				minWidth: "60px",
-				renderCell: ({ item }) => (
-					<Typography variant="body2" noWrap sx={{ textAlign: "right", width: "100%" }}>
-						{item.tax_percentage}%
-					</Typography>
-				),
+				width: "0.5fr",
+				minWidth: "80px",
+				renderCell: ({ item }) => {
+					if (!canEdit) {
+						return (
+							<Typography variant="body2" noWrap sx={{ textAlign: "right", width: "100%" }}>
+								{item.tax_percentage}%
+							</Typography>
+						);
+					}
+					return (
+						<EditableNumberCell
+							initialValue={item.tax_percentage}
+							disabled={!canEdit}
+							onCommit={(val) => onLineItemChange(item.id, "tax_percentage", val)}
+						/>
+					);
+				},
 			},
 			{
 				id: "tax_amount",

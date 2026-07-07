@@ -18,7 +18,7 @@ import {
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WeavingSetup, WeavingEntryRow, LoomQualityMapRow } from "../types/weavingTypes";
-import { useLoomQualityMap } from "../hooks/useLoomQualityMap";
+import type { LoomQualityMapState } from "../hooks/useLoomQualityMap";
 import { useWeavingEntriesByDate } from "../hooks/useWeavingEntriesByDate";
 
 type Props = {
@@ -27,6 +27,8 @@ type Props = {
 	setup: WeavingSetup;
 	date: string;
 	spell: string;
+	// Shared, page-owned map fetch (reused across tab switches — no reload on this tab).
+	map: LoomQualityMapState;
 };
 
 // The operator enters cuts + the CLOSING jugar reading (close_jugar / cj).
@@ -41,14 +43,11 @@ const numInputSx = {
 
 // Loom rows on the production grid never carry a quality dropdown — the quality is
 // MAPPED on the Loom → Quality tab and inherited read-only here (like spinning).
-export default function WeavingEntryGrid({ coId, branchId, date, spell }: Props) {
-	// The mapped quality per loom (read-only source for this grid).
-	const { rows: mapRows, loading: mapLoading, error: mapError } = useLoomQualityMap(
-		coId,
-		branchId,
-		date,
-		spell
-	);
+export default function WeavingEntryGrid({ coId, branchId, date, spell, map }: Props) {
+	// The mapped quality per loom (read-only source for this grid) comes from the page-owned,
+	// shared map fetch — this grid needs only the loom list + saved mapping (it ignores the
+	// editor's carry-forward). Sharing means switching to this tab does NOT refetch the map.
+	const { rows: mapRows, loading: mapLoading, error: mapError } = map;
 	// Existing day entries (to prefill cuts/jugar and show server-computed outputs).
 	const { rows: entryRows, loading: entriesLoading, error: entriesError, refresh } =
 		useWeavingEntriesByDate(coId, date, branchId, spell);

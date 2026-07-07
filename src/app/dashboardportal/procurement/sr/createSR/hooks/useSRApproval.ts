@@ -146,6 +146,7 @@ export const useSRApproval = ({
 				inward_id: Number(inwardId),
 				sr_date: srDate,
 				sr_remarks: srRemarks,
+				supplier_branch_id: header?.supplier_branch_id ?? null,
 				...headerPayload,
 				line_items: lineItemsPayload,
 				additional_charges: additionalChargesPayload,
@@ -172,7 +173,7 @@ export const useSRApproval = ({
 		} finally {
 			setSaving(false);
 		}
-	}, [inwardId, srDate, srRemarks, editableHeader, lineItems, getChargesToSave, onRefresh]);
+	}, [inwardId, header, srDate, srRemarks, editableHeader, lineItems, getChargesToSave, onRefresh]);
 
 	/**
 	 * Open SR for approval.
