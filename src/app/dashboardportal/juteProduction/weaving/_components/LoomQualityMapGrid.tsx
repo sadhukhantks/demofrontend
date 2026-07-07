@@ -21,7 +21,7 @@ import { Save as SaveIcon, Stamp as StampIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WeavingSetup } from "../types/weavingTypes";
-import { useLoomQualityMap } from "../hooks/useLoomQualityMap";
+import type { LoomQualityMapState } from "../hooks/useLoomQualityMap";
 
 type Props = {
 	coId: string;
@@ -29,29 +29,37 @@ type Props = {
 	setup: WeavingSetup;
 	date: string;
 	spell: string;
+	// The map fetch is owned by the page and shared with the entry grid, so switching tabs
+	// doesn't refetch. This tab is the only consumer of the lazy carry-forward (prev_quality_*).
+	map: LoomQualityMapState;
 };
 
-export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell }: Props) {
-	const { rows, lastUpdated, loading, error, refresh } = useLoomQualityMap(
-		coId,
-		branchId,
-		date,
-		spell
-	);
+export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell, map }: Props) {
+	const { rows, lastUpdated, loading, carryForwardLoading, error, refresh } = map;
 	const [edits, setEdits] = React.useState<Record<number, number | "">>({});
 	const [saving, setSaving] = React.useState(false);
 	const [busy, setBusy] = React.useState(false);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
-	// Seed local edit state (loom -> weaving_quality_id) from fetched rows. Prefill from the
-	// prior date's mapping when nothing is saved yet today, so the operator only has to
-	// tweak the 1-2 looms whose quality changed.
+	// Reset local edits when the cell identity (date/spell) changes — a fresh grid.
 	React.useEffect(() => {
-		const seed: Record<number, number | ""> = {};
-		rows.forEach((r) => {
-			seed[r.machine_id] = r.weaving_quality_id ?? r.prev_quality_id ?? "";
+		setEdits({});
+	}, [date, spell]);
+
+	// Seed/patch edit state (loom -> weaving_quality_id) WITHOUT clobbering the operator's picks.
+	// Rows arrive in two phases (saved mapping first, then lazy carry-forward merged in), so this
+	// runs more than once: it only fills a cell that is still blank/untouched — a value the user
+	// already selected is preserved. Prefill order per cell: saved mapping, else prior-day draft.
+	React.useEffect(() => {
+		setEdits((prev) => {
+			const next = { ...prev };
+			rows.forEach((r) => {
+				if (next[r.machine_id] === undefined || next[r.machine_id] === "") {
+					next[r.machine_id] = r.weaving_quality_id ?? r.prev_quality_id ?? "";
+				}
+			});
+			return next;
 		});
-		setEdits(seed);
 	}, [rows]);
 
 	// Baseline = what is actually persisted today (null/"" when unsaved). A cell is
@@ -149,7 +157,15 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell 
 				>
 					Mapped
 				</Button>
-				{lastUpdated ? (
+				{carryForwardLoading ? (
+					<Typography
+						variant="caption"
+						color="text.secondary"
+						sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 0.5 }}
+					>
+						<CircularProgress size={12} /> Loading prior-day suggestions…
+					</Typography>
+				) : lastUpdated ? (
 					<Typography variant="caption" color="text.secondary" sx={{ ml: "auto" }}>
 						Last updated: {new Date(lastUpdated.replace(" ", "T")).toLocaleString()}
 					</Typography>

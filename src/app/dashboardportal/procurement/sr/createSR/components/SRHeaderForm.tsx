@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Box, Typography, Stack, Chip, Divider, TextField } from "@mui/material";
+import { Box, Typography, Stack, Chip, Divider, TextField, MenuItem } from "@mui/material";
 import type { SRHeader } from "../types/srTypes";
 import type { EditableSRHeader } from "../hooks/useSRFormState";
 import { getStatusColor } from "../utils/srConstants";
@@ -35,6 +35,7 @@ type SRHeaderFormProps = {
 		field: K,
 		value: EditableSRHeader[K],
 	) => void;
+	onSupplierBranchChange: (branchId: number | null) => void;
 	canEdit: boolean;
 };
 
@@ -49,6 +50,7 @@ export const SRHeaderForm: React.FC<SRHeaderFormProps> = ({
 	onSRRemarksChange,
 	editableHeader,
 	onEditableHeaderFieldChange,
+	onSupplierBranchChange,
 	canEdit,
 }) => {
 	const handleTextChange = <K extends keyof EditableSRHeader>(field: K) =>
@@ -286,12 +288,32 @@ export const SRHeaderForm: React.FC<SRHeaderFormProps> = ({
 					disabled={!canEdit}
 					InputLabelProps={{ shrink: true }}
 				/>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						Supplier State
-					</Typography>
-					<Typography variant="body1">{header?.supplier_state_name || "-"}</Typography>
-				</Box>
+				{canEdit && (header?.supplier_branch_options?.length ?? 0) > 1 ? (
+					<TextField
+						select
+						label="Supplier State (GST)"
+						size="small"
+						value={header?.supplier_branch_id ?? ""}
+						onChange={(e) => onSupplierBranchChange(e.target.value === "" ? null : Number(e.target.value))}
+						error={!header?.supplier_branch_id}
+						helperText={!header?.supplier_branch_id ? "Select supplier state for GST" : undefined}
+						InputLabelProps={{ shrink: true }}
+					>
+						<MenuItem value="">— Select —</MenuItem>
+						{header?.supplier_branch_options.map((opt) => (
+							<MenuItem key={opt.party_mst_branch_id} value={opt.party_mst_branch_id}>
+								{opt.state_name}{opt.gst_no ? ` (${opt.gst_no})` : ""}
+							</MenuItem>
+						))}
+					</TextField>
+				) : (
+					<Box>
+						<Typography variant="caption" color="text.secondary">
+							Supplier State
+						</Typography>
+						<Typography variant="body1">{header?.supplier_state_name || "-"}</Typography>
+					</Box>
+				)}
 			</Box>
 
 			{/* Editable Inward Info - Row 6: Despatch/Receipt remarks */}

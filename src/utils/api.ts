@@ -1064,6 +1064,8 @@ const apiRoutesPortalMasters = {
     // base paths; caller appends /${id}?co_id=...
     WEAVING_ENTRY_CREATE_SETUP: `${API_URL}/weavingProd/entry_create_setup`,
     WEAVING_ENTRIES_BY_DATE: `${API_URL}/weavingProd/entries_by_date`,
+    // Light table-direct read for the entry grid: inputs + open_jugar + jpc only.
+    WEAVING_ENTRY_INPUTS_BY_DATE: `${API_URL}/weavingProd/entry_inputs_by_date`,
     WEAVING_MACHINE_STANDARDS: `${API_URL}/weavingProd/machine_standards`,
     WEAVING_ENTRY_CREATE: `${API_URL}/weavingProd/entry_create`,
     WEAVING_ENTRY_EDIT: `${API_URL}/weavingProd/entry_edit`,
@@ -1072,6 +1074,8 @@ const apiRoutesPortalMasters = {
     WEAVING_PLANNING_GRID_SAVE: `${API_URL}/weavingProd/planning_grid_save`,
     // Loom -> Quality map (router prefix /api/weavingProd)
     WEAVING_QUALITY_MAP_GET: `${API_URL}/weavingProd/quality_map_get`,
+    // Cheap saved-mapping-only read (no carry-forward) — used by the entry grid.
+    WEAVING_QUALITY_MAP_SAVED: `${API_URL}/weavingProd/quality_map_saved`,
     WEAVING_QUALITY_MAP_SAVE: `${API_URL}/weavingProd/quality_map_save`,
     WEAVING_QUALITY_MAP_MAPPED: `${API_URL}/weavingProd/quality_map_mapped`,
     // Beam-change tab (router prefix /api/weavingProd)
@@ -1079,6 +1083,9 @@ const apiRoutesPortalMasters = {
     WEAVING_BEAM_MAP_SAVE: `${API_URL}/weavingProd/beam_map_save`,
     WEAVING_ADJUSTMENT_GET: `${API_URL}/weavingProd/adjustment_get`,
     WEAVING_ADJUSTMENT_SAVE: `${API_URL}/weavingProd/adjustment_save`,
+    // Process + lock (router prefix /api/weavingProd)
+    WEAVING_PROCESS: `${API_URL}/weavingProd/process`,
+    WEAVING_PROCESS_STATUS: `${API_URL}/weavingProd/process_status`,
 };
 
 // Support tickets (Zendesk-style). Raised from Portal/Tenant Admin widgets,

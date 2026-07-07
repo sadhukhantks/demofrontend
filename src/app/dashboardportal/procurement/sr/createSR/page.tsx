@@ -142,6 +142,22 @@ function SRTransactionPageContent() {
 		setIsDirty(true);
 	}, [updateCharge]);
 
+	// Supplier GST-state picker (direct/no-PO inwards). Updating the header's
+	// supplier state re-triggers the line-item GST recompute in useSRLineItems.
+	const handleSupplierBranchChange = React.useCallback((branchId: number | null) => {
+		setHeader((prev) => {
+			if (!prev) return prev;
+			const opt = prev.supplier_branch_options.find((o) => o.party_mst_branch_id === branchId);
+			return {
+				...prev,
+				supplier_branch_id: branchId,
+				supplier_state_id: opt?.state_id ?? null,
+				supplier_state_name: opt?.state_name ?? "",
+			};
+		});
+		setIsDirty(true);
+	}, []);
+
 	// Fetch SR data
 	const fetchSRData = React.useCallback(async () => {
 		if (!inwardId) {
@@ -449,6 +465,7 @@ function SRTransactionPageContent() {
 					onSRRemarksChange={handleSRRemarksChange}
 					editableHeader={editableHeader}
 					onEditableHeaderFieldChange={handleEditableHeaderFieldChange}
+					onSupplierBranchChange={handleSupplierBranchChange}
 					canEdit={canEdit && !isViewMode}
 				/>
 			</Paper>
