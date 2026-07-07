@@ -20,7 +20,6 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WeavingSetup, WeavingEntryRow, LoomQualityMapRow } from "../types/weavingTypes";
 import { useLoomQualityMap } from "../hooks/useLoomQualityMap";
 import { useWeavingEntriesByDate } from "../hooks/useWeavingEntriesByDate";
-import { totalJugar } from "../utils/weavingCalc";
 
 type Props = {
 	coId: string;
@@ -88,11 +87,7 @@ export default function WeavingEntryGrid({ coId, branchId, date, spell }: Props)
 		}));
 	};
 
-	const handleSave = async (machineId: number, mapped: boolean) => {
-		if (!mapped) {
-			setSnack("Map a quality to this loom on the Loom → Quality tab first.");
-			return;
-		}
+	const handleSave = async (machineId: number) => {
 		const cell = edits[machineId] ?? { cuts: "", close_jugar: "" };
 		if (cell.cuts === "" || Number(cell.cuts) < 0) {
 			setSnack("Enter cuts for this loom.");
@@ -152,23 +147,13 @@ export default function WeavingEntryGrid({ coId, branchId, date, spell }: Props)
 						(r.machine_name ?? "").toLowerCase().includes(q)
 			  );
 
-	// Per-row derived state for the grid.
-	const fmt = (n: number) => (n ? n : "—");
+	// Per-row state. Total-jugar preview REMOVED: cut length cannot be known until the
+	// quality is mapped, and the server (Process) is authoritative for every derived
+	// value — the entry tab now only captures raw inputs (cuts + closing jugar).
 	const deriveRow = (r: LoomQualityMapRow) => {
 		const cell = edits[r.machine_id] ?? { cuts: "", close_jugar: "" };
 		const entry = entryByMachine[r.machine_id];
-		const mapped = r.weaving_quality_id != null;
-		// FE PREVIEW ONLY — server / vw_weaving_daily is authoritative. total_jugar =
-		// cuts·jpc + cj − oj − adj; open_jugar (oj) is the last available close (read-only)
-		// and adjustment jugar (adj) lives on the Adjustment tab, so it is 0 here.
-		// jpc: light endpoint aliases it directly; fall back to the raw column name
-		// and finally to the mapped quality row (unsaved looms have no entry yet).
-		const jpc = Number(entry?.jpc ?? entry?.no_of_jugar_per_cut ?? r.no_of_jugar_per_cut ?? 0);
-		const openJugar = Number(entry?.open_jugar ?? entry?.open ?? 0);
-		const closeJugarNum = Number(cell.close_jugar || 0);
-		const cutsNum = Number(cell.cuts || 0);
-		const derivedJugar = totalJugar(cutsNum, jpc, openJugar, closeJugarNum);
-		return { cell, entry, mapped, derivedJugar };
+		return { cell, entry };
 	};
 
 	return (
@@ -176,9 +161,7 @@ export default function WeavingEntryGrid({ coId, branchId, date, spell }: Props)
 			<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
 				<Typography variant="subtitle2">Production entry (per loom)</Typography>
 				<Typography variant="caption" color="text.secondary">
-					Quality is inherited from the Loom → Quality map (read-only). Enter cuts + closing jugar;
-					Open and Total Jugar (cuts·jpc + close − open − adjustment) are derived
-					(server/view authoritative; adjustment applied on the Adjustment tab).
+					Enter cuts + closing jugar per loom, then Save. Quality mapping is NOT required to capture inputs — all jugar / production / efficiency values are computed later when you Process the day + spell.
 				</Typography>
 				<TextField
 					size="small"
@@ -205,13 +188,12 @@ export default function WeavingEntryGrid({ coId, branchId, date, spell }: Props)
 								<TableCell>Loom</TableCell>
 								<TableCell align="right">Cuts</TableCell>
 								<TableCell align="right">Cl.Jugar</TableCell>
-								<TableCell align="right">Tot.Jugar</TableCell>
 								<TableCell />
 							</TableRow>
 						</TableHead>
 						<TableBody>
 							{visibleRows.map((r) => {
-								const { cell, entry, mapped, derivedJugar } = deriveRow(r);
+								const { cell, entry } = deriveRow(r);
 								return (
 									<TableRow key={r.machine_id}>
 										<TableCell>
@@ -238,7 +220,6 @@ export default function WeavingEntryGrid({ coId, branchId, date, spell }: Props)
 												slotProps={{ htmlInput: { inputMode: "decimal" } }}
 												value={cell.cuts}
 												onChange={(e) => setCell(r.machine_id, "cuts", e.target.value)}
-												disabled={!mapped}
 												sx={numInputSx}
 											/>
 										</TableCell>
@@ -249,17 +230,15 @@ export default function WeavingEntryGrid({ coId, branchId, date, spell }: Props)
 												slotProps={{ htmlInput: { inputMode: "decimal" } }}
 												value={cell.close_jugar}
 												onChange={(e) => setCell(r.machine_id, "close_jugar", e.target.value)}
-												disabled={!mapped}
 												sx={numInputSx}
 											/>
 										</TableCell>
-										<TableCell align="right">{fmt(derivedJugar)}</TableCell>
 										<TableCell align="right">
 											<Button
 												variant="contained"
 												size="small"
-												onClick={() => handleSave(r.machine_id, mapped)}
-												disabled={!mapped || savingId === r.machine_id}
+												onClick={() => handleSave(r.machine_id)}
+												disabled={savingId === r.machine_id}
 												sx={{ minWidth: 0, px: 1 }}
 											>
 												{savingId === r.machine_id ? "…" : entry ? "Update" : "Save"}
