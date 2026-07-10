@@ -11,7 +11,7 @@ import PackingMrForm from "./_components/PackingMrForm";
 import PackingMrGrid from "./_components/PackingMrGrid";
 import SqcPrintButton from "../_shared/SqcPrintButton";
 import type { PrintColumn, PrintSection, SqcPrintReport } from "../_shared/printReport";
-import { PACKING_MR_READINGS, QUALITY_GROUPS } from "./types/packingMrTypes";
+import { QUALITY_GROUPS } from "./types/packingMrTypes";
 
 export default function PackingMrSqcPage() {
 	// HYDRATION RULE: this component reads sidebar context and seeds a date,
@@ -71,7 +71,9 @@ export default function PackingMrSqcPage() {
 	const getReport = React.useCallback((): SqcPrintReport | null => {
 		if (columns.length === 0) return null;
 
-		const readingHeaders = Array.from({ length: PACKING_MR_READINGS }, (_, i) => i);
+		// Columns may carry different reading counts — size the report to the widest.
+		const maxReadings = columns.reduce((m, c) => Math.max(m, c.readings?.length ?? 0), 0);
+		const readingHeaders = Array.from({ length: maxReadings }, (_, i) => i);
 		const tableColumns: PrintColumn[] = [
 			{ key: "quality", label: "Quality" },
 			{ key: "construction", label: "Construction" },
@@ -157,10 +159,10 @@ export default function PackingMrSqcPage() {
 				Packing MR% SQC
 			</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-				R-08-25 finished-goods moisture at packing. Capture one quality column at a time — 10 MR%
-				readings for one quality (Hessian or Sacking), with an optional cloth quality and free-text
-				construction. The server computes each column average and the weighted group average per
-				quality group. The sheet shows averages only — no std, CV% or pass/fail.
+				R-08-25 finished-goods moisture at packing. Capture one quality column at a time — add as
+				many MR% readings as needed for one quality (Hessian or Sacking), with an optional cloth
+				quality and free-text construction. The server computes each column average and the weighted
+				group average per quality group. The sheet shows averages only — no std, CV% or pass/fail.
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (

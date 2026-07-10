@@ -397,7 +397,12 @@ function JuteGateEntryCreatePageContent() {
 		if (poId === prevPoIdRef.current) return;
 		prevPoIdRef.current = poId;
 
-		if (!poId || !coId || mode === "view") return;
+		// PO auto-fill is a CREATE-only convenience. In edit/QC the entry already
+		// owns its persisted lines; re-filling from the PO injected PO/manual rows
+		// (jute_mr_li_id=null) that QC-complete then INSERTed as phantom qualities —
+		// gate entry with 2 qualities producing an MR with 4 (e.g. MR #27957). The
+		// old `prevPoIdRef` sync was racy; gating to create removes the race entirely.
+		if (!poId || !coId || mode !== "create") return;
 
 		const fetchPODetails = async () => {
 			try {
