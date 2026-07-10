@@ -6,13 +6,14 @@ import {
 	Autocomplete,
 	Box,
 	Button,
+	IconButton,
 	MenuItem,
 	Paper,
 	Snackbar,
 	TextField,
 	Typography,
 } from "@mui/material";
-import { Save as SaveIcon } from "lucide-react";
+import { Plus as PlusIcon, Save as SaveIcon, X as XIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import {
@@ -70,6 +71,15 @@ export default function PackingMrForm({ coId, branchId, entryDate, setup, onSave
 		});
 	}, []);
 
+	const addReading = React.useCallback(() => {
+		setReadings((prev) => [...prev, ""]);
+	}, []);
+
+	// Remove one reading field; keep at least one so a column always has a slot.
+	const removeReadingAt = React.useCallback((index: number) => {
+		setReadings((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
+	}, []);
+
 	const resetForm = React.useCallback(() => {
 		setItemId("");
 		setConstructionCode("");
@@ -117,7 +127,7 @@ export default function PackingMrForm({ coId, branchId, entryDate, setup, onSave
 	return (
 		<Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 2 }}>
 			<Typography variant="subtitle2">
-				Packing MR% quality column — {PACKING_MR_READINGS} MR% readings for one quality
+				Packing MR% quality column — MR% readings for one quality (add as many as needed)
 			</Typography>
 
 			<Box
@@ -186,8 +196,34 @@ export default function PackingMrForm({ coId, branchId, entryDate, setup, onSave
 						value={r}
 						onChange={(e) => setReadingAt(i, e.target.value)}
 						inputProps={{ step: "any", min: 0, "aria-label": `MR% reading ${i + 1}` }}
+						InputProps={{
+							endAdornment:
+								readings.length > 1 ? (
+									<IconButton
+										size="small"
+										edge="end"
+										aria-label={`Remove MR% reading ${i + 1}`}
+										onClick={() => removeReadingAt(i)}
+										sx={{ mr: -0.5 }}
+									>
+										<XIcon size={14} />
+									</IconButton>
+								) : null,
+						}}
 					/>
 				))}
+			</Box>
+
+			<Box>
+				<Button
+					size="small"
+					variant="outlined"
+					startIcon={<PlusIcon size={16} />}
+					onClick={addReading}
+					sx={{ minHeight: 40 }}
+				>
+					Add reading
+				</Button>
 			</Box>
 
 			<Box sx={{ display: "flex", gap: 4, flexWrap: "wrap" }}>

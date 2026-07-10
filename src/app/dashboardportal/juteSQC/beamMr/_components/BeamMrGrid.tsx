@@ -20,7 +20,6 @@ import { Trash2 as DeleteOutlineIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import {
-	BEAM_MR_READINGS,
 	QUALITY_GROUPS,
 	type BeamMrGroupSummary,
 	type BeamMrRow,
@@ -52,7 +51,7 @@ function fmt(n: number | null | undefined, dp = 2): string {
  * R-08-18 Beam MR% by-date summary grid.
  *
  * Renders TWO grouped tables — HESSIAN and SACKING — each with the per-machine
- * reading-set rows (machine, quality, spell, 5 readings, avg_mr, std, deviation)
+ * reading-set rows (machine, quality, spell, N readings, avg_mr, std, deviation)
  * and a footer showing the group's overall_avg_mr (mean of the per-machine
  * avg_mr) from group_summaries. Per-row delete POSTs {beam_mr_id, co_id} to
  * delete_beam_mr. Server values are authoritative; this is a date-driven read of
@@ -97,8 +96,6 @@ export default function BeamMrGrid({ coId, rows, groupSummaries, loading, onDele
 		return m;
 	}, [groupSummaries]);
 
-	const readingHeaders = Array.from({ length: BEAM_MR_READINGS }, (_, i) => i);
-
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
 			{loading ? (
@@ -110,6 +107,13 @@ export default function BeamMrGrid({ coId, rows, groupSummaries, loading, onDele
 			{QUALITY_GROUPS.map((group) => {
 				const groupRows = rowsByGroup.get(group) ?? [];
 				const summary = summaryByGroup.get(group);
+				// Column count follows the widest reading-set in this group (sets can
+				// now carry different numbers of readings).
+				const maxReadings = groupRows.reduce(
+					(mx, r) => Math.max(mx, r.readings?.length ?? 0),
+					0,
+				);
+				const readingHeaders = Array.from({ length: maxReadings }, (_, i) => i);
 				return (
 					<Paper key={group} variant="outlined" sx={{ p: 2 }}>
 						<Box

@@ -12,7 +12,8 @@
 
 import { z } from "zod";
 
-// ─── Number of MR% readings captured per packing column (fixed at 10) ─────────
+// ─── DEFAULT number of MR% reading fields shown for a new column. The operator
+// can add or remove fields, so a saved column may carry any count ≥ 1. ─────────
 export const PACKING_MR_READINGS = 10;
 
 // ─── Quality groups (drive the by-date roll-up) ──────────────────────────────
@@ -113,8 +114,8 @@ export const packingMrCreateSchema = z.object({
 	// refine messages below fire instead of Zod's default "expected number, received NaN".
 	readings: z
 		.array(z.number().or(z.nan()))
-		.refine((arr) => arr.length === PACKING_MR_READINGS, `Enter all ${PACKING_MR_READINGS} MR% readings`)
-		.refine((arr) => arr.every((m) => Number.isFinite(m)), `Enter all ${PACKING_MR_READINGS} MR% readings`)
+		.refine((arr) => arr.length >= 1, "Enter at least one MR% reading")
+		.refine((arr) => arr.every((m) => Number.isFinite(m)), "Fill in every MR% reading (or remove blank ones)")
 		.refine((arr) => arr.every((m) => m > 0), "Each MR% reading must be greater than 0"),
 });
 
