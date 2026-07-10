@@ -6,17 +6,18 @@ import {
 	Autocomplete,
 	Box,
 	Button,
+	IconButton,
 	MenuItem,
 	Paper,
 	Snackbar,
 	TextField,
 	Typography,
 } from "@mui/material";
-import { Save as SaveIcon } from "lucide-react";
+import { Save as SaveIcon, Plus as PlusIcon, X as RemoveIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import {
-	BEAM_MR_READINGS,
+	BEAM_MR_DEFAULT_READINGS,
 	DEFAULT_QUALITY_GROUP,
 	QUALITY_GROUPS,
 	beamMrCreateSchema,
@@ -34,14 +35,14 @@ type Props = {
 	onSaved: () => void;
 };
 
-const blankReadings = (): string[] => Array(BEAM_MR_READINGS).fill("");
+const blankReadings = (): string[] => Array(BEAM_MR_DEFAULT_READINGS).fill("");
 
 /**
  * R-08-18 Beam MR% SINGLE reading-set entry form.
  *
  * One save = one (date, quality_group, beam machine, spell, cloth quality)
- * reading-set with EXACTLY 5 MR% readings (morrah/interCard array pattern, but a
- * single set rather than a multi-row sheet). Std MR% auto-prefills from
+ * reading-set with ONE OR MORE MR% readings — the inspector adds/removes reading
+ * inputs freely (min 1). Std MR% auto-prefills from
  * std_mr_by_group[quality_group] and is editable; it is snapshotted at save. A
  * live average + deviation (avg − std) preview is shown. The server recomputes
  * avg_mr / deviation and is AUTHORITATIVE; this preview is advisory.
@@ -89,6 +90,15 @@ export default function BeamMrForm({ coId, branchId, entryDate, setup, onSaved }
 			next[index] = value;
 			return next;
 		});
+	}, []);
+
+	const addReading = React.useCallback(() => {
+		setReadings((prev) => [...prev, ""]);
+	}, []);
+
+	const removeReadingAt = React.useCallback((index: number) => {
+		// Keep at least one reading input.
+		setReadings((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
 	}, []);
 
 	const resetForm = React.useCallback(() => {
@@ -141,7 +151,7 @@ export default function BeamMrForm({ coId, branchId, entryDate, setup, onSaved }
 	return (
 		<Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 2 }}>
 			<Typography variant="subtitle2">
-				Beam MR% reading-set — {BEAM_MR_READINGS} MR% readings for one (quality, beam machine, spell)
+				Beam MR% reading-set — one or more MR% readings for one (quality, beam machine, spell)
 			</Typography>
 
 			<Box
@@ -237,24 +247,42 @@ export default function BeamMrForm({ coId, branchId, entryDate, setup, onSaved }
 				/>
 			</Box>
 
-			<Box
-				sx={{
-					display: "grid",
-					gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(5, 1fr)" },
-					gap: 2,
-				}}
-			>
-				{readings.map((r, i) => (
-					<TextField
-						key={`mr-${i}`}
-						type="number"
-						size="small"
-						label={`MR% ${i + 1}`}
-						value={r}
-						onChange={(e) => setReadingAt(i, e.target.value)}
-						inputProps={{ step: "any", min: 0, "aria-label": `MR% reading ${i + 1}` }}
-					/>
-				))}
+			<Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+				<Box
+					sx={{
+						display: "grid",
+						gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(5, 1fr)" },
+						gap: 2,
+					}}
+				>
+					{readings.map((r, i) => (
+						<Box key={`mr-${i}`} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+							<TextField
+								type="number"
+								size="small"
+								label={`MR% ${i + 1}`}
+								value={r}
+								onChange={(e) => setReadingAt(i, e.target.value)}
+								inputProps={{ step: "any", min: 0, "aria-label": `MR% reading ${i + 1}` }}
+								fullWidth
+							/>
+							<IconButton
+								size="small"
+								color="error"
+								onClick={() => removeReadingAt(i)}
+								disabled={readings.length <= 1}
+								aria-label={`Remove MR% reading ${i + 1}`}
+							>
+								<RemoveIcon size={16} />
+							</IconButton>
+						</Box>
+					))}
+				</Box>
+				<Box>
+					<Button size="small" startIcon={<PlusIcon size={16} />} onClick={addReading}>
+						Add reading
+					</Button>
+				</Box>
 			</Box>
 
 			<Box sx={{ display: "flex", gap: 4, flexWrap: "wrap" }}>

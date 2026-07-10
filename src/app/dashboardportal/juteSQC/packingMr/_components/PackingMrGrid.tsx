@@ -21,7 +21,6 @@ import { Trash2 as DeleteOutlineIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import {
-	PACKING_MR_READINGS,
 	QUALITY_GROUPS,
 	type PackingMrColumn,
 	type PackingMrGroupSummary,
@@ -133,8 +132,6 @@ export default function PackingMrGrid({
 		return m;
 	}, [groupSummaries]);
 
-	const readingHeaders = Array.from({ length: PACKING_MR_READINGS }, (_, i) => i);
-
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
 			{loading ? (
@@ -147,6 +144,9 @@ export default function PackingMrGrid({
 			{QUALITY_GROUPS.map((group) => {
 				const groupCols = columnsByGroup.get(group) ?? [];
 				const summary = summaryByGroup.get(group);
+					// Columns may carry different reading counts — size the table to the widest.
+					const maxReadings = groupCols.reduce((m, c) => Math.max(m, c.readings?.length ?? 0), 0);
+					const readingHeaders = Array.from({ length: maxReadings }, (_, i) => i);
 				return (
 					<Paper key={group} variant="outlined" sx={{ p: 2 }}>
 						<Box

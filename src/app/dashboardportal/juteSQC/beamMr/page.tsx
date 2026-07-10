@@ -12,7 +12,6 @@ import BeamMrGrid from "./_components/BeamMrGrid";
 import SqcPrintButton from "../_shared/SqcPrintButton";
 import type { SqcPrintReport, PrintColumn, PrintSection } from "../_shared/printReport";
 import {
-	BEAM_MR_READINGS,
 	QUALITY_GROUPS,
 	type BeamMrRow,
 	type QualityGroup,
@@ -86,8 +85,11 @@ export default function BeamMrSqcPage() {
 	const getReport = React.useCallback((): SqcPrintReport | null => {
 		if (rows.length === 0) return null;
 
+		// Reading columns follow the widest reading-set on this date (sets can carry
+		// different numbers of readings). At least one column so the table holds shape.
+		const maxReadings = Math.max(1, ...rows.map((r) => r.readings?.length ?? 0));
 		const readingCols: PrintColumn[] = Array.from(
-			{ length: BEAM_MR_READINGS },
+			{ length: maxReadings },
 			(_, i) => ({ key: `mr_${i}`, label: `MR% ${i + 1}`, align: "right" as const }),
 		);
 		const columns: PrintColumn[] = [
@@ -128,7 +130,7 @@ export default function BeamMrSqcPage() {
 						std: fmt(r.std_mr_pct),
 						deviation: fmt(r.deviation),
 					};
-					for (let i = 0; i < BEAM_MR_READINGS; i++) {
+					for (let i = 0; i < maxReadings; i++) {
 						row[`mr_${i}`] = fmt(r.readings?.[i]);
 					}
 					return row;
@@ -172,8 +174,8 @@ export default function BeamMrSqcPage() {
 				Beam MR% SQC
 			</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-				R-08-18 warp-beam moisture-regain QC. Capture one reading-set at a time — 5 MR% readings per
-				(quality, beam machine, spell) — split across the two quality groups, Hessian and Sacking.
+				R-08-18 warp-beam moisture-regain QC. Capture one reading-set at a time — one or more MR%
+				readings per (quality, beam machine, spell) — split across the two quality groups, Hessian and Sacking.
 				Each set carries its own Std MR% (default 16 Hessian / 20 Sacking) snapshotted at save; the
 				deviation is the average MR% minus that standard.
 			</Typography>

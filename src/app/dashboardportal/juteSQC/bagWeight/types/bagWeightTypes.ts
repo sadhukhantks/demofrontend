@@ -3,7 +3,7 @@
 // morrah pattern — readings stored as a JSON-string array of {mr, obs}).
 //
 // SINGLE (date, bag type) block: one save = ONE header (entry_date, bag type,
-// std_bag_weight, std_mr_pct) + N reading rows (>=1, <=24), each row = {mr (MR%),
+// std_bag_weight, std_mr_pct) + N reading rows (>=1, no upper cap), each row = {mr (MR%),
 // obs (observed bag weight, gm)}. The server computes the per-row corrected
 // weight, the block averages, the SAMPLE stdev/CV%, and the OBS/CORR HY-LT% and
 // is AUTHORITATIVE; the FE only previews the math for live display.
@@ -14,9 +14,6 @@
 // HY/LT is display-only (positive = Heavy, negative = Light); NO pass/fail band.
 
 import { z } from "zod";
-
-// ─── Max reading rows per block (variable, 1..24) ─────────────────────────────
-export const MAX_READING_ROWS = 24;
 
 // Default Std MR% (jute bags) used to prefill the form's std_mr_pct field.
 export const DEFAULT_STD_MR_PCT = 20;
@@ -32,11 +29,10 @@ export type BagType = {
 };
 
 // ─── Setup payload ────────────────────────────────────────────────────────────
-// GET bag_weight_create_setup -> {data: {bag_types, default_std_mr_pct, max_rows}}.
+// GET bag_weight_create_setup -> {data: {bag_types, default_std_mr_pct}}.
 export type BagWeightSetup = {
 	bag_types: BagType[];
 	default_std_mr_pct: number;
-	max_rows: number;
 };
 
 // ─── Saved reading row (by-date read) ─────────────────────────────────────────
@@ -134,7 +130,6 @@ export const bagWeightCreateSchema = z.object({
 	readings: z
 		.array(readingSchema)
 		.refine((arr) => arr.length >= 1, "Enter at least one reading row")
-		.refine((arr) => arr.length <= MAX_READING_ROWS, `At most ${MAX_READING_ROWS} reading rows`)
 		.refine(
 			(arr) => arr.every((r) => Number.isFinite(r.mr) && Number.isFinite(r.obs)),
 			"Every MR% and observed weight is required",

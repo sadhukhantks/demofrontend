@@ -2,8 +2,8 @@
 // Mirrors the backend /api/juteSQC beam-mr endpoints (DB table jute_sqc_beam_mr).
 //
 // SINGLE reading-set entry (morrah/interCard array pattern): one save = one
-// (date, quality_group, beam machine, spell) reading-set carrying EXACTLY 5 MR%
-// readings. avg_mr = mean of the 5. std_mr defaults by quality_group
+// (date, quality_group, beam machine, spell) reading-set carrying ONE OR MORE MR%
+// readings. avg_mr = mean of the readings. std_mr defaults by quality_group
 // (HESSIAN 16, SACKING 20), is editable on the form, and is snapshotted at save.
 // deviation = avg_mr - std_mr_pct. NO CV%, NO pass/fail band.
 //
@@ -13,8 +13,9 @@
 
 import { z } from "zod";
 
-// ─── Number of MR% readings captured per beam reading-set (fixed at 5) ────────
-export const BEAM_MR_READINGS = 5;
+// ─── Default # of blank MR% inputs a new reading-set starts with. The count is
+// no longer fixed — the inspector can add/remove readings freely (min 1). ──────
+export const BEAM_MR_DEFAULT_READINGS = 5;
 
 // ─── Quality groups ──────────────────────────────────────────────────────────
 export const QUALITY_GROUPS = ["HESSIAN", "SACKING"] as const;
@@ -74,7 +75,7 @@ export type BeamMrRow = {
 	item_name?: string | null;
 	spell_id?: number | null;
 	spell_code?: string | null;
-	readings: number[]; // length 5
+	readings: number[]; // one or more
 	avg_mr?: number | null;
 	std_mr_pct?: number | null;
 	deviation?: number | null;
@@ -105,7 +106,7 @@ export type BeamMrCreatePayload = {
 	spell_id: number;
 	item_id: number;
 	mc_id: number;
-	readings: number[]; // exactly 5
+	readings: number[]; // one or more
 	std_mr_pct?: number;
 };
 
@@ -124,8 +125,8 @@ export const beamMrCreateSchema = z.object({
 	// refine messages below fire instead of Zod's default "expected number, received NaN".
 	readings: z
 		.array(z.number().or(z.nan()))
-		.refine((arr) => arr.length === BEAM_MR_READINGS, `Enter all ${BEAM_MR_READINGS} MR% readings`)
-		.refine((arr) => arr.every((m) => Number.isFinite(m)), `Enter all ${BEAM_MR_READINGS} MR% readings`)
+		.refine((arr) => arr.length >= 1, "Enter at least one MR% reading")
+		.refine((arr) => arr.every((m) => Number.isFinite(m)), "Fill in or remove any blank MR% reading")
 		.refine((arr) => arr.every((m) => m > 0), "Each MR% reading must be greater than 0"),
 	std_mr_pct: z.number().nonnegative().optional(),
 });
