@@ -295,6 +295,8 @@ export const mapQuotationDetailsToFormValues = (
 	details: {
 		branch?: unknown;
 		quotationDate?: string;
+		// Backend (get_quotation_by_id) sends `party` / `quotationExpiryDate`.
+		party?: unknown;
 		customer?: unknown;
 		broker?: unknown;
 		billingAddress?: unknown;
@@ -303,6 +305,7 @@ export const mapQuotationDetailsToFormValues = (
 		paymentTerms?: string;
 		deliveryTerms?: string;
 		deliveryDays?: number | null;
+		quotationExpiryDate?: string;
 		expiryDate?: string;
 		footerNotes?: string;
 		internalNote?: string;
@@ -314,7 +317,7 @@ export const mapQuotationDetailsToFormValues = (
 		...defaultValues,
 		branch: toStringValue(details.branch ?? defaultValues.branch),
 		quotation_date: normalizeDate(details.quotationDate) || toStringValue(defaultValues.quotation_date),
-		customer: toStringValue(details.customer ?? defaultValues.customer),
+		customer: toStringValue(details.party ?? details.customer ?? defaultValues.customer),
 		broker: toStringValue(details.broker ?? defaultValues.broker),
 		billing_address: toStringValue(details.billingAddress ?? defaultValues.billing_address),
 		shipping_address: toStringValue(details.shippingAddress ?? defaultValues.shipping_address),
@@ -328,7 +331,7 @@ export const mapQuotationDetailsToFormValues = (
 			details.deliveryDays !== undefined && details.deliveryDays !== null
 				? String(details.deliveryDays)
 				: toStringValue(defaultValues.delivery_days),
-		quotation_expiry_date: normalizeDate(details.expiryDate) || toStringValue(defaultValues.quotation_expiry_date),
+		quotation_expiry_date: normalizeDate(details.quotationExpiryDate ?? details.expiryDate) || toStringValue(defaultValues.quotation_expiry_date),
 		footer_notes: toStringValue(details.footerNotes ?? defaultValues.footer_notes),
 		internal_note: toStringValue(details.internalNote ?? defaultValues.internal_note),
 		terms_condition: toStringValue(details.termsCondition ?? defaultValues.terms_condition),

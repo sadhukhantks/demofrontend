@@ -148,7 +148,7 @@ describe("mapInvoiceDetailsToFormValues", () => {
 
 	it("should map standard header fields", () => {
 		const details = {
-			branch: "10",
+			branchId: "10",
 			invoiceDate: "2025-06-15T00:00:00Z",
 			party: "42",
 			freightCharges: 500,

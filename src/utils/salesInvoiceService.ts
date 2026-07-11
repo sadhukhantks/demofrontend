@@ -586,9 +586,9 @@ export async function approveInvoice(invoiceId: string, menuId: string): Promise
   return data;
 }
 
-export async function rejectInvoice(invoiceId: string, reason: string): Promise<StatusChangeResponse> {
+export async function rejectInvoice(invoiceId: string, reason: string, menuId: string): Promise<StatusChangeResponse> {
   const { data, error } = await fetchWithCookie<StatusChangeResponse>(
-    apiRoutesPortalMasters.SALES_INVOICE_REJECT, "POST", { invoice_id: invoiceId, reason }
+    apiRoutesPortalMasters.SALES_INVOICE_REJECT, "POST", { invoice_id: invoiceId, reason, menu_id: menuId }
   );
   if (error) throw new Error(error);
   if (!data) throw new Error("Empty response from reject API");
