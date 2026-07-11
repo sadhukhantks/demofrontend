@@ -92,6 +92,13 @@ export default function ChangePasswordPage() {
       severity: "success",
     });
     form.reset();
+
+    // Password changed -> force re-login. Clear session, then redirect to the
+    // login page after a short delay so the success message stays visible.
+    setTimeout(() => {
+      localStorage.clear();
+      router.replace("/");
+    }, 1500);
   }
 
   return (
