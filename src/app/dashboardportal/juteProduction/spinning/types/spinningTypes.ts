@@ -113,8 +113,11 @@ export type PlanningGridRow = {
 // Per machine+quality+shift rollup returned alongside the planning grid rows.
 export type ShiftRollupRow = {
 	machine_id: number;
+	mech_code: string | null;
+	machine_name: string | null;
 	item_id: number;
-	shift: string;
+	item_code: string | null;
+	shift_bucket: string;
 	prod_doff: number;
 	prod_wind: number;
 	doff_eff: number;
