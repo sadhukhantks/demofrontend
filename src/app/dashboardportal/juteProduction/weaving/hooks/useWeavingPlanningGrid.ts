@@ -13,7 +13,9 @@ export function useWeavingPlanningGrid(
 	coId: string | null | undefined,
 	branchId: number | null,
 	tranDate: string,
-	spell?: string | null
+	spell?: string | null,
+	// Bump from the parent (e.g. after Process) to force a refetch.
+	refreshKey: number = 0
 ) {
 	const [data, setData] = React.useState<WeavingPlanningGridData | null>(null);
 	const [loading, setLoading] = React.useState(false);
@@ -47,7 +49,7 @@ export function useWeavingPlanningGrid(
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, branchId, tranDate, spell, version]);
+	}, [coId, branchId, tranDate, spell, version, refreshKey]);
 
 	return { data, loading, error, refresh };
 }
