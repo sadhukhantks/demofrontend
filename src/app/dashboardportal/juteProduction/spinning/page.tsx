@@ -64,6 +64,8 @@ export default function SpinningPage() {
 	const [editingEntry, setEditingEntry] = React.useState<DoffEntryRow | null>(null);
 	// Bumped after a Process so the planning grid + lock status re-fetch the frozen log.
 	const [reloadKey, setReloadKey] = React.useState(0);
+	// Bumped after a doff create/edit so the sibling doff grid re-fetches.
+	const [doffReloadKey, setDoffReloadKey] = React.useState(0);
 
 	const { setup, loading: setupLoading, error: setupError } = useSpinningSetup(coId, branchId);
 
@@ -201,7 +203,10 @@ export default function SpinningPage() {
 										date={tranDate}
 										spell={spell}
 										editingEntry={editingEntry}
-										onSaved={() => setEditingEntry(null)}
+										onSaved={() => {
+											setEditingEntry(null);
+											setDoffReloadKey((k) => k + 1);
+										}}
 										onCancelEdit={() => setEditingEntry(null)}
 									/>
 									<DailyDoffGrid
@@ -209,6 +214,7 @@ export default function SpinningPage() {
 										branchId={branchId}
 										date={tranDate}
 										spell={spell}
+										reloadKey={doffReloadKey}
 										onEdit={(row) => setEditingEntry(row)}
 									/>
 								</Box>
