@@ -92,14 +92,17 @@ export default function TrollyMasterPage() {
 	const refresh = React.useCallback(async () => {
 		if (!coId) return;
 		setLoading(true);
+		// Scope to the selected branch so trolleys show per-branch, not all lumped together.
+		// ponytail: single-branch scope only; 0 or 2+ selected falls back to all (Branch column disambiguates).
+		const branchQs = singleBranchId != null ? `&branch_id=${singleBranchId}` : "";
 		const { data, error: err } = await fetchWithCookie<{ data: TrollyRow[] }>(
-			`${apiRoutesPortalMasters.TROLLY_LIST}?co_id=${coId}`,
+			`${apiRoutesPortalMasters.TROLLY_LIST}?co_id=${coId}${branchQs}`,
 			"GET"
 		);
 		if (err) setError(err);
 		setRows(data?.data ?? []);
 		setLoading(false);
-	}, [coId]);
+	}, [coId, singleBranchId]);
 
 	React.useEffect(() => {
 		void refresh();
