@@ -14,6 +14,8 @@ type Props = {
 	branchId: number;
 	date: string;
 	spell: string;
+	// Bumped by the page after Process — refetches the grid without remounting it.
+	refreshKey?: number;
 };
 
 // Stable composite row id: a loom appears per spell + quality.
@@ -21,9 +23,9 @@ function planningRowId(r: WeavingPlanningGridRow): string {
 	return `${r.machine_id}:${r.spell_id}:${r.weaving_quality_id}`;
 }
 
-// Rollup is keyed per (machine, item, quality, shift_bucket) server-side.
+// Rollup is keyed per (machine, quality, shift_bucket) server-side.
 function rollupRowId(r: WeavingShiftRollupRow): string {
-	return `${r.machine_id}:${r.item_id}:${r.weaving_quality_id}:${r.shift_bucket}`;
+	return `${r.machine_id}:${r.weaving_quality_id}:${r.shift_bucket}`;
 }
 
 // Round every numeric cell to a whole number for display.
@@ -33,8 +35,14 @@ const numCol = { type: "number" as const, valueFormatter: roundInt };
 
 const num = { ...numCol, width: 90 };
 
-export default function WeavingPlanningGrid({ coId, branchId, date, spell }: Props) {
-	const { data, loading, error, refresh } = useWeavingPlanningGrid(coId, branchId, date, spell);
+export default function WeavingPlanningGrid({ coId, branchId, date, spell, refreshKey }: Props) {
+	const { data, loading, error, refresh } = useWeavingPlanningGrid(
+		coId,
+		branchId,
+		date,
+		spell,
+		refreshKey
+	);
 	const [saving, setSaving] = React.useState(false);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
@@ -72,7 +80,6 @@ export default function WeavingPlanningGrid({ coId, branchId, date, spell }: Pro
 	const rollupColumns = React.useMemo<GridColDef<WeavingShiftRollupRow>[]>(
 		() => [
 			{ field: "mech_code", headerName: "Loom", width: 100 },
-			{ field: "item_code", headerName: "Item", width: 110 },
 			{ field: "weaving_quality_code", headerName: "Quality", width: 140 },
 			{ field: "shift_bucket", headerName: "Shift", width: 80 },
 			{ field: "production_yds", headerName: "Prod (yd)", width: 120, ...numCol },

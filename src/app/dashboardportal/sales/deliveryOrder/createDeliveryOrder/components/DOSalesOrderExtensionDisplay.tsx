@@ -28,7 +28,11 @@ export const DOSalesOrderExtensionDisplay: React.FC<Props> = ({ soExtensionData,
 
 	const typeId = String(invoiceTypeId);
 
-	if (typeId === "4" && soExtensionData.jute) {
+	// Invoice-type IDs (canonical, see backend constants.py INVOICE_TYPE_IDS):
+	// 3 = Govt Sacking -> govtskg, 4 = Jute Yarn -> juteyarn, 5 = Raw Jute -> jute.
+	// The backend (deliveryOrder.py get_delivery_order_by_id) keys soExtensionData
+	// exactly this way, so each branch must pair the matching id + key.
+	if (typeId === "5" && soExtensionData.jute) {
 		const d = soExtensionData.jute;
 		return (
 			<div style={{ padding: "12px 16px", backgroundColor: "#f9f9f9", borderRadius: 4, marginBottom: 16, border: "1px solid #e0e0e0" }}>
@@ -41,7 +45,7 @@ export const DOSalesOrderExtensionDisplay: React.FC<Props> = ({ soExtensionData,
 		);
 	}
 
-	if (typeId === "5" && soExtensionData.govtskg) {
+	if (typeId === "3" && soExtensionData.govtskg) {
 		const d = soExtensionData.govtskg;
 		return (
 			<div style={{ padding: "12px 16px", backgroundColor: "#f9f9f9", borderRadius: 4, marginBottom: 16, border: "1px solid #e0e0e0" }}>
@@ -55,7 +59,7 @@ export const DOSalesOrderExtensionDisplay: React.FC<Props> = ({ soExtensionData,
 		);
 	}
 
-	if (typeId === "3" && soExtensionData.juteyarn) {
+	if (typeId === "4" && soExtensionData.juteyarn) {
 		const d = soExtensionData.juteyarn;
 		return (
 			<div style={{ padding: "12px 16px", backgroundColor: "#f9f9f9", borderRadius: 4, marginBottom: 16, border: "1px solid #e0e0e0" }}>

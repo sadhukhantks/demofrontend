@@ -31,8 +31,6 @@ export const useQuotationFormSubmission = ({
 
 	const handleFormSubmit = React.useCallback(
 		async (values: Record<string, unknown>) => {
-			console.log("[handleFormSubmit] called with values:", JSON.stringify(values));
-			console.log("[handleFormSubmit] mode:", mode, "pageError:", pageError, "setupError:", setupError, "isLineItemsReady:", isLineItemsReady);
 			if (mode === "view" || pageError || setupError) return;
 
 			if (!isLineItemsReady) {
@@ -92,7 +90,6 @@ export const useQuotationFormSubmission = ({
 			};
 
 			setSaving(true);
-			console.log("[handleFormSubmit] payload:", JSON.stringify(payload));
 			try {
 				if (mode === "edit" && requestedId) {
 					const result = await updateQuotation({ ...payload, sales_quotation_id: requestedId });

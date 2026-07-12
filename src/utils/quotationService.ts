@@ -1,22 +1,41 @@
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 
+/** Nested GST breakup as returned by get_quotation_by_id (camelCase). */
+export type QuotationLineGst = {
+  igstAmount?: number | null;
+  igstPercent?: number | null;
+  cgstAmount?: number | null;
+  cgstPercent?: number | null;
+  sgstAmount?: number | null;
+  sgstPercent?: number | null;
+  gstTotal?: number | null;
+};
+
 export type QuotationLine = {
   id: string;
   itemGroup?: string;
   item?: string;
   itemCode?: string;
+  itemName?: string;
   itemMake?: string;
   hsnCode?: string;
   quantity?: number | string;
   rate?: number | string;
   uom?: string;
+  uomName?: string;
+  /** Backend key is `discountType`; older callers used `discountMode`. */
+  discountType?: number;
   discountMode?: number;
   discountValue?: number | string;
+  discountedRate?: number | null;
   discountAmount?: number;
   netAmount?: number;
   totalAmount?: number;
   remarks?: string;
+  /** Backend returns the GST breakup nested under `gst`. */
+  gst?: QuotationLineGst | null;
+  // Legacy flat fields (never emitted by the current backend — kept for back-compat).
   taxPercentage?: number;
   igst?: number;
   sgst?: number;
@@ -40,6 +59,8 @@ export type QuotationDetails = {
   quotationNo: string;
   quotationDate: string;
   branch: string;
+  /** Backend key is `party`; kept `customer` alias for older callers. */
+  party?: string;
   customer: string;
   broker: string;
   billingAddress: string;
@@ -54,6 +75,8 @@ export type QuotationDetails = {
   paymentTerms?: string;
   deliveryTerms?: string;
   deliveryDays?: number | null;
+  /** Backend key is `quotationExpiryDate`; kept `expiryDate` alias for older callers. */
+  quotationExpiryDate?: string;
   expiryDate?: string;
   footerNotes?: string;
   internalNote?: string;
