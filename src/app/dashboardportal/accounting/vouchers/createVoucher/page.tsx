@@ -54,6 +54,7 @@ import {
   type VoucherLine as ServiceVoucherLine,
   type Ledger as ServiceLedger,
   type VoucherType as ServiceVoucherType,
+  type CreateVoucherRequest,
 } from "@/utils/accountingService";
 import {
   ACC_STATUS_IDS,
@@ -141,17 +142,21 @@ const formatINR = (n: number): string =>
     maximumFractionDigits: 2,
   }).format(n);
 
-/** Map a service VoucherLine (debit/credit fields) to our UI row (dr_cr + amount). */
+/** Map a service VoucherLine (debit/credit amounts) to our UI row (dr_cr + amount). */
 function mapServiceLineToRow(line: ServiceVoucherLine): LineItemRow {
-  const isDr = (line.debit ?? 0) > 0;
+  const debit =
+    line.debit_amount ?? (line.dr_cr === "D" ? line.amount ?? 0 : 0);
+  const credit =
+    line.credit_amount ?? (line.dr_cr === "C" ? line.amount ?? 0 : 0);
+  const isDr = debit > 0;
   return {
     uid: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     acc_ledger_id: line.acc_ledger_id,
     ledger_name: line.ledger_name ?? "",
     dr_cr: isDr ? "D" : "C",
-    amount: String(isDr ? line.debit : line.credit),
-    branch_id: line.cost_center_id ?? null,
-    party_id: null,
+    amount: String(isDr ? debit : credit),
+    branch_id: line.branch_id ?? null,
+    party_id: line.party_id ?? null,
     narration: line.narration ?? "",
   };
 }
@@ -214,7 +219,10 @@ function VoucherTransactionPageContent() {
   const [pageError, setPageError] = React.useState<string | null>(null);
 
   const isViewMode = mode === "view";
-  const isAutoPosted = Boolean(voucherDetail?.source_doc_type);
+  const isAutoPosted =
+    voucherDetail?.is_auto_posted != null
+      ? voucherDetail.is_auto_posted === 1
+      : Boolean(voucherDetail?.source_doc_type);
   const isEditable =
     mode !== "view" &&
     !isAutoPosted &&
@@ -349,13 +357,15 @@ function VoucherTransactionPageContent() {
       .then((detail: Voucher) => {
         if (cancelled) return;
         setVoucherDetail(detail);
+        const partyId = detail.party_id ?? detail.party_ledger_id;
         reset({
           voucher_date: detail.voucher_date?.slice(0, 10) ?? "",
-          type_category: detail.voucher_type_name as VoucherHeaderFormValues["type_category"],
+          type_category: (detail.type_category ??
+            detail.voucher_type_name) as VoucherHeaderFormValues["type_category"],
           branch_id: "",
-          party_id: detail.party_ledger_id ? String(detail.party_ledger_id) : "",
+          party_id: partyId ? String(partyId) : "",
           narration: detail.narration ?? "",
-          ref_no: "",
+          ref_no: detail.ref_no ?? "",
         });
 
         const mappedLines: LineItemRow[] = (detail.lines ?? []).map(mapServiceLineToRow);
@@ -450,22 +460,25 @@ function VoucherTransactionPageContent() {
       }
 
       const matchedType = voucherTypes.find(
-        (vt) => vt.voucher_class === values.type_category
+        (vt) => vt.type_category === values.type_category
       );
 
-      const payload = {
+      const payload: CreateVoucherRequest = {
         co_id: Number(coId),
         branch_id: values.branch_id ? Number(values.branch_id) : undefined,
-        acc_voucher_type_id: matchedType?.acc_voucher_type_id ?? 0,
         voucher_date: values.voucher_date,
-        party_ledger_id: values.party_id ? Number(values.party_id) : null,
+        acc_voucher_type_id: matchedType?.acc_voucher_type_id,
+        // Fallback so the backend can resolve the voucher type when no id matched.
+        type_category: values.type_category,
+        party_id: values.party_id ? Number(values.party_id) : null,
+        ref_no: values.ref_no || undefined,
         narration: values.narration || undefined,
         lines: filledLines.map((line) => ({
-          acc_ledger_id: line.acc_ledger_id!,
-          debit: line.dr_cr === "D" ? parseFloat(line.amount) || 0 : 0,
-          credit: line.dr_cr === "C" ? parseFloat(line.amount) || 0 : 0,
+          acc_ledger_id: line.acc_ledger_id as number,
+          debit_amount: line.dr_cr === "D" ? parseFloat(line.amount) || 0 : 0,
+          credit_amount: line.dr_cr === "C" ? parseFloat(line.amount) || 0 : 0,
           narration: line.narration || undefined,
-          cost_center_id: line.branch_id,
+          party_id: line.party_id,
         })),
       };
 

@@ -4,6 +4,27 @@
  */
 import { fetchWithCookie } from "./apiClient2";
 import { apiRoutesPortalMasters } from "./api";
+import type {
+  Ledger,
+  LedgerGroup,
+  VoucherType,
+  VoucherCategory,
+  CompanySettings,
+  PostingQueueRow,
+  PostingQueueStatus,
+} from "@/app/dashboardportal/accounting/types/accountingTypes";
+
+// Shared module types (single source of truth in accountingTypes.ts).
+// Re-exported so existing consumers importing from this service keep working.
+export type {
+  Ledger,
+  LedgerGroup,
+  VoucherType,
+  VoucherCategory,
+  CompanySettings,
+  PostingQueueRow,
+  PostingQueueStatus,
+};
 
 // ─── Response Types ──────────────────────────────────────────────────────────
 
@@ -11,31 +32,6 @@ export type Party = {
   party_id: number;
   supp_name: string;
   supp_code: string | null;
-};
-
-export type LedgerGroup = {
-  acc_group_id: number;
-  group_name: string;
-  parent_group_id: number | null;
-  nature: string;
-  is_system: boolean;
-};
-
-export type Ledger = {
-  acc_ledger_id: number;
-  ledger_name: string;
-  acc_group_id: number;
-  group_name: string;
-  ledger_type: string;
-  opening_balance: number;
-  is_system: boolean;
-};
-
-export type VoucherType = {
-  acc_voucher_type_id: number;
-  voucher_type_name: string;
-  voucher_class: string;
-  is_system: boolean;
 };
 
 export type FinancialYear = {
@@ -67,10 +63,13 @@ export type VoucherLine = {
   acc_voucher_dtl_id?: number;
   acc_ledger_id: number;
   ledger_name?: string;
-  debit: number;
-  credit: number;
-  narration?: string;
-  cost_center_id?: number | null;
+  debit_amount?: number;
+  credit_amount?: number;
+  dr_cr?: "D" | "C";
+  amount?: number;
+  branch_id?: number | null;
+  party_id?: number | null;
+  narration?: string | null;
 };
 
 export type BillRef = {
@@ -88,13 +87,19 @@ export type Voucher = {
   voucher_date: string;
   acc_voucher_type_id: number;
   voucher_type_name?: string;
+  type_category?: VoucherCategory;
+  party_id?: number | null;
   party_ledger_id?: number | null;
   party_name?: string;
+  ref_no?: string | null;
+  ref_date?: string | null;
   narration?: string;
   total_debit: number;
   total_credit: number;
+  total_amount?: number;
   status_id: number;
   status_name?: string;
+  is_auto_posted?: number;
   source_doc_type?: string | null;
   source_doc_id?: number | null;
   lines?: VoucherLine[];
@@ -203,9 +208,14 @@ export type CreateLedgerGroupRequest = {
 export type CreateLedgerRequest = {
   co_id: number;
   ledger_name: string;
-  acc_group_id: number;
+  acc_ledger_group_id: number;
   ledger_type: string;
+  ledger_code?: string;
+  party_id?: number | null;
+  credit_days?: number | null;
+  credit_limit?: number | null;
   opening_balance?: number;
+  opening_balance_type?: "D" | "C";
   gstin?: string;
   pan?: string;
   address?: string;
@@ -214,9 +224,14 @@ export type CreateLedgerRequest = {
 export type UpdateLedgerRequest = {
   co_id: number;
   ledger_name?: string;
-  acc_group_id?: number;
+  acc_ledger_group_id?: number;
   ledger_type?: string;
+  ledger_code?: string;
+  party_id?: number | null;
+  credit_days?: number | null;
+  credit_limit?: number | null;
   opening_balance?: number;
+  opening_balance_type?: "D" | "C";
   gstin?: string;
   pan?: string;
   address?: string;
@@ -237,29 +252,50 @@ export type UpdateAccountDeterminationsRequest = {
   }>;
 };
 
+export type CreateVoucherLineRequest = {
+  acc_ledger_id: number;
+  debit_amount: number;
+  credit_amount: number;
+  narration?: string;
+  party_id?: number | null;
+};
+
+export type CreateVoucherBillRefRequest = {
+  ref_type: string;
+  bill_no: string;
+  bill_date?: string;
+  due_date?: string;
+  amount: number;
+};
+
 export type CreateVoucherRequest = {
   co_id: number;
   branch_id?: number;
-  acc_voucher_type_id: number;
   voucher_date: string;
-  party_ledger_id?: number | null;
+  /** Either acc_voucher_type_id or type_category must be provided. */
+  acc_voucher_type_id?: number;
+  type_category?: VoucherCategory;
+  party_id?: number | null;
+  ref_no?: string;
+  ref_date?: string;
   narration?: string;
-  lines: Array<{
-    acc_ledger_id: number;
-    debit: number;
-    credit: number;
-    narration?: string;
-    cost_center_id?: number | null;
-  }>;
-  bill_refs?: Array<{
-    ref_type: string;
-    ref_no: string;
-    ref_date: string;
-    amount: number;
-  }>;
+  lines: CreateVoucherLineRequest[];
+  gst_lines?: Array<Record<string, unknown>>;
+  bill_refs?: CreateVoucherBillRefRequest[];
 };
 
 export type UpdateVoucherRequest = Partial<CreateVoucherRequest>;
+
+export type UpdateCompanySettingsRequest = {
+  co_id: number;
+  posting_mode_purchase: CompanySettings["posting_mode_purchase"];
+  posting_mode_jute_purchase: CompanySettings["posting_mode_jute_purchase"];
+  posting_mode_sales: CompanySettings["posting_mode_sales"];
+  posting_mode_drcr: CompanySettings["posting_mode_drcr"];
+  due_date_rule: CompanySettings["due_date_rule"];
+  default_credit_days?: number | null;
+  enable_tds: number;
+};
 
 export type BillSettlement = {
   accBillRefId: number;
@@ -320,8 +356,8 @@ export async function fetchLedgerGroups(coId: number): Promise<LedgerGroup[]> {
 }
 
 /** Create a new ledger group. */
-export async function createLedgerGroup(payload: CreateLedgerGroupRequest): Promise<{ message: string; acc_group_id?: number }> {
-  const { data, error } = await fetchWithCookie<{ message: string; acc_group_id?: number }>(
+export async function createLedgerGroup(payload: CreateLedgerGroupRequest): Promise<{ message: string; acc_ledger_group_id?: number }> {
+  const { data, error } = await fetchWithCookie<{ message: string; acc_ledger_group_id?: number }>(
     apiRoutesPortalMasters.ACC_LEDGER_GROUP_CREATE,
     "POST",
     payload,
@@ -481,14 +517,19 @@ export async function fetchVouchers(params: {
     page: params.page,
     limit: params.limit,
   });
-  const { data, error } = await fetchWithCookie<{ data: Voucher[]; page: number; limit: number }>(
+  const { data, error } = await fetchWithCookie<{ data: Voucher[]; total?: number; page?: number; limit?: number }>(
     `${apiRoutesPortalMasters.ACC_VOUCHERS}?${query}`,
     "GET",
   );
 
   if (error) throw new Error(error);
   const vouchers = data?.data ?? [];
-  return { vouchers, total: vouchers.length, page: data?.page ?? 1, limit: data?.limit ?? 20 };
+  return {
+    vouchers,
+    total: data?.total ?? vouchers.length,
+    page: data?.page ?? params.page ?? 1,
+    limit: data?.limit ?? params.limit ?? 20,
+  };
 }
 
 /** Fetch a single voucher by ID. */
@@ -554,7 +595,7 @@ export async function cancelVoucher(voucherId: number): Promise<StatusChangeResp
 /** Send a voucher for approval. */
 export async function sendForApproval(voucherId: number): Promise<StatusChangeResponse> {
   const { data, error } = await fetchWithCookie<StatusChangeResponse>(
-    `${apiRoutesPortalMasters.ACC_VOUCHER_SEND_APPROVAL}/${voucherId}/send_approval`,
+    `${apiRoutesPortalMasters.ACC_VOUCHER_SEND_APPROVAL}/${voucherId}/send_for_approval`,
     "POST",
   );
 
@@ -838,4 +879,56 @@ export async function importOpeningBills(payload: ImportOpeningBillsRequest): Pr
 
   if (error) throw new Error(error);
   return data ?? { message: "Opening bills imported." };
+}
+
+// ─── Company Settings & Posting Queue ────────────────────────────────────────
+
+/** Fetch per-company accounting settings (posting modes, due-date rule, TDS). */
+export async function fetchCompanySettings(coId: number): Promise<CompanySettings | null> {
+  const query = buildQuery({ co_id: coId });
+  const { data, error } = await fetchWithCookie<{ data: CompanySettings | null }>(
+    `${apiRoutesPortalMasters.ACC_COMPANY_SETTINGS}?${query}`,
+    "GET",
+  );
+
+  if (error) throw new Error(error);
+  return data?.data ?? null;
+}
+
+/** Update per-company accounting settings. */
+export async function updateCompanySettings(payload: UpdateCompanySettingsRequest): Promise<{ message: string }> {
+  const { data, error } = await fetchWithCookie<{ message: string }>(
+    apiRoutesPortalMasters.ACC_COMPANY_SETTINGS_UPDATE,
+    "PUT",
+    payload,
+  );
+
+  if (error) throw new Error(error);
+  return data ?? { message: "Company settings updated." };
+}
+
+/** Fetch the auto-posting queue for a company, optionally filtered by status. */
+export async function fetchPostingQueue(
+  coId: number,
+  status?: PostingQueueStatus,
+): Promise<PostingQueueRow[]> {
+  const query = buildQuery({ co_id: coId, status });
+  const { data, error } = await fetchWithCookie<{ data: PostingQueueRow[] }>(
+    `${apiRoutesPortalMasters.ACC_POSTING_QUEUE}?${query}`,
+    "GET",
+  );
+
+  if (error) throw new Error(error);
+  return data?.data ?? [];
+}
+
+/** Retry a failed/pending posting-queue entry. */
+export async function retryPostingQueue(queueId: number): Promise<{ message: string }> {
+  const { data, error } = await fetchWithCookie<{ message: string }>(
+    `${apiRoutesPortalMasters.ACC_POSTING_QUEUE_RETRY}/${queueId}/retry`,
+    "POST",
+  );
+
+  if (error) throw new Error(error);
+  return data ?? { message: "Posting queue entry retried." };
 }

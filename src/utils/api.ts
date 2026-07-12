@@ -716,7 +716,13 @@ const apiRoutesPortalMasters = {
     ACC_REPORT_GST_SUMMARY: `${API_URL}/accounting/reports/gst_summary`,
 
     // Opening Balance
-    ACC_OPENING_BILLS_IMPORT: `${API_URL}/accounting/opening_bills/import`,
+    ACC_OPENING_BILLS_IMPORT: `${API_URL}/accounting/opening_bills`,
+
+    // Company Settings & Posting Queue
+    ACC_COMPANY_SETTINGS: `${API_URL}/accounting/company_settings`,
+    ACC_COMPANY_SETTINGS_UPDATE: `${API_URL}/accounting/company_settings`,
+    ACC_POSTING_QUEUE: `${API_URL}/accounting/posting_queue`,
+    ACC_POSTING_QUEUE_RETRY: `${API_URL}/accounting/posting_queue`,
 
     // Shift Master endpoints
     SHIFT_TABLE: `${API_URL}/hrmsMasters/get_shift_table`,
