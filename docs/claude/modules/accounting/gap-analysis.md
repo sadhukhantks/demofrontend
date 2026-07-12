@@ -42,3 +42,7 @@ Accounting Phase 1 FE exists (15 pages: vouchers, 5 masters, 8 reports) but is c
 ## Sequencing (FE view)
 
 Do not build new FE surfaces until BE Phase 0 (schema-dialect repair) lands — the write path they'd call is broken. Then: fix the contract breaks above (Phase 0), settings + posting-queue admin (Phase 1), AP/AR workspaces + payment/receipt flows (Phase 2), expense entry (Phase 3). Full sequencing and open product decisions (jute `net_total` semantics, claims treatment, credit-terms precedence, Tally coexistence): BE plan §6–§7.
+
+## Implementation status (2026-07-12, same branch)
+
+Phase 0 + 1 are built: every contract break above is fixed, the voucher form/ledger dialog save against the rewritten BE, and there is a new **Accounting Settings** page (`accounting/settings/page.tsx`) with per-company posting modes (Off / Auto-Draft / Auto-Approved per doc type), due-date rule, TDS switch, and a posting-queue monitor with retry. BE now auto-posts procurement/jute bill passes, DR/CR notes and sales invoices per those settings (see BE plan §8). Still pending: menu rows for accounting pages (needs DB), Phase 2 AP/AR workspaces (Make Payment / Record Receipt, opening-bills import UI, dashboards), Phase 3 expense entry.
