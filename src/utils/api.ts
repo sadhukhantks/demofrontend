@@ -818,9 +818,10 @@ const apiRoutesPortalMasters = {
     SPINNING_FRAME_MAP_GET: `${API_URL}/spinningProd/frame_map_get`,
     SPINNING_FRAME_MAP_SAVE: `${API_URL}/spinningProd/frame_map_save`,
     SPINNING_FRAME_MAP_MAPPED: `${API_URL}/spinningProd/frame_map_mapped`,
-    // Spinning planning grid (router prefix /api/spinningProd)
+    // Spinning planning grid + Process/Lock (router prefix /api/spinningProd)
     SPINNING_PLANNING_GRID: `${API_URL}/spinningProd/planning_grid`,
-    SPINNING_PLANNING_GRID_SAVE: `${API_URL}/spinningProd/planning_grid_save`,
+    SPINNING_PROCESS: `${API_URL}/spinningProd/process`,
+    SPINNING_PROCESS_STATUS: `${API_URL}/spinningProd/process_status`,
     // Winding production (router prefix /api/windingProd) — *_EDIT/*_UPDATE/*_DELETE and
     // WINDING_QUALITY_SAVE are base paths; caller appends /${id}?co_id=...
     // Doff

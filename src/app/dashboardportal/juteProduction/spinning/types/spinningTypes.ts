@@ -124,6 +124,9 @@ export type ShiftRollupRow = {
 export type PlanningGridData = {
 	rows: PlanningGridRow[];
 	shift_rollup: ShiftRollupRow[];
+	// Additive lock flags carried by the planning_grid response after Process.
+	locked?: boolean;
+	reprocess_needed?: boolean;
 };
 
 export type TrollyRow = {

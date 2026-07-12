@@ -1,11 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, Button, Snackbar, Typography } from "@mui/material";
-import { Save as SaveIcon } from "lucide-react";
+import { Alert, Box, Typography } from "@mui/material";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
-import { fetchWithCookie } from "@/utils/apiClient2";
-import { apiRoutesPortalMasters } from "@/utils/api";
 import type { PlanningGridRow, ShiftRollupRow } from "../types/spinningTypes";
 import { usePlanningGrid } from "../hooks/usePlanningGrid";
 
@@ -14,6 +11,8 @@ type Props = {
 	branchId: number;
 	date: string;
 	spell: string;
+	// Bumped by the page after Process — refetches the grid (frozen log) without remount.
+	refreshKey?: number;
 };
 
 // Stable composite row id: a frame can appear per spell + yarn item.
@@ -27,10 +26,14 @@ function rollupRowId(r: ShiftRollupRow): string {
 
 const num = { type: "number" as const, width: 90 };
 
-export default function PlanningGrid({ coId, branchId, date, spell }: Props) {
-	const { data, loading, error, refresh } = usePlanningGrid(coId, branchId, date, spell);
-	const [saving, setSaving] = React.useState(false);
-	const [snack, setSnack] = React.useState<string | null>(null);
+export default function PlanningGrid({ coId, branchId, date, spell, refreshKey }: Props) {
+	const { data, loading, error, locked } = usePlanningGrid(
+		coId,
+		branchId,
+		date,
+		spell,
+		refreshKey
+	);
 
 	const rows = data?.rows ?? [];
 	const rollup = data?.shift_rollup ?? [];
@@ -78,50 +81,20 @@ export default function PlanningGrid({ coId, branchId, date, spell }: Props) {
 		[]
 	);
 
-	const handleSave = async () => {
-		setSaving(true);
-		try {
-			const body = {
-				co_id: Number(coId),
-				branch_id: Number(branchId),
-				tran_date: date,
-				rows,
-			};
-			const { error: err } = await fetchWithCookie(
-				apiRoutesPortalMasters.SPINNING_PLANNING_GRID_SAVE,
-				"POST",
-				body
-			);
-			if (err) {
-				setSnack(err);
-				return;
-			}
-			setSnack(`Saved ${rows.length} planning row(s).`);
-			refresh();
-		} catch (e) {
-			setSnack(e instanceof Error ? e.message : "Failed to save planning grid.");
-		} finally {
-			setSaving(false);
-		}
-	};
-
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
 			<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
 				<Typography variant="subtitle2">Planning grid (per frame / spell)</Typography>
-				<Button
-					variant="contained"
-					size="small"
-					startIcon={<SaveIcon size={16} />}
-					onClick={handleSave}
-					disabled={saving || loading || rows.length === 0}
-				>
-					{saving ? "Saving…" : "Save"}
-				</Button>
 				<Typography variant="caption" color="text.secondary">
-					All values are computed server-side and shown read-only.
+					All values are computed server-side and shown read-only. Use Process to freeze + lock.
 				</Typography>
 			</Box>
+
+			{locked ? (
+				<Alert severity="info">
+					This day + spell is processed and locked — the grid shows the frozen log.
+				</Alert>
+			) : null}
 
 			{error ? <Alert severity="error">{error}</Alert> : null}
 
@@ -163,13 +136,6 @@ export default function PlanningGrid({ coId, branchId, date, spell }: Props) {
 					/>
 				</Box>
 			</Box>
-
-			<Snackbar
-				open={!!snack}
-				autoHideDuration={3000}
-				onClose={() => setSnack(null)}
-				message={snack ?? ""}
-			/>
 		</Box>
 	);
 }
