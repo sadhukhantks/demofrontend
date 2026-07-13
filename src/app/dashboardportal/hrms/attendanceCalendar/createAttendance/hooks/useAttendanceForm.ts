@@ -40,6 +40,7 @@ const blankValues: AttendanceFormValues = {
   attendance_source: "Manual",
   attendance_type: "R",
   spell: "",
+  spell_id: 0,
   spell_hours: 0,
   worked_department_id: 0,
   worked_designation_id: 0,
@@ -177,6 +178,7 @@ export function useAttendanceForm(params: {
           attendance_source: h.attendance_source ?? "Manual",
           attendance_type: h.attendance_type ?? "R",
           spell: h.spell ?? "",
+          spell_id: h.spell_id ?? 0,
           spell_hours: Number(h.spell_hours ?? 0),
           worked_department_id: h.worked_department_id ?? 0,
           worked_designation_id: h.worked_designation_id ?? 0,
@@ -247,11 +249,12 @@ export function useAttendanceForm(params: {
 
   // Selecting a spell auto-fills entry/exit time + spell hours.
   const applySpell = useCallback(
-    (spellName: string) => {
-      const opt = spellOptions.find((s) => s.spell_name === spellName);
+    (spellId: number) => {
+      const opt = spellOptions.find((s) => s.spell_id === spellId);
       setValues((prev) => ({
         ...prev,
-        spell: spellName,
+        spell: opt?.spell_name ?? "",
+        spell_id: spellId,
         spell_hours: opt?.working_hours ?? prev.spell_hours,
         entry_time: opt?.starting_time ?? prev.entry_time,
         exit_time: opt?.end_time ?? prev.exit_time,

@@ -9,7 +9,9 @@ export const attendanceFormSchema = z
     attendance_mark: z.string().min(1, "Attendance Mark is required"),
     attendance_source: z.string().min(1, "Attendance Source is required"),
     attendance_type: z.string().min(1, "Attendance Type is required"),
+    // spell keeps the display name (legacy readers); spell_id is what's stored.
     spell: z.string().min(1, "Spell is required"),
+    spell_id: z.number().int().positive("Spell is required"),
     spell_hours: z.number().min(0),
     worked_department_id: z.number().int().positive("Department is required"),
     worked_designation_id: z.number().int().positive("Designation is required"),

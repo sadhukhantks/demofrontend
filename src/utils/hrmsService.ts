@@ -732,6 +732,7 @@ export interface AttendancePayload {
   attendance_source: string;
   attendance_type: string;
   spell: string;
+  spell_id: number;
   spell_hours: number;
   worked_department_id: number;
   worked_designation_id: number;

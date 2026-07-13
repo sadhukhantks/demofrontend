@@ -139,6 +139,19 @@ function ItemLedgerContent() {
             value={selectedItem}
             onChange={(_, v) => setSelectedItem(v)}
             onInputChange={(_, v) => setItemInput(v)}
+            renderOption={(props, option) => {
+              // Key by item_id — item labels (code + name) can collide.
+              const { key: _ignored, ...liProps } = props as typeof props & {
+                key?: string;
+              };
+              return (
+                <li {...liProps} key={option.item_id}>
+                  {option.full_item_code
+                    ? `${option.full_item_code} — ${option.item_name}`
+                    : option.item_name}
+                </li>
+              );
+            }}
             renderInput={(params) => (
               <TextField {...params} label="Item" size="small" required />
             )}

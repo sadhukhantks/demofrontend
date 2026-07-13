@@ -511,6 +511,13 @@ const apiRoutesPortalMasters = {
     ISSUE_CONSUMPTION_REPORT: `${API_URL}/inventoryReports/issue-consumption`,
     ISSUE_MACHINEWISE_REPORT: `${API_URL}/inventoryReports/issue-machinewise`,
 
+    // HRMS / Production (labour) report endpoints
+    ATTENDANCE_SUMMARY_REPORT: `${API_URL}/hrmsReports/attendance-summary`,
+    WORKER_MASTER_REPORT: `${API_URL}/hrmsReports/worker-master`,
+    MAN_MACHINE_REPORT: `${API_URL}/hrmsReports/man-machine`,
+    ATTENDANCE_REGISTER_REPORT: `${API_URL}/hrmsReports/attendance-register`,
+    EMPLOYEE_WORKING_REPORT: `${API_URL}/hrmsReports/employee-working`,
+
     // Sales Quotation endpoints
     QUOTATION_TABLE: `${API_URL}/salesQuotation/get_quotation_table`,
     QUOTATION_SETUP_1: `${API_URL}/salesQuotation/get_quotation_setup_1`,

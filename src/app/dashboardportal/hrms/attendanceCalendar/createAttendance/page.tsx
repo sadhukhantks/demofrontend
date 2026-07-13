@@ -183,7 +183,10 @@ function CreateAttendanceContent() {
   );
   const spellOpts = useMemo<Opt[]>(
     () =>
-      spellOptions.map((s) => ({ value: s.spell_name, label: s.spell_name })),
+      spellOptions.map((s) => ({
+        value: String(s.spell_id),
+        label: s.spell_name,
+      })),
     [spellOptions],
   );
   const deptOpts = useMemo<Opt[]>(
@@ -421,9 +424,9 @@ function CreateAttendanceContent() {
           />
           <SearchSelect
             label="Spell"
-            value={values.spell}
+            value={values.spell_id ? String(values.spell_id) : ""}
             options={spellOpts}
-            onChange={(v) => applySpell(v)}
+            onChange={(v) => applySpell(Number(v) || 0)}
             disabled={disabled}
             required
           />
