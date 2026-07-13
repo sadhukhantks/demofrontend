@@ -24,7 +24,8 @@ const readCoIdFromStorage = (storageKey: string): string => {
 export function useSelectedCompanyCoId(storageKey: string = DEFAULT_STORAGE_KEY) {
   const reader = React.useCallback(() => readCoIdFromStorage(storageKey), [storageKey]);
 
-  const [coId, setCoId] = React.useState<string>(() => reader());
+  // Init empty so SSR and first client render match (hydration); mount effect below fills from storage.
+  const [coId, setCoId] = React.useState<string>("");
 
   const refresh = React.useCallback(() => {
     setCoId(reader());
