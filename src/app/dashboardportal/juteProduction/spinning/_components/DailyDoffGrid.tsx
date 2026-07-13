@@ -14,11 +14,20 @@ type Props = {
 	branchId: number;
 	date: string;
 	spell: string;
+	/** Bumped by the parent after a doff create/edit so this grid re-fetches. */
+	reloadKey?: number;
 	onEdit: (row: DoffEntryRow) => void;
 };
 
-export default function DailyDoffGrid({ coId, branchId, date, spell, onEdit }: Props) {
-	const { rows, loading, error, refresh } = useDoffEntriesByDate(coId, date, branchId, spell);
+export default function DailyDoffGrid({ coId, branchId, date, spell, reloadKey, onEdit }: Props) {
+	const { rows, loading, error, refresh } = useDoffEntriesByDate(
+		coId,
+		date,
+		branchId,
+		spell,
+		undefined,
+		reloadKey
+	);
 	const [snack, setSnack] = React.useState<string | null>(null);
 	const [busy, setBusy] = React.useState(false);
 

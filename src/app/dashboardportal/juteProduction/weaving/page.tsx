@@ -220,6 +220,7 @@ export default function WeavingPage() {
 									branchId={branchId}
 									date={appliedDate}
 									spell={appliedSpell}
+									refreshKey={reloadKey}
 									onProcessed={() => setReloadKey((k) => k + 1)}
 								/>
 							) : null}
@@ -236,13 +237,14 @@ export default function WeavingPage() {
 							) : null}
 
 							{tab === 1 ? (
-								<WeavingEntryGrid key={reloadKey}
+								<WeavingEntryGrid
 									coId={coId}
 									branchId={branchId}
 									setup={setup}
 									date={appliedDate}
 									spell={appliedSpell}
 									map={qualityMap}
+									refreshKey={reloadKey}
 								/>
 							) : null}
 
@@ -265,11 +267,12 @@ export default function WeavingPage() {
 							) : null}
 
 							{tab === 4 ? (
-								<WeavingPlanningGrid key={reloadKey}
+								<WeavingPlanningGrid
 									coId={coId}
 									branchId={branchId}
 									date={appliedDate}
 									spell={appliedSpell}
+									refreshKey={reloadKey}
 								/>
 							) : null}
 						</>

@@ -448,7 +448,8 @@ export const mapInvoiceDetailsToFormValues = (
 		ackNo?: string;
 		ackDate?: string;
 		qrCode?: string;
-		// Submission history (read-only from response)
+		// Submission history (read-only from response; API sends snake_case)
+		e_invoice_submission_history?: unknown[];
 		eInvoiceSubmissionHistory?: unknown[];
 	},
 	defaultValues: Record<string, unknown>,
@@ -517,8 +518,9 @@ export const mapInvoiceDetailsToFormValues = (
 	ack_no: toStringValue(details.ackNo ?? defaultValues.ack_no),
 	ack_date: normalizeDate(details.ackDate) || toStringValue(defaultValues.ack_date),
 	qr_code: toStringValue(details.qrCode ?? defaultValues.qr_code),
-	// Submission history (read-only from response)
-	e_invoice_submission_history: details.eInvoiceSubmissionHistory ?? defaultValues.e_invoice_submission_history,
+	// Submission history (read-only from response; API sends snake_case)
+	e_invoice_submission_history:
+		details.e_invoice_submission_history ?? details.eInvoiceSubmissionHistory ?? defaultValues.e_invoice_submission_history,
 });
 
 export const mapFormValuesToApiPayload = (

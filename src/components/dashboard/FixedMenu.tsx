@@ -40,7 +40,7 @@ export function FixedMenu({ isCollapsed }: { isCollapsed: boolean }) {
             <LogOut size={16} className="mr-2 inline" /> Logout
           </Link>
           <Link href="/reset-password" className="sidebar-submenu-link">
-            <Key size={16} className="mr-2 inline" /> Reset Password
+            <Key size={16} className="mr-2 inline" /> Change Password
           </Link>
         </div>
       )}

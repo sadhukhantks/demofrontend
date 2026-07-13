@@ -33,6 +33,8 @@ const apiRoutes ={
     PORTAL_USER_CREATE_FULL: `${API_URL}/admin/PortalData/get_user_create_setup_data`,
     CREATE_PORTAL_USER: `${API_URL}/admin/PortalData/create_user_portal`,
     EDIT_PORTAL_USER: `${API_URL}/admin/PortalData/edit_user_portal`,
+    RESET_PORTAL_USER_PASSWORD: `${API_URL}/admin/PortalData/reset_user_password`,
+    CHANGE_PASSWORD: `${API_URL}/authRoutes/change-password`,
     PORTAL_USER_EDIT_BY_USERID: `${API_URL}/admin/PortalData/get_user_edit_setup_data`,
     PORTAL_CO_BRANCH_SUBMENU: `${API_URL}/admin/PortalData/co_branch_submenu`,
     PORTAL_APPROVAL_LEVELS_DATA: `${API_URL}/admin/PortalData/approval_level_data_setup`,
@@ -816,9 +818,10 @@ const apiRoutesPortalMasters = {
     SPINNING_FRAME_MAP_GET: `${API_URL}/spinningProd/frame_map_get`,
     SPINNING_FRAME_MAP_SAVE: `${API_URL}/spinningProd/frame_map_save`,
     SPINNING_FRAME_MAP_MAPPED: `${API_URL}/spinningProd/frame_map_mapped`,
-    // Spinning planning grid (router prefix /api/spinningProd)
+    // Spinning planning grid + Process/Lock (router prefix /api/spinningProd)
     SPINNING_PLANNING_GRID: `${API_URL}/spinningProd/planning_grid`,
-    SPINNING_PLANNING_GRID_SAVE: `${API_URL}/spinningProd/planning_grid_save`,
+    SPINNING_PROCESS: `${API_URL}/spinningProd/process`,
+    SPINNING_PROCESS_STATUS: `${API_URL}/spinningProd/process_status`,
     // Winding production (router prefix /api/windingProd) — *_EDIT/*_UPDATE/*_DELETE and
     // WINDING_QUALITY_SAVE are base paths; caller appends /${id}?co_id=...
     // Doff

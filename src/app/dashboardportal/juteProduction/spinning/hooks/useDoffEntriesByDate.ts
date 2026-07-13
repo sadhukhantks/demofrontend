@@ -10,7 +10,8 @@ export function useDoffEntriesByDate(
 	tranDate: string,
 	branchId: number | null,
 	spell?: string | null,
-	machineId?: number | null
+	machineId?: number | null,
+	refreshKey?: number
 ) {
 	const [rows, setRows] = React.useState<DoffEntryRow[]>([]);
 	const [loading, setLoading] = React.useState(false);
@@ -43,7 +44,7 @@ export function useDoffEntriesByDate(
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, tranDate, branchId, spell, machineId, version]);
+	}, [coId, tranDate, branchId, spell, machineId, version, refreshKey]);
 
 	return { rows, loading, error, refresh };
 }
