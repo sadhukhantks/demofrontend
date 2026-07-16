@@ -58,6 +58,9 @@ export type EnquiryLine = {
 	bom_hdr_id?: number | null;
 	cost_snapshot_id?: number | null;
 	confirmed_cost_per_unit?: number | null;
+	overhead_pct?: number | null;
+	margin_pct?: number | null;
+	sell_price_per_unit?: number | null;
 	costing_confirmed_by?: number | null;
 	costing_confirmed_date?: string | null;
 	remarks?: string | null;
@@ -326,9 +329,17 @@ export async function closeEnquiry(sales_enquiry_id: number, close_reason: "won"
 	);
 }
 
-export async function confirmLineCosting(enquiry_dtl_id: number, bom_hdr_id: number) {
-	return postJson<{ status: string; message?: string }>(
-		apiRoutesPortalMasters.SALES_ENQUIRY_CONFIRM_LINE_COSTING, "POST", { enquiry_dtl_id, bom_hdr_id }, "Failed to confirm costing"
+export async function confirmLineCosting(
+	enquiry_dtl_id: number,
+	bom_hdr_id: number,
+	overhead_pct?: number | null,
+	margin_pct?: number | null,
+) {
+	return postJson<{ status: string; message?: string; data?: Record<string, unknown> }>(
+		apiRoutesPortalMasters.SALES_ENQUIRY_CONFIRM_LINE_COSTING,
+		"POST",
+		{ enquiry_dtl_id, bom_hdr_id, overhead_pct: overhead_pct ?? null, margin_pct: margin_pct ?? null },
+		"Failed to confirm costing"
 	);
 }
 
@@ -399,6 +410,8 @@ export type EnquirySourceLine = {
 	target_price?: number | null;
 	cost_snapshot_id?: number | null;
 	confirmed_cost_per_unit?: number | null;
+	overhead_pct?: number | null;
+	margin_pct?: number | null;
 	remarks?: string | null;
 };
 
