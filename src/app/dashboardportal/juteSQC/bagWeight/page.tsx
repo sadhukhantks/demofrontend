@@ -155,7 +155,7 @@ export default function BagWeightSqcPage() {
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 				R-08-23 finished-bag weight control. Capture one (date, bag type) block at a time — its
 				standards (std bag weight gm and Std MR%, which defaults to 20 for jute bags, both editable
-				and snapshotted at save) plus up to 24 reading rows, each an MR% and an observed bag weight.
+				and snapshotted at save) plus any number of reading rows, each an MR% and an observed bag weight.
 				The server corrects each observed weight to the std MR%, then computes the block averages,
 				the SAMPLE std dev / CV% of the observed weights, and the OBS and CORR HY/LT% vs the std
 				(positive = Heavy, negative = Light — display only).

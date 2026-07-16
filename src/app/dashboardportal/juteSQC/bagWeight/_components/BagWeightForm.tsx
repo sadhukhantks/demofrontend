@@ -23,7 +23,6 @@ import { Plus as AddIcon, Save as SaveIcon, Trash2 as DeleteIcon } from "lucide-
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import {
-	MAX_READING_ROWS,
 	bagWeightCreateSchema,
 	type BagWeightCreatePayload,
 	type BagWeightSetup,
@@ -54,7 +53,7 @@ const num = (s: string): number => (s.trim() === "" ? NaN : Number(s));
  * R-08-23 Bag Weight SINGLE (date, bag type) block entry form.
  *
  * One save = ONE header (date, bag type, std_bag_weight, std_mr_pct) + N reading
- * rows (>=1, <=24), each {mr (MR%), obs (observed bag weight gm)}. std_mr_pct
+ * rows (>=1, no upper cap), each {mr (MR%), obs (observed bag weight gm)}. std_mr_pct
  * prefills from the setup default (20 for jute bags); std fields are editable and
  * snapshotted at save. Live per-row corr and block stats (avg_mr/avg_obs/avg_corr,
  * obs stdev/CV%, OBS+CORR HY/LT%) are shown. Submit = ONE POST of the whole block
@@ -65,7 +64,6 @@ export default function BagWeightForm({ coId, branchId, entryDate, setup, onSave
 	const [itemId, setItemId] = React.useState<number | "">("");
 	const [stdBagWeight, setStdBagWeight] = React.useState("");
 	const [stdMrPct, setStdMrPct] = React.useState(String(setup.default_std_mr_pct));
-	const maxRows = Math.min(Math.max(setup.max_rows || MAX_READING_ROWS, 1), MAX_READING_ROWS);
 	const [rows, setRows] = React.useState<ReadingStrings[]>(() => [blankReading()]);
 	const [saving, setSaving] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
@@ -96,8 +94,8 @@ export default function BagWeightForm({ coId, branchId, entryDate, setup, onSave
 	);
 
 	const addRow = React.useCallback(() => {
-		setRows((prev) => (prev.length >= maxRows ? prev : [...prev, blankReading()]));
-	}, [maxRows]);
+		setRows((prev) => [...prev, blankReading()]);
+	}, []);
 
 	const removeRow = React.useCallback((index: number) => {
 		setRows((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
@@ -151,7 +149,7 @@ export default function BagWeightForm({ coId, branchId, entryDate, setup, onSave
 	return (
 		<Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 2 }}>
 			<Typography variant="subtitle2">
-				Bag weight block — one bag type, its standards, and up to {maxRows} reading rows
+				Bag weight block — one bag type, its standards, and any number of reading rows
 			</Typography>
 
 			<Box
@@ -295,7 +293,6 @@ export default function BagWeightForm({ coId, branchId, entryDate, setup, onSave
 					size="small"
 					startIcon={<AddIcon size={16} />}
 					onClick={addRow}
-					disabled={rows.length >= maxRows}
 				>
 					Add reading row
 				</Button>

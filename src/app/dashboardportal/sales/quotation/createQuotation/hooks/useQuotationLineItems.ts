@@ -54,33 +54,43 @@ export const useQuotationLineItems = ({
 		maintainTrailingBlank: mode !== "view",
 	});
 
-	const mapLineToEditable = React.useCallback((line: QuotationLine): EditableLineItem => ({
-		id: line.id ? String(line.id) : generateLineId(),
-		itemGroup: line.itemGroup ? String(line.itemGroup) : "",
-		item: line.item ?? "",
-		itemCode: line.itemCode,
-		itemMake: line.itemMake ?? "",
-		hsnCode: line.hsnCode ?? "",
-		quantity: line.quantity != null ? String(line.quantity) : "",
-		rate: line.rate != null ? String(line.rate) : "",
-		uom: line.uom ?? "",
-		discountMode: line.discountMode,
-		discountValue: line.discountValue != null ? String(line.discountValue) : "",
-		discountAmount: line.discountAmount,
-		netAmount: line.netAmount,
-		totalAmount: line.totalAmount,
-		remarks: line.remarks ?? "",
-		taxPercentage: line.taxPercentage,
-		igstAmount: line.igst,
-		cgstAmount: line.cgst,
-		sgstAmount: line.sgst,
-		taxAmount: (line.igst ?? 0) + (line.cgst ?? 0) + (line.sgst ?? 0),
-		enquiryDtlId: line.enquiryDtlId ?? null,
-		costSnapshotId: line.costSnapshotId ?? null,
-		baseCost: line.baseCost ?? null,
-		overheadPct: line.overheadPct ?? null,
-		marginPct: line.marginPct ?? null,
-	}), []);
+	const mapLineToEditable = React.useCallback((line: QuotationLine): EditableLineItem => {
+		// get_quotation_by_id returns GST nested under `gst` and discount under
+		// `discountType`/`discountAmount`. Fall back to the legacy flat fields.
+		const gst = line.gst ?? undefined;
+		const igstAmount = gst?.igstAmount ?? line.igst ?? undefined;
+		const cgstAmount = gst?.cgstAmount ?? line.cgst ?? undefined;
+		const sgstAmount = gst?.sgstAmount ?? line.sgst ?? undefined;
+		// Total tax % = IGST% (inter-state) or CGST% + SGST% (intra-state).
+		const taxPercentage =
+			line.taxPercentage ??
+			(gst?.igstAmount != null && gst.igstPercent != null
+				? gst.igstPercent
+				: (gst?.cgstPercent ?? 0) + (gst?.sgstPercent ?? 0)) ??
+			undefined;
+		return {
+			id: line.id ? String(line.id) : generateLineId(),
+			itemGroup: line.itemGroup ? String(line.itemGroup) : "",
+			item: line.item ?? "",
+			itemCode: line.itemCode,
+			itemMake: line.itemMake ?? "",
+			hsnCode: line.hsnCode ?? "",
+			quantity: line.quantity != null ? String(line.quantity) : "",
+			rate: line.rate != null ? String(line.rate) : "",
+			uom: line.uom ?? "",
+			discountMode: line.discountType ?? line.discountMode,
+			discountValue: line.discountValue != null ? String(line.discountValue) : "",
+			discountAmount: line.discountAmount,
+			netAmount: line.netAmount,
+			totalAmount: line.totalAmount,
+			remarks: line.remarks ?? "",
+			taxPercentage: taxPercentage != null ? Number(taxPercentage) : undefined,
+			igstAmount: igstAmount ?? undefined,
+			cgstAmount: cgstAmount ?? undefined,
+			sgstAmount: sgstAmount ?? undefined,
+			taxAmount: (igstAmount ?? 0) + (cgstAmount ?? 0) + (sgstAmount ?? 0),
+		};
+	}, []);
 
 	const handleLineFieldChange = React.useCallback(
 		(id: string, field: keyof EditableLineItem, rawValue: string | number) => {

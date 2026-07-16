@@ -15,8 +15,11 @@ export function computeFreightTax(
 	const intra = String(intraInterState ?? "") === "0";
 	const total = +(amount * (FREIGHT_GST_PERCENT / 100)).toFixed(2);
 	if (intra) {
-		const half = +(total / 2).toFixed(2);
-		return { cgst: half, sgst: half, igst: 0, total };
+		// Balance the halves so cgst + sgst === total for odd-paise totals
+		// (matches the backend, which computes sgst = total - cgst).
+		const cgst = +(total / 2).toFixed(2);
+		const sgst = +(total - cgst).toFixed(2);
+		return { cgst, sgst, igst: 0, total };
 	}
 	return { cgst: 0, sgst: 0, igst: total, total };
 }

@@ -6,12 +6,14 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 import type { PlanningGridData } from "../types/spinningTypes";
 
 // GET SPINNING_PLANNING_GRID?co_id&tran_date&spell?&branch_id?
-// -> { data: { rows: PlanningGridRow[], shift_rollup: ShiftRollupRow[] } }
+// -> { data: { rows, shift_rollup, locked, reprocess_needed } }
 export function usePlanningGrid(
 	coId: string | null | undefined,
 	branchId: number | null,
 	tranDate: string,
-	spell?: string | null
+	spell?: string | null,
+	// Bump from the parent (e.g. after Process) to force a refetch.
+	refreshKey: number = 0
 ) {
 	const [data, setData] = React.useState<PlanningGridData | null>(null);
 	const [loading, setLoading] = React.useState(false);
@@ -43,7 +45,14 @@ export function usePlanningGrid(
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, branchId, tranDate, spell, version]);
+	}, [coId, branchId, tranDate, spell, version, refreshKey]);
 
-	return { data, loading, error, refresh };
+	return {
+		data,
+		loading,
+		error,
+		refresh,
+		locked: data?.locked ?? false,
+		reprocess_needed: data?.reprocess_needed ?? false,
+	};
 }

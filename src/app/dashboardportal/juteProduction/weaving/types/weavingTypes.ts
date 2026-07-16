@@ -9,6 +9,7 @@ export type WeavingMachineOption = {
 	machine_name: string;
 	mech_code: string;
 	branch_id: number | null;
+	line_no: number | null;
 };
 
 export type WeavingSpellOption = {
@@ -42,10 +43,14 @@ export type LoomQualityMapRow = {
 	mech_code: string | null;
 	mech_posting_code: number | null; // machine posting code for quick-search
 	machine_name: string | null;
+	line_no: number | null; // shed line — grids group rows by line ("Line 3" / "No line")
 	// Today's SAVED mapping (null = nothing saved yet for this loom).
 	weaving_quality_id: number | null;
 	weaving_quality_code: string | null;
 	weaving_quality_name: string | null;
+	// Mapped quality's jugars-per-cut — feeds the entry grid's Tot.Jugar preview
+	// for looms with no saved entry yet.
+	no_of_jugar_per_cut?: number | null;
 	// Prior date's mapping, surfaced as an unsaved-draft suggestion for prefill.
 	prev_quality_id: number | null;
 	prev_quality_code: string | null;
@@ -81,6 +86,8 @@ export type WeavingEntryRow = {
 	// spell. Optional — present on saved rows returned by entries_by_date.
 	open_jugar?: number | null;
 	jugar?: number | null;
+	// Adjustment jugar deduction (Adjustment tab) — optional, feeds the live Tot.Jugar preview.
+	less_production?: number | null;
 	// Resolved standards (server-side) — read-only display.
 	fl: number | null;
 	jpc: number | null;
@@ -176,8 +183,6 @@ export type WeavingShiftRollupRow = {
 	machine_id: number;
 	mech_code: string | null;
 	machine_name: string | null;
-	item_id: number | null;
-	item_code: string | null;
 	weaving_quality_id: number | null;
 	weaving_quality_code: string | null;
 	shift_bucket: string;

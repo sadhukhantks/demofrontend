@@ -33,6 +33,8 @@ const apiRoutes ={
     PORTAL_USER_CREATE_FULL: `${API_URL}/admin/PortalData/get_user_create_setup_data`,
     CREATE_PORTAL_USER: `${API_URL}/admin/PortalData/create_user_portal`,
     EDIT_PORTAL_USER: `${API_URL}/admin/PortalData/edit_user_portal`,
+    RESET_PORTAL_USER_PASSWORD: `${API_URL}/admin/PortalData/reset_user_password`,
+    CHANGE_PASSWORD: `${API_URL}/authRoutes/change-password`,
     PORTAL_USER_EDIT_BY_USERID: `${API_URL}/admin/PortalData/get_user_edit_setup_data`,
     PORTAL_CO_BRANCH_SUBMENU: `${API_URL}/admin/PortalData/co_branch_submenu`,
     PORTAL_APPROVAL_LEVELS_DATA: `${API_URL}/admin/PortalData/approval_level_data_setup`,
@@ -844,9 +846,10 @@ const apiRoutesPortalMasters = {
     SPINNING_FRAME_MAP_GET: `${API_URL}/spinningProd/frame_map_get`,
     SPINNING_FRAME_MAP_SAVE: `${API_URL}/spinningProd/frame_map_save`,
     SPINNING_FRAME_MAP_MAPPED: `${API_URL}/spinningProd/frame_map_mapped`,
-    // Spinning planning grid (router prefix /api/spinningProd)
+    // Spinning planning grid + Process/Lock (router prefix /api/spinningProd)
     SPINNING_PLANNING_GRID: `${API_URL}/spinningProd/planning_grid`,
-    SPINNING_PLANNING_GRID_SAVE: `${API_URL}/spinningProd/planning_grid_save`,
+    SPINNING_PROCESS: `${API_URL}/spinningProd/process`,
+    SPINNING_PROCESS_STATUS: `${API_URL}/spinningProd/process_status`,
     // Winding production (router prefix /api/windingProd) — *_EDIT/*_UPDATE/*_DELETE and
     // WINDING_QUALITY_SAVE are base paths; caller appends /${id}?co_id=...
     // Doff
@@ -1092,6 +1095,8 @@ const apiRoutesPortalMasters = {
     // base paths; caller appends /${id}?co_id=...
     WEAVING_ENTRY_CREATE_SETUP: `${API_URL}/weavingProd/entry_create_setup`,
     WEAVING_ENTRIES_BY_DATE: `${API_URL}/weavingProd/entries_by_date`,
+    // Light table-direct read for the entry grid: inputs + open_jugar + jpc only.
+    WEAVING_ENTRY_INPUTS_BY_DATE: `${API_URL}/weavingProd/entry_inputs_by_date`,
     WEAVING_MACHINE_STANDARDS: `${API_URL}/weavingProd/machine_standards`,
     WEAVING_ENTRY_CREATE: `${API_URL}/weavingProd/entry_create`,
     WEAVING_ENTRY_EDIT: `${API_URL}/weavingProd/entry_edit`,
@@ -1100,6 +1105,8 @@ const apiRoutesPortalMasters = {
     WEAVING_PLANNING_GRID_SAVE: `${API_URL}/weavingProd/planning_grid_save`,
     // Loom -> Quality map (router prefix /api/weavingProd)
     WEAVING_QUALITY_MAP_GET: `${API_URL}/weavingProd/quality_map_get`,
+    // Cheap saved-mapping-only read (no carry-forward) — used by the entry grid.
+    WEAVING_QUALITY_MAP_SAVED: `${API_URL}/weavingProd/quality_map_saved`,
     WEAVING_QUALITY_MAP_SAVE: `${API_URL}/weavingProd/quality_map_save`,
     WEAVING_QUALITY_MAP_MAPPED: `${API_URL}/weavingProd/quality_map_mapped`,
     // Beam-change tab (router prefix /api/weavingProd)
@@ -1107,6 +1114,9 @@ const apiRoutesPortalMasters = {
     WEAVING_BEAM_MAP_SAVE: `${API_URL}/weavingProd/beam_map_save`,
     WEAVING_ADJUSTMENT_GET: `${API_URL}/weavingProd/adjustment_get`,
     WEAVING_ADJUSTMENT_SAVE: `${API_URL}/weavingProd/adjustment_save`,
+    // Process + lock (router prefix /api/weavingProd)
+    WEAVING_PROCESS: `${API_URL}/weavingProd/process`,
+    WEAVING_PROCESS_STATUS: `${API_URL}/weavingProd/process_status`,
 };
 
 // Support tickets (Zendesk-style). Raised from Portal/Tenant Admin widgets,

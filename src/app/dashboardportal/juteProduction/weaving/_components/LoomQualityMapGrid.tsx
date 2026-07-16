@@ -20,8 +20,19 @@ import {
 import { Save as SaveIcon, Stamp as StampIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
-import type { WeavingSetup } from "../types/weavingTypes";
-import { useLoomQualityMap } from "../hooks/useLoomQualityMap";
+import type { WeavingSetup, LoomQualityMapRow } from "../types/weavingTypes";
+import type { LoomQualityMapState } from "../hooks/useLoomQualityMap";
+
+// Sort looms by shed line (nulls last), then by loom code — the render groups on line_no.
+// Mirrors WeavingEntryGrid so both tabs show the same order.
+function byLineThenCode(a: LoomQualityMapRow, b: LoomQualityMapRow): number {
+	if (a.line_no !== b.line_no) {
+		if (a.line_no == null) return 1;
+		if (b.line_no == null) return -1;
+		return a.line_no - b.line_no;
+	}
+	return (a.mech_code ?? "").localeCompare(b.mech_code ?? "");
+}
 
 type Props = {
 	coId: string;
@@ -29,29 +40,38 @@ type Props = {
 	setup: WeavingSetup;
 	date: string;
 	spell: string;
+	// The map fetch is owned by the page and shared with the entry grid, so switching tabs
+	// doesn't refetch. This tab is the only consumer of the lazy carry-forward (prev_quality_*).
+	map: LoomQualityMapState;
 };
 
-export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell }: Props) {
-	const { rows, lastUpdated, loading, error, refresh } = useLoomQualityMap(
-		coId,
-		branchId,
-		date,
-		spell
-	);
+export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell, map }: Props) {
+	const { rows, lastUpdated, loading, carryForwardLoading, error, refresh } = map;
 	const [edits, setEdits] = React.useState<Record<number, number | "">>({});
 	const [saving, setSaving] = React.useState(false);
 	const [busy, setBusy] = React.useState(false);
 	const [snack, setSnack] = React.useState<string | null>(null);
+	const [lineFilter, setLineFilter] = React.useState<string>("");
 
-	// Seed local edit state (loom -> weaving_quality_id) from fetched rows. Prefill from the
-	// prior date's mapping when nothing is saved yet today, so the operator only has to
-	// tweak the 1-2 looms whose quality changed.
+	// Reset local edits when the cell identity (date/spell) changes — a fresh grid.
 	React.useEffect(() => {
-		const seed: Record<number, number | ""> = {};
-		rows.forEach((r) => {
-			seed[r.machine_id] = r.weaving_quality_id ?? r.prev_quality_id ?? "";
+		setEdits({});
+	}, [date, spell]);
+
+	// Seed/patch edit state (loom -> weaving_quality_id) WITHOUT clobbering the operator's picks.
+	// Rows arrive in two phases (saved mapping first, then lazy carry-forward merged in), so this
+	// runs more than once: it only fills a cell that is still blank/untouched — a value the user
+	// already selected is preserved. Prefill order per cell: saved mapping, else prior-day draft.
+	React.useEffect(() => {
+		setEdits((prev) => {
+			const next = { ...prev };
+			rows.forEach((r) => {
+				if (next[r.machine_id] === undefined || next[r.machine_id] === "") {
+					next[r.machine_id] = r.weaving_quality_id ?? r.prev_quality_id ?? "";
+				}
+			});
+			return next;
 		});
-		setEdits(seed);
 	}, [rows]);
 
 	// Baseline = what is actually persisted today (null/"" when unsaved). A cell is
@@ -127,6 +147,16 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell 
 		return <Alert severity="info">Select a spell to load loom → quality mapping.</Alert>;
 	}
 
+	// Unique shed lines for the filter dropdown ("none" bucket for unassigned looms).
+	const lineOptions = Array.from(
+		new Set(rows.map((r) => r.line_no).filter((l): l is number => l != null))
+	).sort((a, b) => a - b);
+	const hasNoLine = rows.some((r) => r.line_no == null);
+	const visibleRows = [...rows].sort(byLineThenCode).filter((r) => {
+		if (lineFilter === "") return true;
+		return lineFilter === "none" ? r.line_no == null : r.line_no === Number(lineFilter);
+	});
+
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
 			<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
@@ -149,7 +179,31 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell 
 				>
 					Mapped
 				</Button>
-				{lastUpdated ? (
+				<TextField
+					select
+					size="small"
+					label="Line"
+					value={lineFilter}
+					onChange={(e) => setLineFilter(e.target.value)}
+					sx={{ minWidth: 120 }}
+				>
+					<MenuItem value="">All lines</MenuItem>
+					{lineOptions.map((l) => (
+						<MenuItem key={l} value={String(l)}>
+							Line {l}
+						</MenuItem>
+					))}
+					{hasNoLine ? <MenuItem value="none">No line</MenuItem> : null}
+				</TextField>
+				{carryForwardLoading ? (
+					<Typography
+						variant="caption"
+						color="text.secondary"
+						sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 0.5 }}
+					>
+						<CircularProgress size={12} /> Loading prior-day suggestions…
+					</Typography>
+				) : lastUpdated ? (
 					<Typography variant="caption" color="text.secondary" sx={{ ml: "auto" }}>
 						Last updated: {new Date(lastUpdated.replace(" ", "T")).toLocaleString()}
 					</Typography>
@@ -183,12 +237,20 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell 
 							</TableRow>
 						</TableHead>
 						<TableBody>
-							{rows.map((r) => {
+							{visibleRows.map((r, i) => {
 								const q = edits[r.machine_id] ?? "";
 								const dirty = isDirty(r.machine_id);
+								const newLine = i === 0 || visibleRows[i - 1].line_no !== r.line_no;
 								return (
+									<React.Fragment key={r.machine_id}>
+									{newLine ? (
+										<TableRow>
+											<TableCell colSpan={4} sx={{ bgcolor: "action.hover", fontWeight: 600, py: 0.25 }}>
+												{r.line_no != null ? `Line ${r.line_no}` : "No line"}
+											</TableCell>
+										</TableRow>
+									) : null}
 									<TableRow
-										key={r.machine_id}
 										sx={{ bgcolor: dirty ? "rgba(255, 193, 7, 0.12)" : undefined }}
 									>
 										<TableCell>{r.mech_code}</TableCell>
@@ -233,6 +295,7 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell 
 											) : null}
 										</TableCell>
 									</TableRow>
+									</React.Fragment>
 								);
 							})}
 						</TableBody>

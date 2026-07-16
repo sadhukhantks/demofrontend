@@ -569,6 +569,37 @@ export const useSalesInvoiceLineItems = ({
 		});
 	}, [isHessian, itemGroupCache, setLineItems, getHessianMtConversion]);
 
+	// --- Recompute GST split when the company/shipping state resolves or changes ---
+	// calculateLineTax returns zero GST until BOTH state ids are known. Lines imported
+	// from a DO/SO or loaded from a saved invoice arrive before those ids resolve, so
+	// without this their GST would stay at the zero/wrong-split value that was computed
+	// at import time. Guarded with a `changed` flag so it only fires when a value moves.
+	React.useEffect(() => {
+		if (mode === "view") return;
+		if (!companyBranchStateId || !shippingBranchStateId) return;
+		setLineItems((prev) => {
+			let changed = false;
+			const next = prev.map((line) => {
+				const taxPct = Number(line.taxPercentage) || 0;
+				if (!taxPct || !lineHasAnyData(line)) return line;
+				const netAmount = Number(line.netAmount) || 0;
+				const tax = calculateLineTax(netAmount, taxPct, companyBranchStateId, shippingBranchStateId);
+				const totalAmount = netAmount + tax.gstTotal;
+				if (
+					line.igstAmount === tax.igstAmount &&
+					line.cgstAmount === tax.cgstAmount &&
+					line.sgstAmount === tax.sgstAmount &&
+					line.gstTotal === tax.gstTotal
+				) {
+					return line;
+				}
+				changed = true;
+				return { ...line, ...tax, totalAmount };
+			});
+			return changed ? next : prev;
+		});
+	}, [mode, companyBranchStateId, shippingBranchStateId, setLineItems]);
+
 	const filledLineItems = React.useMemo(() => lineItems.filter(lineHasAnyData), [lineItems]);
 
 	const lineItemsValid = React.useMemo(() => {

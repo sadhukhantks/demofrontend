@@ -5,7 +5,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { BagWeightSetup } from "../types/bagWeightTypes";
 
-// GET bag_weight_create_setup -> {data: {bag_types, default_std_mr_pct, max_rows}}.
+// GET bag_weight_create_setup -> {data: {bag_types, default_std_mr_pct}}.
 // Cloned from useFabricConstructionSetup.
 export function useBagWeightSetup(coId: string | null | undefined, branchId: number | null) {
 	const [setup, setSetup] = React.useState<BagWeightSetup | null>(null);

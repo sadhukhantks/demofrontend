@@ -291,9 +291,9 @@ export async function approveDO(doId: string, menuId: string): Promise<StatusCha
   return data;
 }
 
-export async function rejectDO(doId: string, reason: string): Promise<StatusChangeResponse> {
+export async function rejectDO(doId: string, reason: string, menuId: string): Promise<StatusChangeResponse> {
   const { data, error } = await fetchWithCookie<StatusChangeResponse>(
-    apiRoutesPortalMasters.DELIVERY_ORDER_REJECT, "POST", { sales_delivery_order_id: doId, reason }
+    apiRoutesPortalMasters.DELIVERY_ORDER_REJECT, "POST", { sales_delivery_order_id: doId, reason, menu_id: menuId }
   );
   if (error) throw new Error(error);
   if (!data) throw new Error("Empty response from reject API");

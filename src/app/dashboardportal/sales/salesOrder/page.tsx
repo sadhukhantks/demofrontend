@@ -1,13 +1,24 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Chip, Typography } from "@mui/material";
+import { Alert, Typography } from "@mui/material";
 import type { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui/x-data-grid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { useRouter } from "next/navigation";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import {
+	SALES_STATUS_IDS,
+	SalesStatusChip,
+	SalesStatusFilter,
+	asNumberOrNull,
+	asString,
+	buildSalesListQuery,
+	formatListCurrency,
+	formatListDate,
+	parseListResponse,
+} from "../utils/salesListShared";
 
 type SORow = {
 	id: string | number;
@@ -23,49 +34,18 @@ type SORow = {
 	status_id?: number | null;
 };
 
-const formatDate = (value?: string) => {
-	if (!value) return "-";
-	const trimmed = value.trim();
-	let date: Date | null = null;
-	const ymdMatch = trimmed.match(/^([0-9]{4})-([0-9]{2})-([0-9]{2})$/);
-	if (ymdMatch) {
-		const [, year, month, day] = ymdMatch;
-		date = new Date(Number(year), Number(month) - 1, Number(day));
-	} else {
-		const parsed = new Date(trimmed);
-		if (!Number.isNaN(parsed.getTime())) {
-			date = parsed;
-		}
-	}
-	if (!date || Number.isNaN(date.getTime())) {
-		return trimmed;
-	}
-	return new Intl.DateTimeFormat("en-GB", {
-		day: "2-digit",
-		month: "short",
-		year: "numeric",
-	}).format(date);
-};
-
-const formatCurrency = (value: number | null | undefined) => {
-	if (value === null || value === undefined) return "-";
-	return new Intl.NumberFormat("en-IN", {
-		style: "currency",
-		currency: "INR",
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2,
-	}).format(value);
-};
-
 export default function SalesOrderIndexPage() {
 	const router = useRouter();
-	const { selectedBranches } = useSidebarContext();
+	const { selectedCompany, selectedBranches } = useSidebarContext();
 	const [rows, setRows] = React.useState<SORow[]>([]);
 	const [totalRows, setTotalRows] = React.useState(0);
 	const [loading, setLoading] = React.useState(false);
 	const [paginationModel, setPaginationModel] = React.useState<GridPaginationModel>({ page: 0, pageSize: 10 });
 	const [searchValue, setSearchValue] = React.useState("");
+	const [statusFilter, setStatusFilter] = React.useState<number | null>(null);
 	const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+
+	const coId = selectedCompany?.co_id ?? null;
 
 	const columns = React.useMemo<GridColDef[]>(() => [
 		{
@@ -85,7 +65,7 @@ export default function SalesOrderIndexPage() {
 			minWidth: 140,
 			renderCell: (params: GridRenderCellParams<SORow, string>) => (
 				<Typography component="span" variant="body2">
-					{params.value || formatDate(typeof params.row.sales_order_date_raw === "string" ? params.row.sales_order_date_raw : "") || "-"}
+					{params.value || "-"}
 				</Typography>
 			),
 		},
@@ -101,7 +81,7 @@ export default function SalesOrderIndexPage() {
 			minWidth: 120,
 			renderCell: (params: GridRenderCellParams<SORow, number | null>) => (
 				<Typography component="span" variant="body2">
-					{formatCurrency(params.value)}
+					{formatListCurrency(params.value)}
 				</Typography>
 			),
 		},
@@ -125,9 +105,9 @@ export default function SalesOrderIndexPage() {
 		{
 			field: "status",
 			headerName: "Status",
-			minWidth: 130,
+			minWidth: 150,
 			renderCell: (params: GridRenderCellParams<SORow, string>) => (
-				<Chip size="small" color={params.value === "Approved" ? "success" : params.value === "Rejected" ? "error" : "default"} label={params.value || "Pending"} />
+				<SalesStatusChip statusId={params.row.status_id} label={params.value} />
 			),
 		},
 	], []);
@@ -137,55 +117,42 @@ export default function SalesOrderIndexPage() {
 		setErrorMessage(null);
 
 		try {
-			let co_id = "";
-			try {
-				const storedCompany = localStorage.getItem("sidebar_selectedCompany");
-				if (storedCompany) {
-					const parsed = JSON.parse(storedCompany);
-					co_id = parsed?.co_id ? String(parsed.co_id) : "";
-				}
-			} catch {
-				co_id = "";
-			}
-
-			const query = new URLSearchParams({
-				page: String(paginationModel.page + 1),
-				limit: String(paginationModel.pageSize),
+			const queryString = buildSalesListQuery({
+				page: paginationModel.page,
+				pageSize: paginationModel.pageSize,
+				coId,
+				branchIds: selectedBranches,
+				search: searchValue,
+				statusId: statusFilter,
 			});
-			if (co_id) query.set("co_id", co_id);
-			if (selectedBranches.length === 1) query.set("branch_id", String(selectedBranches[0]));
-			const trimmedSearch = searchValue.trim();
-			if (trimmedSearch) query.set("search", trimmedSearch);
 
-			const url = `${apiRoutesPortalMasters.SALES_ORDER_TABLE}?${query.toString()}`;
+			const url = `${apiRoutesPortalMasters.SALES_ORDER_TABLE}?${queryString}`;
 			const { data, error } = await fetchWithCookie(url, "GET");
 
 			if (error) {
 				throw new Error(error);
 			}
 
-			const rawRows = Array.isArray((data as any)?.data) ? (data as any).data : Array.isArray(data) ? data : [];
-			const mappedRows: SORow[] = rawRows.map((row: any) => {
-				const rawDate = row.sales_order_date ?? row.salesOrderDate ?? row.created_at ?? "";
-				const normalizedRaw = typeof rawDate === "string" ? rawDate : rawDate ? String(rawDate) : "";
+			const { rows: rawRows, total } = parseListResponse(data);
+			const mappedRows: SORow[] = rawRows.map((row, index) => {
+				const normalizedRaw = asString(row.sales_order_date ?? row.salesOrderDate ?? row.created_at);
 				return {
-					id: row.sales_order_id ?? row.id ?? row.salesOrderId ?? `${row.sales_no ?? "so"}-${Math.random().toString(36).slice(2, 8)}`,
-					sales_no: row.sales_no ?? row.salesNo ?? "",
-					branch_id: row.branch_id ?? row.branchId ?? row.branch ?? undefined,
+					id: asNumberOrNull(row.sales_order_id) ?? asNumberOrNull(row.id) ?? asNumberOrNull(row.salesOrderId) ?? `so-${paginationModel.page}-${index}`,
+					sales_no: asString(row.sales_no ?? row.salesNo),
+					branch_id: asNumberOrNull(row.branch_id ?? row.branchId) ?? undefined,
 					sales_order_date_raw: normalizedRaw,
-					sales_order_date: formatDate(normalizedRaw),
-					customer_name: row.customer_name ?? row.customerName ?? row.party_name ?? row.partyName ?? "",
-					order_value: row.order_value ?? row.orderValue ?? row.net_amount ?? row.netAmount ?? null,
-					branch_name: row.branch_name ?? row.branchName ?? row.branch ?? "",
-					quotation_no: row.quotation_no ?? row.quotationNo ?? null,
-					status: row.status ?? row.status_name ?? row.current_status ?? "Pending",
-					status_id: row.status_id ?? row.statusId ?? null,
+					sales_order_date: formatListDate(normalizedRaw),
+					customer_name: asString(row.customer_name ?? row.customerName ?? row.party_name ?? row.partyName),
+					order_value: asNumberOrNull(row.order_value ?? row.orderValue ?? row.net_amount ?? row.netAmount),
+					branch_name: asString(row.branch_name ?? row.branchName),
+					quotation_no: asString(row.quotation_no ?? row.quotationNo) || null,
+					status: asString(row.status ?? row.status_name ?? row.current_status) || "Pending",
+					status_id: asNumberOrNull(row.status_id ?? row.statusId),
 				};
 			});
 
 			setRows(mappedRows);
-			const total = Number((data as any)?.total ?? mappedRows.length ?? 0);
-			setTotalRows(Number.isNaN(total) ? mappedRows.length : total);
+			setTotalRows(total ?? mappedRows.length);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Failed to load sales orders";
 			setErrorMessage(message);
@@ -194,7 +161,7 @@ export default function SalesOrderIndexPage() {
 		} finally {
 			setLoading(false);
 		}
-	}, [paginationModel.page, paginationModel.pageSize, searchValue, selectedBranches]);
+	}, [paginationModel.page, paginationModel.pageSize, searchValue, statusFilter, coId, selectedBranches]);
 
 	React.useEffect(() => {
 		fetchSalesOrders();
@@ -208,6 +175,11 @@ export default function SalesOrderIndexPage() {
 		const value = event.target.value;
 		setPaginationModel(prev => ({ ...prev, page: 0 }));
 		setSearchValue(value);
+	}, []);
+
+	const handleStatusFilterChange = React.useCallback((statusId: number | null) => {
+		setPaginationModel(prev => ({ ...prev, page: 0 }));
+		setStatusFilter(statusId);
 	}, []);
 
 	const handleCreateSO = React.useCallback(() => {
@@ -247,9 +219,10 @@ export default function SalesOrderIndexPage() {
 			showLoadingUntilLoaded
 			search={{ value: searchValue, onChange: handleSearchChange, placeholder: "Search by SO number, customer, or branch", debounceDelayMs: 1000 }}
 			createAction={{ onClick: handleCreateSO, label: "Create Sales Order" }}
+			toolbarContent={<SalesStatusFilter value={statusFilter} onChange={handleStatusFilterChange} />}
 			onView={handleView}
 			onEdit={handleEdit}
-			isRowEditable={(row) => Number(row.status_id) !== 3}
+			isRowEditable={(row) => Number(row.status_id) !== SALES_STATUS_IDS.APPROVED}
 		>
 			{errorMessage ? (
 				<Alert severity="error" sx={{ mt: 2 }}>
