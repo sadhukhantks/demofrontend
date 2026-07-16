@@ -694,15 +694,23 @@ function CreateEnquiryContent() {
 												</TableCell>
 												<TableCell>
 													{detailLine?.cost_snapshot_id ? (
-														<Chip
-															size="small"
-															color="success"
-															label={
-																detailLine.confirmed_cost_per_unit != null
-																	? `₹${Number(detailLine.confirmed_cost_per_unit).toLocaleString("en-IN")}`
-																	: "Confirmed"
-															}
-														/>
+														<>
+															<Chip
+																size="small"
+																color="success"
+																label={
+																	detailLine.confirmed_cost_per_unit != null
+																		? `₹${Number(detailLine.confirmed_cost_per_unit).toLocaleString("en-IN")}`
+																		: "Confirmed"
+																}
+															/>
+															{detailLine?.overhead_pct != null && detailLine?.margin_pct != null ? (
+																<Typography variant="caption" color="text.secondary" display="block">
+																	OH {detailLine.overhead_pct}% · Margin {detailLine.margin_pct}%
+																	{detailLine.sell_price_per_unit != null ? ` · ₹${Number(detailLine.sell_price_per_unit).toLocaleString("en-IN")}/unit` : ""}
+																</Typography>
+															) : null}
+														</>
 													) : (
 														<Typography variant="caption" color="text.secondary">
 															Pending
