@@ -247,6 +247,23 @@ function CostingReviewContent() {
 													<CircularProgress size={22} />
 												) : expandedDetail ? (
 													<>
+														<Stack direction="row" sx={{ mb: 1 }}>
+															<Chip
+																size="small"
+																color={
+																	expandedDetail.lines.filter(
+																		(l) => l.cost_snapshot_id && l.overhead_pct != null && l.margin_pct != null
+																	).length === expandedDetail.lines.length
+																		? "success"
+																		: "default"
+																}
+																label={`Costed ${
+																	expandedDetail.lines.filter(
+																		(l) => l.cost_snapshot_id && l.overhead_pct != null && l.margin_pct != null
+																	).length
+																}/${expandedDetail.lines.length}`}
+															/>
+														</Stack>
 														<Table size="small">
 															<TableHead>
 																<TableRow>
@@ -278,16 +295,18 @@ function CostingReviewContent() {
 																		</TableCell>
 																		<TableCell>{line.target_price ?? "-"}</TableCell>
 																		<TableCell>
-																			{line.cost_snapshot_id ? (
+																			{line.cost_snapshot_id && line.overhead_pct != null && line.margin_pct != null ? (
 																				<Chip
 																					size="small"
 																					color="success"
 																					label={
-																						line.confirmed_cost_per_unit != null
-																							? `Confirmed · ₹${Number(line.confirmed_cost_per_unit).toLocaleString("en-IN")}/unit`
-																							: "Confirmed"
+																						line.sell_price_per_unit != null
+																							? `Done · ₹${Number(line.sell_price_per_unit).toLocaleString("en-IN")}/unit`
+																							: "Done"
 																					}
 																				/>
+																			) : line.cost_snapshot_id ? (
+																				<Chip size="small" color="warning" label="Costed · price pending" />
 																			) : (
 																				<Chip size="small" variant="outlined" label="Pending" />
 																			)}
@@ -408,6 +427,8 @@ interface ConfirmCostingDialogProps {
 function ConfirmCostingDialog({ line, coId, onClose, onDone, onError }: ConfirmCostingDialogProps) {
 	const [versions, setVersions] = React.useState<BomVersionRow[]>([]);
 	const [selected, setSelected] = React.useState<number | "">("");
+	const [oh, setOh] = React.useState<string>("");
+	const [margin, setMargin] = React.useState<string>("");
 	const [loading, setLoading] = React.useState(false);
 	const [submitting, setSubmitting] = React.useState(false);
 
@@ -432,14 +453,18 @@ function ConfirmCostingDialog({ line, coId, onClose, onDone, onError }: ConfirmC
 				setLoading(false);
 			}
 		};
-		if (line) loadVersions();
+		if (line) {
+			loadVersions();
+			setOh(line.overhead_pct != null ? String(line.overhead_pct) : "");
+			setMargin(line.margin_pct != null ? String(line.margin_pct) : "");
+		}
 	}, [line, coId, onError]);
 
 	const handleConfirm = async () => {
-		if (!line?.enquiry_dtl_id || selected === "") return;
+		if (!line?.enquiry_dtl_id || selected === "" || oh === "" || margin === "") return;
 		setSubmitting(true);
 		try {
-			const { data, error } = await confirmLineCosting(line.enquiry_dtl_id, Number(selected));
+			const { data, error } = await confirmLineCosting(line.enquiry_dtl_id, Number(selected), Number(oh), Number(margin));
 			if (error) throw new Error(error);
 			await onDone(data?.message ?? "Cost basis confirmed");
 		} catch (err) {
@@ -481,10 +506,33 @@ function ConfirmCostingDialog({ line, coId, onClose, onDone, onError }: ConfirmC
 						))}
 					</TextField>
 				)}
+				<Stack direction="row" spacing={2}>
+					<TextField
+						type="number"
+						size="small"
+						label="Overhead %"
+						value={oh}
+						onChange={(e) => setOh(e.target.value)}
+						fullWidth
+					/>
+					<TextField
+						type="number"
+						size="small"
+						label="Margin %"
+						value={margin}
+						onChange={(e) => setMargin(e.target.value)}
+						fullWidth
+					/>
+				</Stack>
+				{selected !== "" && oh !== "" && margin !== "" ? (() => {
+					const base = versions.find((v) => v.bom_hdr_id === selected)?.cost_per_unit ?? 0;
+					const sell = Number(base) * (1 + Number(oh) / 100) * (1 + Number(margin) / 100);
+					return <Typography variant="body2">Sell / unit: ₹{sell.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</Typography>;
+				})() : null}
 			</DialogContent>
 			<DialogActions>
 				<Button onClick={onClose}>Cancel</Button>
-				<Button variant="contained" onClick={handleConfirm} disabled={submitting || selected === ""}>
+				<Button variant="contained" onClick={handleConfirm} disabled={submitting || selected === "" || oh === "" || margin === ""}>
 					{submitting ? "Confirming…" : "Confirm"}
 				</Button>
 			</DialogActions>
