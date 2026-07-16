@@ -340,10 +340,14 @@ function QuotationTransactionPageContent() {
 				throw new Error("This enquiry has no costed item lines to quote (new items must be created first).");
 			}
 
-			const overhead = Number(enquiryOverheadPct) || 0;
-			const margin = Number(enquiryMarginPct) || 0;
+			// Header dialog values are a fallback for lines the enquiry never costed;
+			// per-line overhead/margin from the enquiry (Task 1) take priority when present.
+			const overheadOverride = Number(enquiryOverheadPct) || 0;
+			const marginOverride = Number(enquiryMarginPct) || 0;
 			const newLines: EditableLineItem[] = sourceLines.map((line) => {
 				const base = line.confirmed_cost_per_unit != null ? Number(line.confirmed_cost_per_unit) : null;
+				const overhead = line.overhead_pct ?? overheadOverride;
+				const margin = line.margin_pct ?? marginOverride;
 				const computedRate =
 					base != null
 						? Math.round(base * (1 + overhead / 100) * (1 + margin / 100) * 100) / 100
