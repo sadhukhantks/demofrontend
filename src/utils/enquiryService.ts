@@ -125,7 +125,7 @@ export type EnquirySetup = {
 
 export type EnquiryBoardStage = EnquiryStage & {
 	enquiry_count?: number;
-	enquiries: Array<EnquiryListRow & { quotation_count?: number; sales_order_count?: number; latest_feedback?: string | null }>;
+	enquiries: Array<EnquiryListRow & { quotation_count?: number; sales_order_count?: number; latest_feedback?: string | null; costed_line_count?: number; line_count?: number }>;
 };
 
 export type EnquiryLinePayload = {

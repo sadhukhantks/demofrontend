@@ -182,6 +182,14 @@ function EnquiryBoardContent() {
 														{Number(card.sales_order_count) > 0 ? (
 															<Chip size="small" variant="outlined" label={`SO ×${card.sales_order_count}`} />
 														) : null}
+														{Number(card.line_count) > 0 ? (
+															<Chip size="small"
+																color={Number(card.costed_line_count) >= Number(card.line_count) ? "success" : "default"}
+																variant="outlined"
+																label={Number(card.costed_line_count) >= Number(card.line_count)
+																	? "Costing ✓"
+																	: `Costed ${card.costed_line_count ?? 0}/${card.line_count}`} />
+														) : null}
 													</Stack>
 													{card.latest_feedback ? (
 														<Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }} noWrap>
