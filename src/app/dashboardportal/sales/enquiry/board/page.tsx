@@ -43,6 +43,13 @@ function EnquiryBoardContent() {
 	const { selectedCompany, selectedBranches } = useSidebarContext();
 	const coId = selectedCompany?.co_id ?? null;
 
+	// Sidebar context hydrates from localStorage on the client only — defer
+	// rendering until mounted to avoid an SSR/client hydration mismatch.
+	const [mounted, setMounted] = React.useState(false);
+	React.useEffect(() => {
+		setMounted(true);
+	}, []);
+
 	const [stages, setStages] = React.useState<EnquiryBoardStage[]>([]);
 	const [loading, setLoading] = React.useState(false);
 	const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -73,6 +80,14 @@ function EnquiryBoardContent() {
 		},
 		[router, menuId]
 	);
+
+	if (!mounted) {
+		return (
+			<Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+				<CircularProgress />
+			</Box>
+		);
+	}
 
 	if (!coId) {
 		return (

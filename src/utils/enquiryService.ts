@@ -112,7 +112,7 @@ export type EnquiryDetail = EnquiryListRow & {
 };
 
 export type EnquirySetup = {
-	customers: Array<{ party_id: number; supp_name: string }>;
+	customers: Array<{ party_id: number; party_name: string }>;
 	uoms: Array<{ uom_id: number; uom_name: string }>;
 	items: Array<{ item_id: number; item_code?: string; item_name: string; item_grp_id?: number; item_grp_name?: string }>;
 	stages: EnquiryStage[];
@@ -259,13 +259,13 @@ export async function fetchEnquiryById(sales_enquiry_id: string | number, co_id:
 }
 
 export async function createEnquiry(payload: EnquiryHeaderPayload) {
-	return postJson<{ message: string; sales_enquiry_id: number }>(
+	return postJson<{ message: string; data: { sales_enquiry_id: number } }>(
 		apiRoutesPortalMasters.SALES_ENQUIRY_CREATE, "POST", payload, "Failed to create enquiry"
 	);
 }
 
 export async function updateEnquiry(payload: EnquiryHeaderPayload) {
-	return postJson<{ message: string; sales_enquiry_id: number }>(
+	return postJson<{ message: string; data: { sales_enquiry_id: number } }>(
 		apiRoutesPortalMasters.SALES_ENQUIRY_UPDATE, "PUT", payload, "Failed to update enquiry"
 	);
 }

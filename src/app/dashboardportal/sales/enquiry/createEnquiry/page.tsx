@@ -148,6 +148,14 @@ function CreateEnquiryContent() {
 	);
 
 	const coId = selectedCompany?.co_id ?? null;
+
+	// Sidebar context hydrates from localStorage on the client only — defer
+	// rendering until mounted to avoid an SSR/client hydration mismatch.
+	const [mounted, setMounted] = React.useState(false);
+	React.useEffect(() => {
+		setMounted(true);
+	}, []);
+
 	const branchOptions = React.useMemo(
 		() => (selectedCompany?.branches ?? []).map((b) => ({ branch_id: b.branch_id, branch_name: b.branch_name })),
 		[selectedCompany]
@@ -305,7 +313,7 @@ function CreateEnquiryContent() {
 		try {
 			const result = detail?.sales_enquiry_id ? await updateEnquiry(payload) : await createEnquiry(payload);
 			if (result.error) throw new Error(result.error);
-			const newId = result.data?.sales_enquiry_id ?? detail?.sales_enquiry_id;
+			const newId = result.data?.data?.sales_enquiry_id ?? detail?.sales_enquiry_id;
 			setToast(detail?.sales_enquiry_id ? "Enquiry updated" : "Enquiry saved as draft");
 			if (!detail?.sales_enquiry_id && newId) {
 				setMode("edit");
@@ -356,6 +364,14 @@ function CreateEnquiryContent() {
 	const permissions = detail?.permissions ?? {};
 	const showApprovalBar = Boolean(detail?.sales_enquiry_id);
 
+	if (!mounted) {
+		return (
+			<Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+				<CircularProgress />
+			</Box>
+		);
+	}
+
 	if (!coId) {
 		return (
 			<Alert severity="info" sx={{ m: 3 }}>
@@ -400,7 +416,7 @@ function CreateEnquiryContent() {
 				<ApprovalActionsBar
 					approvalInfo={{
 						statusId: (detail.status_id ?? 21) as ApprovalStatusId,
-						statusLabel: detail.status ?? "Draft",
+						statusLabel: detail.status_name ?? "Draft",
 						approvalLevel: detail.approval_level ?? null,
 					}}
 					permissions={{
@@ -483,9 +499,14 @@ function CreateEnquiryContent() {
 							<Autocomplete
 								size="small"
 								options={setup.customers}
-								getOptionLabel={(option) => option.supp_name ?? ""}
+								getOptionLabel={(option) => option.party_name ?? ""}
 								value={setup.customers.find((c) => c.party_id === header.party_id) ?? null}
 								onChange={(_, value) => setHeader((h) => ({ ...h, party_id: value?.party_id ?? null }))}
+								renderOption={(props, option) => (
+									<li {...props} key={option.party_id}>
+										{option.party_name}
+									</li>
+								)}
 								renderInput={(params) => <TextField {...params} label="Customer" />}
 								disabled={!canEditForm}
 							/>
@@ -582,7 +603,12 @@ function CreateEnquiryContent() {
 															}
 															value={setup.items.find((i) => i.item_id === line.item_id) ?? null}
 															onChange={(_, value) => setLine(index, { item_id: value?.item_id ?? null })}
-															renderInput={(params) => <TextField {...params} label="Existing item" />}
+															renderOption={(props, option) => (
+																	<li {...props} key={option.item_id}>
+																		{option.item_code ? `${option.item_code} — ${option.item_name}` : option.item_name}
+																	</li>
+																)}
+																renderInput={(params) => <TextField {...params} label="Existing item" />}
 															disabled={!canEditForm || line.is_new_item}
 														/>
 														{line.is_new_item || (!line.item_id && line.item_desc_freetext) || canEditForm ? (

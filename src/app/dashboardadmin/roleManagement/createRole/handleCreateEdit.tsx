@@ -221,7 +221,7 @@ function CreateRoleContent() {
 }
 
 // Main export that wraps the content with Suspense
-export default function CreateRolePage() {
+export default function HandleCreateEditRole() {
     return (
         <Suspense fallback={<LoadingFallback />}>
             <CreateRoleContent />
