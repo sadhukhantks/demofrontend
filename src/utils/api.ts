@@ -513,6 +513,34 @@ const apiRoutesPortalMasters = {
     ISSUE_CONSUMPTION_REPORT: `${API_URL}/inventoryReports/issue-consumption`,
     ISSUE_MACHINEWISE_REPORT: `${API_URL}/inventoryReports/issue-machinewise`,
 
+    // Sales Enquiry endpoints (AMCL enquiry flow Phase 1)
+    SALES_ENQUIRY_TABLE: `${API_URL}/salesEnquiry/get_enquiry_table`,
+    SALES_ENQUIRY_BOARD: `${API_URL}/salesEnquiry/get_enquiry_board`,
+    SALES_ENQUIRY_SETUP: `${API_URL}/salesEnquiry/get_enquiry_setup`,
+    SALES_ENQUIRY_BY_ID: `${API_URL}/salesEnquiry/get_enquiry_by_id`,
+    SALES_ENQUIRY_CREATE: `${API_URL}/salesEnquiry/create_enquiry`,
+    SALES_ENQUIRY_UPDATE: `${API_URL}/salesEnquiry/update_enquiry`,
+    SALES_ENQUIRY_OPEN: `${API_URL}/salesEnquiry/open_enquiry`,
+    SALES_ENQUIRY_CANCEL_DRAFT: `${API_URL}/salesEnquiry/cancel_draft_enquiry`,
+    SALES_ENQUIRY_SEND_FOR_APPROVAL: `${API_URL}/salesEnquiry/send_enquiry_for_approval`,
+    SALES_ENQUIRY_APPROVE: `${API_URL}/salesEnquiry/approve_enquiry`,
+    SALES_ENQUIRY_REJECT: `${API_URL}/salesEnquiry/reject_enquiry`,
+    SALES_ENQUIRY_REOPEN: `${API_URL}/salesEnquiry/reopen_enquiry`,
+    SALES_ENQUIRY_MOVE_STAGE: `${API_URL}/salesEnquiry/move_stage`,
+    SALES_ENQUIRY_CLOSE: `${API_URL}/salesEnquiry/close_enquiry`,
+    SALES_ENQUIRY_CONFIRM_LINE_COSTING: `${API_URL}/salesEnquiry/confirm_line_costing`,
+    SALES_ENQUIRY_PRICE_CHECK_CREATE: `${API_URL}/salesEnquiry/create_price_check`,
+    SALES_ENQUIRY_PRICE_CHECK_PENDING: `${API_URL}/salesEnquiry/get_price_check_pending_list`,
+    SALES_ENQUIRY_PRICE_CHECK_BY_ID: `${API_URL}/salesEnquiry/get_price_check_by_id`,
+    SALES_ENQUIRY_PRICE_CHECK_RESPOND: `${API_URL}/salesEnquiry/respond_price_check`,
+    QUOTATION_ENQUIRY_LINES: `${API_URL}/salesQuotation/get_enquiry_lines_for_quotation`,
+    SALES_ORDER_ENQUIRY_LINES: `${API_URL}/salesOrder/get_enquiry_lines_for_sales_order`,
+
+    // ISO document number map (per company x menu)
+    ISO_MAP_TABLE: `${API_URL}/isoMenuMap/get_iso_map_table`,
+    ISO_MAP_SAVE: `${API_URL}/isoMenuMap/iso_map_save`,
+    ISO_MAP_DELETE: `${API_URL}/isoMenuMap/iso_map_delete`,
+
     // Sales Quotation endpoints
     QUOTATION_TABLE: `${API_URL}/salesQuotation/get_quotation_table`,
     QUOTATION_SETUP_1: `${API_URL}/salesQuotation/get_quotation_setup_1`,
