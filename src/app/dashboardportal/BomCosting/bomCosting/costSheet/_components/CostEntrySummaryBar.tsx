@@ -36,7 +36,7 @@ export default function CostEntrySummaryBar({ materialCost, conversionCost, over
     <Box sx={{ display: "flex", gap: 1.5, mb: 2 }}>
       <SummaryCard label="Material" value={materialCost} color="#1976d2" />
       <SummaryCard label="Conversion" value={conversionCost} color="#388e3c" />
-      <SummaryCard label="Overhead" value={overheadCost} color="#f57c00" />
+      <SummaryCard label="Overhead (excluded from total)" value={overheadCost} color="#f57c00" />
       <SummaryCard label="Total Cost" value={totalCost} color="#d32f2f" />
     </Box>
   );

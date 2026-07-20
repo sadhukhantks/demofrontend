@@ -205,24 +205,31 @@ export const extractFormValuesFromDetails = (details: GateEntryDetails): GateEnt
 // =============================================================================
 
 export const mapLineItemsFromAPI = (lineItems: GateEntryLineItemAPI[]): GateEntryLineItem[] =>
-	lineItems.map((li) => ({
-		id: generateLineId(),
-		jute_mr_li_id: li.jute_mr_li_id ?? null,
-		jutePoLiId: li.jute_po_li_id ? String(li.jute_po_li_id) : "",
-		challanItem: li.challan_item_grp_id ? String(li.challan_item_grp_id) : "",
-		challanQuality: li.challan_item_id ? String(li.challan_item_id) : "",
-		challanQty: li.challan_quantity ? String(li.challan_quantity) : "",
-		challanWeight: li.challan_weight ? String(li.challan_weight) : "",
-		actualItem: li.actual_item_grp_id ? String(li.actual_item_grp_id) : "",
-		actualQuality: li.actual_item_id ? String(li.actual_item_id) : "",
-		actualQty: li.actual_qty ? String(li.actual_qty) : "",
-		actualWeight: li.actual_weight ? String(li.actual_weight) : "",
-		juteUom: li.unit_conversion ?? "",
-		allowableMoisture: li.allowable_moisture != null ? String(li.allowable_moisture) : "",
-		remarks: li.remarks ?? "",
-		moistureReadings: [],  // Populated from separate moisture readings API if available
-		averageMoisture: null,
-	}));
+	lineItems.map((li) => {
+		const moistureReadings = (li.moisture_readings ?? [])
+			.map((r) => Number(r.moisture_percentage))
+			.filter((v) => Number.isFinite(v));
+		return {
+			id: generateLineId(),
+			jute_mr_li_id: li.jute_mr_li_id ?? null,
+			jutePoLiId: li.jute_po_li_id ? String(li.jute_po_li_id) : "",
+			challanItem: li.challan_item_grp_id ? String(li.challan_item_grp_id) : "",
+			challanQuality: li.challan_item_id ? String(li.challan_item_id) : "",
+			challanQty: li.challan_quantity ? String(li.challan_quantity) : "",
+			challanWeight: li.challan_weight ? String(li.challan_weight) : "",
+			actualItem: li.actual_item_grp_id ? String(li.actual_item_grp_id) : "",
+			actualQuality: li.actual_item_id ? String(li.actual_item_id) : "",
+			actualQty: li.actual_qty ? String(li.actual_qty) : "",
+			actualWeight: li.actual_weight ? String(li.actual_weight) : "",
+			juteUom: li.unit_conversion ?? "",
+			allowableMoisture: li.allowable_moisture != null ? String(li.allowable_moisture) : "",
+			remarks: li.remarks ?? "",
+			moistureReadings,
+			averageMoisture: moistureReadings.length
+				? moistureReadings.reduce((sum, v) => sum + v, 0) / moistureReadings.length
+				: null,
+		};
+	});
 
 // =============================================================================
 // FORM TO API PAYLOAD MAPPERS

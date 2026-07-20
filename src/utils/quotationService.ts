@@ -40,6 +40,12 @@ export type QuotationLine = {
   igst?: number;
   sgst?: number;
   cgst?: number;
+  /** Enquiry-flow cost basis (AMCL Phase 1) — present when the line came from an enquiry. */
+  enquiryDtlId?: string | null;
+  costSnapshotId?: string | null;
+  baseCost?: number | null;
+  overheadPct?: number | null;
+  marginPct?: number | null;
 };
 
 export type ApprovalActionPermissions = {
@@ -91,6 +97,9 @@ export type QuotationDetails = {
   updatedBy?: string;
   updatedAt?: string;
   permissions?: ApprovalActionPermissions;
+  /** Source enquiry (AMCL enquiry flow) — set when the quotation was made against an enquiry. */
+  salesEnquiryId?: string | null;
+  enquiryNo?: string | null;
   lines: QuotationLine[];
 };
 
@@ -125,6 +134,7 @@ export type CreateQuotationRequest = {
   footer_notes?: string;
   internal_note?: string;
   terms_condition?: string;
+  sales_enquiry_id?: number | string | null;
   items: Array<{
     item_id: number | string;
     item_make_id?: number | string | null;
@@ -138,6 +148,11 @@ export type CreateQuotationRequest = {
     net_amount?: number;
     total_amount?: number;
     remarks?: string;
+    enquiry_dtl_id?: number | string | null;
+    cost_snapshot_id?: number | string | null;
+    base_cost?: number | null;
+    overhead_pct?: number | null;
+    margin_pct?: number | null;
     gst?: {
       igst_amount?: number;
       igst_percent?: number;

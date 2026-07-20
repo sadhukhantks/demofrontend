@@ -398,12 +398,12 @@ function JutePOCreatePageContent() {
           "GET"
         );
         if (response?.data) {
-          // API returns { qualities: [...] } with quality_id and quality_name
+          // API returns { qualities: [...] } with item_id and quality_name
           const qualitiesData = response.data.qualities ?? response.data;
-          const mapped = (qualitiesData as Array<{ quality_id: number | string; quality_name: string }>).map(
+          const mapped = (qualitiesData as Array<{ item_id: number | string; quality_name: string }>).map(
             (q) => ({
-              label: q.quality_name ?? String(q.quality_id),
-              value: String(q.quality_id),
+              label: q.quality_name ?? String(q.item_id),
+              value: String(q.item_id),
             })
           );
           setQualitiesByItem((prev) => ({ ...prev, [itemId]: mapped }));
