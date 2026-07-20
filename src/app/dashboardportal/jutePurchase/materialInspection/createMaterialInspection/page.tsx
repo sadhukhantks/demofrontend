@@ -121,6 +121,16 @@ function JuteGateEntryCreatePageContent() {
 		formRef,
 	} = useGateEntryFormState({ mode });
 
+	// MuiForm echoes back only schema-defined fields; merge into prev so non-schema keys
+	// (entryTime, vehicleType, outDate, outTime) are not wiped from formValues.
+	// Must be a stable callback: MuiForm's onValuesChange effect re-fires on identity change.
+	const handleHeaderValuesChange = React.useCallback(
+		(values: GateEntryFormValues) => {
+			setFormValues((prev) => ({ ...prev, ...values }));
+		},
+		[setFormValues]
+	);
+
 	// PO options - filtered by selected branch only (must be after formValues is available)
 	const poOptions = React.useMemo(() => {
 		if (!setupData) return [];
@@ -166,7 +176,7 @@ function JuteGateEntryCreatePageContent() {
 		getQualityOptions: (itemId) =>
 			(qualitiesByItem[itemId] ?? []).map((q) => ({
 				label: q.quality_name,
-				value: String(q.quality_id),
+				value: String(q.item_id),
 			})),
 	});
 
@@ -180,7 +190,7 @@ function JuteGateEntryCreatePageContent() {
 	const getQualityLabel = React.useCallback(
 		(qualityId: string) => {
 			for (const qualities of Object.values(qualitiesByItem)) {
-				const found = qualities.find((q) => String(q.quality_id) === qualityId);
+				const found = qualities.find((q) => String(q.item_id) === qualityId);
 				if (found) return found.quality_name;
 			}
 			return qualityId;
@@ -317,6 +327,8 @@ function JuteGateEntryCreatePageContent() {
 				const { data, error } = await fetchWithCookie(url, "GET");
 				if (error) {
 					console.error("Error fetching parties:", error);
+					pendingPartyFromPORef.current = null;
+					isFillingFromPORef.current = false;
 					return;
 				}
 				const result = data as Record<string, unknown>;
@@ -328,7 +340,7 @@ function JuteGateEntryCreatePageContent() {
 					}))
 				);
 
-				// If there's a pending party from PO selection, set it now that parties are loaded
+				// If there's a pending party from PO selection or edit load, set it now that parties are loaded
 				if (pendingPartyFromPORef.current) {
 					const pendingParty = pendingPartyFromPORef.current;
 					// Check if the party exists in the fetched list
@@ -339,10 +351,14 @@ function JuteGateEntryCreatePageContent() {
 						bumpFormKey();
 					}
 					pendingPartyFromPORef.current = null;
-					isFillingFromPORef.current = false;
 				}
+				// Always release the flag — leaving it set would suppress the party
+				// clear on the NEXT genuine supplier change
+				isFillingFromPORef.current = false;
 			} catch (err) {
 				console.error("Error fetching parties:", err);
+				pendingPartyFromPORef.current = null;
+				isFillingFromPORef.current = false;
 			}
 		};
 
@@ -359,6 +375,10 @@ function JuteGateEntryCreatePageContent() {
 				const { data, error } = await fetchWithCookie(url, "GET");
 				if (error) {
 					console.error("Error fetching qualities:", error);
+					// Cache the failure: corrupted rows can carry item ids missing from
+					// masters, and an unfilled cache entry refires this fetch on every
+					// lineItems change (unbounded request churn on such records).
+					setQualitiesByItem((prev) => ({ ...prev, [itemId]: [] }));
 					return;
 				}
 				const result = data as Record<string, unknown>;
@@ -366,13 +386,14 @@ function JuteGateEntryCreatePageContent() {
 				setQualitiesByItem((prev) => ({
 					...prev,
 					[itemId]: qualityList.map((q) => ({
-						quality_id: Number(q.quality_id),
+						item_id: Number(q.item_id),
 						quality_name: String(q.quality_name ?? ""),
-						item_grp_id: Number(q.item_grp_id ?? q.item_id),
+						item_grp_id: Number(q.item_grp_id),
 					})),
 				}));
 			} catch (err) {
 				console.error("Error fetching qualities:", err);
+				setQualitiesByItem((prev) => ({ ...prev, [itemId]: [] }));
 			}
 		},
 		[coId, qualitiesByItem]
@@ -395,14 +416,20 @@ function JuteGateEntryCreatePageContent() {
 	React.useEffect(() => {
 		const poId = formValues.poId;
 		if (poId === prevPoIdRef.current) return;
+		const priorPoId = prevPoIdRef.current;
+		const hadPo = priorPoId !== "";
 		prevPoIdRef.current = poId;
 
-		// PO auto-fill is a CREATE-only convenience. In edit/QC the entry already
-		// owns its persisted lines; re-filling from the PO injected PO/manual rows
-		// (jute_mr_li_id=null) that QC-complete then INSERTed as phantom qualities —
-		// gate entry with 2 qualities producing an MR with 4 (e.g. MR #27957). The
-		// old `prevPoIdRef` sync was racy; gating to create removes the race entirely.
-		if (!poId || !coId || mode !== "create") return;
+		if (mode === "view" || !coId) return;
+
+		// Lines derive from the PO: a USER PO change (edit load pre-syncs the ref,
+		// so it never lands here) replaces the grid; clearing the PO blanks it.
+		// Safe in edit since complete_inspection reconciles rows to the payload —
+		// replaced lines go up without ids and the old rows are deactivated.
+		if (!poId) {
+			if (hadPo) replaceLineItems([]);
+			return;
+		}
 
 		const fetchPODetails = async () => {
 			try {
@@ -410,9 +437,18 @@ function JuteGateEntryCreatePageContent() {
 				const { data, error } = await fetchWithCookie(url, "GET");
 				if (error) {
 					console.error("Error fetching PO details:", error);
+					// Failed fetch: revert the PO selection so the header doesn't point
+					// at a PO whose lines never loaded (grid still shows the old lines)
+					if (prevPoIdRef.current === poId) {
+						prevPoIdRef.current = priorPoId;
+						setFormValues((prev) => ({ ...prev, poId: priorPoId }));
+					}
 					return;
 				}
 				const poData = data as PODetailsForGateEntry;
+
+				// Stale response: the user changed the PO again while this fetch was in flight
+				if (prevPoIdRef.current !== poId) return;
 
 				// Set flag before updating to prevent supplier useEffect from clearing party
 				isFillingFromPORef.current = true;
@@ -434,19 +470,34 @@ function JuteGateEntryCreatePageContent() {
 				setInitialValues((prev) => ({ ...prev, ...newValues }));
 				bumpFormKey();
 
-				// Auto-fill line items from PO
-				if (poData.line_items && poData.line_items.length > 0) {
-					const newLineItems: GateEntryLineItem[] = poData.line_items.map((poli) => ({
+				// Same-supplier PO switch: the supplier effect won't re-run (value
+				// unchanged), so nothing would consume the pending party or release
+				// the fill flag — do both here
+				if (newValues.supplier === formValues.supplier) {
+					const pendingParty = pendingPartyFromPORef.current;
+					pendingPartyFromPORef.current = null;
+					isFillingFromPORef.current = false;
+					if (pendingParty && parties.some((p) => p.value === pendingParty)) {
+						setFormValues((prev) => ({ ...prev, party: pendingParty }));
+						setInitialValues((prev) => ({ ...prev, party: pendingParty }));
+						bumpFormKey();
+					}
+				}
+
+				// Auto-fill line items from PO — unconditional: an empty PO yields an
+				// empty grid (lines derive from the PO)
+				{
+					const newLineItems: GateEntryLineItem[] = (poData.line_items ?? []).map((poli) => ({
 						id: `ge-line-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
 						jute_mr_li_id: null,  // New lines from PO don't have a database ID yet
 						jutePoLiId: String(poli.jute_po_li_id),  // Link to PO line item
 					challanItem: poli.item_grp_id ? String(poli.item_grp_id) : "",
-					challanQuality: poli.quality_id ? String(poli.quality_id) : "",
+					challanQuality: poli.item_id ? String(poli.item_id) : "",
 					challanQty: poli.quantity ? String(poli.quantity) : "",
 					challanWeight: "",
-					juteUom: poli.uom ?? poData.jute_uom ?? "",
+					juteUom: poli.jute_uom ?? poData.jute_uom ?? "",
 					actualItem: poli.item_grp_id ? String(poli.item_grp_id) : "",
-						actualQuality: poli.quality_id ? String(poli.quality_id) : "",
+						actualQuality: poli.item_id ? String(poli.item_id) : "",
 						actualQty: poli.quantity ? String(poli.quantity) : "",
 						actualWeight: "",
 						allowableMoisture: poli.allowable_moisture != null ? String(poli.allowable_moisture) : "",  // Copy from PO
@@ -515,6 +566,13 @@ function JuteGateEntryCreatePageContent() {
 
 					// Map details to form values
 					const mappedFormValues = extractFormValuesFromDetails(entryDetails);
+					// The supplier effect treats this programmatic supplier change like a
+					// user edit and clears party; route the saved party through the
+					// pending-party restore instead so it survives the parties fetch
+					if (mappedFormValues.supplier) {
+						isFillingFromPORef.current = true;
+						pendingPartyFromPORef.current = mappedFormValues.party || null;
+					}
 					setInitialValues(mappedFormValues);
 					setFormValues(mappedFormValues);
 
@@ -643,7 +701,8 @@ function JuteGateEntryCreatePageContent() {
 					vehicle_no: formValues.vehicleNo || null,
 					driver_name: formValues.driverName || null,
 					transporter: formValues.transporter || null,
-					po_id: formValues.poId ? parseInt(String(formValues.poId), 10) : null,
+					// 0 = explicit PO detach (null means "not provided" server-side)
+					po_id: formValues.poId ? parseInt(String(formValues.poId), 10) : 0,
 					jute_uom: formValues.juteUom || null,
 					mukam_id: formValues.mukam ? parseInt(String(formValues.mukam), 10) : null,
 					jute_supplier_id: formValues.supplier ? parseInt(String(formValues.supplier), 10) : null,
@@ -654,6 +713,9 @@ function JuteGateEntryCreatePageContent() {
 					marketing_slip: formValues.marketingSlip ? 1 : 0,
 					remarks: formValues.remarks || null,
 					line_items: lineItemsPayload,
+					// The user removed every line: tells the reconcile an empty set is
+					// intentional (all rows deactivate) rather than a legacy omission
+					lines_cleared: lineItemsPayload.length === 0,
 				};
 
 				// Only include net_weight if tare_weight is entered
@@ -692,12 +754,14 @@ function JuteGateEntryCreatePageContent() {
 	const handleQCComplete = React.useCallback(async () => {
 		if (!coId || !gateEntryId) return;
 
-		// Filter line items that have actual data (actualItem is filled)
-		// We check both existing database records and new records
-		const filledLines = lineItems.filter((li) => li.actualItem);
-		
-		// Validate that filled lines have quality and qty (weights are optional)
-		const incompleteLines = filledLines.filter(
+		// Send the record's FULL line set (same filter as Save): the backend
+		// reconciles rows to the payload, so omitting challan-only lines here
+		// would silently deactivate them
+		const filledLines = lineItems.filter((li) => li.actualItem || li.challanItem || li.jute_mr_li_id);
+		const actualLines = filledLines.filter((li) => li.actualItem);
+
+		// Validate that actual lines have quality and qty (weights are optional)
+		const incompleteLines = actualLines.filter(
 			(li) => !li.actualQuality || !li.actualQty
 		);
 		if (incompleteLines.length > 0) {
@@ -705,7 +769,7 @@ function JuteGateEntryCreatePageContent() {
 			return;
 		}
 
-		if (filledLines.length === 0) {
+		if (actualLines.length === 0) {
 			setPageError("Please fill in at least one line item with actual data before completing QC");
 			return;
 		}
@@ -758,7 +822,8 @@ function JuteGateEntryCreatePageContent() {
 				vehicle_type_id: formValues.vehicleType ? parseInt(String(formValues.vehicleType), 10) : null,
 				driver_name: formValues.driverName || null,
 				transporter: formValues.transporter || null,
-				po_id: formValues.poId ? parseInt(String(formValues.poId), 10) : null,
+				// 0 = explicit PO detach (null means "not provided" server-side)
+				po_id: formValues.poId ? parseInt(String(formValues.poId), 10) : 0,
 				jute_uom: formValues.juteUom || null,
 				mukam_id: formValues.mukam ? parseInt(String(formValues.mukam), 10) : null,
 				jute_supplier_id: formValues.supplier ? parseInt(String(formValues.supplier), 10) : null,
@@ -941,7 +1006,7 @@ function JuteGateEntryCreatePageContent() {
 					mode={mode}
 					formRef={formRef}
 					onSubmit={handleFormSubmit}
-					onValuesChange={setFormValues}
+					onValuesChange={handleHeaderValuesChange}
 				/>
 			)}
 

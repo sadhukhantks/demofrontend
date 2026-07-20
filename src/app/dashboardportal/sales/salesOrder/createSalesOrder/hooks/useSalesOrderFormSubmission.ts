@@ -15,6 +15,8 @@ type UseSalesOrderFormSubmissionParams = {
 	requestedId: string;
 	formValues: Record<string, unknown>;
 	invoiceTypeCode: string;
+	/** Source enquiry id (AMCL enquiry flow) — persisted on the order header when set (tender path). */
+	salesEnquiryId?: string | null;
 };
 
 export const useSalesOrderFormSubmission = ({
@@ -26,6 +28,7 @@ export const useSalesOrderFormSubmission = ({
 	requestedId,
 	formValues,
 	invoiceTypeCode,
+	salesEnquiryId,
 }: UseSalesOrderFormSubmissionParams) => {
 	const [saving, setSaving] = React.useState(false);
 	const router = useRouter();
@@ -186,6 +189,10 @@ export const useSalesOrderFormSubmission = ({
 						buyerOrderNo: values.buyer_order_no ? String(values.buyer_order_no) : undefined,
 						buyerOrderDate: values.buyer_order_date ? String(values.buyer_order_date) : undefined,
 						deliveryDays: values.delivery_days ? Number(values.delivery_days) : undefined,
+						committedDeliveryDate: values.committed_delivery_date ? String(values.committed_delivery_date) : undefined,
+						advanceAmount: values.advance_amount ? Number(values.advance_amount) : undefined,
+						advanceNote: values.advance_note ? String(values.advance_note) : undefined,
+						salesEnquiryId: salesEnquiryId || undefined,
 						freightCharges: freightCharges || undefined,
 						footerNote: values.footer_note ? String(values.footer_note) : undefined,
 						internalNote: values.internal_note ? String(values.internal_note) : undefined,
@@ -220,6 +227,10 @@ export const useSalesOrderFormSubmission = ({
 						buyer_order_no: values.buyer_order_no ? String(values.buyer_order_no) : undefined,
 						buyer_order_date: values.buyer_order_date ? String(values.buyer_order_date) : undefined,
 						delivery_days: values.delivery_days ? Number(values.delivery_days) : undefined,
+						committed_delivery_date: values.committed_delivery_date ? String(values.committed_delivery_date) : undefined,
+						advance_amount: values.advance_amount ? Number(values.advance_amount) : undefined,
+						advance_note: values.advance_note ? String(values.advance_note) : undefined,
+						sales_enquiry_id: salesEnquiryId || undefined,
 						freight_charges: freightCharges || undefined,
 						footer_note: values.footer_note ? String(values.footer_note) : undefined,
 						internal_note: values.internal_note ? String(values.internal_note) : undefined,
@@ -245,7 +256,7 @@ export const useSalesOrderFormSubmission = ({
 				setSaving(false);
 			}
 		},
-		[mode, pageError, setupError, filledLineItems, isLineItemsReady, requestedId, formValues, invoiceTypeCode, router],
+		[mode, pageError, setupError, filledLineItems, isLineItemsReady, requestedId, formValues, invoiceTypeCode, salesEnquiryId, router],
 	);
 
 	return { saving, handleFormSubmit };

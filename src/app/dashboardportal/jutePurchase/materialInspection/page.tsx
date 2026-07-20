@@ -239,7 +239,11 @@ export default function JuteQualityCheckIndexPage() {
 				if (storedBranches) {
 					const parsed = JSON.parse(storedBranches);
 					if (Array.isArray(parsed) && parsed.length > 0) {
-						branch_ids = parsed.map((b: { branch_id?: number }) => b.branch_id).filter(Boolean).join(",");
+						// Sidebar stores number[]; legacy caches stored [{ branch_id }] — accept both
+						branch_ids = parsed
+							.map((b: number | { branch_id?: number }) => (typeof b === "object" && b !== null ? b.branch_id : b))
+							.filter((v) => v !== null && v !== undefined)
+							.join(",");
 					}
 				}
 			} catch {

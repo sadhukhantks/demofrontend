@@ -261,7 +261,7 @@ function CostSheetEditorPage() {
     },
     { material: 0, conversion: 0, overhead: 0 }
   );
-  const totalCost = summaryTotals.material + summaryTotals.conversion + summaryTotals.overhead;
+  const totalCost = summaryTotals.material + summaryTotals.conversion;
 
   if (loading) {
     return (
