@@ -102,6 +102,7 @@ export type EnquiryPermissions = {
 };
 
 export type EnquiryDetail = EnquiryListRow & {
+	status_name?: string | null;
 	contact_person?: string | null;
 	contact_detail?: string | null;
 	enquiry_desc?: string | null;
