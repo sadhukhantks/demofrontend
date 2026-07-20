@@ -58,7 +58,7 @@ export type JuteItemRecord = {
 };
 
 export type JuteQualityRecord = {
-  quality_id: number;
+  item_id: number; // item_mst.item_id — quality IS an item; quality_id naming retired
   quality_name: string;
   item_grp_id: number;
 };

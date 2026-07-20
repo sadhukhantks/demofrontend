@@ -43,7 +43,7 @@ export type JuteItemRecord = {
 };
 
 export type JuteQualityRecord = {
-	quality_id: number;
+	item_id: number; // item_mst.item_id — quality IS an item; quality_id naming retired
 	quality_name: string;
 	item_grp_id: number;
 };
@@ -202,6 +202,7 @@ export type GateEntryLineItemAPI = {
 	allowable_moisture: number | null;
 	unit_conversion: string | null;  // Backend returns unit_conversion (not jute_uom)
 	remarks: string | null;
+	moisture_readings?: { moisture_percentage: number }[] | null;  // Persisted QC readings from jute_moisture_rdg
 };
 
 // =============================================================================

@@ -121,6 +121,16 @@ function JuteGateEntryCreatePageContent() {
 		formRef,
 	} = useGateEntryFormState({ mode });
 
+	// MuiForm echoes back only schema-defined fields; merge into prev so non-schema keys
+	// (entryTime, vehicleType, outDate, outTime) are not wiped from formValues.
+	// Must be a stable callback: MuiForm's onValuesChange effect re-fires on identity change.
+	const handleHeaderValuesChange = React.useCallback(
+		(values: GateEntryFormValues) => {
+			setFormValues((prev) => ({ ...prev, ...values }));
+		},
+		[setFormValues]
+	);
+
 	// PO options - filtered by selected branch only (must be after formValues is available)
 	const poOptions = React.useMemo(() => {
 		if (!setupData) return [];
@@ -166,7 +176,7 @@ function JuteGateEntryCreatePageContent() {
 		getQualityOptions: (itemId) =>
 			(qualitiesByItem[itemId] ?? []).map((q) => ({
 				label: q.quality_name,
-				value: String(q.quality_id),
+				value: String(q.item_id),
 			})),
 	});
 
@@ -180,7 +190,7 @@ function JuteGateEntryCreatePageContent() {
 	const getQualityLabel = React.useCallback(
 		(qualityId: string) => {
 			for (const qualities of Object.values(qualitiesByItem)) {
-				const found = qualities.find((q) => String(q.quality_id) === qualityId);
+				const found = qualities.find((q) => String(q.item_id) === qualityId);
 				if (found) return found.quality_name;
 			}
 			return qualityId;
@@ -376,9 +386,9 @@ function JuteGateEntryCreatePageContent() {
 				setQualitiesByItem((prev) => ({
 					...prev,
 					[itemId]: qualityList.map((q) => ({
-						quality_id: Number(q.quality_id),
+						item_id: Number(q.item_id),
 						quality_name: String(q.quality_name ?? ""),
-						item_grp_id: Number(q.item_grp_id ?? q.item_id),
+						item_grp_id: Number(q.item_grp_id),
 					})),
 				}));
 			} catch (err) {
@@ -996,7 +1006,7 @@ function JuteGateEntryCreatePageContent() {
 					mode={mode}
 					formRef={formRef}
 					onSubmit={handleFormSubmit}
-					onValuesChange={setFormValues}
+					onValuesChange={handleHeaderValuesChange}
 				/>
 			)}
 
