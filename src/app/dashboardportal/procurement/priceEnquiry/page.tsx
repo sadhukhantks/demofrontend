@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Alert, Chip, Typography, Button } from "@mui/material";
 import type { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
-import { fetchEnquiryTable } from "@/utils/enquiryService";
+import { fetchEnquiryTable } from "@/utils/priceEnquiryService";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { useRouter } from "next/navigation";
 import { useMenuId } from "@/hooks/useMenuId";

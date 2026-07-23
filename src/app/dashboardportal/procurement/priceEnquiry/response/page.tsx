@@ -21,7 +21,7 @@ import {
 	getResponseById,
 	addEnquiryResponse,
 	updateEnquiryResponse,
-} from "@/utils/enquiryService";
+} from "@/utils/priceEnquiryService";
 import type {
 	EnquiryDetails,
 	EnquiryDetailItem,

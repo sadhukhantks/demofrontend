@@ -26,7 +26,7 @@ import {
   type PODetails,
 } from "@/utils/poService";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
-import { getPOPrefillData } from "@/utils/enquiryService";
+import { getPOPrefillData } from "@/utils/priceEnquiryService";
 import { toast } from "@/hooks/use-toast";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { useMenuId } from "@/hooks/useMenuId";

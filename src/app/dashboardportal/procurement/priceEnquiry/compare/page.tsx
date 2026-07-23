@@ -22,7 +22,7 @@ import {
 	getEnquiryById,
 	getResponsesForComparison,
 	selectEnquiryResponse,
-} from "@/utils/enquiryService";
+} from "@/utils/priceEnquiryService";
 import { toast } from "@/hooks/use-toast";
 import type {
 	EnquiryDetails,

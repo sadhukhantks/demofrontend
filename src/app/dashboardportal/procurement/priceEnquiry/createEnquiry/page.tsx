@@ -40,7 +40,7 @@ import {
 	cancelEnquiry,
 	reopenEnquiry,
 	markRfqSent,
-} from "@/utils/enquiryService";
+} from "@/utils/priceEnquiryService";
 import type {
 	EnquiryLineItem,
 	EnquirySupplierEntry,
