@@ -1253,7 +1253,10 @@ function InvoiceTransactionPageContent() {
 	const previewItems = React.useMemo(() => {
 		const isGovtSkg = isGovtSkgInvoice(String(formValues.invoice_type ?? ""));
 		return filledLineItems.map((line, index) => {
-			const uomLabel = getUomLabel(line.itemGroup, line.item, line.uom);
+			// Prefer the backend-resolved unit name; getUomLabel falls back to the raw
+			// uom id when the item-group UOM cache isn't loaded (e.g. view mode).
+			const cachedUomLabel = getUomLabel(line.itemGroup, line.item, line.uom);
+			const uomLabel = line.uomName || (cachedUomLabel !== line.uom ? cachedUomLabel : "");
 			const discountType = (() => {
 				if (line.discountType === 1) return "%";
 				if (line.discountType === 2) return "Amt";
@@ -1458,11 +1461,16 @@ function InvoiceTransactionPageContent() {
 	const activeInvoiceTypeId = String(formValues.invoice_type ?? invoiceDetails?.invoiceType ?? "");
 	const isFreightType = isGovtSkgFreightInvoice(activeInvoiceTypeId);
 	if (isFreightType && coId && branchValue) {
-		const freightMode: "create" | "view" = mode === "view" ? "view" : "create";
+		const freightMode: "create" | "view" | "edit" =
+			mode === "view" ? "view" : mode === "edit" ? "edit" : "create";
+		const freightSubtitle =
+			freightMode === "view" ? "Govt Sacking Freight invoice details"
+				: freightMode === "edit" ? "Edit Govt Sacking Freight invoice"
+					: "Create a new Govt Sacking Freight invoice";
 		return (
 			<TransactionWrapper
 				title={pageTitle}
-				subtitle={freightMode === "view" ? "Govt Sacking Freight invoice details" : "Create a new Govt Sacking Freight invoice"}
+				subtitle={freightSubtitle}
 				metadata={metadata}
 				statusChip={statusChipProps}
 				backAction={{ onClick: () => router.push("/dashboardportal/sales/salesInvoice") }}
@@ -1476,6 +1484,9 @@ function InvoiceTransactionPageContent() {
 					existingInvoice={invoiceDetails ?? undefined}
 					menuId={menuIdFromUrl}
 					setupData={setupData ?? null}
+					requestedId={requestedId}
+					setInvoiceDetails={setInvoiceDetails}
+					getMenuId={getMenuId}
 				/>
 			</TransactionWrapper>
 		);

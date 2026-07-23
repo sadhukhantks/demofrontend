@@ -125,12 +125,12 @@ export const mapJuteQualityRecords = (records: unknown[]): JuteQualityRecord[] =
   (records || [])
     .map((row) => {
       const data = row as Record<string, unknown>;
-      const id = data?.quality_id ?? data?.jute_qlty_id;
+      const id = data?.item_id;
       if (!id) return null;
       return {
-        quality_id: Number(id),
+        item_id: Number(id),
         quality_name: String(data?.quality_name ?? data?.jute_quality ?? id),
-        item_grp_id: Number(data?.item_grp_id ?? data?.item_id ?? 0),
+        item_grp_id: Number(data?.item_grp_id ?? 0),
       } satisfies JuteQualityRecord;
     })
     .filter(Boolean) as JuteQualityRecord[];
@@ -179,7 +179,7 @@ export const buildJuteItemOptions = (items: JuteItemRecord[]): Option[] =>
   items.map((i) => ({ label: i.item_desc, value: String(i.item_id) }));
 
 export const buildQualityOptions = (qualities: JuteQualityRecord[]): Option[] =>
-  qualities.map((q) => ({ label: q.quality_name, value: String(q.quality_id) }));
+  qualities.map((q) => ({ label: q.quality_name, value: String(q.item_id) }));
 
 // =============================================================================
 // LABEL MAP BUILDERS
@@ -255,7 +255,7 @@ export const mapLineItemDetailsToLineItem = (
         calcParams.vehicleCapacity,
         calcParams.vehicleQty,
       );
-      derivedQty = calculateQuantityFromWeight(weight, calcParams.juteUnit);
+      derivedQty = Math.round(calculateQuantityFromWeight(weight, calcParams.juteUnit));
     } else {
       weight = calculateWeight(
         quantity,
@@ -276,7 +276,7 @@ export const mapLineItemDetailsToLineItem = (
     marka: details.marka || "",
     percentage: hasPercentage ? formatNumber(percentageValue, 2) : "",
     quantity: hasPercentage
-      ? derivedQty > 0 ? formatNumber(derivedQty, 2) : ""
+      ? derivedQty > 0 ? formatNumber(derivedQty, 0) : ""
       : String(quantity),
     uom: details.uom || "",
     rate: String(rate),
@@ -317,7 +317,7 @@ const buildLineItemPayloads = (
         item_id: li.quality ? Number(li.quality) : null,
         crop_year: li.cropYear || null,
         marka: li.marka || null,
-        quantity: Number(li.quantity),
+        quantity: Math.round(Number(li.quantity)),
         rate: Number(li.rate),
         allowable_moisture: li.allowableMoisture
           ? Number(li.allowableMoisture)

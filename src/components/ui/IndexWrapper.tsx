@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, TextField, Tooltip, IconButton, Typography, Stack } from "@mui/material";
-import { GridColDef, GridPaginationModel, GridRenderCellParams, GridValidRowModel } from "@mui/x-data-grid";
+import { GridColDef, GridFilterModel, GridPaginationModel, GridRenderCellParams, GridValidRowModel } from "@mui/x-data-grid";
 import { usePathname } from "next/navigation";
 import { Eye, Edit } from "lucide-react";
 import MuiDataGrid from "./muiDataGrid";
@@ -32,10 +32,12 @@ type CommonGridProps<RowType extends GridValidRowModel> = {
   onPaginationModelChange: (model: GridPaginationModel) => void;
   loading?: boolean;
   showLoadingUntilLoaded?: boolean;
+  /** Grow the grid to fit all rows so the page scrolls instead of the grid. */
+  autoHeight?: boolean;
 };
 
 type IndexWrapperProps<RowType extends GridValidRowModel & { id?: string | number }> = CommonGridProps<RowType> & {
-  title: string;
+  title?: string;
   subtitle?: string;
   search?: IndexWrapperSearchConfig;
   createAction?: CreateActionConfig;
@@ -52,6 +54,10 @@ type IndexWrapperProps<RowType extends GridValidRowModel & { id?: string | numbe
   contentClassName?: string;
   /** Show MUI DataGrid toolbar with filters, column selector, density, and export */
   showToolbar?: boolean;
+  /** Server-side filtering support */
+  filterMode?: "client" | "server";
+  filterModel?: GridFilterModel;
+  onFilterModelChange?: (model: GridFilterModel) => void;
 };
 
 function IndexWrapper<RowType extends GridValidRowModel & { id?: string | number }>({
@@ -64,6 +70,7 @@ function IndexWrapper<RowType extends GridValidRowModel & { id?: string | number
   onPaginationModelChange,
   loading = false,
   showLoadingUntilLoaded = false,
+  autoHeight = true,
   search,
   createAction,
   onView,
@@ -74,6 +81,9 @@ function IndexWrapper<RowType extends GridValidRowModel & { id?: string | number
   className,
   contentClassName,
   showToolbar = false,
+  filterMode,
+  filterModel,
+  onFilterModelChange,
 }: IndexWrapperProps<RowType>) {
   const sidebarContext = useSidebarContextSafe();
   const hasMenuAccess = sidebarContext?.hasMenuAccess ?? (() => true);
@@ -218,16 +228,20 @@ function IndexWrapper<RowType extends GridValidRowModel & { id?: string | number
   return (
     <div className={`min-h-screen bg-gray-50 p-8 ${className ?? ""}`}>
       <div className={`mx-auto ${contentClassName ?? "max-w-7xl"}`}>
-        <div className="mb-6 flex flex-col gap-2">
-          <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
-            {title}
-          </Typography>
-          {subtitle ? (
-            <Typography variant="body2" color="text.secondary">
-              {subtitle}
-            </Typography>
-          ) : null}
-        </div>
+        {(title || subtitle) ? (
+          <div className="mb-6 flex flex-col gap-2">
+            {title ? (
+              <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
+                {title}
+              </Typography>
+            ) : null}
+            {subtitle ? (
+              <Typography variant="body2" color="text.secondary">
+                {subtitle}
+              </Typography>
+            ) : null}
+          </div>
+        ) : null}
 
         {(search || createAllowed || toolbarContent) && (
           <Box className="mb-6 flex flex-col-reverse gap-3 md:flex-row md:items-center md:justify-between">
@@ -259,7 +273,11 @@ function IndexWrapper<RowType extends GridValidRowModel & { id?: string | number
           paginationMode="server"
           loading={loading}
           showLoadingUntilLoaded={showLoadingUntilLoaded}
+          autoHeight={autoHeight}
           showToolbar={showToolbar}
+          filterMode={filterMode}
+          filterModel={filterModel}
+          onFilterModelChange={onFilterModelChange}
         />
 
         {children}

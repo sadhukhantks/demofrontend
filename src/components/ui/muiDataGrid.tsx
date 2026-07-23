@@ -5,6 +5,7 @@ import {
   GridRowsProp,
   GridFilterModel,
   GridSortModel,
+  GridRowClassNameParams,
 } from '@mui/x-data-grid';
 import { Box } from '@mui/material';
 import React, { useState, useEffect } from 'react';
@@ -20,6 +21,8 @@ interface MuiDataGridProps {
   paginationMode?: 'client' | 'server';
   disableRowSelectionOnClick?: boolean;
   showLoadingUntilLoaded?: boolean;
+  /** Grow the grid to fit all rows so the page scrolls instead of the grid. */
+  autoHeight?: boolean;
   // Toolbar and filtering props
   showToolbar?: boolean;
   filterMode?: 'client' | 'server';
@@ -33,6 +36,9 @@ interface MuiDataGridProps {
   disableColumnSelector?: boolean;
   disableDensitySelector?: boolean;
   disableExport?: boolean;
+  // Optional per-row class hook (e.g. to style a pinned grand-total row).
+  // Return "row-grand-total" to apply the built-in bold/highlight styling.
+  getRowClassName?: (params: GridRowClassNameParams) => string;
 }
 
 const MuiDataGrid: React.FC<MuiDataGridProps> = ({
@@ -46,6 +52,7 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
   paginationMode = 'server',
   disableRowSelectionOnClick = true,
   showLoadingUntilLoaded = false,
+  autoHeight = true,
   // Toolbar and filtering props
   showToolbar = false,
   filterMode = 'client',
@@ -59,6 +66,7 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
   disableColumnSelector = false,
   disableDensitySelector = false,
   disableExport = false,
+  getRowClassName,
 }) => {
   // Ensure component is mounted before rendering DataGrid to avoid
   // "Can't perform a React state update on a component that hasn't mounted yet"
@@ -72,9 +80,10 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
   // The placeholder must be identical on server and client for initial render
   if (!isMounted) {
     return (
-      <Box 
-        sx={{ 
-          height: 500, 
+      <Box
+        sx={{
+          height: autoHeight ? 'auto' : 500,
+          minHeight: autoHeight ? 200 : undefined,
           width: '100%',
           display: 'flex',
           alignItems: 'center',
@@ -87,7 +96,7 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
 
   return (
     <Box sx={{
-      height: 500,
+      height: autoHeight ? 'auto' : 500,
       width: '100%',
       '& .MuiDataGrid-root': {
         border: 'none',
@@ -101,13 +110,17 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
       <DataGrid
         rows={rows}
         columns={columns}
+        autoHeight={autoHeight}
         getRowId={(row) => row.id ?? row.co_id}
         loading={showLoadingUntilLoaded ? loading : false}
         paginationMode={paginationMode}
         paginationModel={paginationModel}
         onPaginationModelChange={onPaginationModelChange}
         pageSizeOptions={pageSizeOptions}
-        rowCount={rowCount}
+        // `rowCount` only has meaning for server-side pagination; passing it in
+        // client mode triggers a MUI X warning (the grid derives the count from
+        // `rows` itself).
+        {...(paginationMode === 'server' ? { rowCount } : {})}
         disableRowSelectionOnClick={disableRowSelectionOnClick}
         pagination
         // Use the new showToolbar prop instead of deprecated GridToolbar
@@ -124,6 +137,7 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
         disableColumnFilter={disableColumnFilter}
         disableColumnSelector={disableColumnSelector}
         disableDensitySelector={disableDensitySelector}
+        getRowClassName={getRowClassName}
         sx={{
           '& .MuiDataGrid-columnHeader': {
             backgroundColor: '#3ea6da',
@@ -136,6 +150,14 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
           '& .MuiDataGrid-toolbarContainer': {
             padding: '8px 16px',
             gap: '8px',
+          },
+          // Pinned grand-total row (opt-in via getRowClassName).
+          '& .row-grand-total': {
+            backgroundColor: '#eef6fb',
+            fontWeight: 'bold',
+          },
+          '& .row-grand-total:hover': {
+            backgroundColor: '#e0eff7',
           },
         }}
       />

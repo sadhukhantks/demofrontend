@@ -26,7 +26,6 @@ type Props = {
 	onClose: () => void;
 	onSaved?: () => void;
 	editId?: number | string;
-	initialMode?: MuiFormMode;
 };
 
 export default function CreateCategoryPage({
@@ -34,11 +33,10 @@ export default function CreateCategoryPage({
 	onClose,
 	onSaved,
 	editId,
-	initialMode = "create",
 }: Props) {
 	const [loadingSetup, setLoadingSetup] = useState(false);
 	const [saving, setSaving] = useState(false);
-	const [mode, setMode] = useState<MuiFormMode>(initialMode);
+	const [mode, setMode] = useState<MuiFormMode>("create");
 	const [snackbar, setSnackbar] = useState<{
 		open: boolean;
 		message: string;
@@ -114,7 +112,7 @@ export default function CreateCategoryPage({
 	useEffect(() => {
 		if (open) {
 			if (editId !== undefined) {
-				setMode(initialMode === "create" ? "edit" : initialMode);
+				setMode("edit");
 			} else {
 				setMode("create");
 			}
@@ -123,15 +121,13 @@ export default function CreateCategoryPage({
 			setInitialValues({});
 			setFormKey(0);
 		}
-	}, [open, editId, initialMode, loadSetup]);
+	}, [open, editId, loadSetup]);
 
 	const schema = useMemo<Schema>(
 		() => ({
 			title:
 				editId !== undefined
-					? mode === "view"
-						? "View Category"
-						: "Edit Category"
+					? "Edit Category"
 					: "Create Category",
 			fields: [
 				{
@@ -139,7 +135,6 @@ export default function CreateCategoryPage({
 					label: "Category Code",
 					type: "text",
 					required: true,
-					disabled: mode === "view",
 					grid: { xs: 12, sm: 6 },
 				},
 				{
@@ -147,20 +142,18 @@ export default function CreateCategoryPage({
 					label: "Category Name",
 					type: "text",
 					required: true,
-					disabled: mode === "view",
 					grid: { xs: 12, sm: 6 },
 				},
 				{
 					name: "branch_id",
 					label: "Branch",
 					type: "select",
-					disabled: mode === "view",
 					options: branchOptions,
 					grid: { xs: 12, sm: 6 },
 				},
 			],
 		}),
-		[editId, mode, branchOptions]
+		[editId, branchOptions]
 	);
 
 	const handleSubmit = async (values: Record<string, unknown>) => {
@@ -205,16 +198,12 @@ export default function CreateCategoryPage({
 		}
 	};
 
-	const handleModeChange = (newMode: MuiFormMode) => {
-		setMode(newMode);
-	};
-
 	const dialogTitle = useMemo(() => {
 		if (editId !== undefined) {
-			return mode === "view" ? "View Category" : "Edit Category";
+			return "Edit Category";
 		}
 		return "Create Category";
-	}, [editId, mode]);
+	}, [editId]);
 
 	return (
 		<>
@@ -261,11 +250,10 @@ export default function CreateCategoryPage({
 								mode={mode}
 								initialValues={initialValues}
 								onSubmit={handleSubmit}
-								onModeChange={handleModeChange}
 								submitLabel={saving ? "Saving..." : "Save"}
 								cancelLabel="Cancel"
 								onCancel={onClose}
-								hideModeToggle={mode === "create"}
+								hideModeToggle
 							/>
 						</Box>
 					)}

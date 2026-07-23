@@ -33,6 +33,8 @@ const apiRoutes ={
     PORTAL_USER_CREATE_FULL: `${API_URL}/admin/PortalData/get_user_create_setup_data`,
     CREATE_PORTAL_USER: `${API_URL}/admin/PortalData/create_user_portal`,
     EDIT_PORTAL_USER: `${API_URL}/admin/PortalData/edit_user_portal`,
+    RESET_PORTAL_USER_PASSWORD: `${API_URL}/admin/PortalData/reset_user_password`,
+    CHANGE_PASSWORD: `${API_URL}/authRoutes/change-password`,
     PORTAL_USER_EDIT_BY_USERID: `${API_URL}/admin/PortalData/get_user_edit_setup_data`,
     PORTAL_CO_BRANCH_SUBMENU: `${API_URL}/admin/PortalData/co_branch_submenu`,
     PORTAL_APPROVAL_LEVELS_DATA: `${API_URL}/admin/PortalData/approval_level_data_setup`,
@@ -40,6 +42,7 @@ const apiRoutes ={
     PORTAL_MENU_ITEMS: `${API_URL}/admin/PortalData/portal_menu_items`,
     PORTAL_MENU_PERMISSIONS: `${API_URL}/admin/PortalData/portal_menu_permissions`,
     PORTAL_MENU_PERMISSION_CHECK: `${API_URL}/admin/PortalData/portal_menu_permissions/check`,
+    REPORT_MENU_TREE: `${API_URL}/admin/PortalData/report_menu_tree`,
 
 
     ROLES_CONSOLE_CONSOLE: `${API_URL}/consoleAdmin/roles_console_admin`,
@@ -129,6 +132,8 @@ const apiRoutesPortalMasters = {
     GET_ITEM_TABLE: `${API_URL}/itemMaster/get_item_table`,
     ITEM_CREATE_SETUP: `${API_URL}/itemMaster/item_create_setup`,
     ITEM_CREATE: `${API_URL}/itemMaster/item_create`,
+    ITEM_BULK_VALIDATE: `${API_URL}/itemMaster/item_bulk_validate`,
+    ITEM_BULK_CREATE: `${API_URL}/itemMaster/item_bulk_create`,
     ITEM_EDIT_SETUP: `${API_URL}/itemMaster/item_edit_setup`,
     ITEM_EDIT: `${API_URL}/itemMaster/item_edit`,
     ITEM_VIEW: `${API_URL}/itemMaster/item_view`,
@@ -144,8 +149,11 @@ const apiRoutesPortalMasters = {
     BOM_PARENTS: `${API_URL}/itemBomMaster/get_bom_parents`,
     BOM_CREATE_SETUP: `${API_URL}/itemBomMaster/bom_create_setup`,
     BOM_ADD_COMPONENT: `${API_URL}/itemBomMaster/bom_add_component`,
+    BOM_ADD_COMPONENTS_BULK: `${API_URL}/itemBomMaster/bom_add_components_bulk`,
     BOM_EDIT_COMPONENT: `${API_URL}/itemBomMaster/bom_edit_component`,
     BOM_REMOVE_COMPONENT: `${API_URL}/itemBomMaster/bom_remove_component`,
+    BOM_REORDER_SIBLINGS: `${API_URL}/itemBomMaster/bom_reorder_siblings`,
+    BOM_UPDATE_STATUS: `${API_URL}/itemBomMaster/bom_update_status`,
 
     // BOM Costing endpoints
     BOM_COSTING_LIST: `${API_URL}/bomCosting/bom_costing_list`,
@@ -198,7 +206,8 @@ const apiRoutesPortalMasters = {
     MECHINE_MASTER_CREATE : `${API_URL}/mechMaster/mechine_master_create`,
     MECHINE_MASTER_EDIT_SETUP : `${API_URL}/mechMaster/mechine_master_edit_setup`,
     MECHINE_MASTER_EDIT : `${API_URL}/mechMaster/mechine_master_edit`,
-    MECHINE_MASTER_VIEW : `${API_URL}/mechMaster/mechine_master_view`
+    MECHINE_MASTER_VIEW : `${API_URL}/mechMaster/mechine_master_view`,
+    MECHINE_MASTER_BY_ID : `${API_URL}/mechMaster/mechine_master_by_id`
     ,
     PROJECT_MASTER_TABLE: `${API_URL}/projectMaster/project_master_table`,
     PROJECT_MASTER_CREATE_SETUP: `${API_URL}/projectMaster/project_master_create_setup`,
@@ -255,20 +264,6 @@ const apiRoutesPortalMasters = {
     JUTE_AGENT_MAP_CREATE: `${API_URL}/juteAgentMap/jute_agent_map_create`,
     JUTE_AGENT_MAP_DELETE: `${API_URL}/juteAgentMap/jute_agent_map_delete`,
 
-    // Yarn Quality Master endpoints
-    YARN_QUALITY_TABLE: `${API_URL}/yarnQualityMaster/yarn_quality_table`,
-    YARN_QUALITY_CREATE_SETUP: `${API_URL}/yarnQualityMaster/yarn_quality_create_setup`,
-    YARN_QUALITY_EDIT_SETUP: `${API_URL}/yarnQualityMaster/yarn_quality_edit_setup`,
-    YARN_QUALITY_CREATE: `${API_URL}/yarnQualityMaster/yarn_quality_create`,
-    YARN_QUALITY_EDIT: `${API_URL}/yarnQualityMaster/yarn_quality_edit`,
-
-    // Machine SPG Details Master endpoints
-    MACHINE_SPG_DETAILS_TABLE: `${API_URL}/machineSpgDetailsMaster/machine_spg_details_table`,
-    MACHINE_SPG_DETAILS_CREATE_SETUP: `${API_URL}/machineSpgDetailsMaster/machine_spg_details_create_setup`,
-    MACHINE_SPG_DETAILS_MACHINES_BY_BRANCH: `${API_URL}/machineSpgDetailsMaster/get_machines_by_branch`,
-    MACHINE_SPG_DETAILS_EDIT_SETUP: `${API_URL}/machineSpgDetailsMaster/machine_spg_details_edit_setup`,
-    MACHINE_SPG_DETAILS_CREATE: `${API_URL}/machineSpgDetailsMaster/machine_spg_details_create`,
-    MACHINE_SPG_DETAILS_EDIT: `${API_URL}/machineSpgDetailsMaster/machine_spg_details_edit`,
     // Yarn Type Master endpoints
     YARN_TYPE_TABLE: `${API_URL}/yarnTypeMaster/get_yarn_type_table`,
     YARN_TYPE_BY_ID: `${API_URL}/yarnTypeMaster/get_yarn_type_by_id`,
@@ -308,6 +303,7 @@ const apiRoutesPortalMasters = {
     JUTE_PO_REJECT: `${API_URL}/jutePO/reject_jute_po`,
     JUTE_PO_CANCEL_DRAFT: `${API_URL}/jutePO/cancel_draft_jute_po`,
     JUTE_PO_REOPEN: `${API_URL}/jutePO/reopen_jute_po`,
+    JUTE_PO_DOWNLOAD: `${API_URL}/jutePO/download_po_table`,
 
     // Jute Gate Entry endpoints
     JUTE_GATE_ENTRY_TABLE: `${API_URL}/juteGateEntry/get_jute_gate_entry_table`,
@@ -318,6 +314,7 @@ const apiRoutesPortalMasters = {
     JUTE_GATE_ENTRY_PARTIES_BY_SUPPLIER: `${API_URL}/juteGateEntry/get_parties_by_supplier`,
     JUTE_GATE_ENTRY_QUALITIES_BY_ITEM: `${API_URL}/juteGateEntry/get_qualities_by_item`,
     JUTE_GATE_ENTRY_PO_DETAILS: `${API_URL}/juteGateEntry/get_po_details`,
+    JUTE_GATE_ENTRY_DOWNLOAD: `${API_URL}/juteGateEntry/download_gate_entry_table`,
 
     // Jute Material Inspection endpoints
     JUTE_MATERIAL_INSPECTION_TABLE: `${API_URL}/juteMaterialInspection/get_inspection_table`,
@@ -327,6 +324,7 @@ const apiRoutesPortalMasters = {
     JUTE_MATERIAL_INSPECTION_COMPLETE: `${API_URL}/juteMaterialInspection/complete_inspection`,
     JUTE_MATERIAL_INSPECTION_MR_LINE: `${API_URL}/juteMaterialInspection/get_mr_line_item`,
     JUTE_MATERIAL_INSPECTION_SAVE_MOISTURE: `${API_URL}/juteMaterialInspection/save_moisture_readings`,
+    JUTE_MATERIAL_INSPECTION_DOWNLOAD: `${API_URL}/juteMaterialInspection/download_inspection_table`,
 
     // Jute MR endpoints
     JUTE_MR_TABLE: `${API_URL}/juteMR/get_mr_table`,
@@ -340,6 +338,7 @@ const apiRoutesPortalMasters = {
     JUTE_MR_APPROVE: `${API_URL}/juteMR/approve_mr`,
     JUTE_MR_REJECT: `${API_URL}/juteMR/reject_mr`,
     JUTE_MR_CANCEL: `${API_URL}/juteMR/cancel_mr`,
+    JUTE_MR_DOWNLOAD: `${API_URL}/juteMR/download_mr_table`,
     JUTE_MATERIAL_INSPECTION_UPDATE_LINE: `${API_URL}/juteMaterialInspection/update_line_item`,
 
     // Jute Bill Pass endpoints
@@ -347,6 +346,13 @@ const apiRoutesPortalMasters = {
     JUTE_BILL_PASS_BY_ID: `${API_URL}/juteBillPass/get_bill_pass_by_id`,
     JUTE_BILL_PASS_LINE_ITEMS: `${API_URL}/juteBillPass/get_bill_pass_line_items`,
     JUTE_BILL_PASS_UPDATE: `${API_URL}/juteBillPass/update_bill_pass`,
+    JUTE_BILL_PASS_DOWNLOAD: `${API_URL}/juteBillPass/download_bill_pass_list`,
+
+    // Generic File Attachment endpoints (S3-backed)
+    ATTACHMENT_UPLOAD:   `${API_URL}/attachments/upload`,
+    ATTACHMENT_LIST:     `${API_URL}/attachments/`,
+    ATTACHMENT_DOWNLOAD: `${API_URL}/attachments`,   // append `/${id}/download` at call site
+    ATTACHMENT_DELETE:   `${API_URL}/attachments`,   // append `/${id}` at call site
 
     // Jute Issue endpoints
     JUTE_ISSUE_TABLE: `${API_URL}/juteIssue/get_issue_table`,
@@ -361,6 +367,7 @@ const apiRoutesPortalMasters = {
     JUTE_ISSUE_OPEN: `${API_URL}/juteIssue/open_issues`,
     JUTE_ISSUE_APPROVE: `${API_URL}/juteIssue/approve_issues`,
     JUTE_ISSUE_REJECT: `${API_URL}/juteIssue/reject_issues`,
+    JUTE_ISSUE_DOWNLOAD: `${API_URL}/juteIssue/download_issue_table`,
 
     // Batch Daily Assign
     BATCH_DAILY_ASSIGN_TABLE: `${API_URL}/batchDailyAssign/get_assign_table`,
@@ -372,10 +379,28 @@ const apiRoutesPortalMasters = {
     BATCH_DAILY_ASSIGN_OPEN: `${API_URL}/batchDailyAssign/open_assigns`,
     BATCH_DAILY_ASSIGN_APPROVE: `${API_URL}/batchDailyAssign/approve_assigns`,
     BATCH_DAILY_ASSIGN_REJECT: `${API_URL}/batchDailyAssign/reject_assigns`,
+    BATCH_DAILY_ASSIGN_DOWNLOAD: `${API_URL}/batchDailyAssign/download_assign_table`,
 
     // Jute Reports
     JUTE_REPORT_STOCK: `${API_URL}/juteReports/stock`,
+    JUTE_REPORT_QTY_WISE: `${API_URL}/juteReports/qty-wise`,
+    JUTE_REPORT_TXN_SUMMARY: `${API_URL}/juteReports/txn-summary`,
+    JUTE_REPORT_PERIOD_WISE: `${API_URL}/juteReports/period-wise`,
+    JUTE_REPORT_WITH_VALUE: `${API_URL}/juteReports/with-value`,
+    JUTE_REPORT_PERCENT_CLAIMS: `${API_URL}/juteReports/percent-claims`,
+    JUTE_REPORT_MUKHAM_MOISTURE: `${API_URL}/juteReports/mukham-moisture`,
+    JUTE_REPORT_MR_IN_STOCK: `${API_URL}/juteReports/mr-in-stock`,
+    JUTE_REPORT_MR_WISE: `${API_URL}/juteReports/mr-wise`,
+    JUTE_REPORT_GODOWN_WISE: `${API_URL}/juteReports/godown-wise`,
     JUTE_REPORT_BATCH_COST: `${API_URL}/juteReports/batch-cost`,
+    JUTE_REPORT_MR_LIST: `${API_URL}/juteReports/mr-list`,
+    JUTE_REPORT_TALLY_DOWNLOAD: `${API_URL}/juteReports/tally-download`,
+    SALES_REPORT_JUTE_TALLY_DOWNLOAD: `${API_URL}/salesReports/jute-tally-download`,
+    SALES_REPORT_JUTE_MR_SUMMARY: `${API_URL}/salesReports/jute-mr-summary`,
+    SALES_REPORT_SALES_ORDER_LIST: `${API_URL}/salesReports/sales-order-list`,
+    SALES_REPORT_SALES_ORDER_LIST_DOWNLOAD: `${API_URL}/salesReports/sales-order-list-download`,
+    SALES_REPORT_INVOICE_LIST: `${API_URL}/salesReports/invoice-list`,
+    SALES_REPORT_INVOICE_LIST_DOWNLOAD: `${API_URL}/salesReports/invoice-list-download`,
 
     // Jute SQC - Morrah Weight QC
     MORRAH_WT_TABLE: `${API_URL}/juteSQC/get_morrah_wt_table`,
@@ -476,6 +501,17 @@ const apiRoutesPortalMasters = {
     BILL_PASS_GET_BY_ID: `${API_URL}/billPass/get_bill_pass_by_id`,
     BILL_PASS_UPDATE: `${API_URL}/billPass/update_bill_pass`,
 
+    // Procurement reports hub
+    INDENT_ITEMWISE_REPORT: `${API_URL}/procurementReports/indent-itemwise`,
+    INDENT_ITEMWISE_DOWNLOAD: `${API_URL}/procurementReports/indent-itemwise/download`,
+    PO_ITEMWISE_REPORT: `${API_URL}/procurementReports/po-itemwise`,
+    PO_ITEMWISE_DOWNLOAD: `${API_URL}/procurementReports/po-itemwise/download`,
+    SR_ITEMWISE_REPORT: `${API_URL}/procurementReports/sr-itemwise`,
+    SR_ITEMWISE_DOWNLOAD: `${API_URL}/procurementReports/sr-itemwise/download`,
+    BILL_PASS_DOWNLOAD: `${API_URL}/billPass/download_bill_pass_list`,
+    PO_TABLE_DOWNLOAD: `${API_URL}/procurementPO/download_po_table`,
+    INDENT_TABLE_DOWNLOAD: `${API_URL}/procurementIndent/download_indent_table`,
+
     // Inventory Issue endpoints
     ISSUE_TABLE: `${API_URL}/inventoryIssue/get_issue_table`,
     ISSUE_GET_BY_ID: `${API_URL}/inventoryIssue/get_issue_by_id`,
@@ -487,6 +523,43 @@ const apiRoutesPortalMasters = {
     ISSUE_INVENTORY_LIST: `${API_URL}/inventoryIssue/get_inventory_list`,
     ISSUE_COST_FACTORS: `${API_URL}/inventoryIssue/get_cost_factors`,
     ISSUE_MACHINES: `${API_URL}/inventoryIssue/get_machines`,
+
+    // Inventory Report endpoints
+    INVENTORY_STOCK_REPORT: `${API_URL}/inventoryReports/inventory-stock`,
+    ISSUE_ITEMWISE_REPORT: `${API_URL}/inventoryReports/issue-itemwise`,
+    ITEM_LEDGER_REPORT: `${API_URL}/inventoryReports/item-ledger`,
+    INVENTORY_MINMAX_REPORT: `${API_URL}/inventoryReports/inventory-minmax`,
+    ITEM_MONTHWISE_REPORT: `${API_URL}/inventoryReports/item-monthwise`,
+    ISSUE_CONSUMPTION_REPORT: `${API_URL}/inventoryReports/issue-consumption`,
+    ISSUE_MACHINEWISE_REPORT: `${API_URL}/inventoryReports/issue-machinewise`,
+
+    // Sales Enquiry endpoints (AMCL enquiry flow Phase 1)
+    SALES_ENQUIRY_TABLE: `${API_URL}/salesEnquiry/get_enquiry_table`,
+    SALES_ENQUIRY_BOARD: `${API_URL}/salesEnquiry/get_enquiry_board`,
+    SALES_ENQUIRY_SETUP: `${API_URL}/salesEnquiry/get_enquiry_setup`,
+    SALES_ENQUIRY_BY_ID: `${API_URL}/salesEnquiry/get_enquiry_by_id`,
+    SALES_ENQUIRY_CREATE: `${API_URL}/salesEnquiry/create_enquiry`,
+    SALES_ENQUIRY_UPDATE: `${API_URL}/salesEnquiry/update_enquiry`,
+    SALES_ENQUIRY_OPEN: `${API_URL}/salesEnquiry/open_enquiry`,
+    SALES_ENQUIRY_CANCEL_DRAFT: `${API_URL}/salesEnquiry/cancel_draft_enquiry`,
+    SALES_ENQUIRY_SEND_FOR_APPROVAL: `${API_URL}/salesEnquiry/send_enquiry_for_approval`,
+    SALES_ENQUIRY_APPROVE: `${API_URL}/salesEnquiry/approve_enquiry`,
+    SALES_ENQUIRY_REJECT: `${API_URL}/salesEnquiry/reject_enquiry`,
+    SALES_ENQUIRY_REOPEN: `${API_URL}/salesEnquiry/reopen_enquiry`,
+    SALES_ENQUIRY_MOVE_STAGE: `${API_URL}/salesEnquiry/move_stage`,
+    SALES_ENQUIRY_CLOSE: `${API_URL}/salesEnquiry/close_enquiry`,
+    SALES_ENQUIRY_CONFIRM_LINE_COSTING: `${API_URL}/salesEnquiry/confirm_line_costing`,
+    SALES_ENQUIRY_PRICE_CHECK_CREATE: `${API_URL}/salesEnquiry/create_price_check`,
+    SALES_ENQUIRY_PRICE_CHECK_PENDING: `${API_URL}/salesEnquiry/get_price_check_pending_list`,
+    SALES_ENQUIRY_PRICE_CHECK_BY_ID: `${API_URL}/salesEnquiry/get_price_check_by_id`,
+    SALES_ENQUIRY_PRICE_CHECK_RESPOND: `${API_URL}/salesEnquiry/respond_price_check`,
+    QUOTATION_ENQUIRY_LINES: `${API_URL}/salesQuotation/get_enquiry_lines_for_quotation`,
+    SALES_ORDER_ENQUIRY_LINES: `${API_URL}/salesOrder/get_enquiry_lines_for_sales_order`,
+
+    // ISO document number map (per company x menu)
+    ISO_MAP_TABLE: `${API_URL}/isoMenuMap/get_iso_map_table`,
+    ISO_MAP_SAVE: `${API_URL}/isoMenuMap/iso_map_save`,
+    ISO_MAP_DELETE: `${API_URL}/isoMenuMap/iso_map_delete`,
 
     // Sales Quotation endpoints
     QUOTATION_TABLE: `${API_URL}/salesQuotation/get_quotation_table`,
@@ -556,11 +629,19 @@ const apiRoutesPortalMasters = {
     HRMS_EMPLOYEE_BY_ID: `${API_URL}/hrms/employee_by_id`,
     HRMS_EMPLOYEE_CREATE_SETUP: `${API_URL}/hrms/employee_create_setup`,
     HRMS_DESIGNATIONS_BY_BRANCH: `${API_URL}/hrms/get_designations_by_branch`,
+    HRMS_DESIGNATIONS_BY_SUB_DEPT: `${API_URL}/hrms/get_designations_by_sub_dept`,
     HRMS_EMPLOYEE_CREATE: `${API_URL}/hrms/employee_create`,
     HRMS_EMPLOYEE_SECTION_SAVE: `${API_URL}/hrms/employee_section_save`,
     HRMS_EMPLOYEE_PROGRESS: `${API_URL}/hrms/employee_progress`,
     HRMS_EMPLOYEE_PHOTO_UPLOAD: `${API_URL}/hrms/employee_photo_upload`,
     HRMS_EMPLOYEE_PHOTO: `${API_URL}/hrms/employee_photo`,
+    HRMS_EMPLOYEE_LOOKUP_BY_CODE: `${API_URL}/hrms/employee_lookup_by_code`,
+    HRMS_CHECK_EMP_CODE_DUPLICATE: `${API_URL}/hrms/check_emp_code_duplicate`,
+    HRMS_EMPLOYEE_STATUS_UPDATE: `${API_URL}/hrms/employee_status_update`,
+    HRMS_EMPLOYEE_SALARY_SCHEMES: `${API_URL}/hrms/employee_salary_schemes`,
+    HRMS_EMPLOYEE_SALARY: `${API_URL}/hrms/employee_salary`,
+    HRMS_EMPLOYEE_SALARY_CHECK: `${API_URL}/hrms/employee_salary_check`,
+    HRMS_EMPLOYEE_SALARY_SAVE: `${API_URL}/hrms/employee_salary_save`,
 
     // HRMS Pay Scheme endpoints
     HRMS_PAY_SCHEME_LIST: `${API_URL}/hrms/pay_scheme_list`,
@@ -569,25 +650,62 @@ const apiRoutesPortalMasters = {
     HRMS_PAY_SCHEME_CREATE: `${API_URL}/hrms/pay_scheme_create`,
     HRMS_PAY_SCHEME_UPDATE: `${API_URL}/hrms/pay_scheme_update`,
 
+    // HRMS Pay Component endpoints
+    HRMS_PAY_COMPONENT_LIST: `${API_URL}/hrms/pay_component_list`,
+    HRMS_PAY_COMPONENT_BY_ID: `${API_URL}/hrms/pay_component_by_id`,
+    HRMS_PAY_COMPONENT_CREATE_SETUP: `${API_URL}/hrms/pay_component_create_setup`,
+    HRMS_PAY_COMPONENT_CREATE: `${API_URL}/hrms/pay_component_create`,
+    HRMS_PAY_COMPONENT_UPDATE: `${API_URL}/hrms/pay_component_update`,
+
     // HRMS Pay Param / Period endpoints
     HRMS_PAY_PARAM_LIST: `${API_URL}/hrms/pay_param_list`,
     HRMS_PAY_PARAM_CREATE_SETUP: `${API_URL}/hrms/pay_param_create_setup`,
     HRMS_PAY_PARAM_CREATE: `${API_URL}/hrms/pay_param_create`,
     HRMS_PAY_PARAM_UPDATE: `${API_URL}/hrms/pay_param_update`,
 
+    // HRMS Pay Register endpoints
+    HRMS_PAY_REGISTER_LIST: `${API_URL}/hrms/pay_register_list`,
+    HRMS_PAY_REGISTER_BY_ID: `${API_URL}/hrms/pay_register_by_id`,
+    HRMS_PAY_REGISTER_CREATE_SETUP: `${API_URL}/hrms/pay_register_create_setup`,
+    HRMS_PAY_REGISTER_CREATE: `${API_URL}/hrms/pay_register_create`,
+    HRMS_PAY_REGISTER_UPDATE: `${API_URL}/hrms/pay_register_update`,
+    HRMS_PAY_REGISTER_SALARY: `${API_URL}/hrms/pay_register_salary`,
+    HRMS_PAY_REGISTER_PROCESS: `${API_URL}/hrms/pay_register_process`,
+    HRMS_PAY_REGISTER_EXPORT: `${API_URL}/hrms/pay_register_export`,
+    HRMS_PAY_REGISTER_PAYSLIPS: `${API_URL}/hrms/pay_register_payslips`,
+
+    // HRMS Pay Register Display Setup (tbl_payslip_print_component) endpoints
+    HRMS_PAYSLIP_PRINT_COMPONENT_LIST: `${API_URL}/hrms/payslip_print_component_list`,
+    HRMS_PAYSLIP_PRINT_COMPONENT_SETUP: `${API_URL}/hrms/payslip_print_component_setup`,
+    HRMS_PAY_SCHEME_COMPONENTS: `${API_URL}/hrms/pay_scheme_components`,
+    HRMS_PAYSLIP_PRINT_COMPONENT_BY_ID: `${API_URL}/hrms/payslip_print_component_by_id`,
+    HRMS_PAYSLIP_PRINT_COMPONENT_CREATE: `${API_URL}/hrms/payslip_print_component_create`,
+    HRMS_PAYSLIP_PRINT_COMPONENT_UPDATE: `${API_URL}/hrms/payslip_print_component_update`,
+    HRMS_PAYSLIP_PRINT_COMPONENT_DELETE: `${API_URL}/hrms/payslip_print_component_delete`,
+
+    // HRMS Pay Roll (pay_components_custom) endpoints
+    HRMS_PAY_ROLL_SETUP: `${API_URL}/hrms/pay_roll_setup`,
+    HRMS_PAY_ROLL_DATA: `${API_URL}/hrms/pay_roll_data`,
+    HRMS_PAY_ROLL_SAVE: `${API_URL}/hrms/pay_roll_save`,
+    HRMS_PAY_ROLL_FETCH_ATTENDANCE: `${API_URL}/hrms/pay_roll_fetch_attendance`,
+    HRMS_PAY_ROLL_FETCH_GENERIC: `${API_URL}/hrms/pay_roll_fetch_generic`,
+    HRMS_PAY_ROLL_FETCH_CUMULATIVE: `${API_URL}/hrms/pay_roll_fetch_cumulative`,
+    HRMS_PAY_ROLL_UPLOAD: `${API_URL}/hrms/pay_roll_upload`,
+    HRMS_PAY_ROLL_DOWNLOAD_TEMPLATE: `${API_URL}/hrms/pay_roll_download_template`,
+
     // Designation Master endpoints
-    DESIGNATION_TABLE: `${API_URL}/designationMaster/get_designation_table`,
-    DESIGNATION_BY_ID: `${API_URL}/designationMaster/get_designation_by_id`,
-    DESIGNATION_CREATE_SETUP: `${API_URL}/designationMaster/designation_create_setup`,
-    DESIGNATION_CREATE: `${API_URL}/designationMaster/designation_create`,
-    DESIGNATION_EDIT: `${API_URL}/designationMaster/designation_edit`,
+    DESIGNATION_TABLE: `${API_URL}/hrmsMasters/get_designation_table`,
+    DESIGNATION_BY_ID: `${API_URL}/hrmsMasters/get_designation_by_id`,
+    DESIGNATION_CREATE_SETUP: `${API_URL}/hrmsMasters/designation_create_setup`,
+    DESIGNATION_CREATE: `${API_URL}/hrmsMasters/designation_create`,
+    DESIGNATION_EDIT: `${API_URL}/hrmsMasters/designation_edit`,
 
     // Worker Category Master endpoints
-    CATEGORY_TABLE: `${API_URL}/categoryMaster/get_category_table`,
-    CATEGORY_BY_ID: `${API_URL}/categoryMaster/get_category_by_id`,
-    CATEGORY_CREATE_SETUP: `${API_URL}/categoryMaster/category_create_setup`,
-    CATEGORY_CREATE: `${API_URL}/categoryMaster/category_create`,
-    CATEGORY_EDIT: `${API_URL}/categoryMaster/category_edit`,
+    CATEGORY_TABLE: `${API_URL}/hrmsMasters/get_category_table`,
+    CATEGORY_BY_ID: `${API_URL}/hrmsMasters/get_category_by_id`,
+    CATEGORY_CREATE_SETUP: `${API_URL}/hrmsMasters/category_create_setup`,
+    CATEGORY_CREATE: `${API_URL}/hrmsMasters/category_create`,
+    CATEGORY_EDIT: `${API_URL}/hrmsMasters/category_edit`,
 
     // Contractor Master endpoints
     CONTRACTOR_TABLE: `${API_URL}/contractorMaster/get_contractor_table`,
@@ -648,8 +766,406 @@ const apiRoutesPortalMasters = {
     // Opening Balance
     ACC_OPENING_BILLS_IMPORT: `${API_URL}/accounting/opening_bills/import`,
 
+    // Shift Master endpoints
+    SHIFT_TABLE: `${API_URL}/hrmsMasters/get_shift_table`,
+    SHIFT_BY_ID: `${API_URL}/hrmsMasters/get_shift_by_id`,
+    SHIFT_CREATE_SETUP: `${API_URL}/hrmsMasters/shift_create_setup`,
+    SHIFT_CREATE: `${API_URL}/hrmsMasters/shift_create`,
+    SHIFT_EDIT: `${API_URL}/hrmsMasters/shift_edit`,
+
+    // Spell Master endpoints
+    SPELL_TABLE: `${API_URL}/hrmsMasters/get_spell_table`,
+    SPELL_BY_ID: `${API_URL}/hrmsMasters/get_spell_by_id`,
+    SPELL_CREATE_SETUP: `${API_URL}/hrmsMasters/spell_create_setup`,
+    SPELL_CREATE: `${API_URL}/hrmsMasters/spell_create`,
+    SPELL_EDIT: `${API_URL}/hrmsMasters/spell_edit`,
+
+    // Machine Type Master endpoints
+    MACHINE_TYPE_TABLE: `${API_URL}/machineTypeMaster/get_machine_type_table`,
+    MACHINE_TYPE_BY_ID: `${API_URL}/machineTypeMaster/get_machine_type_by_id`,
+    MACHINE_TYPE_CREATE: `${API_URL}/machineTypeMaster/machine_type_create`,
+    MACHINE_TYPE_EDIT: `${API_URL}/machineTypeMaster/machine_type_edit`,
+    MACHINE_TYPE_DELETE: `${API_URL}/machineTypeMaster/machine_type_delete`,
+
+    // HRMS Leave Type Master endpoints
+    LEAVE_TYPE_TABLE: `${API_URL}/hrmsMasters/get_leave_type_table`,
+    LEAVE_TYPE_BY_ID: `${API_URL}/hrmsMasters/get_leave_type_by_id`,
+    LEAVE_TYPE_CREATE: `${API_URL}/hrmsMasters/leave_type_create`,
+    LEAVE_TYPE_EDIT: `${API_URL}/hrmsMasters/leave_type_edit`,
+
+    // HRMS Leave Request (transaction) endpoints
+    LEAVE_REQUEST_TABLE: `${API_URL}/hrms/leave_request_list`,
+    LEAVE_REQUEST_BY_ID: `${API_URL}/hrms/leave_request_by_id`,
+    LEAVE_REQUEST_CREATE: `${API_URL}/hrms/leave_request_create`,
+    LEAVE_REQUEST_EDIT: `${API_URL}/hrms/leave_request_edit`,
+    LEAVE_REQUEST_APPROVE: `${API_URL}/hrms/leave_request_approve`,
+    LEAVE_REQUEST_REJECT: `${API_URL}/hrms/leave_request_reject`,
+    LEAVE_LEDGER_BY_EB: `${API_URL}/hrms/leave_ledger`,
+    WORKER_BY_EB_NO: `${API_URL}/hrms/worker_by_eb_no`,
+
+    // ============================================================
+    // Jute Production — Spreader workflow
+    // ============================================================
+    SPREADER_ENTRY_CREATE_SETUP: `${API_URL}/spreaderProd/entry_create_setup`,
+    SPREADER_ENTRY_BIN_STATE: `${API_URL}/spreaderProd/entry_bin_state`,
+    SPREADER_ENTRY_CREATE: `${API_URL}/spreaderProd/entry_create`,
+    SPREADER_ENTRIES_BY_DATE: `${API_URL}/spreaderProd/entries_by_date`,
+    SPREADER_ENTRY_EDIT: `${API_URL}/spreaderProd/entry_edit`,
+    SPREADER_ENTRY_DELETE: `${API_URL}/spreaderProd/entry_delete`,
+    SPREADER_ISSUE_CREATE_SETUP: `${API_URL}/spreaderProd/issue_create_setup`,
+    SPREADER_ISSUE_AVAILABLE_WEIGHTS: `${API_URL}/spreaderProd/issue_available_weights`,
+    SPREADER_ISSUE_CREATE: `${API_URL}/spreaderProd/issue_create`,
+    SPREADER_ISSUES_BY_DATE: `${API_URL}/spreaderProd/issues_by_date`,
+    SPREADER_ISSUE_EDIT: `${API_URL}/spreaderProd/issue_edit`,
+    SPREADER_ISSUE_DELETE: `${API_URL}/spreaderProd/issue_delete`,
+    SPREADER_ROLL_STOCK: `${API_URL}/spreaderProd/roll_stock`,
+    SPREADER_ROLL_STOCK_QUALITY_SUMMARY: `${API_URL}/spreaderProd/roll_stock_quality_summary`,
+    JUTE_PROD_MATURITY_REPORT: `${API_URL}/juteProductionReports/maturity_time_report`,
+    JUTE_PROD_SPREADER_SUMMARY: `${API_URL}/juteProductionReports/spreader_production_summary`,
+
+    SPREADER_BIN_LIST: `${API_URL}/spreaderMasters/bin_list`,
+    SPREADER_BIN_CREATE: `${API_URL}/spreaderMasters/bin_create`,
+    SPREADER_BIN_EDIT: `${API_URL}/spreaderMasters/bin_edit`,
+    ITEM_MATURITY_CREATE_SETUP: `${API_URL}/spreaderMasters/item_maturity_create_setup`,
+    ITEM_MATURITY_LIST: `${API_URL}/spreaderMasters/item_maturity_list`,
+    ITEM_MATURITY_CREATE: `${API_URL}/spreaderMasters/item_maturity_create`,
+    ITEM_MATURITY_EDIT: `${API_URL}/spreaderMasters/item_maturity_edit`,
+    SPREADER_MACHINE_WT_CREATE_SETUP: `${API_URL}/spreaderMasters/spreader_machine_wt_create_setup`,
+    SPREADER_MACHINE_WT_LIST: `${API_URL}/spreaderMasters/spreader_machine_wt_list`,
+    SPREADER_MACHINE_WT_CREATE: `${API_URL}/spreaderMasters/spreader_machine_wt_create`,
+    SPREADER_MACHINE_WT_EDIT: `${API_URL}/spreaderMasters/spreader_machine_wt_edit`,
+    DRAWING_ENTRY_CREATE_SETUP: `${API_URL}/drawingProd/entry_create_setup`,
+    DRAWING_MACHINE_PREV_STATE: `${API_URL}/drawingProd/machine_prev_state`,
+    DRAWING_ENTRY_CREATE: `${API_URL}/drawingProd/entry_create`,
+    DRAWING_ENTRIES_BY_DATE: `${API_URL}/drawingProd/entries_by_date`,
+    DRAWING_ENTRY_EDIT: `${API_URL}/drawingProd/entry_edit`,
+    DRAWING_ENTRY_DELETE: `${API_URL}/drawingProd/entry_delete`,
+    DRAWING_MACHINE_ATTR_LIST: `${API_URL}/drawingMasters/drawing_machine_attr_list`,
+    DRAWING_MACHINE_ATTR_CREATE: `${API_URL}/drawingMasters/drawing_machine_attr_create`,
+    DRAWING_MACHINE_ATTR_EDIT: `${API_URL}/drawingMasters/drawing_machine_attr_edit`,
+    // HRMS Daily Attendance (transaction) endpoints
+    ATTENDANCE_LIST: `${API_URL}/hrms/daily_attendance_list`,
+    ATTENDANCE_BY_ID: `${API_URL}/hrms/daily_attendance_by_id`,
+    ATTENDANCE_CREATE: `${API_URL}/hrms/daily_attendance_create`,
+    ATTENDANCE_EDIT: `${API_URL}/hrms/daily_attendance_edit`,
+    ATTENDANCE_APPROVE: `${API_URL}/hrms/daily_attendance_approve`,
+    ATTENDANCE_REJECT: `${API_URL}/hrms/daily_attendance_reject`,
+    ATTENDANCE_CREATE_SETUP: `${API_URL}/hrms/attendance_create_setup`,
+    ATTENDANCE_MACHINES: `${API_URL}/hrms/attendance_machines_by_designation`,
+    // Attendance register report — served by the Flask mobileapp mounted at the
+    // backend root (no /hrms prefix). vowerp3be/src/mobileapp/src/attendance/attendance.py
+    ATTENDANCE_REGISTER_REPORT: `${API_URL}/attendance-report`,
+    // Spinning / Doff production (router prefix /api/spinningProd)
+    SPINNING_DOFF_SETUP: `${API_URL}/spinningProd/doff_entry_create_setup`,
+    SPINNING_DOFF_PREV_STATE: `${API_URL}/spinningProd/doff_machine_prev_state`,
+    SPINNING_DOFF_CREATE: `${API_URL}/spinningProd/doff_entry_create`,
+    SPINNING_DOFF_BY_DATE: `${API_URL}/spinningProd/doff_entries_by_date`,
+    SPINNING_DOFF_EDIT: `${API_URL}/spinningProd/doff_entry_edit`,
+    SPINNING_DOFF_DELETE: `${API_URL}/spinningProd/doff_entry_delete`,
+    SPINNING_DOFF_DEDUP: `${API_URL}/spinningProd/doff_dedup_run`,
+    SPINNING_FRAME_MAP_GET: `${API_URL}/spinningProd/frame_map_get`,
+    SPINNING_FRAME_MAP_SAVE: `${API_URL}/spinningProd/frame_map_save`,
+    SPINNING_FRAME_MAP_MAPPED: `${API_URL}/spinningProd/frame_map_mapped`,
+    // Spinning planning grid + Process/Lock (router prefix /api/spinningProd)
+    SPINNING_PLANNING_GRID: `${API_URL}/spinningProd/planning_grid`,
+    SPINNING_PROCESS: `${API_URL}/spinningProd/process`,
+    SPINNING_PROCESS_STATUS: `${API_URL}/spinningProd/process_status`,
+    // Winding production (router prefix /api/windingProd) — *_EDIT/*_UPDATE/*_DELETE and
+    // WINDING_QUALITY_SAVE are base paths; caller appends /${id}?co_id=...
+    // Doff
+    WINDING_DOFF_SETUP: `${API_URL}/windingProd/doff_setup`,
+    WINDING_DOFF_PREV_STATE: `${API_URL}/windingProd/doff_machine_prev_state`,
+    WINDING_DOFF_CREATE: `${API_URL}/windingProd/doff_create`,
+    WINDING_DOFF_BY_DATE: `${API_URL}/windingProd/doff_by_date`,
+    WINDING_DOFF_EDIT: `${API_URL}/windingProd/doff_edit`,
+    WINDING_DOFF_DELETE: `${API_URL}/windingProd/doff_delete`,
+    // Jugar
+    WINDING_JUGAR_SETUP: `${API_URL}/windingProd/jugar_setup`,
+    WINDING_JUGAR_PREV_STATE: `${API_URL}/windingProd/jugar_prev_state`,
+    WINDING_JUGAR_SAVE: `${API_URL}/windingProd/jugar_save`,
+    WINDING_JUGAR_UPDATE: `${API_URL}/windingProd/jugar_update`,
+    WINDING_JUGAR_BY_DATE: `${API_URL}/windingProd/jugar_by_date`,
+    // Quality
+    WINDING_QUALITY_SETUP: `${API_URL}/windingProd/quality_setup`,
+    WINDING_QUALITY_SAVE: `${API_URL}/windingProd/quality_save`,
+    WINDING_QUALITY_BY_DATE: `${API_URL}/windingProd/quality_by_date`,
+    // Winding reports (router prefix /api/juteProductionReports)
+    WINDING_SPELL_REPORT: `${API_URL}/juteProductionReports/winding_spell_report`,
+    WINDING_QUALITY_WISE_REPORT: `${API_URL}/juteProductionReports/winding_quality_wise`,
+    // Spinning standards master (router prefix /api/spngTargetMap) — *_EDIT/*_DELETE are base paths; caller appends /${id}
+    SPNG_TARGET_MAP_SETUP: `${API_URL}/spngTargetMap/target_map_setup`,
+    SPNG_TARGET_MAP_LIST: `${API_URL}/spngTargetMap/target_map_list`,
+    SPNG_TARGET_MAP_CREATE: `${API_URL}/spngTargetMap/target_map_create`,
+    SPNG_TARGET_MAP_EDIT: `${API_URL}/spngTargetMap/target_map_edit`,
+    SPNG_TARGET_MAP_DELETE: `${API_URL}/spngTargetMap/target_map_delete`,
+    SPNG_TARGET_MAP_GRID: `${API_URL}/spngTargetMap/target_map_grid`,
+    SPNG_TARGET_MAP_BULK_SAVE: `${API_URL}/spngTargetMap/target_map_bulk_save`,
+    // Spinning SQC (router prefix /api/juteSQC) — SPINNING_SQC_COUNT_DELETE is a base path; caller appends /${id}
+    SPINNING_SQC_COUNT_SETUP: `${API_URL}/juteSQC/sqc_count_setup`,
+    SPINNING_SQC_COUNT_SAVE: `${API_URL}/juteSQC/sqc_count_save`,
+    SPINNING_SQC_COUNT_BY_DATE: `${API_URL}/juteSQC/sqc_count_by_date`,
+    SPINNING_SQC_COUNT_DELETE: `${API_URL}/juteSQC/sqc_count_delete`,
+    // Spreader SQC / R-08-04 Roll Weight (router prefix /api/juteSQC) — SPREADER_SQC_ROLL_WT_DELETE is a base path; caller appends /${id}
+    SPREADER_SQC_ROLL_WT_SETUP: `${API_URL}/juteSQC/get_spreader_roll_wt_setup`,
+    SPREADER_SQC_ROLL_WT_SAVE: `${API_URL}/juteSQC/create_spreader_roll_wt`,
+    SPREADER_SQC_ROLL_WT_BY_DATE: `${API_URL}/juteSQC/get_spreader_roll_wt_by_date`,
+    SPREADER_SQC_ROLL_WT_DELETE: `${API_URL}/juteSQC/spreader_roll_wt_delete`,
+    // Spreader SQC / R-08-03 Sliver Weight (router prefix /api/juteSQC) — SPREADER_SLIVER_WT_DELETE is a base path; caller appends /${id}
+    SPREADER_SLIVER_WT_SETUP: `${API_URL}/juteSQC/get_spreader_sliver_wt_setup`,
+    SPREADER_SLIVER_WT_SAVE: `${API_URL}/juteSQC/create_spreader_sliver_wt`,
+    SPREADER_SLIVER_WT_BY_DATE: `${API_URL}/juteSQC/get_spreader_sliver_wt_by_date`,
+    SPREADER_SLIVER_WT_DELETE: `${API_URL}/juteSQC/spreader_sliver_wt_delete`,
+    // Breaker Card SQC / R-08-05/06/07 Coarse-Side SWT (router prefix /api/juteSQC) — multi-row create; BREAKER_CARD_SWT_DELETE is a base path; caller appends /${id}
+    BREAKER_CARD_SWT_SETUP: `${API_URL}/juteSQC/get_breaker_card_swt_setup`,
+    BREAKER_CARD_SWT_SAVE: `${API_URL}/juteSQC/create_breaker_card_swt`,
+    BREAKER_CARD_SWT_BY_DATE: `${API_URL}/juteSQC/get_breaker_card_swt_by_date`,
+    BREAKER_CARD_SWT_DELETE: `${API_URL}/juteSQC/breaker_card_swt_delete`,
+    // Inter Card & Tow Breaker SQC / R-08-07A Card Sliver Weight (router prefix /api/juteSQC) — multi-row create; CARD_SLIVER_WT_DELETE is a base path; caller appends /${id}
+    CARD_SLIVER_WT_SETUP: `${API_URL}/juteSQC/get_card_sliver_wt_setup`,
+    CARD_SLIVER_WT_SAVE: `${API_URL}/juteSQC/create_card_sliver_wt`,
+    CARD_SLIVER_WT_BY_DATE: `${API_URL}/juteSQC/get_card_sliver_wt_by_date`,
+    CARD_SLIVER_WT_DELETE: `${API_URL}/juteSQC/card_sliver_wt_delete`,
+    // Finisher Drawing SQC / R-08-12/13/14 Finisher Drawing Sliver Weight (router prefix /api/juteSQC) — multi-row create; FIN_DRAW_SLIVER_WT_DELETE is a base path; caller appends /${id}
+    FIN_DRAW_SLIVER_WT_SETUP: `${API_URL}/juteSQC/get_fin_draw_sliver_wt_setup`,
+    FIN_DRAW_SLIVER_WT_SAVE: `${API_URL}/juteSQC/create_fin_draw_sliver_wt`,
+    FIN_DRAW_SLIVER_WT_BY_DATE: `${API_URL}/juteSQC/get_fin_draw_sliver_wt_by_date`,
+    FIN_DRAW_SLIVER_WT_DELETE: `${API_URL}/juteSQC/fin_draw_sliver_wt_delete`,
+    // Drawhead & Finisher Card SQC / R-08-08/09/10 Draw Sliver Weight (router prefix /api/juteSQC) — multi-row create; DRAW_SLIVER_WT_DELETE is a base path; caller appends /${id}
+    DRAW_SLIVER_WT_SETUP: `${API_URL}/juteSQC/get_draw_sliver_wt_setup`,
+    DRAW_SLIVER_WT_SAVE: `${API_URL}/juteSQC/create_draw_sliver_wt`,
+    DRAW_SLIVER_WT_BY_DATE: `${API_URL}/juteSQC/get_draw_sliver_wt_by_date`,
+    DRAW_SLIVER_WT_DELETE: `${API_URL}/juteSQC/draw_sliver_wt_delete`,
+    // Weaving Pick SQC / R-08-21 Loom Width & Picks (router prefix /api/juteSQC) — WEAVING_SQC_PICK_DELETE is a base path; caller appends /${id}
+    WEAVING_SQC_PICK_SETUP:   `${API_URL}/juteSQC/weaving_sqc_pick_setup`,
+    WEAVING_SQC_PICK_SAVE:    `${API_URL}/juteSQC/weaving_sqc_pick_save`,
+    WEAVING_SQC_PICK_BY_DATE: `${API_URL}/juteSQC/weaving_sqc_pick_by_date`,
+    WEAVING_SQC_PICK_DELETE:  `${API_URL}/juteSQC/weaving_sqc_pick_delete`,
+    // R-08-15 Yarn QR & CV % (router prefix /api/juteSQC) — SPINNING_SQC_QR_CV_DELETE is a base path; caller appends /${id}
+    SPINNING_SQC_QR_CV_SETUP: `${API_URL}/juteSQC/sqc_qr_cv_setup`,
+    SPINNING_SQC_QR_CV_SAVE: `${API_URL}/juteSQC/sqc_qr_cv_save`,
+    SPINNING_SQC_QR_CV_BY_DATE: `${API_URL}/juteSQC/sqc_qr_cv_by_date`,
+    SPINNING_SQC_QR_CV_DELETE: `${API_URL}/juteSQC/sqc_qr_cv_delete`,
+    // R-08-15A Yarn QR% & CV% (Special Purpose) (router prefix /api/juteSQC) — header + 12-reading grid; QR_CV_15A_SQC_DELETE is a base path; caller appends /${id}
+    QR_CV_15A_SQC_SETUP: `${API_URL}/juteSQC/qr_cv_15a_setup`,
+    QR_CV_15A_SQC_SAVE: `${API_URL}/juteSQC/qr_cv_15a_save`,
+    QR_CV_15A_SQC_BY_DATE: `${API_URL}/juteSQC/qr_cv_15a_by_date`,
+    QR_CV_15A_SQC_DELETE: `${API_URL}/juteSQC/qr_cv_15a_delete`,
+    // R-08-17 Yarn TPI & TPI CV% (router prefix /api/juteSQC) — header + 20-reading TPI grid; YARN_TPI_SQC_DELETE is a base path; caller appends /${id}
+    YARN_TPI_SQC_SETUP: `${API_URL}/juteSQC/yarn_tpi_setup`,
+    YARN_TPI_SQC_SAVE: `${API_URL}/juteSQC/yarn_tpi_save`,
+    YARN_TPI_SQC_BY_DATE: `${API_URL}/juteSQC/yarn_tpi_by_date`,
+    YARN_TPI_SQC_DELETE: `${API_URL}/juteSQC/yarn_tpi_delete`,
+    // R-08-18 Beam MR% (router prefix /api/juteSQC) — single reading-set per save (5 MR% readings); BEAM_MR_DELETE POSTs {beam_mr_id, co_id}
+    BEAM_MR_CREATE_SETUP: `${API_URL}/juteSQC/get_beam_mr_create_setup`,
+    BEAM_MR_CREATE: `${API_URL}/juteSQC/create_beam_mr`,
+    BEAM_MR_BY_DATE: `${API_URL}/juteSQC/get_beam_mr_by_date`,
+    BEAM_MR_TABLE: `${API_URL}/juteSQC/get_beam_mr_table`,
+    BEAM_MR_DELETE: `${API_URL}/juteSQC/delete_beam_mr`,
+    // R-08-20 Cutting Length (router prefix /api/juteSQC) — one save = one date's reading-set (header + 20 cut-length readings); CUTTING_LENGTH_DELETE POSTs {cutting_length_id, co_id}
+    CUTTING_LENGTH_CREATE_SETUP: `${API_URL}/juteSQC/cutting_length_create_setup`,
+    CUTTING_LENGTH_CREATE: `${API_URL}/juteSQC/create_cutting_length`,
+    CUTTING_LENGTH_BY_DATE: `${API_URL}/juteSQC/get_cutting_length_by_date`,
+    CUTTING_LENGTH_TABLE: `${API_URL}/juteSQC/get_cutting_length_table`,
+    CUTTING_LENGTH_DELETE: `${API_URL}/juteSQC/delete_cutting_length`,
+    // R-08-25 Packing MR% (router prefix /api/juteSQC) — one save = one (date, quality column) reading-set (header + 10 MR% readings); group roll-up by quality_group; PACKING_MR_DELETE POSTs {packing_mr_id, co_id}
+    PACKING_MR_CREATE_SETUP: `${API_URL}/juteSQC/packing_mr_create_setup`,
+    PACKING_MR_CREATE: `${API_URL}/juteSQC/create_packing_mr`,
+    PACKING_MR_BY_DATE: `${API_URL}/juteSQC/get_packing_mr_by_date`,
+    PACKING_MR_TABLE: `${API_URL}/juteSQC/get_packing_mr_table`,
+    PACKING_MR_DELETE: `${API_URL}/juteSQC/delete_packing_mr`,
+    // R-08-19 Fabric Construction (router prefix /api/juteSQC) — one save = one cloth-quality block (header + up to 5 sample rows); FABRIC_CONSTRUCTION_DELETE POSTs {fabric_const_id, co_id}
+    FABRIC_CONSTRUCTION_CREATE_SETUP: `${API_URL}/juteSQC/get_fabric_construction_create_setup`,
+    FABRIC_CONSTRUCTION_CREATE: `${API_URL}/juteSQC/create_fabric_construction`,
+    FABRIC_CONSTRUCTION_BY_DATE: `${API_URL}/juteSQC/get_fabric_construction_by_date`,
+    FABRIC_CONSTRUCTION_TABLE: `${API_URL}/juteSQC/get_fabric_construction_table`,
+    FABRIC_CONSTRUCTION_DELETE: `${API_URL}/juteSQC/delete_fabric_construction`,
+    // R-08-23 Bag Weight (router prefix /api/juteSQC) — one save = one (date, bag type) block (header std_bag_weight/std_mr_pct + up to 24 reading rows {mr, obs}); BAG_WEIGHT_DELETE POSTs {bag_weight_id, co_id}
+    BAG_WEIGHT_CREATE_SETUP: `${API_URL}/juteSQC/bag_weight_create_setup`,
+    BAG_WEIGHT_CREATE: `${API_URL}/juteSQC/create_bag_weight`,
+    BAG_WEIGHT_BY_DATE: `${API_URL}/juteSQC/get_bag_weight_by_date`,
+    BAG_WEIGHT_TABLE: `${API_URL}/juteSQC/get_bag_weight_table`,
+    BAG_WEIGHT_DELETE: `${API_URL}/juteSQC/delete_bag_weight`,
+    // Humidity Recording (router prefix /api/juteSQC) — plant-wide dept temp/RH log; one save = one (date, dept, round) reading-set (header + 1..3 spot readings {spot_label, reading_time, temp_c, rh_pct}); server computes avg_temp/avg_rh; HUMIDITY_DELETE POSTs {humidity_id, co_id}
+    HUMIDITY_CREATE_SETUP: `${API_URL}/juteSQC/humidity_create_setup`,
+    HUMIDITY_CREATE: `${API_URL}/juteSQC/create_humidity`,
+    HUMIDITY_BY_DATE: `${API_URL}/juteSQC/get_humidity_by_date`,
+    HUMIDITY_TABLE: `${API_URL}/juteSQC/get_humidity_table`,
+    HUMIDITY_DELETE: `${API_URL}/juteSQC/delete_humidity`,
+    // R-08-02 Emulsion (router prefix /api/juteSQC) — daily batching jute-oil recipe log; one save = ONE flat row per date (NO readings array). Header: oil_used/tank/measured oil_pct + std band (snapshot) + additive columns. Server computes theoretical_oil_pct (reference) and oil_pct_status (OK/LOW/HIGH); EMULSION_DELETE POSTs {emulsion_id, co_id}
+    EMULSION_CREATE_SETUP: `${API_URL}/juteSQC/emulsion_create_setup`,
+    EMULSION_CREATE: `${API_URL}/juteSQC/create_emulsion`,
+    EMULSION_BY_DATE: `${API_URL}/juteSQC/get_emulsion_by_date`,
+    EMULSION_TABLE: `${API_URL}/juteSQC/get_emulsion_table`,
+    EMULSION_DELETE: `${API_URL}/juteSQC/delete_emulsion`,
+    // R-08-24 Bag Checking (router prefix /api/juteSQC) — finished-bag acceptance inspection; one save = one (date, bag type) block (header: vendor_name/id_code free text + 7 std snapshots + N per-bag detail rows with 7 measures + defects); BAG_CHECK_DELETE POSTs {bag_check_id, co_id}
+    BAG_CHECK_CREATE_SETUP: `${API_URL}/juteSQC/bag_check_create_setup`,
+    BAG_CHECK_CREATE: `${API_URL}/juteSQC/create_bag_check`,
+    BAG_CHECK_BY_DATE: `${API_URL}/juteSQC/get_bag_check_by_date`,
+    BAG_CHECK_TABLE: `${API_URL}/juteSQC/get_bag_check_table`,
+    BAG_CHECK_DELETE: `${API_URL}/juteSQC/delete_bag_check`,
+    // R-08-21 Width & Picks (router prefix /api/juteSQC) — one save = one (date, cloth-quality) group (header std_width_cm/std_picks + N loom reading rows); WIDTH_PICKS_DELETE POSTs {width_picks_id, co_id}
+    WIDTH_PICKS_CREATE_SETUP: `${API_URL}/juteSQC/width_picks_create_setup`,
+    WIDTH_PICKS_CREATE: `${API_URL}/juteSQC/create_width_picks`,
+    WIDTH_PICKS_BY_DATE: `${API_URL}/juteSQC/get_width_picks_by_date`,
+    WIDTH_PICKS_TABLE: `${API_URL}/juteSQC/get_width_picks_table`,
+    WIDTH_PICKS_DELETE: `${API_URL}/juteSQC/delete_width_picks`,
+    // R-08-22 Stitch (router prefix /api/juteSQC) — finishing sewing-stitch-density QC; one save = one (date, sewing machine) reading-set (header std_stitch + 5 stitch counts); STITCH_DELETE POSTs {stitch_id, co_id}
+    STITCH_CREATE_SETUP: `${API_URL}/juteSQC/stitch_create_setup`,
+    STITCH_CREATE: `${API_URL}/juteSQC/create_stitch`,
+    STITCH_BY_DATE: `${API_URL}/juteSQC/get_stitch_by_date`,
+    STITCH_TABLE: `${API_URL}/juteSQC/get_stitch_table`,
+    STITCH_DELETE: `${API_URL}/juteSQC/delete_stitch`,
+    // R-08-28 Fabric Fault (router prefix /api/juteSQC) — weaving woven-cloth defect tally; one save = one inspected piece (header + fixed 15-fault count array); day roll-up server-computed; FABRIC_FAULT_DELETE POSTs {fabric_fault_id, co_id}
+    FABRIC_FAULT_CREATE_SETUP: `${API_URL}/juteSQC/fabric_fault_create_setup`,
+    FABRIC_FAULT_CREATE: `${API_URL}/juteSQC/create_fabric_fault`,
+    FABRIC_FAULT_BY_DATE: `${API_URL}/juteSQC/get_fabric_fault_by_date`,
+    FABRIC_FAULT_TABLE: `${API_URL}/juteSQC/get_fabric_fault_table`,
+    FABRIC_FAULT_DELETE: `${API_URL}/juteSQC/delete_fabric_fault`,
+    // RHMR (Temperature / Humidity per date + spell) — SPINNING_SQC_RHMR_DELETE is a base path; caller appends /${id}
+    SPINNING_SQC_RHMR_SETUP: `${API_URL}/juteSQC/sqc_rhmr_setup`,
+    SPINNING_SQC_RHMR_SEARCH: `${API_URL}/juteSQC/sqc_rhmr_search`,
+    SPINNING_SQC_RHMR_SAVE: `${API_URL}/juteSQC/sqc_rhmr_save`,
+    SPINNING_SQC_RHMR_DELETE: `${API_URL}/juteSQC/sqc_rhmr_delete`,
+    // Spinning masters (router prefix /api/spinningMasters)
+    TROLLY_LIST: `${API_URL}/spinningMasters/trolly_list`,
+    TROLLY_CREATE: `${API_URL}/spinningMasters/trolly_create`,
+    TROLLY_EDIT: `${API_URL}/spinningMasters/trolly_edit`,
+    TROLLY_DELETE: `${API_URL}/spinningMasters/trolly_delete`,
+    TROLLY_MACHINE_TYPES: `${API_URL}/spinningMasters/trolly_machine_types`,
+    // Stoppage Hours (router prefix /api/stoppageProd) — STOPPAGE_ENTRY_EDIT/DELETE are
+    // base paths; caller appends /${id}?co_id=...
+    STOPPAGE_ENTRY_CREATE_SETUP: `${API_URL}/stoppageProd/entry_create_setup`,
+    STOPPAGE_ENTRY_CREATE: `${API_URL}/stoppageProd/entry_create`,
+    STOPPAGE_ENTRIES_BY_DATE: `${API_URL}/stoppageProd/entries_by_date`,
+    STOPPAGE_ENTRY_EDIT: `${API_URL}/stoppageProd/entry_edit`,
+    STOPPAGE_ENTRY_DELETE: `${API_URL}/stoppageProd/entry_delete`,
+    // Beaming Quality Master (router prefix /api/beamingMasters) — BM_QUALITY_EDIT/DELETE/DETAIL are
+    // base paths; caller appends /${id}?co_id=...
+    BM_QUALITY_CREATE_SETUP: `${API_URL}/beamingMasters/bm_quality_create_setup`,
+    BM_QUALITY_LIST: `${API_URL}/beamingMasters/bm_quality_list`,
+    BM_QUALITY_CREATE: `${API_URL}/beamingMasters/bm_quality_create`,
+    BM_QUALITY_EDIT: `${API_URL}/beamingMasters/bm_quality_edit`,
+    BM_QUALITY_DELETE: `${API_URL}/beamingMasters/bm_quality_delete`,
+    BM_QUALITY_DETAIL: `${API_URL}/beamingMasters/bm_quality_detail`,
+    // Beaming Standards / Targets Map (router prefix /api/beamingTargetMap) — clone of spngTargetMap;
+    // *_EDIT/*_DELETE are base paths; caller appends /${id}
+    BEAMING_TARGET_MAP_SETUP: `${API_URL}/beamingTargetMap/target_map_setup`,
+    BEAMING_TARGET_MAP_LIST: `${API_URL}/beamingTargetMap/target_map_list`,
+    BEAMING_TARGET_MAP_CREATE: `${API_URL}/beamingTargetMap/target_map_create`,
+    BEAMING_TARGET_MAP_EDIT: `${API_URL}/beamingTargetMap/target_map_edit`,
+    BEAMING_TARGET_MAP_DELETE: `${API_URL}/beamingTargetMap/target_map_delete`,
+    BEAMING_TARGET_MAP_GRID: `${API_URL}/beamingTargetMap/target_map_grid`,
+    BEAMING_TARGET_MAP_BULK_SAVE: `${API_URL}/beamingTargetMap/target_map_bulk_save`,
+    // Beaming Production Entry (router prefix /api/beamingProd) — BEAMING_ENTRY_EDIT/DELETE are
+    // base paths; caller appends /${id}?co_id=...
+    BEAMING_ENTRY_CREATE_SETUP: `${API_URL}/beamingProd/entry_create_setup`,
+    BEAMING_ENTRIES_BY_DATE: `${API_URL}/beamingProd/entries_by_date`,
+    BEAMING_MACHINE_STANDARDS: `${API_URL}/beamingProd/machine_standards`,
+    BEAMING_ENTRY_CREATE: `${API_URL}/beamingProd/entry_create`,
+    BEAMING_ENTRY_EDIT: `${API_URL}/beamingProd/entry_edit`,
+    BEAMING_ENTRY_DELETE: `${API_URL}/beamingProd/entry_delete`,
+    BEAMING_PLANNING_GRID: `${API_URL}/beamingProd/planning_grid`,
+    BEAMING_PLANNING_GRID_SAVE: `${API_URL}/beamingProd/planning_grid_save`,
+    // Finishing Spec Sheet (router prefix /api/finishingTargetMap) — clone of beamingTargetMap,
+    // adding the `process` dimension on every call. *_EDIT/*_DELETE are base paths; caller appends /${id}
+    FINISHING_TARGET_MAP_SETUP: `${API_URL}/finishingTargetMap/target_map_setup`,
+    FINISHING_TARGET_MAP_GRID: `${API_URL}/finishingTargetMap/target_map_grid`,
+    FINISHING_TARGET_MAP_BULK_SAVE: `${API_URL}/finishingTargetMap/target_map_bulk_save`,
+    FINISHING_TARGET_MAP_LIST: `${API_URL}/finishingTargetMap/target_map_list`,
+    FINISHING_TARGET_MAP_CREATE: `${API_URL}/finishingTargetMap/target_map_create`,
+    FINISHING_TARGET_MAP_EDIT: `${API_URL}/finishingTargetMap/target_map_edit`,
+    FINISHING_TARGET_MAP_DELETE: `${API_URL}/finishingTargetMap/target_map_delete`,
+    // Finishing Quality Master (router prefix /api/finishingMasters) — cloth (type 1) & bag (type 2)
+    // qualities. *_DETAIL/*_EDIT/*_DELETE are base paths; caller appends /${id}?co_id=...
+    FINISHING_QUALITY_SETUP: `${API_URL}/finishingMasters/quality_setup`,
+    FINISHING_QUALITY_LIST: `${API_URL}/finishingMasters/quality_list`,
+    FINISHING_QUALITY_DETAIL: `${API_URL}/finishingMasters/quality_detail`,
+    FINISHING_QUALITY_CREATE: `${API_URL}/finishingMasters/quality_create`,
+    FINISHING_QUALITY_EDIT: `${API_URL}/finishingMasters/quality_edit`,
+    FINISHING_QUALITY_DELETE: `${API_URL}/finishingMasters/quality_delete`,
+    // Finishing Production Entry (router prefix /api/finishingProd) — built by the production-entry slice.
+    FINISHING_PROD_ENTRY_SETUP: `${API_URL}/finishingProd/entry_setup`,
+    FINISHING_PROD_ENTRY_SAVE: `${API_URL}/finishingProd/entry_save`,
+    FINISHING_PROD_ENTRY_BY_DATE: `${API_URL}/finishingProd/entry_by_date`,
+    FINISHING_PROD_ENTRY_DELETE: `${API_URL}/finishingProd/entry_delete`,
+    // Labour processes (sacksewing): resolve emp_code -> eb_id + name, branch-scoped.
+    FINISHING_PROD_EMPLOYEE_LOOKUP: `${API_URL}/finishingProd/employee_lookup`,
+    // Finishing SQC — ACTUALS ONLY (router prefix /api/juteSQC, shared with Spinning/Beaming SQC).
+    // Proxies to finishingTargetMap with value_role='actual'.
+    FINISHING_SQC_SETUP: `${API_URL}/juteSQC/finishing_sqc_setup`,
+    FINISHING_SQC_ACTUAL_GRID: `${API_URL}/juteSQC/finishing_sqc_actual_grid`,
+    FINISHING_SQC_ACTUAL_SAVE: `${API_URL}/juteSQC/finishing_sqc_actual_save`,
+    // Weaving Quality Master (router prefix /api/weavingMasters) — WEAVING_QUALITY_EDIT/DELETE are
+    // base paths; caller appends /${id}?co_id=...
+    WEAVING_QUALITY_SETUP: `${API_URL}/weavingMasters/weaving_quality_setup`,
+    WEAVING_QUALITY_LIST: `${API_URL}/weavingMasters/weaving_quality_list`,
+    WEAVING_QUALITY_CREATE: `${API_URL}/weavingMasters/weaving_quality_create`,
+    WEAVING_QUALITY_EDIT: `${API_URL}/weavingMasters/weaving_quality_edit`,
+    WEAVING_QUALITY_DELETE: `${API_URL}/weavingMasters/weaving_quality_delete`,
+    // Weaving Standards / Targets Map (router prefix /api/weavingTargetMap) — quality-only;
+    // *_EDIT/*_DELETE are base paths; caller appends /${id}
+    WEAVING_TARGET_MAP_SETUP: `${API_URL}/weavingTargetMap/target_map_setup`,
+    WEAVING_TARGET_MAP_LIST: `${API_URL}/weavingTargetMap/target_map_list`,
+    WEAVING_TARGET_MAP_CREATE: `${API_URL}/weavingTargetMap/target_map_create`,
+    WEAVING_TARGET_MAP_EDIT: `${API_URL}/weavingTargetMap/target_map_edit`,
+    WEAVING_TARGET_MAP_DELETE: `${API_URL}/weavingTargetMap/target_map_delete`,
+    WEAVING_TARGET_MAP_GRID: `${API_URL}/weavingTargetMap/target_map_grid`,
+    WEAVING_TARGET_MAP_BULK_SAVE: `${API_URL}/weavingTargetMap/target_map_bulk_save`,
+    // Weaving Production Entry (router prefix /api/weavingProd) — WEAVING_ENTRY_EDIT/DELETE are
+    // base paths; caller appends /${id}?co_id=...
+    WEAVING_ENTRY_CREATE_SETUP: `${API_URL}/weavingProd/entry_create_setup`,
+    WEAVING_ENTRIES_BY_DATE: `${API_URL}/weavingProd/entries_by_date`,
+    // Light table-direct read for the entry grid: inputs + open_jugar + jpc only.
+    WEAVING_ENTRY_INPUTS_BY_DATE: `${API_URL}/weavingProd/entry_inputs_by_date`,
+    WEAVING_MACHINE_STANDARDS: `${API_URL}/weavingProd/machine_standards`,
+    WEAVING_ENTRY_CREATE: `${API_URL}/weavingProd/entry_create`,
+    WEAVING_ENTRY_EDIT: `${API_URL}/weavingProd/entry_edit`,
+    WEAVING_ENTRY_DELETE: `${API_URL}/weavingProd/entry_delete`,
+    WEAVING_PLANNING_GRID: `${API_URL}/weavingProd/planning_grid`,
+    WEAVING_PLANNING_GRID_SAVE: `${API_URL}/weavingProd/planning_grid_save`,
+    // Loom -> Quality map (router prefix /api/weavingProd)
+    WEAVING_QUALITY_MAP_GET: `${API_URL}/weavingProd/quality_map_get`,
+    // Cheap saved-mapping-only read (no carry-forward) — used by the entry grid.
+    WEAVING_QUALITY_MAP_SAVED: `${API_URL}/weavingProd/quality_map_saved`,
+    WEAVING_QUALITY_MAP_SAVE: `${API_URL}/weavingProd/quality_map_save`,
+    WEAVING_QUALITY_MAP_MAPPED: `${API_URL}/weavingProd/quality_map_mapped`,
+    // Beam-change tab (router prefix /api/weavingProd)
+    WEAVING_BEAM_MAP_GET: `${API_URL}/weavingProd/beam_map_get`,
+    WEAVING_BEAM_MAP_SAVE: `${API_URL}/weavingProd/beam_map_save`,
+    WEAVING_ADJUSTMENT_GET: `${API_URL}/weavingProd/adjustment_get`,
+    WEAVING_ADJUSTMENT_SAVE: `${API_URL}/weavingProd/adjustment_save`,
+    // Process + lock (router prefix /api/weavingProd)
+    WEAVING_PROCESS: `${API_URL}/weavingProd/process`,
+    WEAVING_PROCESS_STATUS: `${API_URL}/weavingProd/process_status`,
 };
 
-export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters };
+// Support tickets (Zendesk-style). Raised from Portal/Tenant Admin widgets,
+// managed by the VOW team from the Control Desk. Backend prefix /api/supportTicket.
+const apiRoutesSupport = {
+    META: `${API_URL}/supportTicket/meta`,
+    // Reporter side — Portal
+    PORTAL_RAISE: `${API_URL}/supportTicket/portal/raise`,
+    PORTAL_MY_TICKETS: `${API_URL}/supportTicket/portal/my-tickets`,
+    PORTAL_TICKET: `${API_URL}/supportTicket/portal/ticket`, // append /{id} (and /{id}/attachment)
+    PORTAL_COMMENT: `${API_URL}/supportTicket/portal/comment`,
+    PORTAL_ATTACHMENT: `${API_URL}/supportTicket/portal/attachment`, // append /{id}
+    // Reporter side — Tenant Admin
+    ADMIN_RAISE: `${API_URL}/supportTicket/admin/raise`,
+    ADMIN_MY_TICKETS: `${API_URL}/supportTicket/admin/my-tickets`,
+    ADMIN_TICKET: `${API_URL}/supportTicket/admin/ticket`, // append /{id} (and /{id}/attachment)
+    ADMIN_COMMENT: `${API_URL}/supportTicket/admin/comment`,
+    ADMIN_ATTACHMENT: `${API_URL}/supportTicket/admin/attachment`, // append /{id}
+    // VOW management — Control Desk
+    MANAGE_LIST: `${API_URL}/supportTicket/manage/list`,
+    MANAGE_STATS: `${API_URL}/supportTicket/manage/stats`,
+    MANAGE_ASSIGNEES: `${API_URL}/supportTicket/manage/assignees`,
+    MANAGE_TICKET: `${API_URL}/supportTicket/manage/ticket`, // append /{id} (and /{id}/attachment)
+    MANAGE_ASSIGN: `${API_URL}/supportTicket/manage/assign`,
+    MANAGE_TRANSITION: `${API_URL}/supportTicket/manage/transition`,
+    MANAGE_COMMENT: `${API_URL}/supportTicket/manage/comment`,
+    MANAGE_ATTACHMENT: `${API_URL}/supportTicket/manage/attachment`, // append /{id}
+};
+
+export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters, apiRoutesSupport };
 
 // NEXT_PUBLIC_API_BASE_URL=/api

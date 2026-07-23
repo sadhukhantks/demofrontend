@@ -11,6 +11,7 @@ import {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type BillPassPreviewFormData = {
+  invoice_no: string;
   invoice_date: string;
   invoice_amount: string;
   invoice_recvd_date: string;
@@ -19,10 +20,34 @@ export type BillPassPreviewFormData = {
   sr_remarks: string;
 };
 
+/**
+ * Split an item name on the first "make:" marker (case-insensitive).
+ * Some items embed make info in the name/desc field (e.g. "ss part 88 make: skf").
+ * Returned `make` retains the literal "make: ..." prefix so callers can render it as-is.
+ */
+export const splitItemNameMake = (
+  raw?: string | null
+): { name: string; make: string | null } => {
+  if (!raw) return { name: "-", make: null };
+  const idx = raw.search(/\bmake\s*[:=]/i);
+  if (idx < 0) return { name: raw, make: null };
+  const namePart = raw.slice(0, idx).replace(/[\s,;|\-]+$/, "").trim();
+  const makePart = raw.slice(idx).trim();
+  if (!namePart) return { name: raw, make: null };
+  return { name: namePart, make: makePart };
+};
+
 type BillPassPreviewProps = {
   detail: BillPassDetail;
   formData: BillPassPreviewFormData;
   netPayable: number;
+  companyName?: string | null;
+  /** Pre-resolved registered address (parent fetches via useCompanyHeader). */
+  companyAddress?: string | null;
+  /** Pre-resolved branch GSTIN. Hidden when empty. */
+  companyGst?: string | null;
+  /** Pre-resolved CIN. Hidden when empty. */
+  companyCin?: string | null;
 };
 
 // ─── Format helpers ───────────────────────────────────────────────────────────
@@ -88,6 +113,10 @@ export const BillPassPreview: React.FC<BillPassPreviewProps> = ({
   detail,
   formData,
   netPayable,
+  companyName,
+  companyAddress,
+  companyGst,
+  companyCin,
 }) => {
   const isComplete = detail.billpass_status === 1;
   const { summary } = detail;
@@ -101,7 +130,11 @@ export const BillPassPreview: React.FC<BillPassPreviewProps> = ({
 
       {/* ── Header ───────────────────────────────────────────────────── */}
       <div className="bp-header">
-        <div className="bp-branch">{detail.branch_name || "—"}</div>
+        <div className="bp-company">{companyName || "—"}</div>
+        {companyAddress && <div className="bp-address">{companyAddress}</div>}
+        {companyGst && <div className="bp-regn"><span className="bp-lbl">GSTIN:</span> {companyGst}</div>}
+        {companyCin && <div className="bp-regn"><span className="bp-lbl">CIN:</span> {companyCin}</div>}
+        <div className="bp-branch">Branch: {detail.branch_name || "—"}</div>
         <div className="bp-title">BILL PASS VOUCHER</div>
         <div className="bp-header-meta">
           <div>
@@ -181,7 +214,15 @@ export const BillPassPreview: React.FC<BillPassPreviewProps> = ({
                     {line.full_item_code || line.item_code || "-"}
                   </td>
                   <td>
-                    <strong>{line.item_name || "-"}</strong>
+                    {(() => {
+                      const { name, make } = splitItemNameMake(line.item_name);
+                      return (
+                        <>
+                          <strong>{name}</strong>
+                          {make && <div className="bp-item-make">{make}</div>}
+                        </>
+                      );
+                    })()}
                   </td>
                   <td>{line.hsn_code || "-"}</td>
                   <td>{line.accepted_make_name || "-"}</td>
@@ -288,6 +329,10 @@ export const BillPassPreview: React.FC<BillPassPreviewProps> = ({
       <div className="bp-footer-grid">
         <div className="bp-footer-col">
           <div className="bp-section-title">Invoice Details</div>
+          <div className="bp-kv">
+            <span className="bp-lbl">Invoice No:</span>{" "}
+            <strong>{formData.invoice_no || "-"}</strong>
+          </div>
           <div className="bp-kv">
             <span className="bp-lbl">Invoice Date:</span>{" "}
             <strong>{fmtDate(formData.invoice_date)}</strong>
@@ -415,8 +460,11 @@ export const BILL_PASS_PRINT_CSS = `
 
   /* Header */
   .bp-header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10pt; margin-bottom: 12pt; }
-  .bp-branch { font-size: 18pt; font-weight: 700; letter-spacing: 0.5pt; }
-  .bp-title { font-size: 13pt; letter-spacing: 3pt; margin-top: 4pt; color: #333; }
+  .bp-company { font-size: 18pt; font-weight: 700; letter-spacing: 0.5pt; text-transform: uppercase; }
+  .bp-address { font-size: 9pt; color: #555; margin-top: 2pt; }
+  .bp-regn { font-size: 9pt; color: #333; margin-top: 1pt; }
+  .bp-branch { font-size: 11pt; font-weight: 500; color: #555; margin-top: 2pt; }
+  .bp-title { font-size: 13pt; letter-spacing: 3pt; margin-top: 6pt; color: #333; }
   .bp-header-meta {
     display: flex;
     justify-content: space-between;
@@ -502,6 +550,7 @@ export const BILL_PASS_PRINT_CSS = `
   .bp-net-label { text-align: right !important; padding-right: 8pt !important; }
 
   .bp-remark { color: #666; font-size: 8pt; }
+  .bp-item-make { color: #555; font-size: 8pt; font-style: italic; margin-top: 1pt; }
 
   /* Footer grid */
   .bp-footer-grid {

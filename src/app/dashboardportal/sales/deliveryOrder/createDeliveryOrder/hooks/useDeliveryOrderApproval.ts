@@ -151,15 +151,17 @@ export const useDeliveryOrderApproval = ({ mode, requestedId, formValues, doDeta
 
 	const handleReject = React.useCallback(async (reason: string) => {
 		if (!requestedId) return;
+		const menuId = getMenuId();
+		if (!menuId) { toast({ variant: "destructive", title: "Menu ID required" }); return; }
 		setApprovalLoading(true);
 		try {
-			await rejectDO(requestedId, reason);
+			await rejectDO(requestedId, reason, menuId);
 			toast({ title: "Delivery order rejected" });
 			await refreshDetails();
 		} catch (error) {
 			toast({ variant: "destructive", title: "Unable to reject DO", description: error instanceof Error ? error.message : "Please try again." });
 		} finally { setApprovalLoading(false); }
-	}, [requestedId, refreshDetails]);
+	}, [requestedId, getMenuId, refreshDetails]);
 
 	const handleViewApprovalLog = React.useCallback(() => {
 		toast({ title: "Opening approval log...", description: "Feature coming soon" });

@@ -103,6 +103,11 @@ export type SalesOrderDetails = {
   buyerOrderNo?: string | null;
   buyerOrderDate?: string | null;
   deliveryDays?: number | null;
+  committedDeliveryDate?: string | null;
+  advanceAmount?: number | null;
+  advanceNote?: string | null;
+  salesEnquiryId?: string | null;
+  enquiryNo?: string | null;
   freightCharges?: number | null;
   grossAmount?: number | null;
   netAmount?: number | null;
@@ -172,6 +177,10 @@ export type CreateSalesOrderRequest = {
   buyer_order_no?: string | null;
   buyer_order_date?: string | null;
   delivery_days?: number | null;
+  committed_delivery_date?: string | null;
+  advance_amount?: number | null;
+  advance_note?: string | null;
+  sales_enquiry_id?: number | string | null;
   freight_charges?: number | null;
   footer_note?: string | null;
   internal_note?: string | null;
@@ -419,6 +428,10 @@ export async function updateSalesOrder(
     buyer_order_no: payload.buyerOrderNo ?? undefined,
     buyer_order_date: payload.buyerOrderDate ?? undefined,
     delivery_days: payload.deliveryDays ?? undefined,
+    committed_delivery_date: payload.committedDeliveryDate ?? undefined,
+    advance_amount: payload.advanceAmount ?? undefined,
+    advance_note: payload.advanceNote ?? undefined,
+    sales_enquiry_id: payload.salesEnquiryId ?? undefined,
     freight_charges: payload.freightCharges ?? undefined,
     footer_note: payload.footerNote ?? undefined,
     internal_note: payload.internalNote ?? undefined,

@@ -22,6 +22,17 @@ export type WarehouseOption = {
 };
 
 /**
+ * A supplier's party branch, used to pick the supplier GST state on a
+ * direct (no-PO) inward where the branch wasn't captured upstream.
+ */
+export type SupplierBranchOption = {
+	party_mst_branch_id: number;
+	state_id: number | null;
+	state_name: string;
+	gst_no?: string | null;
+};
+
+/**
  * Additional charge option from master table.
  */
 export type AdditionalChargeOption = {
@@ -142,6 +153,8 @@ export type SRHeader = {
 	branch_name: string;
 	supplier_id: number;
 	supplier_name: string;
+	supplier_branch_id: number | null;
+	supplier_branch_options: SupplierBranchOption[];
 	supplier_state_id: number | null;
 	supplier_state_name: string;
 	bill_branch_id: number | null;
@@ -160,6 +173,7 @@ export type SRHeader = {
 	inspection_date: string;
 	challan_no: string;
 	challan_date: string;
+	invoice_no: string;
 	invoice_date: string;
 	invoice_amount: number;
 	invoice_recvd_date: string;
@@ -235,6 +249,8 @@ export type SRHeaderRaw = {
 	branch_name?: string;
 	supplier_id?: number;
 	supplier_name?: string;
+	supplier_branch_id?: number | null;
+	supplier_branch_options?: SupplierBranchOption[];
 	supplier_state_id?: number | null;
 	supplier_state_name?: string;
 	bill_branch_id?: number | null;
@@ -253,6 +269,7 @@ export type SRHeaderRaw = {
 	inspection_date?: string;
 	challan_no?: string;
 	challan_date?: string;
+	invoice_no?: string;
 	invoice_date?: string;
 	invoice_amount?: number;
 	invoice_recvd_date?: string;

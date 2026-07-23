@@ -65,11 +65,36 @@ export type ItemGroupRecord = {
 	label: string;
 };
 
+export type CompanyBranchRecord = {
+	id: string;
+	name?: string;
+	address1?: string;
+	address2?: string;
+	zipcode?: string;
+	stateName?: string;
+	stateCode?: string;
+	gstNo?: string;
+};
+
+export type CompanyBranchRecordRaw = {
+	branch_id?: string | number;
+	branch_name?: string;
+	branch_address1?: string;
+	branch_address2?: string;
+	branch_zipcode?: string | number;
+	state_id?: number;
+	state_code?: string;
+	state_name?: string;
+	gst_no?: string;
+	contact_no?: string;
+};
+
 export type ItemOption = Option & {
 	defaultUomId?: string;
 	defaultUomLabel?: string;
 	defaultRate?: number;
 	taxPercentage?: number;
+	rateRounding?: number;
 };
 
 export type ItemGroupCacheEntry = {
@@ -82,6 +107,7 @@ export type ItemGroupCacheEntry = {
 	uomLabelByItemId: Record<string, Record<string, string>>;
 	itemRateById: Record<string, number>;
 	itemTaxById: Record<string, number>;
+	itemRateRoundingById: Record<string, number>;
 	uomConversionsByItemId: Record<string, UomConversionEntry[]>;
 };
 
@@ -112,6 +138,8 @@ export type EditableLineItem = {
 	sgstAmount?: number;
 	sgstPercent?: number;
 	gstTotal?: number;
+	/** Decimals to round `rate` / `discounted_rate` to (from item_mst.rate_rounding; defaults to 2) */
+	rateRounding?: number;
 	/** Govt SKG: qty entered in bales (user-entered); quantity field stores the 100-pcs equivalent */
 	govtskgQtyBales?: string;
 	/** Govt SKG: map_to_id for the bales UOM from uom_item_map_mst */
@@ -133,6 +161,7 @@ export type DOSetupData = {
 	approvedSalesOrders: ApprovedSalesOrderRecord[];
 	itemGroups: ItemGroupRecord[];
 	invoiceTypes: InvoiceTypeRecord[];
+	branches: CompanyBranchRecord[];
 };
 
 // Raw API response types
@@ -222,6 +251,7 @@ export type ItemOptionRaw = {
 	uom_name?: string | null;
 	rate?: number | string | null;
 	tax_percentage?: number | string | null;
+	rate_rounding?: number | string | null;
 };
 
 export type ItemMakeOptionRaw = {

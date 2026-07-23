@@ -4,6 +4,7 @@ import * as React from "react";
 import { Box, Divider, Stack, Typography } from "@mui/material";
 import { Button } from "@/components/ui/button";
 import { openStyledPrintWindow } from "@/utils/printUtils";
+import CompanyHeaderBlock from "@/app/dashboardportal/procurement/_shared/PrintHeader";
 import type { SRAdditionalCharge, SRHeader, SRLineItem, SRTotals } from "../types/srTypes";
 
 /**
@@ -82,6 +83,7 @@ type SRPreviewProps = {
 	additionalCharges?: SRAdditionalCharge[];
 	srDate: string;
 	srRemarks: string;
+	coId?: string | number | null;
 	onPrint?: () => void;
 };
 
@@ -96,6 +98,7 @@ export const SRPreview: React.FC<SRPreviewProps> = ({
 	additionalCharges,
 	srDate,
 	srRemarks,
+	coId,
 	onPrint,
 }) => {
 	const visibleCharges = (additionalCharges ?? []).filter(
@@ -140,10 +143,40 @@ export const SRPreview: React.FC<SRPreviewProps> = ({
 			</Stack>
 
 			<Box ref={previewRef} sx={{ p: 2 }}>
-				{/* Title */}
-				<Typography variant="h5" fontWeight={600} textAlign="center" sx={{ mb: 3 }}>
-					Stores Receipt
-				</Typography>
+				{/* Letterhead: company block / centered title / SR meta */}
+				<Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
+					<CompanyHeaderBlock
+						coId={coId}
+						branchId={header?.branch_id}
+						branchLabel={header?.branch_name}
+						maxWidth="35%"
+					/>
+					<Box sx={{ flex: 1, display: "flex", justifyContent: "center" }}>
+						<Stack spacing={0.25} alignItems="center">
+							<Typography variant="h5" sx={{ fontWeight: 600 }}>
+								Stores Receipt
+							</Typography>
+							{header?.sr_status_name ? (
+								<Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.875rem" }}>
+									{header.sr_status_name}
+								</Typography>
+							) : null}
+						</Stack>
+					</Box>
+					<Stack spacing={0.5} alignItems="flex-end" sx={{ minWidth: 200 }}>
+						<FieldRow
+							label="SR No"
+							value={
+								<Typography component="span" fontWeight={600} color="primary">
+									{header?.sr_no || header?.sr_status_name || "Draft"}
+								</Typography>
+							}
+						/>
+						<FieldRow label="SR Date" value={formatDate(srDate)} />
+					</Stack>
+				</Stack>
+
+				<Divider sx={{ mb: 2 }} />
 
 				{/* Header Info */}
 				<Box
@@ -154,14 +187,14 @@ export const SRPreview: React.FC<SRPreviewProps> = ({
 						mb: 3,
 					}}
 				>
-					<FieldRow label="SR No" value={<Typography component="span" fontWeight={600} color="primary">{header?.sr_no || header?.sr_status_name || "Draft"}</Typography>} />
-					<FieldRow label="SR Date" value={formatDate(srDate)} />
 					<FieldRow label="Inward No" value={header?.inward_no} />
 					<FieldRow label="Inward Date" value={formatDate(header?.inward_date)} />
-					<FieldRow label="Branch" value={header?.branch_name} />
 					<FieldRow label="Supplier" value={header?.supplier_name} />
-					<FieldRow label="Challan No" value={header?.challan_no} />
 					<FieldRow label="Inspection Date" value={formatDate(header?.inspection_date)} />
+					<FieldRow label="Challan No" value={header?.challan_no} />
+					<FieldRow label="Challan Date" value={formatDate(header?.challan_date)} />
+					<FieldRow label="Invoice No" value={header?.invoice_no} />
+					<FieldRow label="Invoice Date" value={formatDate(header?.invoice_date)} />
 				</Box>
 
 				<Divider sx={{ my: 2 }} />
@@ -180,6 +213,7 @@ export const SRPreview: React.FC<SRPreviewProps> = ({
 							<th style={{ border: "1px solid #ddd", padding: "8px" }}>PO No.</th>
 							<th style={{ border: "1px solid #ddd", padding: "8px" }}>Item Code</th>
 								<th style={{ border: "1px solid #ddd", padding: "8px" }}>Item</th>
+							<th style={{ border: "1px solid #ddd", padding: "8px" }}>HSN</th>
 							<th style={{ border: "1px solid #ddd", padding: "8px" }}>UOM</th>
 							<th style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>Qty</th>
 							<th style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>Rate</th>
@@ -209,6 +243,9 @@ export const SRPreview: React.FC<SRPreviewProps> = ({
 											{" "}({item.accepted_item_make_name})
 										</span>
 									)}
+								</td>
+								<td style={{ border: "1px solid #ddd", padding: "8px", fontFamily: "monospace" }}>
+									{item.hsn_code || "-"}
 								</td>
 								<td style={{ border: "1px solid #ddd", padding: "8px" }}>{item.uom_name}</td>
 								<td style={{ border: "1px solid #ddd", padding: "8px", textAlign: "right" }}>

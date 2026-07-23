@@ -86,6 +86,9 @@ export const useSalesOrderHeaderSchema = ({
 			{ name: "buyer_order_no", label: "Buyer's Order No.", type: "text", disabled: headerFieldsDisabled, placeholder: "Customer's PO reference", grid: { xs: 12, md: 4 } },
 			{ name: "buyer_order_date", label: "Buyer's Order Date", type: "date", disabled: headerFieldsDisabled, grid: { xs: 12, md: 4 } },
 			{ name: "delivery_days", label: "Delivery Days", type: "text", placeholder: "days", disabled: headerFieldsDisabled, grid: { xs: 12, md: 4 } },
+			{ name: "committed_delivery_date", label: "Committed Delivery Date", type: "date", disabled: headerFieldsDisabled, grid: { xs: 12, md: 4 } },
+			{ name: "advance_amount", label: "Advance Amount", type: "text", placeholder: "0.00", disabled: headerFieldsDisabled, grid: { xs: 12, md: 4 } },
+			{ name: "advance_note", label: "Advance Note", type: "text", placeholder: "e.g. 30% with order", disabled: headerFieldsDisabled, grid: { xs: 12, md: 4 } },
 			{ name: "freight_charges", label: "Freight Charges", type: "text", placeholder: "0.00", disabled: headerFieldsDisabled, grid: { xs: 12, md: 4 } },
 		);
 

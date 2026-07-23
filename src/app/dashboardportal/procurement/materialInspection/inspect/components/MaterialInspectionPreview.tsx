@@ -4,6 +4,7 @@ import React, { useRef } from "react";
 import { Box, Divider, Stack, Typography } from "@mui/material";
 import { Button } from "@/components/ui/button";
 import { openStyledPrintWindow } from "@/utils/printUtils";
+import CompanyHeaderBlock from "@/app/dashboardportal/procurement/_shared/PrintHeader";
 
 /**
  * Type definitions for preview data
@@ -15,6 +16,8 @@ type InspectionHeader = {
 	branch_name: string;
 	supplier_name: string;
 	inspection_check: boolean;
+	co_id?: string | number | null;
+	branch_id?: string | number | null;
 };
 
 type InspectionLineItem = {
@@ -101,19 +104,28 @@ const MaterialInspectionPreview: React.FC<MaterialInspectionPreviewProps> = ({ h
 				<Stack
 					direction="row"
 					justifyContent="space-between"
-					alignItems="center"
+					alignItems="flex-start"
 					sx={{ mb: 3 }}
 				>
-					<Box>
-						<Typography variant="h5" sx={{ fontWeight: 600 }}>
-							Material Inspection
-						</Typography>
-						<Typography variant="body2" color="text.secondary">
-							Inward: {header.inward_no || "-"}
-						</Typography>
+					<CompanyHeaderBlock
+						coId={header.co_id}
+						branchId={header.branch_id}
+						branchLabel={header.branch_name}
+						maxWidth="30%"
+					/>
+
+					<Box sx={{ flex: 1, display: "flex", justifyContent: "center" }}>
+						<Stack spacing={0.25} alignItems="center">
+							<Typography variant="h5" sx={{ fontWeight: 600 }}>
+								Material Inspection
+							</Typography>
+							<Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.875rem" }}>
+								{header.inspection_check ? "Complete" : "Pending"}
+							</Typography>
+						</Stack>
 					</Box>
 
-					<Stack spacing={0.5} alignItems="flex-end">
+					<Stack spacing={0.5} alignItems="flex-end" sx={{ minWidth: 200 }}>
 						<Stack direction="row" spacing={0.5} alignItems="center">
 							<Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem" }}>
 								Inward Date:
@@ -124,10 +136,10 @@ const MaterialInspectionPreview: React.FC<MaterialInspectionPreviewProps> = ({ h
 						</Stack>
 						<Stack direction="row" spacing={0.5} alignItems="center">
 							<Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.75rem" }}>
-								Status:
+								Inward No:
 							</Typography>
 							<Typography variant="body2" sx={{ fontWeight: 400, fontSize: "0.875rem" }}>
-								{header.inspection_check ? "Complete" : "Pending"}
+								{header.inward_no || "-"}
 							</Typography>
 						</Stack>
 					</Stack>

@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Box, Typography, Stack, Chip, Divider, TextField } from "@mui/material";
+import { Box, Typography, Stack, Chip, Divider, TextField, MenuItem } from "@mui/material";
 import type { SRHeader } from "../types/srTypes";
+import type { EditableSRHeader } from "../hooks/useSRFormState";
 import { getStatusColor } from "../utils/srConstants";
 
 /**
@@ -29,6 +30,12 @@ type SRHeaderFormProps = {
 	onSRDateChange: (value: string) => void;
 	srRemarks: string;
 	onSRRemarksChange: (value: string) => void;
+	editableHeader: EditableSRHeader;
+	onEditableHeaderFieldChange: <K extends keyof EditableSRHeader>(
+		field: K,
+		value: EditableSRHeader[K],
+	) => void;
+	onSupplierBranchChange: (branchId: number | null) => void;
 	canEdit: boolean;
 };
 
@@ -41,8 +48,15 @@ export const SRHeaderForm: React.FC<SRHeaderFormProps> = ({
 	onSRDateChange,
 	srRemarks,
 	onSRRemarksChange,
+	editableHeader,
+	onEditableHeaderFieldChange,
+	onSupplierBranchChange,
 	canEdit,
 }) => {
+	const handleTextChange = <K extends keyof EditableSRHeader>(field: K) =>
+		(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+			onEditableHeaderFieldChange(field, e.target.value as EditableSRHeader[K]);
+
 	return (
 		<Box>
 			{/* Status Row */}
@@ -75,7 +89,7 @@ export const SRHeaderForm: React.FC<SRHeaderFormProps> = ({
 
 			<Divider sx={{ my: 2 }} />
 
-			{/* Read-only Inward Info - Row 1 */}
+			{/* Read-only Inward Info - Row 1 (non-editable identifiers) */}
 			<Box
 				sx={{
 					display: "grid",
@@ -112,7 +126,7 @@ export const SRHeaderForm: React.FC<SRHeaderFormProps> = ({
 				</Box>
 			</Box>
 
-			{/* Read-only Inward Info - Row 2 */}
+			{/* Editable Inward Info - Row 2: Challan & Invoice */}
 			<Box
 				sx={{
 					display: "grid",
@@ -121,33 +135,43 @@ export const SRHeaderForm: React.FC<SRHeaderFormProps> = ({
 					mb: 2,
 				}}
 			>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						Challan No
-					</Typography>
-					<Typography variant="body1">{header?.challan_no || "-"}</Typography>
-				</Box>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						Challan Date
-					</Typography>
-					<Typography variant="body1">{formatDate(header?.challan_date)}</Typography>
-				</Box>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						Invoice Date
-					</Typography>
-					<Typography variant="body1">{formatDate(header?.invoice_date)}</Typography>
-				</Box>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						Invoice Received Date
-					</Typography>
-					<Typography variant="body1">{formatDate(header?.invoice_recvd_date)}</Typography>
-				</Box>
+				<TextField
+					label="Challan No"
+					size="small"
+					value={editableHeader.challan_no}
+					onChange={handleTextChange("challan_no")}
+					disabled={!canEdit}
+					InputLabelProps={{ shrink: true }}
+				/>
+				<TextField
+					label="Challan Date"
+					type="date"
+					size="small"
+					value={editableHeader.challan_date}
+					onChange={handleTextChange("challan_date")}
+					disabled={!canEdit}
+					InputLabelProps={{ shrink: true }}
+				/>
+				<TextField
+					label="Invoice No"
+					size="small"
+					value={editableHeader.invoice_no}
+					onChange={handleTextChange("invoice_no")}
+					disabled={!canEdit}
+					InputLabelProps={{ shrink: true }}
+				/>
+				<TextField
+					label="Invoice Date"
+					type="date"
+					size="small"
+					value={editableHeader.invoice_date}
+					onChange={handleTextChange("invoice_date")}
+					disabled={!canEdit}
+					InputLabelProps={{ shrink: true }}
+				/>
 			</Box>
 
-			{/* Read-only Inward Info - Row 3: Vehicle/Driver */}
+			{/* Editable Inward Info - Row 3: Invoice amount/received, Vehicle */}
 			<Box
 				sx={{
 					display: "grid",
@@ -156,33 +180,45 @@ export const SRHeaderForm: React.FC<SRHeaderFormProps> = ({
 					mb: 2,
 				}}
 			>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						Vehicle Number
-					</Typography>
-					<Typography variant="body1">{header?.vehicle_number || "-"}</Typography>
-				</Box>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						Driver Name
-					</Typography>
-					<Typography variant="body1">{header?.driver_name || "-"}</Typography>
-				</Box>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						Driver Contact
-					</Typography>
-					<Typography variant="body1">{header?.driver_contact_no || "-"}</Typography>
-				</Box>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						Inspection Date
-					</Typography>
-					<Typography variant="body1">{formatDate(header?.inspection_date)}</Typography>
-				</Box>
+				<TextField
+					label="Invoice Amount"
+					type="number"
+					size="small"
+					value={editableHeader.invoice_amount}
+					onChange={handleTextChange("invoice_amount")}
+					disabled={!canEdit}
+					InputLabelProps={{ shrink: true }}
+					inputProps={{ step: "0.01", min: 0 }}
+				/>
+				<TextField
+					label="Invoice Received Date"
+					type="date"
+					size="small"
+					value={editableHeader.invoice_recvd_date}
+					onChange={handleTextChange("invoice_recvd_date")}
+					disabled={!canEdit}
+					InputLabelProps={{ shrink: true }}
+				/>
+				<TextField
+					label="Vehicle Number"
+					size="small"
+					value={editableHeader.vehicle_number}
+					onChange={handleTextChange("vehicle_number")}
+					disabled={!canEdit}
+					InputLabelProps={{ shrink: true }}
+				/>
+				<TextField
+					label="Inspection Date"
+					type="date"
+					size="small"
+					value={editableHeader.inspection_date}
+					onChange={handleTextChange("inspection_date")}
+					disabled={!canEdit}
+					InputLabelProps={{ shrink: true }}
+				/>
 			</Box>
 
-			{/* Read-only Inward Info - Row 4: Consignment/E-Way Bill */}
+			{/* Editable Inward Info - Row 4: Driver details */}
 			<Box
 				sx={{
 					display: "grid",
@@ -191,59 +227,122 @@ export const SRHeaderForm: React.FC<SRHeaderFormProps> = ({
 					mb: 2,
 				}}
 			>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						Consignment No
-					</Typography>
-					<Typography variant="body1">{header?.consignment_no || "-"}</Typography>
-				</Box>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						Consignment Date
-					</Typography>
-					<Typography variant="body1">{formatDate(header?.consignment_date)}</Typography>
-				</Box>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						E-Way Bill No
-					</Typography>
-					<Typography variant="body1">{header?.ewaybillno || "-"}</Typography>
-				</Box>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						E-Way Bill Date
-					</Typography>
-					<Typography variant="body1">{formatDate(header?.ewaybill_date)}</Typography>
-				</Box>
+				<TextField
+					label="Driver Name"
+					size="small"
+					value={editableHeader.driver_name}
+					onChange={handleTextChange("driver_name")}
+					disabled={!canEdit}
+					InputLabelProps={{ shrink: true }}
+				/>
+				<TextField
+					label="Driver Contact"
+					size="small"
+					value={editableHeader.driver_contact_no}
+					onChange={handleTextChange("driver_contact_no")}
+					disabled={!canEdit}
+					InputLabelProps={{ shrink: true }}
+				/>
+				<TextField
+					label="Consignment No"
+					size="small"
+					value={editableHeader.consignment_no}
+					onChange={handleTextChange("consignment_no")}
+					disabled={!canEdit}
+					InputLabelProps={{ shrink: true }}
+				/>
+				<TextField
+					label="Consignment Date"
+					type="date"
+					size="small"
+					value={editableHeader.consignment_date}
+					onChange={handleTextChange("consignment_date")}
+					disabled={!canEdit}
+					InputLabelProps={{ shrink: true }}
+				/>
 			</Box>
 
-			{/* Read-only Inward Info - Row 5: State and Remarks */}
+			{/* Editable Inward Info - Row 5: E-way bill */}
 			<Box
 				sx={{
 					display: "grid",
 					gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr 1fr" },
+					gap: 2,
+					mb: 2,
+				}}
+			>
+				<TextField
+					label="E-Way Bill No"
+					size="small"
+					value={editableHeader.ewaybillno}
+					onChange={handleTextChange("ewaybillno")}
+					disabled={!canEdit}
+					InputLabelProps={{ shrink: true }}
+				/>
+				<TextField
+					label="E-Way Bill Date"
+					type="date"
+					size="small"
+					value={editableHeader.ewaybill_date}
+					onChange={handleTextChange("ewaybill_date")}
+					disabled={!canEdit}
+					InputLabelProps={{ shrink: true }}
+				/>
+				{canEdit && (header?.supplier_branch_options?.length ?? 0) > 1 ? (
+					<TextField
+						select
+						label="Supplier State (GST)"
+						size="small"
+						value={header?.supplier_branch_id ?? ""}
+						onChange={(e) => onSupplierBranchChange(e.target.value === "" ? null : Number(e.target.value))}
+						error={!header?.supplier_branch_id}
+						helperText={!header?.supplier_branch_id ? "Select supplier state for GST" : undefined}
+						InputLabelProps={{ shrink: true }}
+					>
+						<MenuItem value="">— Select —</MenuItem>
+						{header?.supplier_branch_options.map((opt) => (
+							<MenuItem key={opt.party_mst_branch_id} value={opt.party_mst_branch_id}>
+								{opt.state_name}{opt.gst_no ? ` (${opt.gst_no})` : ""}
+							</MenuItem>
+						))}
+					</TextField>
+				) : (
+					<Box>
+						<Typography variant="caption" color="text.secondary">
+							Supplier State
+						</Typography>
+						<Typography variant="body1">{header?.supplier_state_name || "-"}</Typography>
+					</Box>
+				)}
+			</Box>
+
+			{/* Editable Inward Info - Row 6: Despatch/Receipt remarks */}
+			<Box
+				sx={{
+					display: "grid",
+					gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
 					gap: 2,
 					mb: 3,
 				}}
 			>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						Supplier State
-					</Typography>
-					<Typography variant="body1">{header?.supplier_state_name || "-"}</Typography>
-				</Box>
-				<Box>
-					<Typography variant="caption" color="text.secondary">
-						Despatch Remarks
-					</Typography>
-					<Typography variant="body1">{header?.despatch_remarks || "-"}</Typography>
-				</Box>
-				<Box sx={{ gridColumn: { md: "span 2" } }}>
-					<Typography variant="caption" color="text.secondary">
-						Receipt Remarks
-					</Typography>
-					<Typography variant="body1">{header?.receipts_remarks || "-"}</Typography>
-				</Box>
+				<TextField
+					label="Despatch Remarks"
+					size="small"
+					value={editableHeader.despatch_remarks}
+					onChange={handleTextChange("despatch_remarks")}
+					disabled={!canEdit}
+					multiline
+					InputLabelProps={{ shrink: true }}
+				/>
+				<TextField
+					label="Receipt Remarks"
+					size="small"
+					value={editableHeader.receipts_remarks}
+					onChange={handleTextChange("receipts_remarks")}
+					disabled={!canEdit}
+					multiline
+					InputLabelProps={{ shrink: true }}
+				/>
 			</Box>
 
 			{/* Editable SR Fields */}

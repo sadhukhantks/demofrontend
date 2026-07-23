@@ -102,10 +102,20 @@ export const useSalesInvoiceLineItems = ({
 		[itemGroupCache],
 	);
 
+	/** Look up the rate-rounding decimals for an item from the cache. Default 2. */
+	const resolveRateRounding = React.useCallback(
+		(groupId: string, itemId: string): number => {
+			const cache = itemGroupCache[groupId];
+			return cache?.itemRateRoundingById?.[itemId] ?? 2;
+		},
+		[itemGroupCache],
+	);
+
 	const mapLineToEditable = React.useCallback((line: InvoiceLine): EditableLineItem => {
 		const groupId = line.itemGroup ? String(line.itemGroup) : "";
 		const itemId = line.item ?? "";
 		const uomId = line.uom ?? "";
+		const rateRounding = groupId && itemId ? resolveRateRounding(groupId, itemId) : 2;
 		const base: EditableLineItem = {
 			id: line.id ? String(line.id) : generateLineId(),
 			deliveryOrderDtlId: line.deliveryOrderDtlId,
@@ -120,6 +130,7 @@ export const useSalesInvoiceLineItems = ({
 			quantity: line.quantity != null ? String(line.quantity) : "",
 			rate: line.rate != null ? String(line.rate) : "",
 			uom: uomId,
+			uomName: line.uomName ?? "",
 			discountType: line.discountType,
 			discountedRate: line.discountedRate,
 			discountAmount: line.discountAmount,
@@ -146,6 +157,7 @@ export const useSalesInvoiceLineItems = ({
 			govtskgPackSheet: line.govtskgDtl?.packSheet,
 			govtskgNetWeight: line.govtskgDtl?.netWeight,
 			govtskgTotalWeight: line.govtskgDtl?.totalWeight,
+			rateRounding,
 		};
 		// Back-calc bales from stored quantity when the UOM cache is already populated.
 		// Deferred effect below handles the race where cache loads after line mapping.
@@ -170,7 +182,7 @@ export const useSalesInvoiceLineItems = ({
 			}
 		}
 		return base;
-	}, [isGovtSkg, isHessian, getGovtSkgBalesConversion, getHessianMtConversion]);
+	}, [isGovtSkg, isHessian, getGovtSkgBalesConversion, getHessianMtConversion, resolveRateRounding]);
 
 	const recalcLine = React.useCallback((item: EditableLineItem): EditableLineItem => {
 		const qty = Number(item.quantity) || 0;
@@ -232,10 +244,12 @@ export const useSalesInvoiceLineItems = ({
 								hessianQtyRounding = conv.rounding ?? 3;
 							}
 						}
+						const rateRound = item.itemGroup && value ? resolveRateRounding(item.itemGroup, value) : 2;
 						const updated: EditableLineItem = {
 							...item, item: value, uom: nextUom,
 							rate: effectiveRate != null ? String(effectiveRate) : item.rate,
 							taxPercentage: defaultTax,
+							rateRounding: rateRound,
 							...(isHessian
 								? {
 									hessianConversionFactor: hessianConvFactor ?? item.hessianConversionFactor,
@@ -554,6 +568,37 @@ export const useSalesInvoiceLineItems = ({
 			return changed ? next : prev;
 		});
 	}, [isHessian, itemGroupCache, setLineItems, getHessianMtConversion]);
+
+	// --- Recompute GST split when the company/shipping state resolves or changes ---
+	// calculateLineTax returns zero GST until BOTH state ids are known. Lines imported
+	// from a DO/SO or loaded from a saved invoice arrive before those ids resolve, so
+	// without this their GST would stay at the zero/wrong-split value that was computed
+	// at import time. Guarded with a `changed` flag so it only fires when a value moves.
+	React.useEffect(() => {
+		if (mode === "view") return;
+		if (!companyBranchStateId || !shippingBranchStateId) return;
+		setLineItems((prev) => {
+			let changed = false;
+			const next = prev.map((line) => {
+				const taxPct = Number(line.taxPercentage) || 0;
+				if (!taxPct || !lineHasAnyData(line)) return line;
+				const netAmount = Number(line.netAmount) || 0;
+				const tax = calculateLineTax(netAmount, taxPct, companyBranchStateId, shippingBranchStateId);
+				const totalAmount = netAmount + tax.gstTotal;
+				if (
+					line.igstAmount === tax.igstAmount &&
+					line.cgstAmount === tax.cgstAmount &&
+					line.sgstAmount === tax.sgstAmount &&
+					line.gstTotal === tax.gstTotal
+				) {
+					return line;
+				}
+				changed = true;
+				return { ...line, ...tax, totalAmount };
+			});
+			return changed ? next : prev;
+		});
+	}, [mode, companyBranchStateId, shippingBranchStateId, setLineItems]);
 
 	const filledLineItems = React.useMemo(() => lineItems.filter(lineHasAnyData), [lineItems]);
 

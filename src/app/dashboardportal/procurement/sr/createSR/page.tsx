@@ -76,7 +76,15 @@ function SRTransactionPageContent() {
 	const [isDirty, setIsDirty] = React.useState(false);
 
 	// Form state hook
-	const { srDate, setSRDate, srRemarks, setSRRemarks, resetFormState } = useSRFormState();
+	const {
+		srDate,
+		setSRDate,
+		srRemarks,
+		setSRRemarks,
+		editableHeader,
+		setEditableHeaderField,
+		resetFormState,
+	} = useSRFormState();
 
 	// Line items hook
 	const { lineItems, setLineItems, handleLineItemChange } = useSRLineItems({ header });
@@ -108,6 +116,12 @@ function SRTransactionPageContent() {
 		setIsDirty(true);
 	}, [setSRRemarks]);
 
+	// Dirty-tracked single-field updater for editable inward header fields.
+	const handleEditableHeaderFieldChange = React.useCallback<typeof setEditableHeaderField>((field, value) => {
+		setEditableHeaderField(field, value);
+		setIsDirty(true);
+	}, [setEditableHeaderField]);
+
 	const handleLineItemChangeDirty = React.useCallback<typeof handleLineItemChange>((...args) => {
 		handleLineItemChange(...args);
 		setIsDirty(true);
@@ -127,6 +141,22 @@ function SRTransactionPageContent() {
 		updateCharge(...args);
 		setIsDirty(true);
 	}, [updateCharge]);
+
+	// Supplier GST-state picker (direct/no-PO inwards). Updating the header's
+	// supplier state re-triggers the line-item GST recompute in useSRLineItems.
+	const handleSupplierBranchChange = React.useCallback((branchId: number | null) => {
+		setHeader((prev) => {
+			if (!prev) return prev;
+			const opt = prev.supplier_branch_options.find((o) => o.party_mst_branch_id === branchId);
+			return {
+				...prev,
+				supplier_branch_id: branchId,
+				supplier_state_id: opt?.state_id ?? null,
+				supplier_state_name: opt?.state_name ?? "",
+			};
+		});
+		setIsDirty(true);
+	}, []);
 
 	// Fetch SR data
 	const fetchSRData = React.useCallback(async () => {
@@ -271,6 +301,7 @@ function SRTransactionPageContent() {
 		header,
 		srDate,
 		srRemarks,
+		editableHeader,
 		lineItems,
 		additionalCharges,
 		getChargesToSave,
@@ -421,6 +452,7 @@ function SRTransactionPageContent() {
 					additionalCharges={additionalCharges}
 					srDate={srDate}
 					srRemarks={srRemarks}
+					coId={coId}
 				/>
 			}
 		>
@@ -431,6 +463,9 @@ function SRTransactionPageContent() {
 					onSRDateChange={handleSRDateChange}
 					srRemarks={srRemarks}
 					onSRRemarksChange={handleSRRemarksChange}
+					editableHeader={editableHeader}
+					onEditableHeaderFieldChange={handleEditableHeaderFieldChange}
+					onSupplierBranchChange={handleSupplierBranchChange}
 					canEdit={canEdit && !isViewMode}
 				/>
 			</Paper>

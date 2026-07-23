@@ -48,7 +48,7 @@ export function useGateEntryLineItemColumns({
 			const qualities = qualitiesByItem[itemId] ?? [];
 			return qualities.map((q) => ({
 				label: q.quality_name,
-				value: String(q.quality_id),
+				value: String(q.item_id),
 			}));
 		},
 		[qualitiesByItem]

@@ -6,7 +6,10 @@ import type { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import IndexWrapper from "@/components/ui/IndexWrapper";
+import DateRangeToolbar from "@/components/ui/DateRangeToolbar";
 import { useRouter } from "next/navigation";
+import { useExcelDownload } from "@/hooks/useExcelDownload";
+import { fetchExcelBlob } from "@/utils/fetchExcelBlob";
 
 /**
  * @component JuteQualityCheckIndexPage
@@ -85,7 +88,33 @@ export default function JuteQualityCheckIndexPage() {
 	const [loading, setLoading] = React.useState(false);
 	const [paginationModel, setPaginationModel] = React.useState<GridPaginationModel>({ page: 0, pageSize: 10 });
 	const [searchValue, setSearchValue] = React.useState("");
+	const [fromDate, setFromDate] = React.useState("");
+	const [toDate, setToDate] = React.useState("");
 	const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+	const [coIdState, setCoIdState] = React.useState<string>("");
+	const [branchIdsState, setBranchIdsState] = React.useState<string>("");
+	const [mounted, setMounted] = React.useState(false);
+	React.useEffect(() => {
+		setMounted(true);
+	}, []);
+
+	const downloadFetcher = React.useCallback(
+		(p: { coId: string; branchIds: string; search: string; fromDate: string; toDate: string }) =>
+			fetchExcelBlob(apiRoutesPortalMasters.JUTE_MATERIAL_INSPECTION_DOWNLOAD, {
+				coId: p.coId,
+				branchIds: p.branchIds || null,
+				search: p.search,
+				fromDate: p.fromDate || null,
+				toDate: p.toDate || null,
+			}),
+		[]
+	);
+	const {
+		download,
+		downloading,
+		error: downloadError,
+		clearError: clearDownloadError,
+	} = useExcelDownload(downloadFetcher, "jute_material_inspection");
 
 	const columns = React.useMemo<GridColDef<JuteQualityCheckRow>[]>(
 		() => [
@@ -201,6 +230,7 @@ export default function JuteQualityCheckIndexPage() {
 			} catch {
 				co_id = "";
 			}
+			setCoIdState(co_id);
 
 			// Get branch_ids from localStorage for multi-branch filtering
 			let branch_ids = "";
@@ -209,12 +239,17 @@ export default function JuteQualityCheckIndexPage() {
 				if (storedBranches) {
 					const parsed = JSON.parse(storedBranches);
 					if (Array.isArray(parsed) && parsed.length > 0) {
-						branch_ids = parsed.map((b: { branch_id?: number }) => b.branch_id).filter(Boolean).join(",");
+						// Sidebar stores number[]; legacy caches stored [{ branch_id }] — accept both
+						branch_ids = parsed
+							.map((b: number | { branch_id?: number }) => (typeof b === "object" && b !== null ? b.branch_id : b))
+							.filter((v) => v !== null && v !== undefined)
+							.join(",");
 					}
 				}
 			} catch {
 				branch_ids = "";
 			}
+			setBranchIdsState(branch_ids);
 
 			const query = new URLSearchParams({
 				page: String(paginationModel.page + 1),
@@ -224,6 +259,8 @@ export default function JuteQualityCheckIndexPage() {
 			if (branch_ids) query.set("branch_ids", branch_ids);
 			const trimmedSearch = searchValue.trim();
 			if (trimmedSearch) query.set("search", trimmedSearch);
+			if (fromDate) query.set("from_date", fromDate);
+			if (toDate) query.set("to_date", toDate);
 
 			// Use the material inspection table endpoint which returns entries pending QC
 			const url = `${apiRoutesPortalMasters.JUTE_MATERIAL_INSPECTION_TABLE}?${query.toString()}`;
@@ -272,7 +309,7 @@ export default function JuteQualityCheckIndexPage() {
 		} finally {
 			setLoading(false);
 		}
-	}, [paginationModel.page, paginationModel.pageSize, searchValue]);
+	}, [paginationModel.page, paginationModel.pageSize, searchValue, fromDate, toDate]);
 
 	React.useEffect(() => {
 		fetchQualityCheckEntries();
@@ -287,6 +324,26 @@ export default function JuteQualityCheckIndexPage() {
 		setPaginationModel((prev) => ({ ...prev, page: 0 }));
 		setSearchValue(value);
 	}, []);
+
+	const handleFromDateChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+		setPaginationModel((prev) => ({ ...prev, page: 0 }));
+		setFromDate(event.target.value);
+	}, []);
+
+	const handleToDateChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+		setPaginationModel((prev) => ({ ...prev, page: 0 }));
+		setToDate(event.target.value);
+	}, []);
+
+	const handleClearDates = React.useCallback(() => {
+		setPaginationModel((prev) => ({ ...prev, page: 0 }));
+		setFromDate("");
+		setToDate("");
+	}, []);
+
+	const handleDownload = React.useCallback(() => {
+		download({ coId: coIdState, branchIds: branchIdsState, search: searchValue, fromDate, toDate });
+	}, [download, coIdState, branchIdsState, searchValue, fromDate, toDate]);
 
 	const handleView = React.useCallback(
 		(row: JuteQualityCheckRow) => {
@@ -325,12 +382,30 @@ export default function JuteQualityCheckIndexPage() {
 				placeholder: "Search by gate entry no, mukam, vehicle no, or challan no",
 				debounceDelayMs: 500,
 			}}
+			toolbarContent={
+				<DateRangeToolbar
+					fromDate={fromDate}
+					toDate={toDate}
+					onFromDateChange={handleFromDateChange}
+					onToDateChange={handleToDateChange}
+					onClearDates={handleClearDates}
+					onDownload={handleDownload}
+					downloading={downloading}
+					downloadDisabled={!coIdState || loading}
+					mounted={mounted}
+				/>
+			}
 			onView={handleView}
 			onEdit={handleEdit}
 		>
 			{errorMessage ? (
 				<Alert severity="error" sx={{ mt: 2 }}>
 					{errorMessage}
+				</Alert>
+			) : null}
+			{downloadError ? (
+				<Alert severity="error" sx={{ mt: 2 }} onClose={clearDownloadError}>
+					{downloadError}
 				</Alert>
 			) : null}
 		</IndexWrapper>

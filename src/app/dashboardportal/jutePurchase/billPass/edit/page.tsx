@@ -21,6 +21,7 @@ import { ArrowLeft, Save, CheckCircle } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import AttachmentUploader from "@/components/AttachmentUploader";
 
 /**
  * @component BillPassEditPage
@@ -688,6 +689,33 @@ function BillPassEditPageContent() {
 										multiline
 										rows={2}
 										disabled={isComplete}
+									/>
+								</Grid>
+								<Grid size={{ xs: 12 }}>
+									<Divider sx={{ my: 1 }}>
+										<Typography variant="caption" color="text.secondary">
+											DOCUMENTS
+										</Typography>
+									</Divider>
+								</Grid>
+								<Grid size={{ xs: 12, sm: 6 }}>
+									<AttachmentUploader
+										module="billpass"
+										entityId={header.jute_mr_id}
+										fileType="invoice"
+										coId={Number(coId)}
+										disabled={isComplete}
+										label="Invoice"
+									/>
+								</Grid>
+								<Grid size={{ xs: 12, sm: 6 }}>
+									<AttachmentUploader
+										module="billpass"
+										entityId={header.jute_mr_id}
+										fileType="challan"
+										coId={Number(coId)}
+										disabled={isComplete}
+										label="Challan"
 									/>
 								</Grid>
 							</Grid>

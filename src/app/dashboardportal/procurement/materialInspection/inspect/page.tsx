@@ -127,6 +127,8 @@ type InspectionHeader = {
 	branch_name: string;
 	supplier_name: string;
 	inspection_check: boolean;
+	co_id?: string | number | null;
+	branch_id?: string | number | null;
 };
 
 /**
@@ -212,6 +214,8 @@ function MaterialInspectionEditPageContent() {
 				branch_name: result.header?.branch_name ?? "",
 				supplier_name: result.header?.supplier_name ?? "",
 				inspection_check: result.header?.inspection_check ?? false,
+				co_id: result.header?.co_id ?? coId ?? null,
+				branch_id: result.header?.branch_id ?? null,
 			});
 
 			// Map line items

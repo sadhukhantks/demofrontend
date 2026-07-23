@@ -5,6 +5,7 @@ export type BomTreeItem = {
   child_item_code: string;
   child_full_item_code?: string;
   child_item_name: string;
+  additional_description?: string | null;
   qty: number;
   uom_id: number;
   uom_name: string;

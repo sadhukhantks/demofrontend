@@ -8,6 +8,7 @@ export type DOPreviewHeader = {
 	doNo?: string;
 	doDate?: string;
 	branch?: string;
+	branchAddress?: string;
 	customer?: string;
 	billingToAddress?: string;
 	shippingToAddress?: string;
@@ -90,11 +91,10 @@ const DeliveryOrderPreview: React.FC<DOPreviewProps> = ({ header, items, remarks
 		return parts.join(", ");
 	}, [items]);
 
-	/* Description lines — each item as "ITEM_CODE — ITEM_NAME [— X Bales]" */
+	/* Description lines — "ITEM_CODE — ITEM_NAME"; total qty is rendered separately above. */
 	const descriptionLines = React.useMemo(() => {
 		return items.map((item) => {
 			const parts = [item.itemCode, item.item].filter(Boolean);
-			if (item.qtyInBales) parts.push(`${item.qtyInBales} Bales`);
 			return parts.join(" — ") || "-";
 		});
 	}, [items]);
@@ -133,7 +133,7 @@ const DeliveryOrderPreview: React.FC<DOPreviewProps> = ({ header, items, remarks
 
 	<!-- Company name & address -->
 	<div style="font-size:15px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">${h.companyName || "-"}</div>
-	<div style="font-size:12px;color:#333;margin-bottom:12px;">${h.branch || ""}</div>
+	<div style="font-size:12px;color:#333;margin-bottom:12px;">${h.branchAddress || h.branch || ""}</div>
 
 	<!-- Title -->
 	<div style="font-size:15px;font-weight:700;text-decoration:underline;margin-bottom:16px;">DELIVERY ORDER</div>
@@ -143,7 +143,7 @@ const DeliveryOrderPreview: React.FC<DOPreviewProps> = ({ header, items, remarks
 		<tr>
 			<td style="vertical-align:top;width:60%;">
 				<div style="font-size:13px;font-weight:600;margin-bottom:2px;">${h.companyName || ""}</div>
-				<div style="font-size:12px;color:#333;">${h.branch || ""}</div>
+				<div style="font-size:12px;color:#333;">${h.branchAddress || h.branch || ""}</div>
 			</td>
 			<td style="vertical-align:top;text-align:right;">
 				<table style="border-collapse:collapse;margin-left:auto;">
@@ -277,7 +277,7 @@ const DeliveryOrderPreview: React.FC<DOPreviewProps> = ({ header, items, remarks
 					{header.companyName || "-"}
 				</Typography>
 				<Typography variant="body2" sx={{ fontSize: "0.8125rem", color: "text.secondary", mb: 1.5 }}>
-					{header.branch || ""}
+					{header.branchAddress || header.branch || ""}
 				</Typography>
 
 				{/* Title */}
@@ -289,7 +289,7 @@ const DeliveryOrderPreview: React.FC<DOPreviewProps> = ({ header, items, remarks
 				<Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2.5 }}>
 					<Box>
 						<Typography sx={labelSx}>{header.companyName || ""}</Typography>
-						<Typography sx={{ ...valueSx, color: "text.secondary" }}>{header.branch || ""}</Typography>
+						<Typography sx={{ ...valueSx, color: "text.secondary" }}>{header.branchAddress || header.branch || ""}</Typography>
 					</Box>
 					<Box component="table" sx={{ borderCollapse: "collapse", width: "auto" }}>
 						<Box component="tbody">

@@ -22,6 +22,8 @@ type UseMRApprovalParams = {
 	coId?: string;
 	partyBranchesLoaded: boolean;
 	partyBranchOptions: Array<{ party_mst_branch_id: number }>;
+	/** Resolves the MR menu_id so approval actions can walk the hierarchy. */
+	getMenuId: () => string;
 	onRefresh: () => Promise<void>;
 };
 
@@ -36,6 +38,7 @@ export const useMRApproval = ({
 	coId,
 	partyBranchesLoaded,
 	partyBranchOptions,
+	getMenuId,
 	onRefresh,
 }: UseMRApprovalParams) => {
 	const [approvalLoading, setApprovalLoading] = React.useState(false);
@@ -84,23 +87,21 @@ export const useMRApproval = ({
 				return { canViewApprovalLog: true };
 			}
 
-			// Open: can save, set to pending, approve, reject, or cancel
+			// Open / Pending Approval fallback — used only when backend
+			// permissions are not yet available (menu_id unresolved / loading).
+			// Deliberately DOES NOT grant Approve/Reject: those are level-aware
+			// and must come from the backend, so we fail closed until they load.
 			if (status === MR_STATUS_IDS.OPEN) {
 				return {
 					canSave: true,
-					canApprove: !partyHasNoBranches, // Block approval if no party branches
-					canReject: true,
-					canCancelDraft: true, // Using this for Cancel action
+					canCancelDraft: true, // Cancel action (Open only)
 					canViewApprovalLog: true,
-					// canPending is custom - we handle it separately
 				};
 			}
 
-			// Pending Approval: waiting for approval
 			if (status === MR_STATUS_IDS.PENDING_APPROVAL) {
 				return {
-					canApprove: !partyHasNoBranches,
-					canReject: true,
+					canSave: true,
 					canViewApprovalLog: true,
 				};
 			}
@@ -141,10 +142,21 @@ export const useMRApproval = ({
 		[partyHasNoBranches, header?.party_id, header?.party_branch_id],
 	);
 
-	const approvalPermissions = React.useMemo(
-		() => getApprovalPermissions(statusId, mode),
-		[statusId, mode, getApprovalPermissions],
-	);
+	const approvalPermissions = React.useMemo(() => {
+		if (mode === "view") return { canViewApprovalLog: true };
+		// Prefer backend level-aware permissions — Approve/Reject follow the
+		// MR's current approval level (only the current-level approver sees
+		// them). Fall back to status-based defaults (no Approve) while they
+		// load or when no menu_id is available.
+		const backend = header?.permissions;
+		if (backend && Object.keys(backend).length > 0) {
+			return {
+				...backend,
+				canApprove: Boolean(backend.canApprove) && !partyHasNoBranches,
+			};
+		}
+		return getApprovalPermissions(statusId, mode);
+	}, [statusId, mode, header?.permissions, partyHasNoBranches, getApprovalPermissions]);
 
 	/**
 	 * Whether the Open button should be shown (only from Draft status).
@@ -154,13 +166,29 @@ export const useMRApproval = ({
 		return mode !== "view" && statusId === MR_STATUS_IDS.DRAFT;
 	}, [mode, statusId]);
 
+	// Approval-level state (populated by the backend when a menu_id is supplied).
+	const currentApprovalLevel = header?.approval_level ?? null;
+	const maxApprovalLevel = header?.max_approval_level ?? null;
+
 	/**
-	 * Whether the Pending button should be shown (only from Open status).
-	 * MR arrives in Open status, so Pending is available from Open.
+	 * The MR is at its highest approval level when it has walked up to (or past)
+	 * the configured max, OR when at most one level is configured (single-step /
+	 * no hierarchy → the first approver is already the highest).
+	 */
+	const isFinalLevel = React.useMemo(() => {
+		if (maxApprovalLevel == null || maxApprovalLevel <= 1) return true;
+		return currentApprovalLevel != null && currentApprovalLevel >= maxApprovalLevel;
+	}, [currentApprovalLevel, maxApprovalLevel]);
+
+	/**
+	 * Whether the Pending button should be shown. Pending parks the MR to the
+	 * external system and is offered ONLY to the highest-level approver — so it
+	 * requires the current-level approve permission AND the MR being at its
+	 * final approval level.
 	 */
 	const canSetPending = React.useMemo(() => {
-		return mode !== "view" && statusId === MR_STATUS_IDS.OPEN;
-	}, [mode, statusId]);
+		return mode !== "view" && Boolean(approvalPermissions.canApprove) && isFinalLevel;
+	}, [mode, approvalPermissions.canApprove, isFinalLevel]);
 
 	/**
 	 * Approval info for the approval bar.
@@ -175,11 +203,11 @@ export const useMRApproval = ({
 		return {
 			statusId: displayStatusId,
 			statusLabel: MR_STATUS_LABELS[statusId] ?? header?.status ?? "Open",
-			approvalLevel: null, // TODO: Add when multi-level approval is implemented
-			maxApprovalLevel: null,
-			isFinalLevel: false,
+			approvalLevel: currentApprovalLevel,
+			maxApprovalLevel: maxApprovalLevel,
+			isFinalLevel: isFinalLevel,
 		};
-	}, [statusId, header?.status]);
+	}, [statusId, header?.status, currentApprovalLevel, maxApprovalLevel, isFinalLevel]);
 
 	/**
 	 * Status chip props for TransactionWrapper.
@@ -281,27 +309,48 @@ export const useMRApproval = ({
 	const [approvalDialogOpen, setApprovalDialogOpen] = React.useState(false);
 
 	/**
-	 * Open the approval dialog (validates party branch first).
+	 * Approve action. At intermediate levels this advances the MR to the next
+	 * approval level directly. At the final level it opens the dialog to collect
+	 * the (mandatory) MR date before the final approval.
 	 */
-	const handleApprove = React.useCallback(() => {
+	const handleApprove = React.useCallback(async () => {
 		if (!mrId || !branchId) {
 			toast({ variant: "destructive", title: "Missing required information" });
 			return;
 		}
 
-		// Validate party branch is selected before showing approval dialog
+		// Validate party branch is selected before approving
 		if (header?.party_id && !partyBranchId) {
-			toast({ 
-				variant: "destructive", 
+			toast({
+				variant: "destructive",
 				title: "Party branch required",
 				description: "Please select a party branch before approving."
 			});
 			return;
 		}
 
-		// Open the approval dialog to collect MR date
-		setApprovalDialogOpen(true);
-	}, [mrId, branchId, partyBranchId, header?.party_id]);
+		// Final level → collect MR date via the dialog (mandatory on final approval).
+		if (isFinalLevel) {
+			setApprovalDialogOpen(true);
+			return;
+		}
+
+		// Intermediate level → advance to the next approval level (no date needed).
+		setApprovalLoading(true);
+		try {
+			await approveMR(mrId, branchId, partyBranchId, null, getMenuId());
+			toast({ title: "MR moved to next approval level" });
+			await onRefresh();
+		} catch (error) {
+			toast({
+				variant: "destructive",
+				title: "Unable to approve MR",
+				description: error instanceof Error ? error.message : "Please try again.",
+			});
+		} finally {
+			setApprovalLoading(false);
+		}
+	}, [mrId, branchId, partyBranchId, header?.party_id, isFinalLevel, getMenuId, onRefresh]);
 
 	/**
 	 * Close the approval dialog.
@@ -322,7 +371,7 @@ export const useMRApproval = ({
 
 		setApprovalLoading(true);
 		try {
-			await approveMR(mrId, branchId, partyBranchId, mrDate);
+			await approveMR(mrId, branchId, partyBranchId, mrDate, getMenuId());
 			toast({ title: "MR approved successfully" });
 			setApprovalDialogOpen(false);
 			await onRefresh();
@@ -335,7 +384,7 @@ export const useMRApproval = ({
 		} finally {
 			setApprovalLoading(false);
 		}
-	}, [mrId, branchId, partyBranchId, onRefresh]);
+	}, [mrId, branchId, partyBranchId, getMenuId, onRefresh]);
 
 	/**
 	 * Handle Reject action.
@@ -349,7 +398,7 @@ export const useMRApproval = ({
 
 			setApprovalLoading(true);
 			try {
-				await rejectMR(mrId, branchId, reason);
+				await rejectMR(mrId, branchId, reason, getMenuId());
 				toast({ title: "MR rejected" });
 				await onRefresh();
 			} catch (error) {
@@ -362,7 +411,7 @@ export const useMRApproval = ({
 				setApprovalLoading(false);
 			}
 		},
-		[mrId, branchId, onRefresh],
+		[mrId, branchId, getMenuId, onRefresh],
 	);
 
 	/**

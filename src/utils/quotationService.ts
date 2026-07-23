@@ -1,26 +1,51 @@
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 
+/** Nested GST breakup as returned by get_quotation_by_id (camelCase). */
+export type QuotationLineGst = {
+  igstAmount?: number | null;
+  igstPercent?: number | null;
+  cgstAmount?: number | null;
+  cgstPercent?: number | null;
+  sgstAmount?: number | null;
+  sgstPercent?: number | null;
+  gstTotal?: number | null;
+};
+
 export type QuotationLine = {
   id: string;
   itemGroup?: string;
   item?: string;
   itemCode?: string;
+  itemName?: string;
   itemMake?: string;
   hsnCode?: string;
   quantity?: number | string;
   rate?: number | string;
   uom?: string;
+  uomName?: string;
+  /** Backend key is `discountType`; older callers used `discountMode`. */
+  discountType?: number;
   discountMode?: number;
   discountValue?: number | string;
+  discountedRate?: number | null;
   discountAmount?: number;
   netAmount?: number;
   totalAmount?: number;
   remarks?: string;
+  /** Backend returns the GST breakup nested under `gst`. */
+  gst?: QuotationLineGst | null;
+  // Legacy flat fields (never emitted by the current backend — kept for back-compat).
   taxPercentage?: number;
   igst?: number;
   sgst?: number;
   cgst?: number;
+  /** Enquiry-flow cost basis (AMCL Phase 1) — present when the line came from an enquiry. */
+  enquiryDtlId?: string | null;
+  costSnapshotId?: string | null;
+  baseCost?: number | null;
+  overheadPct?: number | null;
+  marginPct?: number | null;
 };
 
 export type ApprovalActionPermissions = {
@@ -40,6 +65,8 @@ export type QuotationDetails = {
   quotationNo: string;
   quotationDate: string;
   branch: string;
+  /** Backend key is `party`; kept `customer` alias for older callers. */
+  party?: string;
   customer: string;
   broker: string;
   billingAddress: string;
@@ -54,6 +81,8 @@ export type QuotationDetails = {
   paymentTerms?: string;
   deliveryTerms?: string;
   deliveryDays?: number | null;
+  /** Backend key is `quotationExpiryDate`; kept `expiryDate` alias for older callers. */
+  quotationExpiryDate?: string;
   expiryDate?: string;
   footerNotes?: string;
   internalNote?: string;
@@ -68,6 +97,9 @@ export type QuotationDetails = {
   updatedBy?: string;
   updatedAt?: string;
   permissions?: ApprovalActionPermissions;
+  /** Source enquiry (AMCL enquiry flow) — set when the quotation was made against an enquiry. */
+  salesEnquiryId?: string | null;
+  enquiryNo?: string | null;
   lines: QuotationLine[];
 };
 
@@ -102,6 +134,7 @@ export type CreateQuotationRequest = {
   footer_notes?: string;
   internal_note?: string;
   terms_condition?: string;
+  sales_enquiry_id?: number | string | null;
   items: Array<{
     item_id: number | string;
     item_make_id?: number | string | null;
@@ -115,6 +148,11 @@ export type CreateQuotationRequest = {
     net_amount?: number;
     total_amount?: number;
     remarks?: string;
+    enquiry_dtl_id?: number | string | null;
+    cost_snapshot_id?: number | string | null;
+    base_cost?: number | null;
+    overhead_pct?: number | null;
+    margin_pct?: number | null;
     gst?: {
       igst_amount?: number;
       igst_percent?: number;

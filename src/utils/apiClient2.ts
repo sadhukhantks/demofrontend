@@ -5,6 +5,9 @@ type FetchResult<T = any> = {
     data: T | null;
     error: string | null;
     status: number;
+    // Raw error response body (e.g. { detail: {...} }) — error flattens structured
+    // details to a string, so callers needing the full 4xx payload read this.
+    payload?: unknown;
 };
 
 // Regular function for direct API calls
@@ -14,12 +17,19 @@ export const fetchWithCookie = async <T = any>(
     body?: unknown,
 ): Promise<FetchResult<T>> => {
     try {
+        const isFormData =
+            typeof FormData !== "undefined" && body instanceof FormData;
         const response: AxiosResponse<T> = await axios({
             url,
             method,
-            headers: {
-                "Content-Type": "application/json",
-            },
+            // For FormData, omit Content-Type so the browser sets the
+            // correct multipart/form-data boundary automatically.
+            // Axios passes FormData through untouched (do NOT stringify).
+            headers: isFormData
+                ? undefined
+                : {
+                      "Content-Type": "application/json",
+                  },
             withCredentials: true,
             data: body,
             validateStatus: (status) => status >= 200 && status < 500,
@@ -32,20 +42,41 @@ export const fetchWithCookie = async <T = any>(
                 const detail = (payload as { detail?: unknown }).detail;
                 if (typeof detail === "string") {
                     message = detail;
+                } else if (detail && typeof detail === "object") {
+                    const detailMessage = (detail as { message?: unknown }).message;
+                    if (typeof detailMessage === "string") {
+                        message = detailMessage;
+                    }
                 }
             }
             if (!message) {
                 message = `Request failed with status ${response.status}`;
             }
-            return { data: null, error: message, status: response.status };
+            return { data: null, error: message, status: response.status, payload };
         }
 
         return { data: response.data ?? null, error: null, status: response.status };
     } catch (err: unknown) {
-        // Normalize error to string
-        const message = err instanceof Error ? err.message : String(err);
+        // Axios rejects for 5xx (validateStatus caps at < 500), so the real
+        // backend error lands on err.response.data.detail — surface it instead
+        // of the opaque "Request failed with status code 500".
+        let message: string;
+        let status = 0;
+        if (axios.isAxiosError(err)) {
+            status = err.response?.status ?? 0;
+            const detail = (err.response?.data as { detail?: unknown } | undefined)
+                ?.detail;
+            message = typeof detail === "string" ? detail : err.message;
+        } else {
+            message = err instanceof Error ? err.message : String(err);
+        }
         console.error(`Error in fetchWithCookie for ${url}:`, message);
-        return { data: null, error: message, status: 0 };
+        return {
+            data: null,
+            error: message,
+            status,
+            payload: axios.isAxiosError(err) ? err.response?.data : undefined,
+        };
     }
 };
 

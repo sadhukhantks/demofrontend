@@ -197,9 +197,10 @@ export const useSalesOrderLineItemColumns = ({
 						const displayValue = item.juteYarnRawRate ?? item.rate ?? "";
 						const uomOptions = getUomOptions(item.itemGroup, item.item);
 						const uomLabel = uomOptions.find((o) => o.value === item.uom)?.label ?? "";
+						const billingDecimals = item.rateRounding ?? 2;
 						const annotations: { label: string }[] = [];
 						if (item.juteYarnBillingRate != null && item.juteYarnBillingRate > 0) {
-							annotations.push({ label: `Billing: ${item.juteYarnBillingRate.toFixed(2)}${uomLabel ? ` / ${uomLabel}` : ""}` });
+							annotations.push({ label: `Billing: ${item.juteYarnBillingRate.toFixed(billingDecimals)}${uomLabel ? ` / ${uomLabel}` : ""}` });
 						}
 
 						if (canEdit) {
@@ -236,15 +237,16 @@ export const useSalesOrderLineItemColumns = ({
 					if (isHessian) {
 						// Hessian mode: input is rawRateMt (pre-brokerage rate per MT)
 						const displayValue = item.rawRateMt ?? item.rate ?? "";
+						const billingDecimals = item.rateRounding ?? 2;
 						const annotations: { label: string }[] = [];
 						if (item.ratePerBale != null && item.ratePerBale > 0) {
 							annotations.push({ label: `\u2248 ${item.ratePerBale.toFixed(2)} / Bale` });
 						}
 						if (item.billingRateMt != null && item.billingRateMt > 0) {
-							annotations.push({ label: `Billing: ${item.billingRateMt.toFixed(2)} / MT` });
+							annotations.push({ label: `Billing: ${item.billingRateMt.toFixed(billingDecimals)} / MT` });
 						}
 						if (item.billingRateBale != null && item.billingRateBale > 0) {
-							annotations.push({ label: `Billing: ${item.billingRateBale.toFixed(2)} / Bale` });
+							annotations.push({ label: `Billing: ${item.billingRateBale.toFixed(billingDecimals)} / Bale` });
 						}
 
 						if (canEdit) {
@@ -320,12 +322,14 @@ export const useSalesOrderLineItemColumns = ({
 					const isHessian = isHessianOrder(invoiceTypeCode);
 					const parts: string[] = [];
 					if (isHessian) {
+						const billingDecimals = item.rateRounding ?? 2;
 						if (item.rawRateMt) parts.push(`Rate: ${item.rawRateMt} / MT`);
 						if (item.ratePerBale) parts.push(`\u2248 ${item.ratePerBale.toFixed(2)} / Bale`);
-						if (item.billingRateMt) parts.push(`Billing: ${item.billingRateMt.toFixed(2)} / MT`);
+						if (item.billingRateMt) parts.push(`Billing: ${item.billingRateMt.toFixed(billingDecimals)} / MT`);
 					} else if (isJuteYarnOrder(invoiceTypeCode)) {
+						const billingDecimals = item.rateRounding ?? 2;
 						if (item.juteYarnRawRate) parts.push(`Rate: ${item.juteYarnRawRate}`);
-						if (item.juteYarnBillingRate) parts.push(`Billing: ${item.juteYarnBillingRate.toFixed(2)}`);
+						if (item.juteYarnBillingRate) parts.push(`Billing: ${item.juteYarnBillingRate.toFixed(billingDecimals)}`);
 					} else {
 						const conversion = getUomConversions
 							? computeConvertedRate(item.rate, item.uom, getUomConversions(item.itemGroup, item.item))

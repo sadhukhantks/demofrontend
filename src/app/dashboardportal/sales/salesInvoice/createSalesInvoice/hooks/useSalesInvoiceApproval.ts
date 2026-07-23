@@ -151,15 +151,17 @@ export const useSalesInvoiceApproval = ({ mode, requestedId, formValues, invoice
 
 	const handleReject = React.useCallback(async (reason: string) => {
 		if (!requestedId) return;
+		const menuId = getMenuId();
+		if (!menuId) { toast({ variant: "destructive", title: "Menu ID required" }); return; }
 		setApprovalLoading(true);
 		try {
-			await rejectInvoice(requestedId, reason);
+			await rejectInvoice(requestedId, reason, menuId);
 			toast({ title: "Invoice rejected" });
 			await refreshDetails();
 		} catch (error) {
 			toast({ variant: "destructive", title: "Unable to reject invoice", description: error instanceof Error ? error.message : "Please try again." });
 		} finally { setApprovalLoading(false); }
-	}, [requestedId, refreshDetails]);
+	}, [requestedId, getMenuId, refreshDetails]);
 
 	const handleViewApprovalLog = React.useCallback(() => {
 		toast({ title: "Opening approval log...", description: "Feature coming soon" });

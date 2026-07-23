@@ -25,6 +25,14 @@ import { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import IndexWrapper from "@/components/ui/IndexWrapper";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import SqcPrintButton from "../_shared/SqcPrintButton";
+import type {
+  SqcPrintReport,
+  PrintColumn,
+  PrintCell,
+  PrintTableSection,
+} from "../_shared/printReport";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -47,6 +55,10 @@ type MorrahWtRow = {
   count_lt: number;
   count_ok: number;
   count_hy: number;
+  /** Raw numeric values retained for the day-level print summary. */
+  raw_avg_weight: number | null;
+  raw_cv_pct: number | null;
+  raw_entry_date: string;
   [key: string]: unknown;
 };
 
@@ -158,6 +170,8 @@ const defaultFormData: FormData = {
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export default function MorrahWeightQCPage() {
+  const { selectedCompany, selectedBranches } = useSidebarContext();
+
   // List state
   const [rows, setRows] = useState<MorrahWtRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -210,6 +224,10 @@ export default function MorrahWeightQCPage() {
         (r: Record<string, unknown>) => ({
           ...r,
           id: r.morrah_wt_id as number,
+          raw_entry_date: (r.entry_date as string) ?? "",
+          raw_avg_weight:
+            r.calc_avg_weight != null ? Number(r.calc_avg_weight) : null,
+          raw_cv_pct: r.calc_cv_pct != null ? Number(r.calc_cv_pct) : null,
           entry_date: r.entry_date
             ? new Date(r.entry_date as string).toLocaleDateString("en-IN")
             : "-",
@@ -485,6 +503,121 @@ export default function MorrahWeightQCPage() {
     [formData.weights]
   );
 
+  // ─── Day-level print ──────────────────────────────────────────────────────
+
+  const selectedBranchName = useMemo(() => {
+    if (!selectedCompany || selectedBranches.length === 0) return "";
+    const branch = selectedCompany.branches.find(
+      (b) => b.branch_id === selectedBranches[0]
+    );
+    return branch?.branch_name ?? "";
+  }, [selectedCompany, selectedBranches]);
+
+  const printColumns = useMemo<PrintColumn[]>(
+    () => [
+      { key: "trolley_no", label: "Trolley No" },
+      { key: "inspector_name", label: "Inspector" },
+      { key: "jute_quality", label: "Quality" },
+      { key: "department", label: "Department" },
+      { key: "calc_avg_weight", label: "Avg Wt (g)", align: "right" },
+      { key: "calc_cv_pct", label: "CV%", align: "right" },
+      { key: "count_ok", label: "OK", align: "right" },
+      { key: "count_lt", label: "LT", align: "right" },
+      { key: "count_hy", label: "HY", align: "right" },
+    ],
+    []
+  );
+
+  const getReport = useCallback((): SqcPrintReport | null => {
+    if (rows.length === 0) return null;
+
+    // Consolidate the currently-loaded rows into one day report, grouped by the
+    // entry date each row carries (the list is not split by shift/spell).
+    const groups = new Map<string, MorrahWtRow[]>();
+    for (const row of rows) {
+      const key = row.raw_entry_date || row.entry_date;
+      const bucket = groups.get(key);
+      if (bucket) bucket.push(row);
+      else groups.set(key, [row]);
+    }
+
+    const sortedKeys = Array.from(groups.keys()).sort();
+
+    const sections: PrintTableSection[] = sortedKeys.map((key) => {
+      const dayRows = groups.get(key) ?? [];
+
+      const bodyRows: Array<Record<string, PrintCell>> = dayRows.map((r) => ({
+        trolley_no: r.trolley_no,
+        inspector_name: r.inspector_name,
+        jute_quality: r.jute_quality,
+        department: r.department,
+        calc_avg_weight: r.calc_avg_weight,
+        calc_cv_pct: r.calc_cv_pct,
+        count_ok: r.count_ok,
+        count_lt: r.count_lt,
+        count_hy: r.count_hy,
+      }));
+
+      // Server-computed summary mirrored as a bold footer row.
+      const avgValues = dayRows
+        .map((r) => r.raw_avg_weight)
+        .filter((v): v is number => v != null);
+      const cvValues = dayRows
+        .map((r) => r.raw_cv_pct)
+        .filter((v): v is number => v != null);
+      const sum = (acc: number, n: number) => acc + n;
+      const avgWt =
+        avgValues.length > 0
+          ? (avgValues.reduce(sum, 0) / avgValues.length).toFixed(1)
+          : "-";
+      const avgCv =
+        cvValues.length > 0
+          ? (cvValues.reduce(sum, 0) / cvValues.length).toFixed(2) + "%"
+          : "-";
+      const totalOk = dayRows.reduce((a, r) => a + (r.count_ok || 0), 0);
+      const totalLt = dayRows.reduce((a, r) => a + (r.count_lt || 0), 0);
+      const totalHy = dayRows.reduce((a, r) => a + (r.count_hy || 0), 0);
+
+      const footerRow: Record<string, PrintCell> = {
+        trolley_no: `Total / Avg (${dayRows.length} entries)`,
+        inspector_name: "",
+        jute_quality: "",
+        department: "",
+        calc_avg_weight: avgWt,
+        calc_cv_pct: avgCv,
+        count_ok: totalOk,
+        count_lt: totalLt,
+        count_hy: totalHy,
+      };
+
+      const dayLabel = dayRows[0]?.entry_date ?? key;
+
+      return {
+        kind: "table",
+        title: sortedKeys.length > 1 ? `Date: ${dayLabel}` : undefined,
+        columns: printColumns,
+        rows: bodyRows,
+        footerRows: [footerRow],
+      };
+    });
+
+    const reportDate = sortedKeys.length === 1 ? sortedKeys[0] : undefined;
+
+    return {
+      reportTitle: "Morrah Weight SQC",
+      reportCode: "R-08-01",
+      companyName: selectedCompany?.co_name,
+      branchName: selectedBranchName,
+      reportDate,
+      headerFields: [
+        { label: "Standard Range", value: `${STANDARD_MIN_WEIGHT}–${STANDARD_MAX_WEIGHT} g` },
+        { label: "Sample Size", value: SAMPLE_SIZE },
+        { label: "Entries", value: rows.length },
+      ],
+      sections,
+    };
+  }, [rows, printColumns, selectedCompany, selectedBranchName]);
+
   // ─── Render ─────────────────────────────────────────────────────────────
 
   return (
@@ -511,6 +644,12 @@ export default function MorrahWeightQCPage() {
         label: "New QC Entry",
         onClick: handleCreateOpen,
       }}
+      toolbarContent={
+        <SqcPrintButton
+          getReport={getReport}
+          disabled={loading || rows.length === 0}
+        />
+      }
       onView={handleView}
     >
       {/* ─── Create Dialog ───────────────────────────────────────────── */}

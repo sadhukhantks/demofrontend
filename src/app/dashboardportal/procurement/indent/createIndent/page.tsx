@@ -990,6 +990,8 @@ function IndentTransactionPageContent() {
 		updatedAt: indentDetails?.updatedAt,
 		companyName: companyName,
 		companyLogo: companyLogo,
+		coId: coId,
+		branchId: branchIdForSetup,
 	};
 
 	const { metadata } = useTransactionPreview({

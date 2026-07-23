@@ -1,17 +1,18 @@
 "use client";
-import React, { useState, useMemo, useCallback, SyntheticEvent } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   Box,
-  Tabs,
-  Tab,
   TextField,
   Autocomplete,
   Paper,
   Typography,
 } from "@mui/material";
+import { useRouter } from "next/navigation";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
-import JuteStockReport from "./_components/JuteStockReport";
-import BatchCostReport from "./_components/BatchCostReport";
+import {
+  fetchReportMenuTree,
+  type ReportMenuNode,
+} from "@/utils/reportMenuService";
 import type { BranchOption } from "./types/reportTypes";
 
 function getYesterdayDate(): string {
@@ -20,13 +21,48 @@ function getYesterdayDate(): string {
   return d.toISOString().split("T")[0];
 }
 
+// Module-level cache of the report list. Persists across client-side
+// navigations so the dropdown is populated instantly on every mount (incl.
+// returning via the Back button), not only the first page load. Cleared only
+// on a full page reload.
+let cachedReportNodes: ReportMenuNode[] | null = null;
+
 export default function JuteReportsPage() {
-  const { selectedCompany } = useSidebarContext();
-  const [activeTab, setActiveTab] = useState(0);
+  const router = useRouter();
+  const { selectedCompany, selectedBranches } = useSidebarContext();
+  const [selectedReport, setSelectedReport] = useState<ReportMenuNode | null>(
+    null,
+  );
   const [selectedBranch, setSelectedBranch] = useState<BranchOption | null>(
     null,
   );
   const [reportDate, setReportDate] = useState<string>(getYesterdayDate());
+  // DB-driven reports: direct report children (report=1) of this page's menu.
+  // Seed from the module cache so the dropdown is populated immediately on every
+  // mount (incl. back navigation), then refresh in the background.
+  const [dbReports, setDbReports] = useState<ReportMenuNode[]>(
+    cachedReportNodes ?? [],
+  );
+
+  useEffect(() => {
+    let mounted = true;
+    fetchReportMenuTree("jutePurchase/reports")
+      .then((res) => {
+        if (!mounted) return;
+        // Flat list — direct children of the page menu only (no submenu chaining).
+        const list = res.data.filter(
+          (n) => n.menu_parent_id === res.root_menu_id,
+        );
+        cachedReportNodes = list;
+        setDbReports(list);
+      })
+      .catch(() => {
+        // Keep the cached list on a transient failure rather than blanking it.
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Get branch options from sidebar context
   const branchOptions: BranchOption[] = useMemo(
@@ -38,11 +74,29 @@ export default function JuteReportsPage() {
     [selectedCompany?.branches],
   );
 
-  const handleTabChange = useCallback(
-    (_: SyntheticEvent, newValue: number) => {
-      setActiveTab(newValue);
+  // Default the Branch filter to the branch picked in the left sidebar.
+  // Only fills when empty, so switching branches here still works.
+  useEffect(() => {
+    if (selectedBranch) return;
+    const sidebarId = selectedBranches[0];
+    if (sidebarId == null) return;
+    const match = branchOptions.find((b) => b.branch_id === sidebarId);
+    if (match) setSelectedBranch(match);
+  }, [selectedBranch, selectedBranches, branchOptions]);
+
+  const handleReportChange = useCallback(
+    (_event: React.SyntheticEvent, node: ReportMenuNode | null) => {
+      setSelectedReport(node);
+      if (!node?.menu_path) return;
+      // Carry the selected branch/date so the report page can populate its data.
+      const params = new URLSearchParams();
+      if (selectedBranch) {
+        params.set("branch_id", String(selectedBranch.branch_id));
+      }
+      if (reportDate) params.set("date", reportDate);
+      router.push(`/dashboardportal/${node.menu_path}?${params.toString()}`);
     },
-    [],
+    [router, selectedBranch, reportDate],
   );
 
   const handleDateChange = useCallback(
@@ -62,29 +116,6 @@ export default function JuteReportsPage() {
       </Typography>
 
       <Paper elevation={1} sx={{ mb: 3 }}>
-        {/* Tabs */}
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          sx={{
-            borderBottom: 1,
-            borderColor: "divider",
-            "& .MuiTab-root": {
-              textTransform: "none",
-              fontWeight: 600,
-            },
-            "& .Mui-selected": {
-              color: "#0C3C60",
-            },
-            "& .MuiTabs-indicator": {
-              backgroundColor: "#0C3C60",
-            },
-          }}
-        >
-          <Tab label="Jute Stock Report" />
-          <Tab label="Batch Cost Report" />
-        </Tabs>
-
         {/* Filters toolbar */}
         <Box
           sx={{
@@ -95,6 +126,21 @@ export default function JuteReportsPage() {
             flexWrap: "wrap",
           }}
         >
+          {/* Searchable report picker — DB-driven (menu_mst report=1, children of menu 10). */}
+          <Autocomplete
+            options={dbReports}
+            getOptionLabel={(option) => option.menu_name}
+            isOptionEqualToValue={(option, value) =>
+              option.menu_id === value.menu_id
+            }
+            value={selectedReport}
+            onChange={handleReportChange}
+            renderInput={(params) => (
+              <TextField {...params} label="Report" size="small" />
+            )}
+            sx={{ minWidth: 280 }}
+          />
+
           <Autocomplete
             options={branchOptions}
             getOptionLabel={(option) => option.branch_name}
@@ -104,12 +150,7 @@ export default function JuteReportsPage() {
             value={selectedBranch}
             onChange={(_, newValue) => setSelectedBranch(newValue)}
             renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Branch"
-                size="small"
-                required
-              />
+              <TextField {...params} label="Branch" size="small" required />
             )}
             sx={{ minWidth: 240 }}
           />
@@ -124,20 +165,6 @@ export default function JuteReportsPage() {
           />
         </Box>
       </Paper>
-
-      {/* Report content */}
-      {activeTab === 0 && (
-        <JuteStockReport
-          branchId={selectedBranch?.branch_id ?? null}
-          date={reportDate}
-        />
-      )}
-      {activeTab === 1 && (
-        <BatchCostReport
-          branchId={selectedBranch?.branch_id ?? null}
-          date={reportDate}
-        />
-      )}
     </Box>
   );
 }

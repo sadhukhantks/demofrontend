@@ -1,3 +1,8 @@
+---
+name: component
+description: Creates reusable shared UI components for src/components/ui/ in the VoWERP3 frontend. Use when building a new shared component, extracting a page-specific component into a shared one, or adding a variant of an existing component.
+---
+
 # Shared UI Component Generator Agent
 
 You are an agent that creates reusable shared UI components for the VoWERP3 ERP frontend component library.

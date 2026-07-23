@@ -32,10 +32,14 @@ import {
 } from "@/utils/billPassService";
 import AdditionalChargesTable from "@/components/billPass/AdditionalChargesTable";
 import { openStyledPrintWindow } from "@/utils/printUtils";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import useCompanyHeader from "@/hooks/useCompanyHeader";
 import {
   renderBillPassPreviewHtml,
   BILL_PASS_PRINT_CSS,
+  splitItemNameMake,
 } from "./components/BillPassPreview";
+import AttachmentUploader from "@/components/AttachmentUploader";
 
 /**
  * @component BillPassEditPage
@@ -147,6 +151,7 @@ function BillPassEditPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const inwardIdParam = searchParams.get("id");
+  const { selectedCompany } = useSidebarContext();
 
   // State
   const [detail, setDetail] = React.useState<BillPassDetail | null>(null);
@@ -161,6 +166,7 @@ function BillPassEditPageContent() {
 
   // Form state for editable fields
   const [formData, setFormData] = React.useState({
+    invoice_no: "",
     invoice_date: "",
     invoice_amount: "",
     invoice_recvd_date: "",
@@ -191,6 +197,7 @@ function BillPassEditPageContent() {
       // the full amount including additional charges on first open.
       const suggestedAmount = data.summary?.net_payable ?? 0;
       setFormData({
+        invoice_no: data.invoice_no ?? "",
         invoice_date: toDateInput(data.invoice_date),
         invoice_amount: data.invoice_amount
           ? String(data.invoice_amount)
@@ -225,6 +232,7 @@ function BillPassEditPageContent() {
     setSaving(true);
     try {
       const { error } = await updateBillPass(detail.inward_id, {
+        invoice_no: formData.invoice_no || null,
         invoice_date: formData.invoice_date || null,
         invoice_amount: formData.invoice_amount ? parseFloat(formData.invoice_amount) : null,
         invoice_recvd_date: formData.invoice_recvd_date || null,
@@ -267,6 +275,7 @@ function BillPassEditPageContent() {
     setSaving(true);
     try {
       const { error } = await updateBillPass(detail.inward_id, {
+        invoice_no: formData.invoice_no || null,
         invoice_date: formData.invoice_date,
         invoice_amount: parseFloat(formData.invoice_amount),
         invoice_recvd_date: formData.invoice_recvd_date || null,
@@ -319,12 +328,18 @@ function BillPassEditPageContent() {
     );
   }, [detail, formData.round_off_value]);
 
+  const companyHeader = useCompanyHeader(selectedCompany?.co_id, detail?.branch_id ?? undefined);
+
   const handlePrintPreview = () => {
     if (!detail) return;
     const html = renderBillPassPreviewHtml({
       detail,
       formData,
       netPayable,
+      companyName: selectedCompany?.co_name ?? null,
+      companyAddress: companyHeader.address || null,
+      companyGst: companyHeader.gstNo || null,
+      companyCin: companyHeader.cinNo || null,
     });
     const title = `Bill Pass ${detail.bill_pass_no || "Draft"}`;
     const printWindow = openStyledPrintWindow(html, title, BILL_PASS_PRINT_CSS);
@@ -525,9 +540,27 @@ function BillPassEditPageContent() {
                             </Typography>
                           </Box>
                           <Box component="td" sx={{ p: 1, fontSize: "0.75rem" }}>
-                            <Typography variant="caption" fontWeight={600}>
-                              {line.item_name || "-"}
-                            </Typography>
+                            {(() => {
+                              const { name, make } = splitItemNameMake(line.item_name);
+                              return (
+                                <>
+                                  <Typography variant="caption" fontWeight={600} display="block">
+                                    {name}
+                                  </Typography>
+                                  {make && (
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                      fontStyle="italic"
+                                      display="block"
+                                      sx={{ fontSize: "0.65rem" }}
+                                    >
+                                      {make}
+                                    </Typography>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </Box>
                           <Box component="td" sx={{ p: 1, fontSize: "0.75rem" }}>
                             {line.hsn_code || "-"}
@@ -629,6 +662,16 @@ function BillPassEditPageContent() {
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
+                    label="Invoice No."
+                    value={formData.invoice_no}
+                    onChange={(e) => handleFieldChange("invoice_no", e.target.value)}
+                    fullWidth
+                    size="small"
+                    disabled={isComplete}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
                     label="Invoice Date *"
                     type="date"
                     value={formData.invoice_date}
@@ -697,6 +740,37 @@ function BillPassEditPageContent() {
                     disabled={isComplete}
                   />
                 </Grid>
+                {detail.inward_id && selectedCompany?.co_id && (
+                  <>
+                    <Grid size={{ xs: 12 }}>
+                      <Divider sx={{ my: 1 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          DOCUMENTS
+                        </Typography>
+                      </Divider>
+                    </Grid>
+                    <Grid size={{ xs: 12 }}>
+                      <AttachmentUploader
+                        module="proc_billpass"
+                        entityId={detail.inward_id}
+                        fileType="invoice"
+                        coId={Number(selectedCompany.co_id)}
+                        disabled={isComplete}
+                        label="Invoice"
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12 }}>
+                      <AttachmentUploader
+                        module="proc_billpass"
+                        entityId={detail.inward_id}
+                        fileType="ewaybill"
+                        coId={Number(selectedCompany.co_id)}
+                        disabled={isComplete}
+                        label="E-Waybill / Delivery Note"
+                      />
+                    </Grid>
+                  </>
+                )}
               </Grid>
             </CardContent>
           </Card>

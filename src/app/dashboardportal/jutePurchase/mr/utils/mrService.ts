@@ -3,6 +3,7 @@
  * @description API service functions for Jute Material Receipt (MR) module.
  */
 
+import axios from "axios";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { ApprovalActionPermissions } from "@/components/ui/transaction";
@@ -101,24 +102,31 @@ export async function pendingMR(mrId: string, branchId: string): Promise<StatusC
  * For final approval, mr_date is MANDATORY and mr_no will be auto-generated.
  */
 export async function approveMR(
-	mrId: string, 
-	branchId: string, 
+	mrId: string,
+	branchId: string,
 	partyBranchId?: number | null,
-	mrDate?: string | null
+	mrDate?: string | null,
+	menuId?: string | null
 ): Promise<StatusChangeResponse> {
 	const payload: Record<string, unknown> = {
 		mr_id: mrId,
 		branch_id: branchId,
 	};
-	
+
 	// Include party_branch_id if provided (handles case where it was selected but not saved)
 	if (partyBranchId != null) {
 		payload.party_branch_id = partyBranchId;
 	}
-	
+
 	// Include mr_date if provided (mandatory for final approval)
 	if (mrDate) {
 		payload.mr_date = mrDate;
+	}
+
+	// Include menu_id so the backend walks the approval hierarchy (level-based
+	// approval via process_approval). Without it, approval is single-step.
+	if (menuId) {
+		payload.menu_id = Number(menuId);
 	}
 
 	const { data, error } = await fetchWithCookie<StatusChangeResponse>(
@@ -141,12 +149,23 @@ export async function approveMR(
 /**
  * Reject MR - Changes status to Rejected (4).
  */
-export async function rejectMR(mrId: string, branchId: string, reason: string): Promise<StatusChangeResponse> {
-	const payload = {
+export async function rejectMR(
+	mrId: string,
+	branchId: string,
+	reason: string,
+	menuId?: string | null
+): Promise<StatusChangeResponse> {
+	const payload: Record<string, unknown> = {
 		mr_id: mrId,
 		branch_id: branchId,
 		reason,
 	};
+
+	// Reject only fires from Pending Approval (status 20); menu_id lets the
+	// backend enforce the current approval level via process_rejection.
+	if (menuId) {
+		payload.menu_id = Number(menuId);
+	}
 
 	const { data, error } = await fetchWithCookie<StatusChangeResponse>(
 		apiRoutesPortalMasters.JUTE_MR_REJECT,
@@ -189,4 +208,50 @@ export async function cancelMR(mrId: string, branchId: string): Promise<StatusCh
 	}
 
 	return data;
+}
+
+// =============================================================================
+// EXCEL DOWNLOAD
+// =============================================================================
+
+export interface FetchJuteMRDownloadParams {
+	coId: number | string;
+	search?: string | null;
+	fromDate?: string | null;
+	toDate?: string | null;
+}
+
+/**
+ * Download the Jute MR list as an .xlsx blob, applying the same filters
+ * (search, from_date, to_date) used by the index grid.
+ */
+export async function fetchJuteMRDownload(
+	params: FetchJuteMRDownloadParams,
+): Promise<Blob> {
+	const { coId, search, fromDate, toDate } = params;
+	const qs = new URLSearchParams();
+	qs.append("co_id", String(coId));
+	if (search && search.trim()) qs.append("search", search.trim());
+	if (fromDate) qs.append("from_date", fromDate);
+	if (toDate) qs.append("to_date", toDate);
+
+	const url = `${apiRoutesPortalMasters.JUTE_MR_DOWNLOAD}?${qs.toString()}`;
+	try {
+		const response = await axios.get<Blob>(url, {
+			responseType: "blob",
+			withCredentials: true,
+		});
+		return response.data;
+	} catch (err: unknown) {
+		if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
+			try {
+				const text = await err.response.data.text();
+				const parsed = JSON.parse(text) as { detail?: string };
+				throw new Error(parsed.detail ?? "Jute MR download failed");
+			} catch {
+				throw new Error("Jute MR download failed");
+			}
+		}
+		throw err instanceof Error ? err : new Error(String(err));
+	}
 }
