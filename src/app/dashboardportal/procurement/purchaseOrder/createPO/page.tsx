@@ -508,7 +508,11 @@ function POTransactionPageContent() {
   React.useEffect(() => {
     if (!fromEnquiry || !enquiryResponseId || mode !== "create") return;
     if (enquiryPrefillAppliedRef.current) return;
-    if (!setupEnabled || setupLoading || !setupData) return;
+    // Do NOT gate on setup here: setup only fetches once a branch is known,
+    // and in the from-enquiry flow the branch comes from this prefill —
+    // gating on setup deadlocks and the prefill never fires. Setting the
+    // branch below triggers the setup fetch, and option lists resolve the
+    // already-set values when they arrive.
 
     enquiryPrefillAppliedRef.current = true;
 
@@ -549,6 +553,7 @@ function POTransactionPageContent() {
         const mappedLines = rawItems.map((item) => ({
           id: `enq-${Math.random().toString(36).slice(2, 10)}`,
           indentDtlId: item.indent_dtl_id != null ? String(item.indent_dtl_id) : undefined,
+          itemGroup: item.item_grp_id != null ? String(item.item_grp_id) : "",
           item: item.item_id != null ? String(item.item_id) : "",
           itemCode: (item.item_code ?? "") as string,
           hsnCode: (item.hsn_code ?? "") as string,
@@ -562,6 +567,12 @@ function POTransactionPageContent() {
           amount: 0,
           remarks: "",
         }));
+
+        // Hydrate the item-group cache so the grid/preview resolve
+        // "code — name" item labels and uom names (same as loaded-PO lines).
+        new Set(mappedLines.map((l) => l.itemGroup).filter((g) => /^\d+$/.test(g))).forEach((groupId) => {
+          void ensureItemGroupData(groupId);
+        });
 
         replaceItems(mappedLines as unknown as EditableLineItem[]);
         setPageError(null);
@@ -582,8 +593,8 @@ function POTransactionPageContent() {
     void fetchEnquiryPrefill();
     return () => { cancelled = true; };
   }, [
-    fromEnquiry, enquiryResponseId, mode, setupEnabled, setupLoading, setupData,
-    setInitialValues, setFormValues, bumpFormKey, replaceItems, coId, toast,
+    fromEnquiry, enquiryResponseId, mode,
+    setInitialValues, setFormValues, bumpFormKey, replaceItems, ensureItemGroupData, coId, toast,
   ]);
 
   React.useEffect(() => {

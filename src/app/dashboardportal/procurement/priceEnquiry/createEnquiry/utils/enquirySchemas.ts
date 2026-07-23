@@ -145,6 +145,8 @@ export type ResponseDetail = z.infer<typeof responseDetailSchema>;
 export const poPrefillItemSchema = z.object({
 	item_id: z.number(),
 	item_code: z.string().nullable().optional(),
+	item_name: z.string().nullable().optional(),
+	item_grp_id: z.number().nullable().optional(),
 	hsn_code: z.string().nullable().optional(),
 	item_make_id: z.number().nullable().optional(),
 	item_make_name: z.string().nullable().optional(),
