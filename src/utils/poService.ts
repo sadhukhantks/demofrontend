@@ -132,6 +132,8 @@ export type CreatePORequest = {
   delivery_timeline: number;
   project: string;
   expense_type: string;
+  /** Source price-enquiry id when the PO is created from an enquiry award. */
+  price_enquiry_id?: string;
   po_type?: string;
   contact_person?: string;
   contact_no?: string;
