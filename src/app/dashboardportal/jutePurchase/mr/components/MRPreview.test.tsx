@@ -23,8 +23,11 @@ const mockHeader: JuteMRHeader = {
 	party_name: "XYZ Traders",
 	party_branch_id: 1,
 	party_branch_name: "North Unit",
+	party_address: null,
+	party_gst_no: null,
 	po_id: 37,
 	po_no: 37,
+	po_num: null,
 	po_date: "2025-05-20T00:00:00Z",
 	challan_no: "24/25-26",
 	challan_date: "2025-05-22T00:00:00Z",
@@ -41,6 +44,11 @@ const mockHeader: JuteMRHeader = {
 	jute_gate_entry_date: null,
 	updated_by: null,
 	updated_date_time: null,
+	co_name: null,
+	co_logo: null,
+	co_address1: null,
+	co_address2: null,
+	co_zipcode: null,
 };
 
 const mockLineItems: MRLineItem[] = [
@@ -67,6 +75,7 @@ const mockLineItems: MRLineItem[] = [
 		remarks: null,
 		warehouseId: null,
 		warehousePath: null,
+		unitConversion: null,
 	},
 	{
 		id: "li-2",
@@ -91,6 +100,7 @@ const mockLineItems: MRLineItem[] = [
 		remarks: null,
 		warehouseId: null,
 		warehousePath: null,
+		unitConversion: null,
 	},
 ];
 
@@ -98,7 +108,7 @@ describe("MRPreview", () => {
 	// ── Title ──
 	it("renders the document title", () => {
 		render(<MRPreview header={mockHeader} lineItems={[]} totalAcceptedWeight={0} />);
-		expect(screen.getByText("Material Receipt")).toBeInTheDocument();
+		expect(screen.getByText("MATERIAL RECEIPT")).toBeInTheDocument();
 	});
 
 	// ── Header fields ──
@@ -110,10 +120,23 @@ describe("MRPreview", () => {
 
 	it("renders supplier (M/S), PO, challan, lorry fields", () => {
 		render(<MRPreview header={mockHeader} lineItems={[]} totalAcceptedWeight={0} />);
-		expect(screen.getByText("SHIVAM ENTERPRISES")).toBeInTheDocument();
-		expect(screen.getByText("37")).toBeInTheDocument();
-		expect(screen.getByText("24/25-26")).toBeInTheDocument();
+		// M/S prefers party_name over supplier_name
+		expect(screen.getByText("XYZ Traders")).toBeInTheDocument();
+		// PO / challan render combined with their dates
+		expect(screen.getByText("37 / 20/05/2025")).toBeInTheDocument();
+		expect(screen.getByText("24/25-26 / 22/05/2025")).toBeInTheDocument();
 		expect(screen.getByText("WB/57B/0592")).toBeInTheDocument();
+	});
+
+	it("renders full formatted PO number when po_num is present", () => {
+		render(
+			<MRPreview
+				header={{ ...mockHeader, po_num: "LCPL/JPO/25-26/00037" }}
+				lineItems={[]}
+				totalAcceptedWeight={0}
+			/>
+		);
+		expect(screen.getByText("LCPL/JPO/25-26/00037 / 20/05/2025")).toBeInTheDocument();
 	});
 
 	it("renders mukam as EX field", () => {

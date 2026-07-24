@@ -122,7 +122,7 @@ export const mapAvailableInventoryItems = (records: unknown[]): AvailableInvento
 			return {
 				inwardDtlId: String(inwardDtlId),
 				inwardId: String(data?.inward_id ?? ""),
-				grnNo: String(data?.inward_no ?? data?.sr_no ?? ""),
+				grnNo: String(data?.sr_no ?? data?.inward_no ?? ""),
 				inwardDate: String(data?.inward_date ?? ""),
 				branchId: String(data?.branch_id ?? ""),
 				branchName: String(data?.branch_name ?? ""),

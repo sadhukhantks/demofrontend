@@ -10,17 +10,12 @@ vi.mock("@/utils/issueService", () => ({
 	fetchInventoryList: vi.fn(),
 }));
 
-// Mock the useDebounce hook (identity — search applies immediately)
-vi.mock("@/hooks/use-debounce", () => ({
-	useDebounce: (value: string) => value,
-}));
-
 const mockInventoryData: issueService.InventoryListItem[] = [
 	{
 		inward_dtl_id: 1,
 		inward_id: 100,
 		inward_sequence_no: 1,
-		inward_no: "GRN/2025/001",
+		sr_no: "XX/F/SR/2025-2026/1",
 		inward_date: "2025-01-01",
 		branch_id: 10,
 		branch_name: "Branch 1",
@@ -42,7 +37,7 @@ const mockInventoryData: issueService.InventoryListItem[] = [
 		inward_dtl_id: 2,
 		inward_id: 100,
 		inward_sequence_no: 2,
-		inward_no: "GRN/2025/001",
+		sr_no: "XX/F/SR/2025-2026/1",
 		inward_date: "2025-01-01",
 		branch_id: 10,
 		branch_name: "Branch 1",
@@ -62,7 +57,7 @@ const mockInventoryData: issueService.InventoryListItem[] = [
 	},
 ];
 
-const SEARCH_PLACEHOLDER = "Search by item, group, or GRN...";
+const SEARCH_PLACEHOLDER = "Search by item, group, or SR no...";
 
 describe("InventorySearchTable", () => {
 	const mockOnInsertItems = vi.fn();
@@ -81,7 +76,7 @@ describe("InventorySearchTable", () => {
 		});
 	});
 
-	// Helpers: open the dialog, then type a search term
+	// Helpers: open the dialog, type a search term, submit via the Search button
 	const openDialog = () => {
 		fireEvent.click(screen.getByRole("button", { name: /Add from Inventory/ }));
 	};
@@ -89,6 +84,10 @@ describe("InventorySearchTable", () => {
 		fireEvent.change(screen.getByPlaceholderText(SEARCH_PLACEHOLDER), {
 			target: { value },
 		});
+	};
+	const submitSearch = (value: string) => {
+		typeSearch(value);
+		fireEvent.click(screen.getByRole("button", { name: "Search" }));
 	};
 
 	describe("Trigger", () => {
@@ -132,14 +131,41 @@ describe("InventorySearchTable", () => {
 			await new Promise((resolve) => setTimeout(resolve, 100));
 			expect(issueService.fetchInventoryList).not.toHaveBeenCalled();
 			expect(
-				screen.getByText("Type to search available inventory.")
+				screen.getByText("Type a search term and press Search.")
 			).toBeInTheDocument();
 		});
 
-		it("should fetch with the search term once the user types", async () => {
+		it("should NOT fetch while the user is typing (only on Search click)", async () => {
 			render(<InventorySearchTable {...defaultProps} />);
 			openDialog();
 			typeSearch("test");
+
+			await new Promise((resolve) => setTimeout(resolve, 100));
+			expect(issueService.fetchInventoryList).not.toHaveBeenCalled();
+		});
+
+		it("should fetch with the search term when Search is clicked", async () => {
+			render(<InventorySearchTable {...defaultProps} />);
+			openDialog();
+			submitSearch("test");
+
+			await waitFor(() => {
+				expect(issueService.fetchInventoryList).toHaveBeenCalledWith("1", {
+					branchId: "10",
+					page: 1,
+					limit: 10,
+					search: "test",
+				});
+			});
+		});
+
+		it("should fetch when Enter is pressed in the search field", async () => {
+			render(<InventorySearchTable {...defaultProps} />);
+			openDialog();
+			typeSearch("test");
+			fireEvent.keyDown(screen.getByPlaceholderText(SEARCH_PLACEHOLDER), {
+				key: "Enter",
+			});
 
 			await waitFor(() => {
 				expect(issueService.fetchInventoryList).toHaveBeenCalledWith("1", {
@@ -154,7 +180,7 @@ describe("InventorySearchTable", () => {
 		it("should render inventory rows after a search", async () => {
 			render(<InventorySearchTable {...defaultProps} />);
 			openDialog();
-			typeSearch("item");
+			submitSearch("item");
 
 			await waitFor(() => {
 				expect(screen.getByText("Test Item 1")).toBeInTheDocument();
@@ -172,7 +198,7 @@ describe("InventorySearchTable", () => {
 
 			render(<InventorySearchTable {...defaultProps} />);
 			openDialog();
-			typeSearch("nonexistent");
+			submitSearch("nonexistent");
 
 			await waitFor(() => {
 				expect(
@@ -188,7 +214,7 @@ describe("InventorySearchTable", () => {
 
 			render(<InventorySearchTable {...defaultProps} />);
 			openDialog();
-			typeSearch("item");
+			submitSearch("item");
 
 			await waitFor(() => {
 				expect(screen.getByText("Network error")).toBeInTheDocument();
@@ -200,7 +226,7 @@ describe("InventorySearchTable", () => {
 		it("should call onInsertItems with the single row when its Add button is clicked", async () => {
 			render(<InventorySearchTable {...defaultProps} />);
 			openDialog();
-			typeSearch("item");
+			submitSearch("item");
 
 			await waitFor(() => {
 				expect(screen.getByText("Test Item 1")).toBeInTheDocument();
@@ -225,7 +251,7 @@ describe("InventorySearchTable", () => {
 				/>
 			);
 			openDialog();
-			typeSearch("item");
+			submitSearch("item");
 
 			await waitFor(() => {
 				expect(screen.getByText("Test Item 1")).toBeInTheDocument();
@@ -256,7 +282,7 @@ describe("InventorySearchTable", () => {
 		it("should not show pagination when total is within one page", async () => {
 			render(<InventorySearchTable {...defaultProps} />);
 			openDialog();
-			typeSearch("item");
+			submitSearch("item");
 
 			await waitFor(() => {
 				expect(screen.getByText("Test Item 1")).toBeInTheDocument();
@@ -272,7 +298,7 @@ describe("InventorySearchTable", () => {
 
 			render(<InventorySearchTable {...defaultProps} />);
 			openDialog();
-			typeSearch("item");
+			submitSearch("item");
 
 			await waitFor(() => {
 				expect(screen.getByText("Test Item 1")).toBeInTheDocument();
@@ -291,7 +317,7 @@ describe("InventorySearchTable", () => {
 					inward_dtl_id: 1,
 					inward_id: 100,
 					inward_sequence_no: 1,
-					inward_no: null,
+					sr_no: null,
 					inward_date: null,
 					branch_id: 10,
 					branch_name: null,
@@ -318,7 +344,7 @@ describe("InventorySearchTable", () => {
 
 			render(<InventorySearchTable {...defaultProps} />);
 			openDialog();
-			typeSearch("x");
+			submitSearch("x");
 
 			await waitFor(() => {
 				const dashes = screen.getAllByText("-");
