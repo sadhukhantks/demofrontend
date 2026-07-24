@@ -281,9 +281,14 @@ export default function LedgersPage() {
           await updateLedger(editId, {
             co_id: selectedCompany.co_id,
             ledger_name: data.ledger_name,
-            acc_group_id: data.acc_ledger_group_id,
+            ledger_code: data.ledger_code || undefined,
+            acc_ledger_group_id: data.acc_ledger_group_id,
             ledger_type: data.ledger_type,
+            party_id: data.party_id ?? undefined,
+            credit_days: data.credit_days ?? undefined,
+            credit_limit: data.credit_limit ?? undefined,
             opening_balance: data.opening_balance,
+            opening_balance_type: data.opening_balance_type,
           });
           await Swal.fire({
             icon: "success",
@@ -296,9 +301,14 @@ export default function LedgersPage() {
           await createLedger({
             co_id: selectedCompany.co_id,
             ledger_name: data.ledger_name,
-            acc_group_id: data.acc_ledger_group_id,
+            ledger_code: data.ledger_code || undefined,
+            acc_ledger_group_id: data.acc_ledger_group_id,
             ledger_type: data.ledger_type,
+            party_id: data.party_id ?? undefined,
+            credit_days: data.credit_days ?? undefined,
+            credit_limit: data.credit_limit ?? undefined,
             opening_balance: data.opening_balance,
+            opening_balance_type: data.opening_balance_type,
           });
           await Swal.fire({
             icon: "success",

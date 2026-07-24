@@ -57,3 +57,4 @@ ledgers, account determinations and financial year for a company (`seed_data.py`
 | `pages-02-reports.md` | The eight report pages under `reports/` |
 | `backend-map.md` | Router file → prefix → every endpoint; service files; auto-post sources |
 | `approval-flows.md` | Voucher status lifecycle (mermaid state diagram + endpoint table) |
+| `gap-analysis.md` | Verified gaps (FE↔BE contract breaks, missing AP/AR/expense surfaces); full plan in `../vowerp3be/docs/accounting-gap-analysis-and-integration-plan.md` |

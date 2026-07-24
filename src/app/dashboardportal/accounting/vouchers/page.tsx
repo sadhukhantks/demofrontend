@@ -238,18 +238,26 @@ export default function VoucherListPage() {
         voucher_no: v.voucher_no,
         voucher_date: v.voucher_date,
         voucher_type: v.voucher_type_name ?? "",
-        type_category: "JOURNAL" as const,
+        type_category: v.type_category ?? ("JOURNAL" as const),
         party_name: v.party_name ?? null,
         branch_name: null,
-        total_amount: v.total_debit ?? 0,
+        total_amount: v.total_amount ?? v.total_debit ?? 0,
         status: v.status_name ?? "Draft",
         status_id: v.status_id,
-        is_auto_posted: v.source_doc_type ? 1 : 0,
+        // Prefer the backend's is_auto_posted flag; fall back to the presence
+        // of a source document for older responses that lack the field.
+        is_auto_posted:
+          v.is_auto_posted != null
+            ? v.is_auto_posted
+            : v.source_doc_type
+              ? 1
+              : 0,
         source_doc_type: v.source_doc_type ?? null,
         narration: v.narration ?? null,
       }));
 
       setRows(mapped);
+      // Server-reported total drives the grid's row count for pagination.
       setTotalRows(result.total ?? mapped.length);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load vouchers";
