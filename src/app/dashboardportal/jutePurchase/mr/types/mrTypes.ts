@@ -25,6 +25,7 @@ export type JuteMRHeader = {
 	party_gst_no: string | null;
 	po_id: number | null;
 	po_no: number | null;
+	po_num: string | null;
 	po_date: string | null;
 	challan_no: string | null;
 	challan_date: string | null;

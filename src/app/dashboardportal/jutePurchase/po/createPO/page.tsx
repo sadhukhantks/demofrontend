@@ -707,6 +707,7 @@ function JutePOCreatePageContent() {
       <JutePOPreview
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
+        coId={coId}
         poNumber={details?.po_num}
         statusId={statusId}
         formValues={formValues}

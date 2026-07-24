@@ -20,7 +20,7 @@ export type Option = {
 export type EditableLineItem = {
 	id: string;
 	// From inventory - read-only display fields
-	grnNo: string; // GRN number for display (inward_no)
+	grnNo: string; // SR number for display (proc_inward.sr_no)
 	inwardDtlId: string; // Inward detail ID for backend reference
 	itemId: string; // Item ID for backend
 	itemName: string; // Item name for display (read-only)
@@ -92,7 +92,7 @@ export type MachineRecord = {
 export type AvailableInventoryItem = {
 	inwardDtlId: string;
 	inwardId: string;
-	grnNo: string; // GRN number (inward_no)
+	grnNo: string; // SR number (proc_inward.sr_no)
 	inwardDate: string;
 	branchId: string;
 	branchName: string;
