@@ -97,7 +97,7 @@ export function MRHeaderForm({ header, mode, onHeaderChange, partyBranchOptions 
 						<TextField
 							label="PO No"
 							fullWidth
-							value={header.po_no ?? ""}
+							value={header.po_num ?? header.po_no ?? ""}
 							InputProps={{ readOnly: true }}
 						/>
 					</Grid>

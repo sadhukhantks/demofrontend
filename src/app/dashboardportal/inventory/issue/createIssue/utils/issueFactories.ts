@@ -45,7 +45,7 @@ export const createBlankLine = (): EditableLineItem => ({
 export const createLineFromInventory = (inv: InventoryListItem): EditableLineItem => ({
 	id: generateLineId(),
 	// From inventory (read-only)
-	grnNo: inv.inward_no ?? "",
+	grnNo: inv.sr_no ?? "",
 	inwardDtlId: String(inv.inward_dtl_id ?? ""),
 	itemId: String(inv.item_id ?? ""),
 	itemName: inv.item_name ?? "",

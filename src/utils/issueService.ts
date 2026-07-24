@@ -104,7 +104,8 @@ export type InventoryListItem = {
 	inward_dtl_id: number;
 	inward_id: number;
 	inward_sequence_no: number;
-	inward_no: string;
+	/** Stored SR number (co/branch/SR/FY/seq) — displayed as SR No */
+	sr_no: string;
 	inward_date: string;
 	branch_id: number;
 	branch_name: string;

@@ -219,6 +219,7 @@ export interface FetchJuteMRDownloadParams {
 	search?: string | null;
 	fromDate?: string | null;
 	toDate?: string | null;
+	statusId?: number | null;
 }
 
 /**
@@ -228,12 +229,13 @@ export interface FetchJuteMRDownloadParams {
 export async function fetchJuteMRDownload(
 	params: FetchJuteMRDownloadParams,
 ): Promise<Blob> {
-	const { coId, search, fromDate, toDate } = params;
+	const { coId, search, fromDate, toDate, statusId } = params;
 	const qs = new URLSearchParams();
 	qs.append("co_id", String(coId));
 	if (search && search.trim()) qs.append("search", search.trim());
 	if (fromDate) qs.append("from_date", fromDate);
 	if (toDate) qs.append("to_date", toDate);
+	if (statusId != null) qs.append("status_id", String(statusId));
 
 	const url = `${apiRoutesPortalMasters.JUTE_MR_DOWNLOAD}?${qs.toString()}`;
 	try {
