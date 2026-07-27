@@ -3,10 +3,16 @@
 import * as React from "react";
 import {
 	Alert,
+	Autocomplete,
 	Box,
 	Button,
 	Chip,
 	CircularProgress,
+	Dialog,
+	DialogActions,
+	DialogContent,
+	DialogContentText,
+	DialogTitle,
 	MenuItem,
 	Snackbar,
 	Table,
@@ -17,11 +23,17 @@ import {
 	TextField,
 	Typography,
 } from "@mui/material";
-import { Save as SaveIcon, Stamp as StampIcon } from "lucide-react";
+import { Save as SaveIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
-import type { SpinningSetup } from "../types/spinningTypes";
-import { useFrameMap } from "../hooks/useFrameMap";
+import type {
+	QualityMapRow,
+	QualityMapSaveResult,
+	SpinningSetup,
+	YarnItemOption,
+} from "../types/spinningTypes";
+import { todayISO } from "../utils/spinningCalc";
+import DoffSyncButton from "./DoffSyncButton";
 
 type Props = {
 	coId: string;
@@ -29,158 +41,239 @@ type Props = {
 	setup: SpinningSetup;
 	date: string;
 	spell: string;
+	// Bumps the SpinningProcessBar refreshKey after mapper save / sync (spec 5.6.1).
+	onMutated?: () => void;
 };
 
-export default function FrameMapGrid({ coId, branchId, setup, date, spell }: Props) {
-	const { rows, lastUpdated, loading, error, refresh } = useFrameMap(coId, branchId, date, spell);
+const RETRO_LABELS: Record<string, string> = {
+	fill: "Fill gaps only (doffs without a quality)",
+	synced: "Update synced doffs too (keep manual edits)",
+	all: "Update ALL doffs incl. manual (Edit level)",
+};
+
+// RULE GRID (spec 5.3): one row per spinning machine with its CURRENT rule
+// ("Frame X → item Y since 15-Jul A1"). Saving appends mapper log rows,
+// updates the helper and retro-stamps doff rows per retro_mode — two-step
+// (preview → confirm). Mid-SPELL changes need no rule: flip the Yarn dropdown
+// on the doff entry itself.
+export default function FrameMapGrid({ coId, branchId, setup, date, spell, onMutated }: Props) {
+	const [rows, setRows] = React.useState<QualityMapRow[]>([]);
+	const [loading, setLoading] = React.useState(false);
+	const [error, setError] = React.useState<string | null>(null);
+	const [version, setVersion] = React.useState(0);
+	const refresh = React.useCallback(() => setVersion((v) => v + 1), []);
+
+	React.useEffect(() => {
+		if (!coId || branchId == null) {
+			setRows([]);
+			return;
+		}
+		let cancelled = false;
+		setLoading(true);
+		const url = `${apiRoutesPortalMasters.SPINNING_QUALITY_MAP_GRID}?co_id=${coId}&branch_id=${branchId}`;
+		void fetchWithCookie<{ data: { machines: QualityMapRow[]; yarn_items: YarnItemOption[] } }>(
+			url,
+			"GET"
+		).then(({ data, error: err }) => {
+			if (cancelled) return;
+			if (err) {
+				setError(err);
+				setRows([]);
+			} else {
+				setError(null);
+				setRows(data?.data?.machines ?? []);
+			}
+			setLoading(false);
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [coId, branchId, version]);
+
 	const [edits, setEdits] = React.useState<Record<number, number | "">>({});
+	const [effectiveDate, setEffectiveDate] = React.useState<string>(todayISO());
+	const [effectiveSpell, setEffectiveSpell] = React.useState<string>("");
+	const [retroMode, setRetroMode] = React.useState<string>("fill");
 	const [saving, setSaving] = React.useState(false);
-	const [busy, setBusy] = React.useState(false);
+	const [preview, setPreview] = React.useState<QualityMapSaveResult | null>(null);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
-	// Seed local edit state (machine -> item_id) from fetched rows. Prefill from the
-	// prior date's mapping when nothing is saved yet today, so the operator only has
-	// to tweak the 1-2 frames that changed.
+	// Seed edit state from the current helper rules.
 	React.useEffect(() => {
 		const seed: Record<number, number | ""> = {};
 		rows.forEach((r) => {
-			seed[r.machine_id] = r.item_id ?? r.prev_item_id ?? "";
+			seed[r.machine_id] = r.item_id ?? "";
 		});
 		setEdits(seed);
 	}, [rows]);
 
-	// Baseline = what is actually persisted today (null/"" when unsaved). A cell is
-	// dirty when its current selection differs from the saved baseline — carried-
-	// forward prefills are therefore dirty until the operator clicks Save Map.
-	const savedMap = React.useMemo(() => {
-		const m: Record<number, number | ""> = {};
-		rows.forEach((r) => {
-			m[r.machine_id] = r.item_id ?? "";
-		});
-		return m;
-	}, [rows]);
-
 	const isDirty = React.useCallback(
-		(machineId: number) => (edits[machineId] ?? "") !== (savedMap[machineId] ?? ""),
-		[edits, savedMap]
+		(machineId: number, current: number | null) => (edits[machineId] ?? "") !== (current ?? ""),
+		[edits]
 	);
-	const dirtyCount = rows.reduce((n, r) => (isDirty(r.machine_id) ? n + 1 : n), 0);
 
-	// Banner: surface the date the draft was prefilled from (first row carrying one).
-	const prevDate = rows.find((r) => r.prev_date)?.prev_date ?? null;
-	const hasCarryForward = rows.some((r) => r.item_id == null && r.prev_item_id != null);
+	const dirtyEntries = React.useMemo(
+		() =>
+			rows
+				.filter((r) => isDirty(r.machine_id, r.item_id))
+				.map((r) => {
+					const q = edits[r.machine_id];
+					return q !== undefined && q !== "" ? { mc_id: r.machine_id, item_id: Number(q) } : null;
+				})
+				.filter((x): x is { mc_id: number; item_id: number } => x !== null),
+		[rows, edits, isDirty]
+	);
 
-	const setYarn = (machineId: number, value: number | "") => {
-		setEdits((prev) => ({ ...prev, [machineId]: value }));
-	};
-
-	const handleSaveMap = async () => {
-		setSaving(true);
-		const entries = rows
-			.map((r) => {
-				const q = edits[r.machine_id];
-				return q !== undefined && q !== ""
-					? { machine_id: r.machine_id, item_id: Number(q) }
-					: null;
-			})
-			.filter((x): x is { machine_id: number; item_id: number } => x !== null);
-
-		const body = { co_id: Number(coId), branch_id: Number(branchId), tran_date: date, spell, entries };
-		const { error: err } = await fetchWithCookie(
-			apiRoutesPortalMasters.SPINNING_FRAME_MAP_SAVE,
+	const postSave = async (confirm: boolean) => {
+		const body = {
+			co_id: Number(coId),
+			branch_id: Number(branchId),
+			entries: dirtyEntries,
+			effective_from_date: effectiveDate,
+			effective_from_spell: effectiveSpell === "" ? null : effectiveSpell,
+			retro_mode: retroMode,
+			confirm,
+		};
+		return fetchWithCookie<{ data: QualityMapSaveResult }>(
+			apiRoutesPortalMasters.SPINNING_QUALITY_MAP_SAVE,
 			"POST",
 			body
 		);
+	};
+
+	// Two-step save: confirm:false previews counts (writes nothing) -> dialog ->
+	// confirm:true commits mapper + helper + retro in one transaction.
+	const handleSave = async () => {
+		if (dirtyEntries.length === 0) {
+			setSnack("No rule changes to save.");
+			return;
+		}
+		setSaving(true);
+		const { data, error: err } = await postSave(false);
 		setSaving(false);
 		if (err) {
 			setSnack(err);
 			return;
 		}
-		setSnack(`Saved ${entries.length} frame mapping(s).`);
-		refresh();
+		setPreview(data?.data ?? null);
 	};
 
-	const handleMapped = async () => {
-		setBusy(true);
-		const body = { co_id: Number(coId), branch_id: Number(branchId), tran_date: date, spell };
-		const { data, error: err } = await fetchWithCookie<{
-			data: { quality_stamped: number; operator_stamped: number };
-		}>(apiRoutesPortalMasters.SPINNING_FRAME_MAP_MAPPED, "POST", body);
-		setBusy(false);
+	const handleConfirm = async () => {
+		setSaving(true);
+		const { data, error: err } = await postSave(true);
+		setSaving(false);
+		setPreview(null);
 		if (err) {
 			setSnack(err);
 			return;
 		}
 		const d = data?.data;
 		setSnack(
-			`Quality stamped: ${d?.quality_stamped ?? 0}, Operator stamped: ${d?.operator_stamped ?? 0}`
+			`Saved ${d?.mapper_ids.length ?? 0} rule(s) — ${d?.retro_rows ?? 0} doff(s) restamped` +
+				(d?.reprocessed_units.length
+					? `, ${d.reprocessed_units.length} processed unit(s) flagged for reprocess.`
+					: ".")
 		);
 		refresh();
+		onMutated?.();
 	};
 
 	if (!spell) {
-		return <Alert severity="info">Select a spell to load frame → yarn mapping.</Alert>;
+		return <Alert severity="info">Select a spell to load the frame → quality rules.</Alert>;
 	}
 
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
 			<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
-				<Typography variant="subtitle2">Frame → Yarn mapping</Typography>
+				<Typography variant="subtitle2">Frame → Quality rules</Typography>
+				<TextField
+					type="date"
+					size="small"
+					label="Effective Date"
+					value={effectiveDate}
+					onChange={(e) => setEffectiveDate(e.target.value)}
+					InputLabelProps={{ shrink: true }}
+				/>
+				<TextField
+					select
+					size="small"
+					label="Effective Spell"
+					value={effectiveSpell}
+					onChange={(e) => setEffectiveSpell(e.target.value)}
+					sx={{ minWidth: 150 }}
+				>
+					<MenuItem value="">
+						<em>Start of day</em>
+					</MenuItem>
+					{setup.spells.map((s) => (
+						<MenuItem key={s.spell_code} value={s.spell_code}>
+							{s.spell_code}
+						</MenuItem>
+					))}
+				</TextField>
+				<TextField
+					select
+					size="small"
+					label="Retro mode"
+					value={retroMode}
+					onChange={(e) => setRetroMode(e.target.value)}
+					sx={{ minWidth: 260 }}
+				>
+					{Object.entries(RETRO_LABELS).map(([mode, label]) => (
+						<MenuItem key={mode} value={mode}>
+							{label}
+						</MenuItem>
+					))}
+				</TextField>
 				<Button
 					variant="contained"
 					size="small"
 					startIcon={<SaveIcon size={16} />}
-					onClick={handleSaveMap}
-					disabled={saving || loading || rows.length === 0}
+					onClick={handleSave}
+					disabled={saving || loading || dirtyEntries.length === 0}
 				>
-					{saving ? "Saving…" : dirtyCount > 0 ? `Save Map (${dirtyCount} unsaved)` : "Save Map"}
+					{saving
+						? "Saving…"
+						: dirtyEntries.length > 0
+							? `Save Rules (${dirtyEntries.length})`
+							: "Save Rules"}
 				</Button>
-				<Button
-					variant="outlined"
-					size="small"
-					startIcon={<StampIcon size={16} />}
-					onClick={handleMapped}
-					disabled={busy || loading}
-				>
-					Mapped
-				</Button>
-				{lastUpdated ? (
-					<Typography variant="caption" color="text.secondary" sx={{ ml: "auto" }}>
-						Last updated: {new Date(lastUpdated.replace(" ", "T")).toLocaleString()}
-					</Typography>
-				) : null}
+				<DoffSyncButton
+					coId={coId}
+					branchId={branchId}
+					date={date}
+					spell={spell}
+					onSynced={() => {
+						refresh();
+						onMutated?.();
+					}}
+				/>
 			</Box>
 
 			{error ? <Alert severity="error">{error}</Alert> : null}
-
-			{!loading && rows.length > 0 && hasCarryForward ? (
-				<Alert severity="info">
-					Prefilled from {prevDate ?? "the last saved day"}
-					{dirtyCount > 0 ? ` — ${dirtyCount} unsaved change(s). Review and Save Map.` : "."}
-				</Alert>
-			) : null}
 
 			{loading ? (
 				<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
 					<CircularProgress />
 				</Box>
 			) : rows.length === 0 ? (
-				<Alert severity="info">No frames found for this date and spell.</Alert>
+				<Alert severity="info">No spinning machines found for this branch.</Alert>
 			) : (
 				<Box sx={{ width: "100%", overflowX: "auto" }}>
-					<Table size="small" sx={{ minWidth: 600 }}>
+					<Table size="small" sx={{ minWidth: 640 }}>
 						<TableHead>
 							<TableRow>
 								<TableCell>Mc Code</TableCell>
 								<TableCell>Machine</TableCell>
-								<TableCell>Yarn</TableCell>
+								<TableCell>Yarn (current rule)</TableCell>
 								<TableCell>Status</TableCell>
 							</TableRow>
 						</TableHead>
 						<TableBody>
 							{rows.map((r) => {
 								const q = edits[r.machine_id] ?? "";
-								const dirty = isDirty(r.machine_id);
+								const dirty = isDirty(r.machine_id, r.item_id);
+								const value = setup.yarn_items.find((y) => y.item_id === q) ?? null;
 								return (
 									<TableRow
 										key={r.machine_id}
@@ -189,43 +282,46 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell }: Pro
 										<TableCell>{r.mech_code}</TableCell>
 										<TableCell>{r.machine_name}</TableCell>
 										<TableCell>
-											<TextField
-												select
-												size="small"
-												value={q}
-												onChange={(ev) =>
-													setYarn(
-														r.machine_id,
-														ev.target.value === "" ? "" : Number(ev.target.value)
-													)
+											<Autocomplete
+												options={setup.yarn_items}
+												getOptionLabel={(y) => `${y.item_name} (${y.item_code})`}
+												value={value}
+												onChange={(_, newVal) =>
+													setEdits((prev) => ({
+														...prev,
+														[r.machine_id]: newVal ? newVal.item_id : "",
+													}))
 												}
-												sx={{ minWidth: 180 }}
-											>
-												<MenuItem value="">
-													<em>None</em>
-												</MenuItem>
-												{setup.yarn_items.map((yy) => (
-													<MenuItem key={yy.item_id} value={yy.item_id}>
-														{yy.item_name} ({yy.item_code})
-													</MenuItem>
-												))}
-											</TextField>
+												size="small"
+												sx={{ minWidth: 220 }}
+												isOptionEqualToValue={(opt, val) => opt.item_id === val.item_id}
+												renderOption={(props, y) => (
+													<li {...props} key={y.item_id}>
+														{y.item_name} ({y.item_code})
+													</li>
+												)}
+												renderInput={(params) => <TextField {...params} label="Yarn" />}
+											/>
+											{/* Inherited-italics idiom (target map grid): current rule
+											    provenance, muted until the user edits the cell. */}
+											{!dirty && r.item_id != null && r.effective_from_date ? (
+												<Typography
+													variant="caption"
+													sx={{ fontStyle: "italic", color: "text.disabled", display: "block" }}
+												>
+													since {r.effective_from_date}
+													{r.effective_from_spell_code ? ` ${r.effective_from_spell_code}` : ""}
+												</Typography>
+											) : null}
 										</TableCell>
 										<TableCell>
 											{dirty ? (
-												<Chip
-													size="small"
-													color="warning"
-													variant="outlined"
-													label={
-														r.item_id == null && r.prev_item_id != null
-															? `Unsaved · from ${r.prev_item_name ?? "prev"}`
-															: "Unsaved"
-													}
-												/>
+												<Chip size="small" color="warning" variant="outlined" label="Unsaved" />
 											) : r.item_id != null ? (
-												<Chip size="small" color="success" variant="outlined" label="Saved" />
-											) : null}
+												<Chip size="small" color="success" variant="outlined" label="Mapped" />
+											) : (
+												<Chip size="small" variant="outlined" label="No rule" />
+											)}
 										</TableCell>
 									</TableRow>
 								);
@@ -235,9 +331,28 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell }: Pro
 				</Box>
 			)}
 
+			<Dialog open={!!preview} onClose={() => setPreview(null)}>
+				<DialogTitle>Apply rule change?</DialogTitle>
+				<DialogContent>
+					<DialogContentText>
+						Effective {effectiveDate}
+						{effectiveSpell ? ` ${effectiveSpell}` : " (start of day)"} —{" "}
+						{RETRO_LABELS[retroMode]?.toLowerCase()}. {preview?.retro_rows ?? 0} doff entr
+						{(preview?.retro_rows ?? 0) === 1 ? "y" : "ies"} affected,{" "}
+						{preview?.reprocessed_units.length ?? 0} processed unit(s) will need reprocess — apply?
+					</DialogContentText>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setPreview(null)}>Cancel</Button>
+					<Button variant="contained" onClick={handleConfirm} disabled={saving}>
+						{saving ? "Applying…" : "Apply"}
+					</Button>
+				</DialogActions>
+			</Dialog>
+
 			<Snackbar
 				open={!!snack}
-				autoHideDuration={4000}
+				autoHideDuration={5000}
 				onClose={() => setSnack(null)}
 				message={snack ?? ""}
 			/>

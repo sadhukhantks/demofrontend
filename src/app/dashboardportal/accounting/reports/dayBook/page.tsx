@@ -114,18 +114,10 @@ export default function DayBookPage() {
         voucherTypeId: selectedVoucherType?.acc_voucher_type_id,
       });
 
-      // Map DayBookEntry (from service) to DayBookRow (from types)
+      // Backend rows already match DayBookRow; only the grid id is added.
       const mapped: DBGridRow[] = data.map((entry, idx) => ({
-        voucher_date: entry.voucher_date,
-        voucher_no: entry.voucher_no,
-        voucher_type: entry.voucher_type,
-        total_amount: entry.debit || entry.credit || 0,
-        narration: entry.narration ?? null,
-        ref_no: null,
-        party_name: entry.ledger_name ?? null,
-        branch_name: null,
-        is_auto_posted: 0,
-        source_doc_type: null,
+        ...entry,
+        total_amount: entry.total_amount ?? 0,
         id: idx,
       }));
       setRows(mapped);

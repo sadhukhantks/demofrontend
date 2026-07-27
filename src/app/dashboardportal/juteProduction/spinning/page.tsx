@@ -18,6 +18,7 @@ import DoffEntryForm from "./_components/DoffEntryForm";
 import DailyDoffGrid from "./_components/DailyDoffGrid";
 import FrameMapGrid from "./_components/FrameMapGrid";
 import PlanningGrid from "./_components/PlanningGrid";
+import SpinningProcessBar from "./_components/SpinningProcessBar";
 import type { DoffEntryRow } from "./types/spinningTypes";
 import { todayISO } from "./utils/spinningCalc";
 
@@ -61,6 +62,13 @@ export default function SpinningPage() {
 	const [spell, setSpell] = React.useState<string>("");
 
 	const [editingEntry, setEditingEntry] = React.useState<DoffEntryRow | null>(null);
+
+	// statusKey: bumped by ANY grid mutation -> SpinningProcessBar re-checks
+	// staleness immediately (spec 5.6.1). dataKey: bumped after Process (and
+	// doff saves) -> grids re-fetch (locked units serve the frozen log).
+	const [statusKey, setStatusKey] = React.useState(0);
+	const [dataKey, setDataKey] = React.useState(0);
+	const onMutated = React.useCallback(() => setStatusKey((k) => k + 1), []);
 
 	const { setup, loading: setupLoading, error: setupError } = useSpinningSetup(coId, branchId);
 
@@ -189,6 +197,16 @@ export default function SpinningPage() {
 								) : null}
 							</Box>
 
+							{/* One process/staleness bar, visible on all three tabs (spec 5.6). */}
+							<SpinningProcessBar
+								coId={coId}
+								branchId={branchId}
+								date={tranDate}
+								spell={spell}
+								refreshKey={statusKey}
+								onProcessed={() => setDataKey((k) => k + 1)}
+							/>
+
 							{tab === 0 ? (
 								<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
 									<DoffEntryForm
@@ -198,7 +216,11 @@ export default function SpinningPage() {
 										date={tranDate}
 										spell={spell}
 										editingEntry={editingEntry}
-										onSaved={() => setEditingEntry(null)}
+										onSaved={() => {
+											setEditingEntry(null);
+											onMutated();
+											setDataKey((k) => k + 1);
+										}}
 										onCancelEdit={() => setEditingEntry(null)}
 									/>
 									<DailyDoffGrid
@@ -207,6 +229,8 @@ export default function SpinningPage() {
 										date={tranDate}
 										spell={spell}
 										onEdit={(row) => setEditingEntry(row)}
+										onMutated={onMutated}
+										refreshKey={dataKey}
 									/>
 								</Box>
 							) : null}
@@ -218,6 +242,7 @@ export default function SpinningPage() {
 									setup={setup}
 									date={tranDate}
 									spell={spell}
+									onMutated={onMutated}
 								/>
 							) : null}
 
@@ -227,6 +252,7 @@ export default function SpinningPage() {
 									branchId={branchId}
 									date={tranDate}
 									spell={spell}
+									refreshKey={dataKey}
 								/>
 							) : null}
 						</>

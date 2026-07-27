@@ -11,7 +11,8 @@ export function usePlanningGrid(
 	coId: string | null | undefined,
 	branchId: number | null,
 	tranDate: string,
-	spell?: string | null
+	spell?: string | null,
+	refreshKey = 0
 ) {
 	const [data, setData] = React.useState<PlanningGridData | null>(null);
 	const [loading, setLoading] = React.useState(false);
@@ -43,7 +44,7 @@ export function usePlanningGrid(
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, branchId, tranDate, spell, version]);
+	}, [coId, branchId, tranDate, spell, version, refreshKey]);
 
 	return { data, loading, error, refresh };
 }

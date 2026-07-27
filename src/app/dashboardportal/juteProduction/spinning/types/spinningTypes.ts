@@ -43,7 +43,12 @@ export type SpinningSetup = {
 export type DoffPrevState = {
 	running_total_net: number;
 	next_doff_no: number;
+	// Server-resolved as-of tran_date (trolly + busket + bobbin) — authoritative
+	// for display + the NET range gate (spec 7.1).
 	tare: number;
+	// Helper (today) / mapper as-of (backdated) yarn prefill (spec 5.3 FE).
+	mapped_item_id: number | null;
+	mapped_item_name: string | null;
 };
 
 export type DoffEntryRow = {
@@ -57,24 +62,73 @@ export type DoffEntryRow = {
 	trolly_id: number;
 	trolly_name: string | null;
 	item_id: number | null;
+	item_source: string | null; // 'helper' | 'mapper' | 'manual' | 'import'
 	item_code: string | null;
+	item_name: string | null;
+	eb_id: number | null;
+	eb_source: string | null; // 'sync' | 'manual' | 'import'
+	eb_name: string | null;
 	gross_weight: number;
 	tare_weight: number;
 	net_weight: number;
 };
 
-export type FrameMapRow = {
+// Aggregate badge counts from doff_entries_by_date (spec 5.6.4).
+export type DoffUnsyncedCounts = {
+	no_item: number;
+	no_eb: number;
+};
+
+// --- Quality mapper rule grid (SPINNING_QUALITY_MAP_GRID, spec 5.3) ---
+export type QualityMapRow = {
 	machine_id: number;
 	mech_code: string | null;
 	machine_name: string | null;
-	// Today's SAVED mapping (null = nothing saved yet for this machine).
+	branch_id: number | null;
+	// Current helper state (null = machine never mapped).
 	item_id: number | null;
 	item_code: string | null;
 	item_name: string | null;
-	// Prior date's mapping, surfaced as an unsaved-draft suggestion for prefill.
-	prev_item_id: number | null;
-	prev_item_name: string | null;
-	prev_date: string | null;
+	effective_from_date: string | null;
+	effective_from_spell_id: number | null;
+	effective_from_spell_code: string | null;
+	mapper_rows: number;
+};
+
+export type QualityMapSaveResult = {
+	mapper_ids: number[];
+	retro_rows: number;
+	reprocessed_units: { tran_date: string; spell_id: number }[];
+	preview: boolean;
+};
+
+// --- Doff sync (SPINNING_DOFF_SYNC, spec 5.4) ---
+export type DoffSyncExceptions = {
+	machines_unmapped: number[];
+	doffs_no_operator: number;
+	operator_ambiguous: { machine_id: number; eb_ids: number[]; stamped_eb_id: number }[];
+	item_overridden: {
+		daily_doff_tbl_id: number;
+		machine_id: number;
+		old_item_id: number | null;
+		new_item_id: number | null;
+	}[];
+	bobbin_missing: number[];
+	// W7: attendance marked on the machine but zero doff rows in the unit.
+	attendance_no_doffs: { machine_id: number; mech_code: string | null; eb_ids: number[] }[];
+};
+
+export type DoffSyncResult = {
+	quality_stamped: number;
+	operator_stamped: number;
+	exceptions: DoffSyncExceptions;
+};
+
+// --- Process status (SPINNING_PROCESS_STATUS, spec 5.6) ---
+export type SpinningProcessStatus = {
+	locked: boolean;
+	reprocess_needed: boolean;
+	processed_date_time: string | null;
 };
 
 // --- Planning Grid (SPINNING_PLANNING_GRID) ---

@@ -75,16 +75,9 @@ export default function CashBookPage() {
         branchId: branchId ? Number(branchId) : undefined,
       });
 
-      // The service returns DayBookEntry[]; map to CashBookRow shape
+      // Backend rows already match CashBookRow; only the grid id is added.
       const mapped: CBGridRow[] = data.map((entry, idx) => ({
-        voucher_date: entry.voucher_date,
-        voucher_no: entry.voucher_no,
-        voucher_type: entry.voucher_type,
-        receipt: entry.debit > 0 ? entry.debit : null,
-        payment: entry.credit > 0 ? entry.credit : null,
-        narration: entry.narration ?? null,
-        ref_no: null,
-        contra_ledgers: entry.ledger_name ?? null,
+        ...entry,
         id: idx,
       }));
       setRows(mapped);

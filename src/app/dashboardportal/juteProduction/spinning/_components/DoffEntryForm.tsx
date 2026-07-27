@@ -37,6 +37,9 @@ export default function DoffEntryForm({
 
 	const [machineId, setMachineId] = React.useState<number | "">("");
 	const [trollyId, setTrollyId] = React.useState<number | "">("");
+	const [itemId, setItemId] = React.useState<number | "">("");
+	// Once the operator flips the Yarn dropdown we stop prefilling from prevState.
+	const [itemTouched, setItemTouched] = React.useState(false);
 	const [grossWeight, setGrossWeight] = React.useState<string>("");
 	const [saving, setSaving] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
@@ -54,12 +57,17 @@ export default function DoffEntryForm({
 	const bobbinWeight = machine?.bobbin_weight ?? 0;
 	const trollyWeight = trolly?.trolly_weight ?? 0;
 	const bucketWeight = trolly?.bucket_weight ?? 0;
+	// Spec 7.2: a missing bobbin standard must be visible, not blank — the
+	// backend now 400s (B5) on save; surface it before the user weighs.
+	const bobbinMissing = machine != null && bobbinWeight <= 0;
 
 	// Populate the form when a grid row is lifted into edit mode.
 	React.useEffect(() => {
 		if (editingEntry) {
 			setMachineId(editingEntry.mc_id);
 			setTrollyId(editingEntry.trolly_id);
+			setItemId(editingEntry.item_id ?? "");
+			setItemTouched(true); // never clobber an existing row's yarn with the prefill
 			setGrossWeight(String(editingEntry.gross_weight));
 			setError(null);
 		}
@@ -73,8 +81,26 @@ export default function DoffEntryForm({
 		trollyId === "" ? null : Number(trollyId)
 	);
 
-	const computedTare = computeTare(trollyWeight, bucketWeight, bobbinWeight);
-	const computedNet = grossWeight === "" ? 0 : computeNet(Number(grossWeight), computedTare);
+	// Yarn prefill from the machine's current rule (helper today / mapper as-of
+	// for backdated dates) — spec 5.3 FE.
+	React.useEffect(() => {
+		if (!editing && !itemTouched) {
+			setItemId(prevState?.mapped_item_id ?? "");
+		}
+	}, [prevState, editing, itemTouched]);
+
+	// Reset the touched flag when the machine changes — the prefill should
+	// follow the newly selected frame.
+	React.useEffect(() => {
+		if (!editing) setItemTouched(false);
+	}, [machineId, editing]);
+
+	// Spec 7.1: prevState.tare is resolved server-side AS-OF tran_date — it is
+	// the tare the save will use. The local compute (as-of-today bobbin hint)
+	// is only a fallback while prevState loads.
+	const localTare = computeTare(trollyWeight, bucketWeight, bobbinWeight);
+	const effectiveTare = prevState != null ? prevState.tare : localTare;
+	const computedNet = grossWeight === "" ? 0 : computeNet(Number(grossWeight), effectiveTare);
 	const netOutOfRange = grossWeight !== "" && (computedNet < NET_MIN || computedNet > NET_MAX);
 
 	const formInvalid =
@@ -89,7 +115,7 @@ export default function DoffEntryForm({
 
 	const resetToCreateDefaults = () => {
 		setGrossWeight("");
-		// Keep machine/trolly for rapid sequential doff entry.
+		// Keep machine/trolly/yarn for rapid sequential doff entry.
 	};
 
 	const handleSubmit = async () => {
@@ -101,10 +127,18 @@ export default function DoffEntryForm({
 		setError(null);
 
 		if (editing) {
-			const body = {
-				gross_weight: Number(grossWeight),
-				trolly_id: Number(trollyId),
-			};
+			// D7: send ONLY fields the user actually changed vs the row under edit
+			// (mirrors DoffEditDialog) — a no-op save must not trigger the §7.3
+			// server-side tare/net recompute.
+			const body: Record<string, unknown> = {};
+			const grossNum = Number(grossWeight);
+			if (grossNum !== editingEntry.gross_weight) body.gross_weight = grossNum;
+			if (Number(trollyId) !== editingEntry.trolly_id) body.trolly_id = Number(trollyId);
+			if (Object.keys(body).length === 0) {
+				setSaving(false);
+				setError("No changes to save.");
+				return;
+			}
 			const url = `${apiRoutesPortalMasters.SPINNING_DOFF_EDIT}/${editingEntry.daily_doff_tbl_id}?co_id=${coId}`;
 			const { error: err } = await fetchWithCookie(url, "PUT", body);
 			setSaving(false);
@@ -119,7 +153,12 @@ export default function DoffEntryForm({
 			return;
 		}
 
-		const body = {
+		// Only send item_id when the operator overrode the mapped prefill — an
+		// untouched prefill must stay a helper/mapper stamp server-side, not
+		// get mis-marked 'manual' (manual is protected from sync forever).
+		const mappedItemId = prevState?.mapped_item_id ?? null;
+		const chosenItemId = itemId === "" ? null : Number(itemId);
+		const body: Record<string, unknown> = {
 			co_id: Number(coId),
 			branch_id: Number(branchId),
 			tran_date: date,
@@ -128,13 +167,26 @@ export default function DoffEntryForm({
 			trolly_id: Number(trollyId),
 			gross_weight: Number(grossWeight),
 		};
+		if (chosenItemId != null && chosenItemId !== mappedItemId) {
+			body.item_id = chosenItemId;
+		}
 		const { data, error: err } = await fetchWithCookie<{
-			data: { daily_doff_tbl_id: number; net_weight: number; tare_weight: number };
+			data: {
+				daily_doff_tbl_id: number;
+				net_weight: number;
+				tare_weight: number;
+				unmapped_machine?: boolean;
+			};
 		}>(apiRoutesPortalMasters.SPINNING_DOFF_CREATE, "POST", body);
 		setSaving(false);
 		if (err) {
 			setError(err);
 			return;
+		}
+		if (data?.data?.unmapped_machine) {
+			setError(
+				"Saved, but this machine has no quality rule — map it in Frame → Quality before processing."
+			);
 		}
 		setSnack(`Saved doff #${data?.data?.daily_doff_tbl_id} (net ${data?.data?.net_weight})`);
 		// Keep machine/spell/trolly for rapid entry; clear gross only.
@@ -146,6 +198,8 @@ export default function DoffEntryForm({
 		onCancelEdit();
 		setMachineId("");
 		setTrollyId("");
+		setItemId("");
+		setItemTouched(false);
 		setGrossWeight("");
 		setError(null);
 	};
@@ -189,12 +243,43 @@ export default function DoffEntryForm({
 						</MenuItem>
 					))}
 				</TextField>
+				<Autocomplete
+					options={setup.yarn_items}
+					getOptionLabel={(y) => `${y.item_name} (${y.item_code})`}
+					value={setup.yarn_items.find((y) => y.item_id === itemId) ?? null}
+					onChange={(_, newVal) => {
+						setItemTouched(true);
+						setItemId(newVal ? newVal.item_id : "");
+					}}
+					size="small"
+					fullWidth
+					disabled={editing}
+					isOptionEqualToValue={(opt, val) => opt.item_id === val.item_id}
+					renderOption={(props, y) => (
+						<li {...props} key={y.item_id}>
+							{y.item_name} ({y.item_code})
+						</li>
+					)}
+					renderInput={(params) => (
+						<TextField
+							{...params}
+							label="Yarn"
+							helperText={
+								!editing && prevState?.mapped_item_id != null && itemId === prevState.mapped_item_id
+									? "From the machine's current rule"
+									: ""
+							}
+						/>
+					)}
+				/>
 				<TextField
 					label="Bobbin Wt"
-					value={bobbinWeight || ""}
+					value={machine ? String(bobbinWeight) : ""}
 					InputProps={{ readOnly: true }}
 					size="small"
 					fullWidth
+					error={bobbinMissing}
+					helperText={bobbinMissing ? "No bobbin standard for this machine" : ""}
 				/>
 				<TextField
 					type="number"
@@ -206,10 +291,11 @@ export default function DoffEntryForm({
 				/>
 				<TextField
 					label="Tare Weight"
-					value={machineId && trollyId ? computedTare : ""}
+					value={machineId && trollyId ? effectiveTare : ""}
 					InputProps={{ readOnly: true }}
 					size="small"
 					fullWidth
+					helperText={prevLoading ? "Resolving tare for the entry date…" : ""}
 				/>
 				<TextField
 					label="Net Weight"

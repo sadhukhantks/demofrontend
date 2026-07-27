@@ -1,13 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, Button, IconButton, Snackbar, Tooltip, Typography } from "@mui/material";
+import { Alert, Box, Button, Chip, IconButton, Snackbar, Tooltip, Typography } from "@mui/material";
 import { Pencil as EditIcon, Trash2 as DeleteIcon, Layers as DedupIcon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { DoffEntryRow } from "../types/spinningTypes";
 import { useDoffEntriesByDate } from "../hooks/useDoffEntriesByDate";
+import DoffSyncButton from "./DoffSyncButton";
 
 type Props = {
 	coId: string;
@@ -15,10 +16,39 @@ type Props = {
 	date: string;
 	spell: string;
 	onEdit: (row: DoffEntryRow) => void;
+	// Bumps the SpinningProcessBar refreshKey after delete/dedup/sync (spec 5.6.1).
+	onMutated?: () => void;
+	// Bumped by the page (doff save, Process) so the grid re-fetches.
+	refreshKey?: number;
 };
 
-export default function DailyDoffGrid({ coId, branchId, date, spell, onEdit }: Props) {
-	const { rows, loading, error, refresh } = useDoffEntriesByDate(coId, date, branchId, spell);
+const sourceChip = (source: string | null) =>
+	source ? (
+		<Chip
+			size="small"
+			variant="outlined"
+			color={source === "manual" ? "info" : "default"}
+			label={source}
+		/>
+	) : null;
+
+export default function DailyDoffGrid({
+	coId,
+	branchId,
+	date,
+	spell,
+	onEdit,
+	onMutated,
+	refreshKey = 0,
+}: Props) {
+	const { rows, unsynced, loading, error, refresh } = useDoffEntriesByDate(
+		coId,
+		date,
+		branchId,
+		spell,
+		null,
+		refreshKey
+	);
 	const [snack, setSnack] = React.useState<string | null>(null);
 	const [busy, setBusy] = React.useState(false);
 
@@ -33,8 +63,9 @@ export default function DailyDoffGrid({ coId, branchId, date, spell, onEdit }: P
 			}
 			setSnack(`Deleted doff #${id}`);
 			refresh();
+			onMutated?.();
 		},
-		[coId, refresh]
+		[coId, refresh, onMutated]
 	);
 
 	const handleDedup = React.useCallback(async () => {
@@ -43,20 +74,45 @@ export default function DailyDoffGrid({ coId, branchId, date, spell, onEdit }: P
 			return;
 		}
 		setBusy(true);
-		const body = { co_id: Number(coId), tran_date: date, spell };
-		const { error: err } = await fetchWithCookie(
-			apiRoutesPortalMasters.SPINNING_DOFF_DEDUP,
-			"POST",
-			body
-		);
+		// D8: preview first (confirm:false lists candidates, deactivates nothing),
+		// then an explicit confirm before the destructive call.
+		const base = { co_id: Number(coId), tran_date: date, spell };
+		const { data: prev, error: prevErr } = await fetchWithCookie<{
+			data: {
+				preview: boolean;
+				candidates: { daily_doff_tbl_id: number; net_weight: number }[];
+			};
+		}>(apiRoutesPortalMasters.SPINNING_DOFF_DEDUP, "POST", { ...base, confirm: false });
+		if (prevErr) {
+			setBusy(false);
+			setSnack(prevErr);
+			return;
+		}
+		const candidates = prev?.data?.candidates ?? [];
+		if (candidates.length === 0) {
+			setBusy(false);
+			setSnack("No exact duplicates found.");
+			return;
+		}
+		const listing = candidates
+			.map((c) => `#${c.daily_doff_tbl_id} (net ${c.net_weight})`)
+			.join(", ");
+		if (!confirm(`Deactivate ${candidates.length} exact-duplicate doff(s)?\n${listing}`)) {
+			setBusy(false);
+			return;
+		}
+		const { data: res, error: err } = await fetchWithCookie<{
+			data: { deactivated: number };
+		}>(apiRoutesPortalMasters.SPINNING_DOFF_DEDUP, "POST", { ...base, confirm: true });
 		setBusy(false);
 		if (err) {
 			setSnack(err);
 			return;
 		}
-		setSnack("Dedup complete.");
+		setSnack(`Deactivated ${res?.data?.deactivated ?? 0} duplicate doff(s).`);
 		refresh();
-	}, [coId, date, spell, refresh]);
+		onMutated?.();
+	}, [coId, date, spell, refresh, onMutated]);
 
 	const columns = React.useMemo<GridColDef<DoffEntryRow>[]>(
 		() => [
@@ -97,6 +153,20 @@ export default function DailyDoffGrid({ coId, branchId, date, spell, onEdit }: P
 			{ field: "machine_name", headerName: "Machine", width: 170 },
 			{ field: "trolly_name", headerName: "Trolly", width: 130 },
 			{ field: "item_code", headerName: "Yarn", width: 110 },
+			{ field: "eb_name", headerName: "Operator", width: 150 },
+			{
+				field: "sources",
+				headerName: "Source",
+				width: 150,
+				sortable: false,
+				filterable: false,
+				renderCell: (params) => (
+					<Box sx={{ display: "flex", gap: 0.5, alignItems: "center", height: "100%" }}>
+						{sourceChip(params.row.item_source)}
+						{sourceChip(params.row.eb_source)}
+					</Box>
+				),
+			},
 			{ field: "gross_weight", headerName: "Gross", width: 90, type: "number" },
 			{ field: "tare_weight", headerName: "Tare", width: 90, type: "number" },
 			{ field: "net_weight", headerName: "Net", width: 90, type: "number" },
@@ -117,6 +187,33 @@ export default function DailyDoffGrid({ coId, branchId, date, spell, onEdit }: P
 				>
 					Dedup
 				</Button>
+				<DoffSyncButton
+					coId={coId}
+					branchId={branchId}
+					date={date}
+					spell={spell}
+					onSynced={() => {
+						refresh();
+						onMutated?.();
+					}}
+				/>
+				{/* Spec 5.6.4: the DOFF table itself is not fully stamped — Sync fixes it. */}
+				{unsynced && unsynced.no_item > 0 ? (
+					<Chip
+						size="small"
+						color="warning"
+						variant="outlined"
+						label={`${unsynced.no_item} doff(s) without quality`}
+					/>
+				) : null}
+				{unsynced && unsynced.no_eb > 0 ? (
+					<Chip
+						size="small"
+						color="warning"
+						variant="outlined"
+						label={`${unsynced.no_eb} without operator`}
+					/>
+				) : null}
 			</Box>
 			{error ? (
 				<Alert severity="error" sx={{ mb: 1 }}>
