@@ -14,7 +14,7 @@ type Props = {
 	branchId: number;
 	setup: SpinningSetup;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	editingEntry: DoffEntryRow | null;
 	onSaved: () => void;
 	onCancelEdit: () => void;
@@ -28,7 +28,7 @@ export default function DoffEntryForm({
 	branchId,
 	setup,
 	date,
-	spell,
+	spellId,
 	editingEntry,
 	onSaved,
 	onCancelEdit,
@@ -77,7 +77,7 @@ export default function DoffEntryForm({
 		coId,
 		machineId === "" ? null : Number(machineId),
 		date,
-		spell,
+		spellId,
 		trollyId === "" ? null : Number(trollyId)
 	);
 
@@ -105,7 +105,7 @@ export default function DoffEntryForm({
 
 	const formInvalid =
 		!date ||
-		!spell ||
+		spellId == null ||
 		!machineId ||
 		!trollyId ||
 		grossWeight === "" ||
@@ -162,7 +162,7 @@ export default function DoffEntryForm({
 			co_id: Number(coId),
 			branch_id: Number(branchId),
 			tran_date: date,
-			spell,
+			spell_id: spellId,
 			machine_id: Number(machineId),
 			trolly_id: Number(trollyId),
 			gross_weight: Number(grossWeight),
@@ -239,7 +239,10 @@ export default function DoffEntryForm({
 				>
 					{setup.trollies.map((t) => (
 						<MenuItem key={t.trolly_id} value={t.trolly_id}>
-							{t.trolly_name}
+							{/* Weight in the label: a branch can carry duplicate trolly
+							    NAMES (dev3 br-2 has two '3'/'8'/'10') — name alone reads
+							    like a cross-branch leak. */}
+							{t.trolly_name} — {t.trolly_weight} kg
 						</MenuItem>
 					))}
 				</TextField>

@@ -20,7 +20,7 @@ type Props = {
 	coId: string;
 	branchId: number;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	// Fired after a successful sync so the caller can refresh its grid + bump
 	// the process-status bar (spec 5.6.1).
 	onSynced?: () => void;
@@ -29,13 +29,13 @@ type Props = {
 // Sync (spec 5.4, fill mode, both targets): stamps item_id from the mapper
 // as-of and eb_id from attendance onto the unit's NULL doff rows. Idempotent —
 // re-run any time; manual stamps are never touched.
-export default function DoffSyncButton({ coId, branchId, date, spell, onSynced }: Props) {
+export default function DoffSyncButton({ coId, branchId, date, spellId, onSynced }: Props) {
 	const [busy, setBusy] = React.useState(false);
 	const [result, setResult] = React.useState<DoffSyncResult | null>(null);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
 	const handleSync = async () => {
-		if (!spell) {
+		if (spellId == null) {
 			setSnack("Select a spell to sync.");
 			return;
 		}
@@ -45,7 +45,7 @@ export default function DoffSyncButton({ coId, branchId, date, spell, onSynced }
 			co_id: Number(coId),
 			branch_id: Number(branchId),
 			tran_date: date,
-			spell,
+			spell_id: spellId,
 			mode: "fill",
 			targets: ["quality", "operator"],
 		};
@@ -106,7 +106,7 @@ export default function DoffSyncButton({ coId, branchId, date, spell, onSynced }
 				size="small"
 				startIcon={<SyncIcon size={16} />}
 				onClick={handleSync}
-				disabled={busy || !spell}
+				disabled={busy || spellId == null}
 			>
 				{busy ? "Syncing…" : "Sync"}
 			</Button>

@@ -40,7 +40,7 @@ type Props = {
 	branchId: number;
 	setup: SpinningSetup;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	// Bumps the SpinningProcessBar refreshKey after mapper save / sync (spec 5.6.1).
 	onMutated?: () => void;
 };
@@ -56,7 +56,7 @@ const RETRO_LABELS: Record<string, string> = {
 // updates the helper and retro-stamps doff rows per retro_mode — two-step
 // (preview → confirm). Mid-SPELL changes need no rule: flip the Yarn dropdown
 // on the doff entry itself.
-export default function FrameMapGrid({ coId, branchId, setup, date, spell, onMutated }: Props) {
+export default function FrameMapGrid({ coId, branchId, setup, date, spellId, onMutated }: Props) {
 	const [rows, setRows] = React.useState<QualityMapRow[]>([]);
 	const [loading, setLoading] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
@@ -92,7 +92,8 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell, onMut
 
 	const [edits, setEdits] = React.useState<Record<number, number | "">>({});
 	const [effectiveDate, setEffectiveDate] = React.useState<string>(todayISO());
-	const [effectiveSpell, setEffectiveSpell] = React.useState<string>("");
+	// "" = start of day (no effective spell); otherwise a spell_id from setup.spells.
+	const [effectiveSpellId, setEffectiveSpellId] = React.useState<number | "">("");
 	const [retroMode, setRetroMode] = React.useState<string>("fill");
 	const [saving, setSaving] = React.useState(false);
 	const [preview, setPreview] = React.useState<QualityMapSaveResult | null>(null);
@@ -130,7 +131,7 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell, onMut
 			branch_id: Number(branchId),
 			entries: dirtyEntries,
 			effective_from_date: effectiveDate,
-			effective_from_spell: effectiveSpell === "" ? null : effectiveSpell,
+			effective_from_spell_id: effectiveSpellId === "" ? null : effectiveSpellId,
 			retro_mode: retroMode,
 			confirm,
 		};
@@ -178,7 +179,7 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell, onMut
 		onMutated?.();
 	};
 
-	if (!spell) {
+	if (spellId == null) {
 		return <Alert severity="info">Select a spell to load the frame → quality rules.</Alert>;
 	}
 
@@ -198,15 +199,17 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell, onMut
 					select
 					size="small"
 					label="Effective Spell"
-					value={effectiveSpell}
-					onChange={(e) => setEffectiveSpell(e.target.value)}
+					value={effectiveSpellId}
+					onChange={(e) =>
+						setEffectiveSpellId(e.target.value === "" ? "" : Number(e.target.value))
+					}
 					sx={{ minWidth: 150 }}
 				>
 					<MenuItem value="">
 						<em>Start of day</em>
 					</MenuItem>
 					{setup.spells.map((s) => (
-						<MenuItem key={s.spell_code} value={s.spell_code}>
+						<MenuItem key={s.spell_id} value={s.spell_id}>
 							{s.spell_code}
 						</MenuItem>
 					))}
@@ -242,7 +245,7 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell, onMut
 					coId={coId}
 					branchId={branchId}
 					date={date}
-					spell={spell}
+					spellId={spellId}
 					onSynced={() => {
 						refresh();
 						onMutated?.();
@@ -336,7 +339,10 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spell, onMut
 				<DialogContent>
 					<DialogContentText>
 						Effective {effectiveDate}
-						{effectiveSpell ? ` ${effectiveSpell}` : " (start of day)"} —{" "}
+						{effectiveSpellId !== ""
+							? ` ${setup.spells.find((s) => s.spell_id === effectiveSpellId)?.spell_code ?? effectiveSpellId}`
+							: " (start of day)"}{" "}
+						—{" "}
 						{RETRO_LABELS[retroMode]?.toLowerCase()}. {preview?.retro_rows ?? 0} doff entr
 						{(preview?.retro_rows ?? 0) === 1 ? "y" : "ies"} affected,{" "}
 						{preview?.reprocessed_units.length ?? 0} processed unit(s) will need reprocess — apply?

@@ -14,7 +14,7 @@ type Props = {
 	branchId: number;
 	setup: WindingJugarSetup;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	onSaved: () => void;
 };
 
@@ -22,7 +22,7 @@ type Props = {
 // Closing ('C'). The carry-forward lookup pre-fills the weight and, when a row
 // already exists for the date/spell/machine/open-close, returns its id so the
 // form switches Save -> Update.
-export default function JugarForm({ coId, branchId, setup, date, spell, onSaved }: Props) {
+export default function JugarForm({ coId, branchId, setup, date, spellId, onSaved }: Props) {
 	const [machineId, setMachineId] = React.useState<number | "">("");
 	const [openClose, setOpenClose] = React.useState<"O" | "C">("O");
 	const [weight, setWeight] = React.useState<string>("");
@@ -36,7 +36,7 @@ export default function JugarForm({ coId, branchId, setup, date, spell, onSaved 
 		machineId === "" ? null : Number(machineId),
 		date,
 		openClose,
-		spell || null,
+		spellId,
 	);
 
 	const existingId = prevState?.winding_jugar_id ?? null;
@@ -53,13 +53,13 @@ export default function JugarForm({ coId, branchId, setup, date, spell, onSaved 
 	// Reset the dirty flag when the key inputs change (new lookup context).
 	React.useEffect(() => {
 		setWeightDirty(false);
-	}, [machineId, openClose, date, spell]);
+	}, [machineId, openClose, date, spellId]);
 
 	const weightNum = weight === "" ? 0 : Number(weight);
 	const weightInRange = weightNum > JUGAR_MIN && weightNum <= JUGAR_MAX;
 
 	const formInvalid =
-		!date || !spell || machineId === "" || weight === "" || !weightInRange || saving;
+		!date || spellId == null || machineId === "" || weight === "" || !weightInRange || saving;
 
 	const handleSubmit = async () => {
 		if (formInvalid) {
@@ -86,7 +86,7 @@ export default function JugarForm({ coId, branchId, setup, date, spell, onSaved 
 			co_id: Number(coId),
 			branch_id: Number(branchId),
 			tran_date: date,
-			spell,
+			spell_id: spellId,
 			machine_id: Number(machineId),
 			open_close: openClose,
 			weight: weightNum,

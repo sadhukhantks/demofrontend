@@ -59,7 +59,9 @@ export default function SpinningPage() {
 
 	const [tab, setTab] = React.useState(0);
 	const [tranDate, setTranDate] = React.useState<string>(todayISO());
-	const [spell, setSpell] = React.useState<string>("");
+	// Selected spell_id from setup.spells (branch-correct — spell codes repeat
+	// per branch); every payload sends spell_id, never the code string.
+	const [spellId, setSpellId] = React.useState<number | "">("");
 
 	const [editingEntry, setEditingEntry] = React.useState<DoffEntryRow | null>(null);
 
@@ -74,10 +76,10 @@ export default function SpinningPage() {
 
 	// Default the shared spell selector to the first available spell once setup loads.
 	React.useEffect(() => {
-		if (setup && setup.spells.length > 0 && !spell) {
-			setSpell(setup.spells[0].spell_code);
+		if (setup && setup.spells.length > 0 && spellId === "") {
+			setSpellId(setup.spells[0].spell_id);
 		}
-	}, [setup, spell]);
+	}, [setup, spellId]);
 
 	if (!mounted) return null;
 
@@ -184,12 +186,14 @@ export default function SpinningPage() {
 										select
 										size="small"
 										label="Spell"
-										value={spell}
-										onChange={(e) => setSpell(e.target.value)}
+										value={spellId}
+										onChange={(e) =>
+											setSpellId(e.target.value === "" ? "" : Number(e.target.value))
+										}
 										sx={{ minWidth: 160 }}
 									>
 										{setup.spells.map((s) => (
-											<MenuItem key={s.spell_code} value={s.spell_code}>
+											<MenuItem key={s.spell_id} value={s.spell_id}>
 												{s.spell_code} ({Number(s.working_hours)} hrs)
 											</MenuItem>
 										))}
@@ -202,7 +206,7 @@ export default function SpinningPage() {
 								coId={coId}
 								branchId={branchId}
 								date={tranDate}
-								spell={spell}
+								spellId={spellId === "" ? null : spellId}
 								refreshKey={statusKey}
 								onProcessed={() => setDataKey((k) => k + 1)}
 							/>
@@ -214,7 +218,7 @@ export default function SpinningPage() {
 										branchId={branchId}
 										setup={setup}
 										date={tranDate}
-										spell={spell}
+										spellId={spellId === "" ? null : spellId}
 										editingEntry={editingEntry}
 										onSaved={() => {
 											setEditingEntry(null);
@@ -227,7 +231,7 @@ export default function SpinningPage() {
 										coId={coId}
 										branchId={branchId}
 										date={tranDate}
-										spell={spell}
+										spellId={spellId === "" ? null : spellId}
 										onEdit={(row) => setEditingEntry(row)}
 										onMutated={onMutated}
 										refreshKey={dataKey}
@@ -241,7 +245,7 @@ export default function SpinningPage() {
 									branchId={branchId}
 									setup={setup}
 									date={tranDate}
-									spell={spell}
+									spellId={spellId === "" ? null : spellId}
 									onMutated={onMutated}
 								/>
 							) : null}
@@ -251,7 +255,7 @@ export default function SpinningPage() {
 									coId={coId}
 									branchId={branchId}
 									date={tranDate}
-									spell={spell}
+									spellId={spellId === "" ? null : spellId}
 									refreshKey={dataKey}
 								/>
 							) : null}

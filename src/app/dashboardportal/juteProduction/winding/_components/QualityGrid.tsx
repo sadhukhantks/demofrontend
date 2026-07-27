@@ -30,7 +30,7 @@ type Props = {
 	coId: string;
 	branchId: number;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	yarnItems: YarnItemOption[];
 };
 
@@ -42,7 +42,7 @@ type EditState = {
 // "Get Quality" auto-seeds one row per winding machine (inheriting the prior
 // spell's yarn + spindle) and returns the rows; each row's yarn + spindle
 // (1..30) is editable and saved individually.
-export default function QualityGrid({ coId, branchId, date, spell, yarnItems }: Props) {
+export default function QualityGrid({ coId, branchId, date, spellId, yarnItems }: Props) {
 	const { setup, loading: setupLoading, error: setupError, run, reset } = useQualitySetup(
 		coId,
 		branchId,
@@ -51,7 +51,7 @@ export default function QualityGrid({ coId, branchId, date, spell, yarnItems }: 
 		coId,
 		date,
 		branchId,
-		spell || null,
+		spellId,
 	);
 	const [edits, setEdits] = React.useState<Record<number, EditState>>({});
 	const [savingId, setSavingId] = React.useState<number | null>(null);
@@ -63,7 +63,7 @@ export default function QualityGrid({ coId, branchId, date, spell, yarnItems }: 
 	React.useEffect(() => {
 		reset();
 		setEdits({});
-	}, [date, spell, reset]);
+	}, [date, spellId, reset]);
 
 	// Seed local edit state from fetched setup rows.
 	React.useEffect(() => {
@@ -79,11 +79,11 @@ export default function QualityGrid({ coId, branchId, date, spell, yarnItems }: 
 	}, [setup]);
 
 	const handleGet = async () => {
-		if (!spell) {
+		if (spellId == null) {
 			setSnack("Select a spell first.");
 			return;
 		}
-		await run(date, spell);
+		await run(date, spellId);
 	};
 
 	const setYarn = (id: number, value: number | "") =>
@@ -126,7 +126,7 @@ export default function QualityGrid({ coId, branchId, date, spell, yarnItems }: 
 						size="small"
 						startIcon={<GetIcon size={16} />}
 						onClick={handleGet}
-						disabled={setupLoading || !spell}
+						disabled={setupLoading || spellId == null}
 					>
 						{setupLoading ? "Loading…" : "Get Quality"}
 					</Button>

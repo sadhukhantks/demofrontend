@@ -5,7 +5,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { SpinningProcessStatus } from "../types/spinningTypes";
 
-// GET SPINNING_PROCESS_STATUS?co_id&branch_id&tran_date&spell
+// GET SPINNING_PROCESS_STATUS?co_id&branch_id&tran_date&spell_id
 //   -> { data: { locked, reprocess_needed, processed_date_time } }
 // A locked (date,spell) unit serves the frozen log and requires Edit to mutate;
 // reprocess_needed is raised (sticky) when doffs / mapper retro / sync / SQC /
@@ -21,7 +21,7 @@ export function useSpinningProcessStatus(
 	coId: string | null | undefined,
 	branchId: number | null,
 	date: string,
-	spell: string | null | undefined,
+	spellId: number | null | undefined,
 	refreshKey = 0
 ) {
 	const [status, setStatus] = React.useState<SpinningProcessStatus>(IDLE);
@@ -30,7 +30,7 @@ export function useSpinningProcessStatus(
 	const refresh = React.useCallback(() => setVersion((v) => v + 1), []);
 
 	React.useEffect(() => {
-		if (!coId || !date || branchId == null || !spell) {
+		if (!coId || !date || branchId == null || spellId == null) {
 			setStatus(IDLE);
 			return;
 		}
@@ -38,7 +38,7 @@ export function useSpinningProcessStatus(
 		setLoading(true);
 		const url =
 			`${apiRoutesPortalMasters.SPINNING_PROCESS_STATUS}?co_id=${coId}` +
-			`&branch_id=${branchId}&tran_date=${date}&spell=${spell}`;
+			`&branch_id=${branchId}&tran_date=${date}&spell_id=${spellId}`;
 		void fetchWithCookie<{ data: SpinningProcessStatus }>(url, "GET").then(({ data }) => {
 			if (cancelled) return;
 			setStatus(data?.data ?? IDLE);
@@ -47,7 +47,7 @@ export function useSpinningProcessStatus(
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, branchId, date, spell, version, refreshKey]);
+	}, [coId, branchId, date, spellId, version, refreshKey]);
 
 	return { status, loading, refresh };
 }

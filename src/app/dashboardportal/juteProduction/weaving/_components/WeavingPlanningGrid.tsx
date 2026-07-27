@@ -13,7 +13,7 @@ type Props = {
 	coId: string;
 	branchId: number;
 	date: string;
-	spell: string;
+	spellId: number | null;
 };
 
 // Stable composite row id: a loom appears per spell + quality.
@@ -33,8 +33,8 @@ const numCol = { type: "number" as const, valueFormatter: roundInt };
 
 const num = { ...numCol, width: 90 };
 
-export default function WeavingPlanningGrid({ coId, branchId, date, spell }: Props) {
-	const { data, loading, error, refresh } = useWeavingPlanningGrid(coId, branchId, date, spell);
+export default function WeavingPlanningGrid({ coId, branchId, date, spellId }: Props) {
+	const { data, loading, error, refresh } = useWeavingPlanningGrid(coId, branchId, date, spellId);
 	const [saving, setSaving] = React.useState(false);
 	const [snack, setSnack] = React.useState<string | null>(null);
 

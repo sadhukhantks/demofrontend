@@ -26,7 +26,7 @@ type Props = {
 	branchId: number;
 	setup: WeavingSetup;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	// Shared, page-owned map fetch (reused across tab switches — no reload on this tab).
 	map: LoomQualityMapState;
 };
@@ -43,14 +43,14 @@ const numInputSx = {
 
 // Loom rows on the production grid never carry a quality dropdown — the quality is
 // MAPPED on the Loom → Quality tab and inherited read-only here (like spinning).
-export default function WeavingEntryGrid({ coId, branchId, date, spell, map }: Props) {
+export default function WeavingEntryGrid({ coId, branchId, date, spellId, map }: Props) {
 	// The mapped quality per loom (read-only source for this grid) comes from the page-owned,
 	// shared map fetch — this grid needs only the loom list + saved mapping (it ignores the
 	// editor's carry-forward). Sharing means switching to this tab does NOT refetch the map.
 	const { rows: mapRows, loading: mapLoading, error: mapError } = map;
 	// Existing day entries (to prefill cuts/jugar and show server-computed outputs).
 	const { rows: entryRows, loading: entriesLoading, error: entriesError, refresh } =
-		useWeavingEntriesByDate(coId, date, branchId, spell);
+		useWeavingEntriesByDate(coId, date, branchId, spellId);
 
 	const [edits, setEdits] = React.useState<Record<number, CellEdit>>({});
 	const [savingId, setSavingId] = React.useState<number | null>(null);
@@ -111,7 +111,7 @@ export default function WeavingEntryGrid({ coId, branchId, date, spell, map }: P
 			co_id: Number(coId),
 			branch_id: Number(branchId),
 			tran_date: date,
-			spell,
+			spell_id: spellId,
 			machine_id: machineId,
 			cuts: Number(cell.cuts),
 			close_jugar: Number(cell.close_jugar || 0),
@@ -128,7 +128,7 @@ export default function WeavingEntryGrid({ coId, branchId, date, spell, map }: P
 		refresh();
 	};
 
-	if (!spell) {
+	if (spellId == null) {
 		return <Alert severity="info">Select a spell to load the production grid.</Alert>;
 	}
 

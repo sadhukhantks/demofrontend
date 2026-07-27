@@ -5,13 +5,13 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { PlanningGridData } from "../types/spinningTypes";
 
-// GET SPINNING_PLANNING_GRID?co_id&tran_date&spell?&branch_id?
+// GET SPINNING_PLANNING_GRID?co_id&tran_date&spell_id?&branch_id?
 // -> { data: { rows: PlanningGridRow[], shift_rollup: ShiftRollupRow[] } }
 export function usePlanningGrid(
 	coId: string | null | undefined,
 	branchId: number | null,
 	tranDate: string,
-	spell?: string | null,
+	spellId?: number | null,
 	refreshKey = 0
 ) {
 	const [data, setData] = React.useState<PlanningGridData | null>(null);
@@ -29,7 +29,7 @@ export function usePlanningGrid(
 		let cancelled = false;
 		setLoading(true);
 		let url = `${apiRoutesPortalMasters.SPINNING_PLANNING_GRID}?co_id=${coId}&tran_date=${tranDate}&branch_id=${branchId}`;
-		if (spell) url += `&spell=${spell}`;
+		if (spellId != null) url += `&spell_id=${spellId}`;
 		void fetchWithCookie<{ data: PlanningGridData }>(url, "GET").then(({ data: resp, error: err }) => {
 			if (cancelled) return;
 			if (err) {
@@ -44,7 +44,7 @@ export function usePlanningGrid(
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, branchId, tranDate, spell, version, refreshKey]);
+	}, [coId, branchId, tranDate, spellId, version, refreshKey]);
 
 	return { data, loading, error, refresh };
 }

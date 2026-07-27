@@ -13,13 +13,13 @@ type Props = {
 	coId: string;
 	branchId: number;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	refreshSignal: number;
 	onChanged: () => void;
 };
 
-export default function DoffGrid({ coId, branchId, date, spell, refreshSignal, onChanged }: Props) {
-	const { rows, loading, error, refresh } = useDoffByDate(coId, date, branchId, spell);
+export default function DoffGrid({ coId, branchId, date, spellId, refreshSignal, onChanged }: Props) {
+	const { rows, loading, error, refresh } = useDoffByDate(coId, date, branchId, spellId);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
 	// Re-fetch when the parent reports a new doff was saved.

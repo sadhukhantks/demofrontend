@@ -149,7 +149,7 @@ export default function DoffEditDialog({
 				>
 					{trollies.map((t) => (
 						<MenuItem key={t.trolly_id} value={t.trolly_id}>
-							{t.trolly_name}
+							{t.trolly_name} — {t.trolly_weight} kg
 						</MenuItem>
 					))}
 					{/* Row's trolly may be out of the branch setup list (legacy/import). */}

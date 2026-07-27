@@ -20,14 +20,14 @@ type Props = {
 	branchId: number;
 	setup: WindingDoffSetup;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	onSaved: () => void;
 };
 
 // A combined doff is one weighing shared across 1..3 machines (same trolly +
 // spool). The net is split EQUALLY (integer per mc) and one row is written per
 // machine. The Save gate mirrors the backend: net > 0 and 1 <= net/mc <= 500.
-export default function DoffForm({ coId, branchId, setup, date, spell, onSaved }: Props) {
+export default function DoffForm({ coId, branchId, setup, date, spellId, onSaved }: Props) {
 	const [noOfMachines, setNoOfMachines] = React.useState<number>(1);
 	const [mc1, setMc1] = React.useState<number | "">("");
 	const [mc2, setMc2] = React.useState<number | "">("");
@@ -89,7 +89,7 @@ export default function DoffForm({ coId, branchId, setup, date, spell, onSaved }
 
 	const formInvalid =
 		!date ||
-		!spell ||
+		spellId == null ||
 		!machinesComplete ||
 		!noDuplicateMachines ||
 		trollyId === "" ||
@@ -142,7 +142,7 @@ export default function DoffForm({ coId, branchId, setup, date, spell, onSaved }
 			co_id: Number(coId),
 			branch_id: Number(branchId),
 			tran_date: date,
-			spell,
+			spell_id: spellId,
 			no_of_machines: noOfMachines,
 			machine_ids: machineIds,
 			trolly_id: Number(trollyId),

@@ -9,7 +9,7 @@ export function useDoffEntriesByDate(
 	coId: string | null | undefined,
 	tranDate: string,
 	branchId: number | null,
-	spell?: string | null,
+	spellId?: number | null,
 	machineId?: number | null,
 	refreshKey = 0
 ) {
@@ -31,7 +31,7 @@ export function useDoffEntriesByDate(
 		let cancelled = false;
 		setLoading(true);
 		let url = `${apiRoutesPortalMasters.SPINNING_DOFF_BY_DATE}?co_id=${coId}&tran_date=${tranDate}&branch_id=${branchId}`;
-		if (spell) url += `&spell=${spell}`;
+		if (spellId != null) url += `&spell_id=${spellId}`;
 		if (machineId != null) url += `&machine_id=${machineId}`;
 		void fetchWithCookie<{ data: DoffEntryRow[]; unsynced?: DoffUnsyncedCounts }>(url, "GET").then(
 			({ data, error: err }) => {
@@ -51,7 +51,7 @@ export function useDoffEntriesByDate(
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, tranDate, branchId, spell, machineId, version, refreshKey]);
+	}, [coId, tranDate, branchId, spellId, machineId, version, refreshKey]);
 
 	return { rows, unsynced, loading, error, refresh };
 }

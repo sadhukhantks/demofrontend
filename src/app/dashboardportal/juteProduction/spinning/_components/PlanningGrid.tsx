@@ -10,7 +10,7 @@ type Props = {
 	coId: string;
 	branchId: number;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	// Bumped after Process so a locked unit re-fetches the frozen log.
 	refreshKey?: number;
 };
@@ -26,8 +26,8 @@ function rollupRowId(r: ShiftRollupRow): string {
 
 const num = { type: "number" as const, width: 90 };
 
-export default function PlanningGrid({ coId, branchId, date, spell, refreshKey = 0 }: Props) {
-	const { data, loading, error } = usePlanningGrid(coId, branchId, date, spell, refreshKey);
+export default function PlanningGrid({ coId, branchId, date, spellId, refreshKey = 0 }: Props) {
+	const { data, loading, error } = usePlanningGrid(coId, branchId, date, spellId, refreshKey);
 
 	const rows = data?.rows ?? [];
 	const rollup = data?.shift_rollup ?? [];

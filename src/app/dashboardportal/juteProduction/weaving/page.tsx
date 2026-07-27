@@ -62,31 +62,38 @@ export default function WeavingPage() {
 	const [tab, setTab] = React.useState(0);
 	// Draft values edited in the inputs; only committed to the applied* values on Search.
 	const [tranDate, setTranDate] = React.useState<string>(todayISO());
-	const [spell, setSpell] = React.useState<string>("");
+	// Selected spell_id from setup.spells (branch-correct — spell codes repeat per
+	// branch); every payload sends spell_id, never the code string.
+	const [spellId, setSpellId] = React.useState<number | "">("");
 	// Applied values are what the grids actually query — they change only on Search.
 	const [appliedDate, setAppliedDate] = React.useState<string>(todayISO());
-	const [appliedSpell, setAppliedSpell] = React.useState<string>("");
+	const [appliedSpellId, setAppliedSpellId] = React.useState<number | "">("");
 
 	const { setup, loading: setupLoading, error: setupError } = useWeavingSetup(coId, branchId);
 
 	// One Loom→Quality map fetch for the whole page — shared by the mapping editor and the
 	// Production Entry grid so switching between those tabs never refetches it. Phase 1 (saved
 	// mapping) is ~88ms; the editor's carry-forward (prev_quality_*) loads lazily after.
-	const qualityMap = useLoomQualityMap(coId, branchId, appliedDate, appliedSpell);
+	const qualityMap = useLoomQualityMap(
+		coId,
+		branchId,
+		appliedDate,
+		appliedSpellId === "" ? null : appliedSpellId
+	);
 
 	// Default the shared spell selector to the first available spell once setup loads.
 	React.useEffect(() => {
-		if (setup && setup.spells.length > 0 && !spell) {
-			setSpell(setup.spells[0].spell_code);
-			setAppliedSpell(setup.spells[0].spell_code);
+		if (setup && setup.spells.length > 0 && spellId === "") {
+			setSpellId(setup.spells[0].spell_id);
+			setAppliedSpellId(setup.spells[0].spell_id);
 		}
-	}, [setup, spell]);
+	}, [setup, spellId]);
 
 	const [reloadKey, setReloadKey] = React.useState(0);
 
 	const handleSearch = () => {
 		setAppliedDate(tranDate);
-		setAppliedSpell(spell);
+		setAppliedSpellId(spellId);
 	};
 
 	if (!mounted) return null;
@@ -198,12 +205,14 @@ export default function WeavingPage() {
 										select
 										size="small"
 										label="Spell"
-										value={spell}
-										onChange={(e) => setSpell(e.target.value)}
+										value={spellId}
+										onChange={(e) =>
+											setSpellId(e.target.value === "" ? "" : Number(e.target.value))
+										}
 										sx={{ minWidth: 160 }}
 									>
 										{setup.spells.map((s) => (
-											<MenuItem key={s.spell_code} value={s.spell_code}>
+											<MenuItem key={s.spell_id} value={s.spell_id}>
 												{s.spell_code} ({Number(s.working_hours)} hrs)
 											</MenuItem>
 										))}
@@ -214,12 +223,12 @@ export default function WeavingPage() {
 								</Button>
 							</Box>
 
-							{branchId != null && appliedSpell ? (
+							{branchId != null && appliedSpellId !== "" ? (
 								<WeavingProcessBar
 									coId={coId}
 									branchId={branchId}
 									date={appliedDate}
-									spell={appliedSpell}
+									spellId={appliedSpellId}
 									onProcessed={() => setReloadKey((k) => k + 1)}
 								/>
 							) : null}
@@ -230,7 +239,7 @@ export default function WeavingPage() {
 									branchId={branchId}
 									setup={setup}
 									date={appliedDate}
-									spell={appliedSpell}
+									spellId={appliedSpellId === "" ? null : appliedSpellId}
 									map={qualityMap}
 								/>
 							) : null}
@@ -241,7 +250,7 @@ export default function WeavingPage() {
 									branchId={branchId}
 									setup={setup}
 									date={appliedDate}
-									spell={appliedSpell}
+									spellId={appliedSpellId === "" ? null : appliedSpellId}
 									map={qualityMap}
 								/>
 							) : null}
@@ -251,7 +260,7 @@ export default function WeavingPage() {
 									coId={coId}
 									branchId={branchId}
 									date={appliedDate}
-									spell={appliedSpell}
+									spellId={appliedSpellId === "" ? null : appliedSpellId}
 								/>
 							) : null}
 
@@ -260,7 +269,7 @@ export default function WeavingPage() {
 									coId={coId}
 									branchId={branchId}
 									date={appliedDate}
-									spell={appliedSpell}
+									spellId={appliedSpellId === "" ? null : appliedSpellId}
 								/>
 							) : null}
 
@@ -269,7 +278,7 @@ export default function WeavingPage() {
 									coId={coId}
 									branchId={branchId}
 									date={appliedDate}
-									spell={appliedSpell}
+									spellId={appliedSpellId === "" ? null : appliedSpellId}
 								/>
 							) : null}
 						</>

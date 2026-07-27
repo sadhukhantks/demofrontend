@@ -10,14 +10,14 @@ type Props = {
 	coId: string;
 	branchId: number;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	refreshSignal: number;
 };
 
 // Read-only day grid of jugar entries (the BE exposes no jugar delete; edits go
 // through the form's Save -> Update path).
-export default function JugarGrid({ coId, branchId, date, spell, refreshSignal }: Props) {
-	const { rows, loading, error, refresh } = useJugarByDate(coId, date, branchId, spell);
+export default function JugarGrid({ coId, branchId, date, spellId, refreshSignal }: Props) {
+	const { rows, loading, error, refresh } = useJugarByDate(coId, date, branchId, spellId);
 
 	React.useEffect(() => {
 		refresh();

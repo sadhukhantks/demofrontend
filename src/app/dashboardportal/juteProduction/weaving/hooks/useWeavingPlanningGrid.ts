@@ -5,7 +5,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WeavingPlanningGridData } from "../types/weavingTypes";
 
-// GET WEAVING_PLANNING_GRID?co_id&tran_date&branch_id&spell?
+// GET WEAVING_PLANNING_GRID?co_id&tran_date&branch_id&spell_id?
 // -> { data: { rows: WeavingPlanningGridRow[], shift_rollup: WeavingShiftRollupRow[] } }
 // Mirrors usePlanningGrid / useBeamingPlanningGrid. The companion save endpoint is
 // WEAVING_PLANNING_GRID_SAVE (POSTed from WeavingPlanningGrid.tsx).
@@ -13,7 +13,7 @@ export function useWeavingPlanningGrid(
 	coId: string | null | undefined,
 	branchId: number | null,
 	tranDate: string,
-	spell?: string | null
+	spellId?: number | null
 ) {
 	const [data, setData] = React.useState<WeavingPlanningGridData | null>(null);
 	const [loading, setLoading] = React.useState(false);
@@ -30,7 +30,7 @@ export function useWeavingPlanningGrid(
 		let cancelled = false;
 		setLoading(true);
 		let url = `${apiRoutesPortalMasters.WEAVING_PLANNING_GRID}?co_id=${coId}&tran_date=${tranDate}&branch_id=${branchId}`;
-		if (spell) url += `&spell=${spell}`;
+		if (spellId != null) url += `&spell_id=${spellId}`;
 		void fetchWithCookie<{ data: WeavingPlanningGridData }>(url, "GET").then(
 			({ data: resp, error: err }) => {
 				if (cancelled) return;
@@ -47,7 +47,7 @@ export function useWeavingPlanningGrid(
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, branchId, tranDate, spell, version]);
+	}, [coId, branchId, tranDate, spellId, version]);
 
 	return { data, loading, error, refresh };
 }

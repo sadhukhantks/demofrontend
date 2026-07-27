@@ -19,13 +19,13 @@ export function useQualitySetup(
 	const [error, setError] = React.useState<string | null>(null);
 
 	const run = React.useCallback(
-		async (tranDate: string, spell: string) => {
-			if (!coId || !tranDate || !spell) {
+		async (tranDate: string, spellId: number | null) => {
+			if (!coId || !tranDate || spellId == null) {
 				setSetup(null);
 				return;
 			}
 			setLoading(true);
-			let url = `${apiRoutesPortalMasters.WINDING_QUALITY_SETUP}?co_id=${coId}&tran_date=${tranDate}&spell=${spell}`;
+			let url = `${apiRoutesPortalMasters.WINDING_QUALITY_SETUP}?co_id=${coId}&tran_date=${tranDate}&spell_id=${spellId}`;
 			if (branchId != null) url += `&branch_id=${branchId}`;
 			const { data, error: err } = await fetchWithCookie<{ data: WindingQualitySetup }>(url, "GET");
 			if (err) {

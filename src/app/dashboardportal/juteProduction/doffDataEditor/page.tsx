@@ -79,7 +79,8 @@ export default function DoffDataEditorPage() {
 	)?.branch_name;
 
 	const [tranDate, setTranDate] = React.useState<string>(todayISO());
-	const [spell, setSpell] = React.useState<string>("");
+	// Selected spell_id from setup.spells (branch-correct); payloads send spell_id.
+	const [spellId, setSpellId] = React.useState<number | "">("");
 	const [machineId, setMachineId] = React.useState<number | null>(null);
 	const [editRow, setEditRow] = React.useState<DoffEntryRow | null>(null);
 	const [snack, setSnack] = React.useState<string | null>(null);
@@ -93,10 +94,10 @@ export default function DoffDataEditorPage() {
 	const { setup, loading: setupLoading, error: setupError } = useSpinningSetup(coId, branchId);
 
 	React.useEffect(() => {
-		if (setup && setup.spells.length > 0 && !spell) {
-			setSpell(setup.spells[0].spell_code);
+		if (setup && setup.spells.length > 0 && spellId === "") {
+			setSpellId(setup.spells[0].spell_id);
 		}
-	}, [setup, spell]);
+	}, [setup, spellId]);
 
 	// Editor setup: yarn items + active branch workers for the edit dialog.
 	const [editorSetup, setEditorSetup] = React.useState<EditorSetup | null>(null);
@@ -121,7 +122,7 @@ export default function DoffDataEditorPage() {
 		coId,
 		tranDate,
 		branchId,
-		spell,
+		spellId === "" ? null : spellId,
 		machineId,
 		dataKey
 	);
@@ -280,12 +281,14 @@ export default function DoffDataEditorPage() {
 									select
 									size="small"
 									label="Spell"
-									value={spell}
-									onChange={(e) => setSpell(e.target.value)}
+									value={spellId}
+									onChange={(e) =>
+										setSpellId(e.target.value === "" ? "" : Number(e.target.value))
+									}
 									sx={{ minWidth: 160 }}
 								>
 									{setup.spells.map((s) => (
-										<MenuItem key={s.spell_code} value={s.spell_code}>
+										<MenuItem key={s.spell_id} value={s.spell_id}>
 											{s.spell_code} ({Number(s.working_hours)} hrs)
 										</MenuItem>
 									))}
@@ -322,7 +325,7 @@ export default function DoffDataEditorPage() {
 									coId={coId}
 									branchId={branchId}
 									date={tranDate}
-									spell={spell}
+									spellId={spellId === "" ? null : spellId}
 									refreshKey={statusKey}
 									onProcessed={() => setDataKey((k) => k + 1)}
 								/>

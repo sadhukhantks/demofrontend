@@ -20,7 +20,7 @@ type Props = {
 	coId: string;
 	branchId: number;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	// Bumped by page.tsx whenever ANY grid mutates (doff create/edit/delete,
 	// mapper save, sync) so the staleness chip flips immediately (spec 5.6.1).
 	refreshKey?: number;
@@ -75,7 +75,7 @@ export default function SpinningProcessBar({
 	coId,
 	branchId,
 	date,
-	spell,
+	spellId,
 	refreshKey = 0,
 	onProcessed,
 }: Props) {
@@ -87,7 +87,7 @@ export default function SpinningProcessBar({
 		coId,
 		branchId,
 		date,
-		spell,
+		spellId,
 		refreshKey
 	);
 
@@ -114,7 +114,7 @@ export default function SpinningProcessBar({
 					co_id: Number(coId),
 					branch_id: branchId,
 					tran_date: date,
-					spell,
+					spell_id: spellId,
 				}),
 			});
 			const payload = (await res.json().catch(() => null)) as {
@@ -145,7 +145,7 @@ export default function SpinningProcessBar({
 		}
 	};
 
-	if (!spell) return null;
+	if (spellId == null) return null;
 
 	const lines = warnings ? warnLines(warnings) : [];
 	const sync = warnings?.sync as

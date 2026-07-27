@@ -14,7 +14,7 @@ type Props = {
 	coId: string;
 	branchId: number;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	onEdit: (row: DoffEntryRow) => void;
 	// Bumps the SpinningProcessBar refreshKey after delete/dedup/sync (spec 5.6.1).
 	onMutated?: () => void;
@@ -36,7 +36,7 @@ export default function DailyDoffGrid({
 	coId,
 	branchId,
 	date,
-	spell,
+	spellId,
 	onEdit,
 	onMutated,
 	refreshKey = 0,
@@ -45,7 +45,7 @@ export default function DailyDoffGrid({
 		coId,
 		date,
 		branchId,
-		spell,
+		spellId,
 		null,
 		refreshKey
 	);
@@ -69,14 +69,14 @@ export default function DailyDoffGrid({
 	);
 
 	const handleDedup = React.useCallback(async () => {
-		if (!spell) {
+		if (spellId == null) {
 			setSnack("Select a spell to dedup.");
 			return;
 		}
 		setBusy(true);
 		// D8: preview first (confirm:false lists candidates, deactivates nothing),
 		// then an explicit confirm before the destructive call.
-		const base = { co_id: Number(coId), tran_date: date, spell };
+		const base = { co_id: Number(coId), tran_date: date, spell_id: spellId };
 		const { data: prev, error: prevErr } = await fetchWithCookie<{
 			data: {
 				preview: boolean;
@@ -112,7 +112,7 @@ export default function DailyDoffGrid({
 		setSnack(`Deactivated ${res?.data?.deactivated ?? 0} duplicate doff(s).`);
 		refresh();
 		onMutated?.();
-	}, [coId, date, spell, refresh, onMutated]);
+	}, [coId, date, spellId, refresh, onMutated]);
 
 	const columns = React.useMemo<GridColDef<DoffEntryRow>[]>(
 		() => [
@@ -183,7 +183,7 @@ export default function DailyDoffGrid({
 					size="small"
 					startIcon={<DedupIcon size={16} />}
 					onClick={handleDedup}
-					disabled={busy || !spell}
+					disabled={busy || spellId == null}
 				>
 					Dedup
 				</Button>
@@ -191,7 +191,7 @@ export default function DailyDoffGrid({
 					coId={coId}
 					branchId={branchId}
 					date={date}
-					spell={spell}
+					spellId={spellId}
 					onSynced={() => {
 						refresh();
 						onMutated?.();

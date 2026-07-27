@@ -59,7 +59,9 @@ export default function WindingPage() {
 
 	const [tab, setTab] = React.useState(0);
 	const [tranDate, setTranDate] = React.useState<string>(todayISO());
-	const [spell, setSpell] = React.useState<string>("");
+	// Selected spell_id from setup.spells (branch-correct — spell codes repeat
+	// per branch); every payload sends spell_id, never the code string.
+	const [spellId, setSpellId] = React.useState<number | "">("");
 
 	// Bump a counter when a doff/jugar is saved so the grids re-fetch.
 	const [doffSignal, setDoffSignal] = React.useState(0);
@@ -73,10 +75,10 @@ export default function WindingPage() {
 
 	// Default the shared spell selector to the first available spell once setup loads.
 	React.useEffect(() => {
-		if (doffSetup && doffSetup.spells.length > 0 && !spell) {
-			setSpell(doffSetup.spells[0].spell_code);
+		if (doffSetup && doffSetup.spells.length > 0 && spellId === "") {
+			setSpellId(doffSetup.spells[0].spell_id);
 		}
-	}, [doffSetup, spell]);
+	}, [doffSetup, spellId]);
 
 	if (!mounted) return null;
 
@@ -167,12 +169,14 @@ export default function WindingPage() {
 									select
 									size="small"
 									label="Spell"
-									value={spell}
-									onChange={(e) => setSpell(e.target.value)}
+									value={spellId}
+									onChange={(e) =>
+										setSpellId(e.target.value === "" ? "" : Number(e.target.value))
+									}
 									sx={{ minWidth: 160 }}
 								>
 									{doffSetup.spells.map((s) => (
-										<MenuItem key={s.spell_code} value={s.spell_code}>
+										<MenuItem key={s.spell_id} value={s.spell_id}>
 											{s.spell_code} ({Number(s.working_hours)} hrs)
 										</MenuItem>
 									))}
@@ -186,14 +190,14 @@ export default function WindingPage() {
 										branchId={branchId}
 										setup={doffSetup}
 										date={tranDate}
-										spell={spell}
+										spellId={spellId === "" ? null : spellId}
 										onSaved={() => setDoffSignal((s) => s + 1)}
 									/>
 									<DoffGrid
 										coId={coId}
 										branchId={branchId}
 										date={tranDate}
-										spell={spell}
+										spellId={spellId === "" ? null : spellId}
 										refreshSignal={doffSignal}
 										onChanged={() => setDoffSignal((s) => s + 1)}
 									/>
@@ -208,7 +212,7 @@ export default function WindingPage() {
 											branchId={branchId}
 											setup={jugarSetup}
 											date={tranDate}
-											spell={spell}
+											spellId={spellId === "" ? null : spellId}
 											onSaved={() => setJugarSignal((s) => s + 1)}
 										/>
 									) : (
@@ -220,7 +224,7 @@ export default function WindingPage() {
 										coId={coId}
 										branchId={branchId}
 										date={tranDate}
-										spell={spell}
+										spellId={spellId === "" ? null : spellId}
 										refreshSignal={jugarSignal}
 									/>
 								</Box>
@@ -231,7 +235,7 @@ export default function WindingPage() {
 									coId={coId}
 									branchId={branchId}
 									date={tranDate}
-									spell={spell}
+									spellId={spellId === "" ? null : spellId}
 									yarnItems={doffSetup.yarn_items}
 								/>
 							) : null}
