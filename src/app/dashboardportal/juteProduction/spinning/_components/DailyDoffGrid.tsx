@@ -4,6 +4,8 @@ import * as React from "react";
 import { Alert, Box, Button, Chip, IconButton, Snackbar, Tooltip, Typography } from "@mui/material";
 import { Pencil as EditIcon, Trash2 as DeleteIcon, Layers as DedupIcon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
+import { usePathname } from "next/navigation";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { DoffEntryRow } from "../types/spinningTypes";
@@ -41,6 +43,13 @@ export default function DailyDoffGrid({
 	onMutated,
 	refreshKey = 0,
 }: Props) {
+	// access_type: 1 read, 2 print, 3 write, 4 edit. Modifying an EXISTING doff
+	// (edit / delete / dedup-deactivate) needs level 4; write-only users create
+	// new doffs via the form but must not see these.
+	const pathname = usePathname();
+	const { hasMenuAccess } = useSidebarContext();
+	const canEdit = hasMenuAccess(pathname, "edit");
+
 	const { rows, unsynced, loading, error, refresh } = useDoffEntriesByDate(
 		coId,
 		date,
@@ -116,36 +125,40 @@ export default function DailyDoffGrid({
 
 	const columns = React.useMemo<GridColDef<DoffEntryRow>[]>(
 		() => [
-			{
-				field: "actions",
-				headerName: "",
-				width: 100,
-				sortable: false,
-				filterable: false,
-				renderCell: (params) => (
-					<>
-						<Tooltip title="Edit">
-							<IconButton
-								size="small"
-								onClick={() => onEdit(params.row)}
-								sx={{ minWidth: 40, minHeight: 40 }}
-							>
-								<EditIcon size={16} />
-							</IconButton>
-						</Tooltip>
-						<Tooltip title="Delete">
-							<IconButton
-								size="small"
-								color="error"
-								onClick={() => handleDelete(params.row.daily_doff_tbl_id)}
-								sx={{ minWidth: 40, minHeight: 40 }}
-							>
-								<DeleteIcon size={16} />
-							</IconButton>
-						</Tooltip>
-					</>
-				),
-			},
+			...(canEdit
+				? [
+						{
+							field: "actions",
+							headerName: "",
+							width: 100,
+							sortable: false,
+							filterable: false,
+							renderCell: (params) => (
+								<>
+									<Tooltip title="Edit">
+										<IconButton
+											size="small"
+											onClick={() => onEdit(params.row)}
+											sx={{ minWidth: 40, minHeight: 40 }}
+										>
+											<EditIcon size={16} />
+										</IconButton>
+									</Tooltip>
+									<Tooltip title="Delete">
+										<IconButton
+											size="small"
+											color="error"
+											onClick={() => handleDelete(params.row.daily_doff_tbl_id)}
+											sx={{ minWidth: 40, minHeight: 40 }}
+										>
+											<DeleteIcon size={16} />
+										</IconButton>
+									</Tooltip>
+								</>
+							),
+						} as GridColDef<DoffEntryRow>,
+					]
+				: []),
 			{ field: "daily_doff_tbl_id", headerName: "ID", width: 70 },
 			{ field: "doff_date", headerName: "Date", width: 110 },
 			{ field: "spell_code", headerName: "Spell", width: 70 },
@@ -171,22 +184,24 @@ export default function DailyDoffGrid({
 			{ field: "tare_weight", headerName: "Tare", width: 90, type: "number" },
 			{ field: "net_weight", headerName: "Net", width: 90, type: "number" },
 		],
-		[handleDelete, onEdit]
+		[canEdit, handleDelete, onEdit]
 	);
 
 	return (
 		<Box>
 			<Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1, flexWrap: "wrap" }}>
 				<Typography variant="subtitle2">Doff entries</Typography>
-				<Button
-					variant="outlined"
-					size="small"
-					startIcon={<DedupIcon size={16} />}
-					onClick={handleDedup}
-					disabled={busy || spellId == null}
-				>
-					Dedup
-				</Button>
+				{canEdit ? (
+					<Button
+						variant="outlined"
+						size="small"
+						startIcon={<DedupIcon size={16} />}
+						onClick={handleDedup}
+						disabled={busy || spellId == null}
+					>
+						Dedup
+					</Button>
+				) : null}
 				<DoffSyncButton
 					coId={coId}
 					branchId={branchId}

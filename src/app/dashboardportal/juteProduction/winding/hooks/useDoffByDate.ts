@@ -5,7 +5,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WindingDoffRow } from "../types/windingTypes";
 
-// WINDING_DOFF_BY_DATE — doff rows for the day grid (spell + machine optional).
+// WINDING_DOFF_BY_DATE — doff rows for the day grid (spell + worker optional).
 // No-ops while !coId / no date / branch unresolved.
 export function useDoffByDate(
 	coId: string | null | undefined,

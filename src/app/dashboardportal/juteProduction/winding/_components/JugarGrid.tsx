@@ -29,8 +29,8 @@ export default function JugarGrid({ coId, branchId, date, spellId, refreshSignal
 			{ field: "winding_jugar_id", headerName: "ID", width: 70 },
 			{ field: "tran_date", headerName: "Date", width: 110 },
 			{ field: "spell_code", headerName: "Spell", width: 70 },
-			{ field: "mech_code", headerName: "Mc Code", width: 100 },
-			{ field: "machine_name", headerName: "Machine", width: 180 },
+			{ field: "emp_code", headerName: "EB No", width: 100 },
+			{ field: "worker_name", headerName: "Winder", width: 180 },
 			{
 				field: "open_close",
 				headerName: "Type",

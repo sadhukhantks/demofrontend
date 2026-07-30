@@ -5,9 +5,10 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WindingQualitySetup } from "../types/windingTypes";
 
-// WINDING_QUALITY_SETUP — "Get Quality" auto-seeds one row per winding machine
-// (inheriting the prior spell's quality + spindle) then returns the rows + the
-// quality picker. Because this WRITES (seeds) server-side, it is NOT fired
+// WINDING_QUALITY_SETUP — "Get Quality" auto-seeds one row per winder carried
+// forward from the previous spell (inheriting its quality + spindle; nothing is
+// seeded when there is no prior spell) then returns the rows + the quality
+// picker + the "Add winder" list. Because this WRITES (seeds) server-side, it is NOT fired
 // reactively: the component calls `run()` on the Get Quality button. No-ops the
 // imperative call while !coId / no date / no spell.
 export function useQualitySetup(

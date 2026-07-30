@@ -269,7 +269,7 @@ export const getIssueById = async (
 			// Handle both expense_type_id and expense_id variants
 			expenseId: line.expense_type_id ?? line.expense_id,
 			expense_type_id: line.expense_type_id ?? line.expense_id,
-			expenseName: line.expense_type_name ?? line.expense_name,
+			expenseTypeName: line.expense_type_name ?? line.expense_name,
 			costFactorId: line.cost_factor_id,
 			cost_factor_id: line.cost_factor_id,
 			costFactorName: line.cost_factor_name,

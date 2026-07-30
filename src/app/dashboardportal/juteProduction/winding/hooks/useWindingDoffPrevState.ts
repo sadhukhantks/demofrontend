@@ -5,12 +5,12 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WindingDoffPrevState } from "../types/windingTypes";
 
-// WINDING_DOFF_PREV_STATE — prefill the doff form from MC#1's last active doff
-// (trolly/spool/quality/weights). data may be null. No-ops while !coId or no
-// machine selected.
+// WINDING_DOFF_PREV_STATE — prefill the doff form from the selected winder's
+// last active doff (trolly/spool/quality/weights). data may be null. No-ops
+// while !coId or no worker selected.
 export function useWindingDoffPrevState(
 	coId: string | null | undefined,
-	machineId: number | null,
+	ebId: number | null,
 	branchId: number | null,
 ) {
 	const [state, setState] = React.useState<WindingDoffPrevState | null>(null);
@@ -20,13 +20,13 @@ export function useWindingDoffPrevState(
 	const refresh = React.useCallback(() => setVersion((v) => v + 1), []);
 
 	React.useEffect(() => {
-		if (!coId || machineId == null) {
+		if (!coId || ebId == null) {
 			setState(null);
 			return;
 		}
 		let cancelled = false;
 		setLoading(true);
-		let url = `${apiRoutesPortalMasters.WINDING_DOFF_PREV_STATE}?co_id=${coId}&machine_id=${machineId}`;
+		let url = `${apiRoutesPortalMasters.WINDING_DOFF_PREV_STATE}?co_id=${coId}&eb_id=${ebId}`;
 		if (branchId != null) url += `&branch_id=${branchId}`;
 		void fetchWithCookie<{ data: WindingDoffPrevState | null }>(url, "GET").then(({ data }) => {
 			if (cancelled) return;
@@ -36,7 +36,7 @@ export function useWindingDoffPrevState(
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, machineId, branchId, version]);
+	}, [coId, ebId, branchId, version]);
 
 	return { state, loading, refresh };
 }

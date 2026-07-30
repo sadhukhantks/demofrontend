@@ -137,9 +137,9 @@ export default function WindingPage() {
 						<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
 							<CircularProgress />
 						</Box>
-					) : doffSetup.machines.length === 0 ? (
+					) : doffSetup.workers.length === 0 ? (
 						<Alert severity="info">
-							No winding machines found for this branch.
+							No workers found for this branch.
 						</Alert>
 					) : (
 						<>

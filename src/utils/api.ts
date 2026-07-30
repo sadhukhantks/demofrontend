@@ -835,9 +835,11 @@ const apiRoutesPortalMasters = {
     SPINNING_DOFF_EDITOR_SETUP: `${API_URL}/spinningProd/doff_editor_setup`,
     // Winding production (router prefix /api/windingProd) — *_EDIT/*_UPDATE/*_DELETE and
     // WINDING_QUALITY_SAVE are base paths; caller appends /${id}?co_id=...
+    // Entry is person-keyed (eb_id), never machine-keyed — winding-person-keyed-entry-spec.md
+    WINDING_WORKERS: `${API_URL}/windingProd/workers`,
     // Doff
     WINDING_DOFF_SETUP: `${API_URL}/windingProd/doff_setup`,
-    WINDING_DOFF_PREV_STATE: `${API_URL}/windingProd/doff_machine_prev_state`,
+    WINDING_DOFF_PREV_STATE: `${API_URL}/windingProd/doff_prev_state`,
     WINDING_DOFF_CREATE: `${API_URL}/windingProd/doff_create`,
     WINDING_DOFF_BY_DATE: `${API_URL}/windingProd/doff_by_date`,
     WINDING_DOFF_EDIT: `${API_URL}/windingProd/doff_edit`,
@@ -848,9 +850,11 @@ const apiRoutesPortalMasters = {
     WINDING_JUGAR_SAVE: `${API_URL}/windingProd/jugar_save`,
     WINDING_JUGAR_UPDATE: `${API_URL}/windingProd/jugar_update`,
     WINDING_JUGAR_BY_DATE: `${API_URL}/windingProd/jugar_by_date`,
-    // Quality
+    // Quality (person -> quality map)
     WINDING_QUALITY_SETUP: `${API_URL}/windingProd/quality_setup`,
     WINDING_QUALITY_SAVE: `${API_URL}/windingProd/quality_save`,
+    WINDING_QUALITY_ADD: `${API_URL}/windingProd/quality_add`,
+    WINDING_QUALITY_DELETE: `${API_URL}/windingProd/quality_delete`,
     WINDING_QUALITY_BY_DATE: `${API_URL}/windingProd/quality_by_date`,
     // Winding reports (router prefix /api/juteProductionReports)
     WINDING_SPELL_REPORT: `${API_URL}/juteProductionReports/winding_spell_report`,

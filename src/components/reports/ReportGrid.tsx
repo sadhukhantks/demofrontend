@@ -6,6 +6,16 @@ import {
   GridColDef,
   GridValidRowModel,
 } from "@mui/x-data-grid";
+import {
+  useColumnsSizedToContent,
+  wrappingGridSx,
+  autoRowHeight,
+  estimatedRowHeight,
+  showCellTooltip,
+  WRAPPED_HEADER_HEIGHT,
+} from "@/components/ui/gridAutoSize";
+
+const NO_ROWS: never[] = [];
 
 interface ReportGridProps<T extends GridValidRowModel> {
   rows: T[];
@@ -36,6 +46,10 @@ export default function ReportGrid<T extends GridValidRowModel>({
   sortField,
   sortDir = "asc",
 }: ReportGridProps<T>) {
+  // Same content-width + hover-tooltip treatment the list grids get. While no branch
+  // is selected the previous branch's rows may still be held, so don't size from them.
+  const sizedColumns = useColumnsSizedToContent(columns, branchId === null ? NO_ROWS : rows);
+
   if (branchId === null) {
     return (
       <Box sx={{ p: 4, textAlign: "center" }}>
@@ -73,11 +87,14 @@ export default function ReportGrid<T extends GridValidRowModel>({
         </Box>
       )}
 
-      <Box sx={{ height, width: "100%" }}>
+      <Box onMouseOver={showCellTooltip} sx={{ height, width: "100%" }}>
         <DataGrid
           rows={rows}
-          columns={columns}
+          columns={sizedColumns}
           getRowId={getRowId}
+          getRowHeight={autoRowHeight}
+          getEstimatedRowHeight={estimatedRowHeight}
+          columnHeaderHeight={WRAPPED_HEADER_HEIGHT}
           pageSizeOptions={[25, 50, 100]}
           initialState={{
             pagination: { paginationModel: { page: 0, pageSize: 50 } },
@@ -87,12 +104,16 @@ export default function ReportGrid<T extends GridValidRowModel>({
           }}
           disableRowSelectionOnClick
           sx={{
+            ...wrappingGridSx,
             "& .MuiDataGrid-columnHeader": {
               backgroundColor: "#3ea6da",
               color: "white",
               fontWeight: "bold",
             },
-            "& .MuiDataGrid-columnHeaderTitle": { fontWeight: "bold" },
+            "& .MuiDataGrid-columnHeaderTitle": {
+              ...wrappingGridSx["& .MuiDataGrid-columnHeaderTitle"],
+              fontWeight: "bold",
+            },
           }}
         />
       </Box>

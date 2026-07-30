@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, Button, MenuItem, Snackbar, TextField } from "@mui/material";
+import { Alert, Autocomplete, Box, Button, MenuItem, Snackbar, TextField } from "@mui/material";
 import { Save as SaveIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -18,12 +18,12 @@ type Props = {
 	onSaved: () => void;
 };
 
-// Spindle leftover weight at the shift boundary, per machine, Opening ('O') or
+// Spindle leftover weight at the shift boundary, per winder, Opening ('O') or
 // Closing ('C'). The carry-forward lookup pre-fills the weight and, when a row
-// already exists for the date/spell/machine/open-close, returns its id so the
+// already exists for the date/spell/winder/open-close, returns its id so the
 // form switches Save -> Update.
 export default function JugarForm({ coId, branchId, setup, date, spellId, onSaved }: Props) {
-	const [machineId, setMachineId] = React.useState<number | "">("");
+	const [ebId, setEbId] = React.useState<number | "">("");
 	const [openClose, setOpenClose] = React.useState<"O" | "C">("O");
 	const [weight, setWeight] = React.useState<string>("");
 	const [weightDirty, setWeightDirty] = React.useState(false);
@@ -33,7 +33,7 @@ export default function JugarForm({ coId, branchId, setup, date, spellId, onSave
 
 	const { state: prevState } = useJugarPrevState(
 		coId,
-		machineId === "" ? null : Number(machineId),
+		ebId === "" ? null : Number(ebId),
 		date,
 		openClose,
 		spellId,
@@ -53,13 +53,13 @@ export default function JugarForm({ coId, branchId, setup, date, spellId, onSave
 	// Reset the dirty flag when the key inputs change (new lookup context).
 	React.useEffect(() => {
 		setWeightDirty(false);
-	}, [machineId, openClose, date, spellId]);
+	}, [ebId, openClose, date, spellId]);
 
 	const weightNum = weight === "" ? 0 : Number(weight);
 	const weightInRange = weightNum > JUGAR_MIN && weightNum <= JUGAR_MAX;
 
 	const formInvalid =
-		!date || spellId == null || machineId === "" || weight === "" || !weightInRange || saving;
+		!date || spellId == null || ebId === "" || weight === "" || !weightInRange || saving;
 
 	const handleSubmit = async () => {
 		if (formInvalid) {
@@ -87,7 +87,7 @@ export default function JugarForm({ coId, branchId, setup, date, spellId, onSave
 			branch_id: Number(branchId),
 			tran_date: date,
 			spell_id: spellId,
-			machine_id: Number(machineId),
+			eb_id: Number(ebId),
 			open_close: openClose,
 			weight: weightNum,
 		};
@@ -118,20 +118,22 @@ export default function JugarForm({ coId, branchId, setup, date, spellId, onSave
 					},
 				}}
 			>
-				<TextField
-					select
-					label="Machine"
-					value={machineId}
-					onChange={(e) => setMachineId(e.target.value === "" ? "" : Number(e.target.value))}
+				<Autocomplete
+					options={setup.workers}
+					getOptionLabel={(w) => w.label}
+					renderOption={(props, w) => (
+						<li {...props} key={w.eb_id}>
+							{w.label}
+						</li>
+					)}
+					value={ebId === "" ? null : setup.workers.find((w) => w.eb_id === Number(ebId)) ?? null}
+					onChange={(_, newVal) => setEbId(newVal ? newVal.eb_id : "")}
 					size="small"
 					fullWidth
-				>
-					{setup.machines.map((m) => (
-						<MenuItem key={m.machine_id} value={m.machine_id}>
-							{m.mech_code} — {m.machine_name}
-						</MenuItem>
-					))}
-				</TextField>
+					clearOnEscape
+					isOptionEqualToValue={(opt, val) => opt.eb_id === val.eb_id}
+					renderInput={(params) => <TextField {...params} label="EB No" />}
+				/>
 				<TextField
 					select
 					label="Open / Close"
@@ -162,7 +164,7 @@ export default function JugarForm({ coId, branchId, setup, date, spellId, onSave
 
 			{editing ? (
 				<Alert severity="info">
-					An entry already exists for this machine / spell / {openClose === "O" ? "opening" : "closing"} —
+					An entry already exists for this winder / spell / {openClose === "O" ? "opening" : "closing"} —
 					saving will update it.
 				</Alert>
 			) : null}

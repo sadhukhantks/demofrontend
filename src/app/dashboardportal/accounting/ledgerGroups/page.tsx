@@ -13,11 +13,12 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  FormHelperText,
   Chip,
 } from "@mui/material";
 import { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
 import { z } from "zod";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Swal from "sweetalert2";
 import IndexWrapper from "@/components/ui/IndexWrapper";
@@ -95,6 +96,7 @@ export default function LedgerGroupsPage() {
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<CreateGroupFormData>({
     resolver: zodResolver(createGroupSchema),
@@ -104,6 +106,15 @@ export default function LedgerGroupsPage() {
       nature: undefined,
     },
   });
+
+  // A child group inherits its parent's nature — the branch must stay on one
+  // side of the chart of accounts, so Nature is locked once a parent is picked.
+  const parentGroupId = useWatch({ control, name: "parent_group_id" });
+  const parentNature = useMemo(
+    () =>
+      allGroups.find((g) => g.acc_ledger_group_id === parentGroupId)?.nature,
+    [allGroups, parentGroupId]
+  );
 
   // -----------------------------------------------------------------------
   // Flatten tree helper
@@ -345,7 +356,14 @@ export default function LedgerGroupsPage() {
                     label="Parent Group"
                     onChange={(e) => {
                       const v = e.target.value as number | "";
-                      field.onChange(v === "" ? undefined : Number(v));
+                      const id = v === "" ? undefined : Number(v);
+                      field.onChange(id);
+                      const inherited = allGroups.find(
+                        (g) => g.acc_ledger_group_id === id
+                      )?.nature;
+                      if (inherited) {
+                        setValue("nature", inherited, { shouldValidate: true });
+                      }
                     }}
                   >
                     <MenuItem value="">
@@ -365,7 +383,12 @@ export default function LedgerGroupsPage() {
               name="nature"
               control={control}
               render={({ field }) => (
-                <FormControl fullWidth margin="dense" error={!!errors.nature}>
+                <FormControl
+                  fullWidth
+                  margin="dense"
+                  error={!!errors.nature}
+                  disabled={!!parentNature}
+                >
                   <InputLabel>Nature</InputLabel>
                   <Select
                     {...field}
@@ -377,6 +400,10 @@ export default function LedgerGroupsPage() {
                     <MenuItem value="I">Income</MenuItem>
                     <MenuItem value="E">Expenses</MenuItem>
                   </Select>
+                  <FormHelperText>
+                    {errors.nature?.message ??
+                      (parentNature ? "Inherited from parent group" : "")}
+                  </FormHelperText>
                 </FormControl>
               )}
             />
