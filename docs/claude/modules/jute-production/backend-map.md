@@ -74,14 +74,17 @@ replacement — see the router note above.
 > formula (§4.2 of `winding-production-design.md`, re-keyed to `eb_id` per the person-keyed spec
 > §6) directly in `winding_query.py` rather than depending on those DB views.
 
-## In-flight status (2026-07-30)
+## Status (2026-07-30) — person-keyed rework is complete
 
-Backend work is proceeding in parallel with this doc pass. As of this writing: `winding_models.py`,
-`winding_query.py`, and `services/winding_rules.py` are already person-keyed (`eb_id`, no split, no
-`nomc`); `winding_entry.py` (the router/handlers) still implements the **old** machine-keyed
-contract (`machine_ids`, `no_of_machines`, `doff_machine_prev_state`, `get_winding_machines_query`)
-and imports query/rules functions the rewritten `winding_query.py` / `winding_rules.py` no longer
-expose under those names — the router has not yet been migrated. The tables above describe the
-**locked target contract** (`docs/winding-person-keyed-entry-spec.md`), not necessarily what
-`winding_entry.py` returns at this exact moment. Re-verify against source before wiring new FE code
-if this note is more than a few days old.
+The whole winding stack is person-keyed and the tables above describe what the code actually
+returns, not a target: `winding_models.py`, `winding_query.py`, `services/winding_rules.py`,
+`winding_entry.py` (router/handlers), and `winding_reports.py` are all migrated, and the winding
+block of the spinning day-slice in `spinning_query.py` was re-keyed in the same pass so
+`winding_total` / `eff_winding` keep working. Frontend (page, components, hooks, types,
+`src/utils/api.ts`) is wired to this contract.
+
+Schema is live on **dev3 and sls**; any other tenant still needs
+`dbqueries/migrations/winding_person_keyed_entry.sql` applied **before** this code deploys, because
+`machine_id` is `NOT NULL` until the migration lands and the new insert leaves it NULL.
+
+Contract source of truth: `docs/winding-person-keyed-entry-spec.md`.
