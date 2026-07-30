@@ -127,11 +127,6 @@ export default function DoffDataEditorPage() {
 		dataKey
 	);
 
-	const ebNoById = React.useMemo(
-		() => new Map((editorSetup?.workers ?? []).map((w) => [w.eb_id, w.eb_no])),
-		[editorSetup]
-	);
-
 	const columns = React.useMemo<GridColDef<DoffEntryRow>[]>(
 		() => [
 			{
@@ -158,16 +153,8 @@ export default function DoffDataEditorPage() {
 				width: 170,
 				valueGetter: (_v, row) => row.item_name ?? row.item_code ?? "",
 			},
-			{
-				field: "eb_name",
-				headerName: "Operator",
-				width: 180,
-				valueGetter: (_v, row) => {
-					if (!row.eb_name) return "";
-					const ebNo = row.eb_id != null ? ebNoById.get(row.eb_id) : null;
-					return ebNo ? `${row.eb_name} (${ebNo})` : row.eb_name;
-				},
-			},
+			// eb_name arrives as "E1234 - Ramesh Das" — server-concatenated.
+			{ field: "eb_name", headerName: "Operator", width: 180 },
 			{ field: "gross_weight", headerName: "Gross", width: 85, type: "number" },
 			{ field: "tare_weight", headerName: "Tare", width: 85, type: "number" },
 			{ field: "net_weight", headerName: "Net", width: 85, type: "number" },
@@ -205,7 +192,7 @@ export default function DoffDataEditorPage() {
 				},
 			},
 		],
-		[ebNoById]
+		[]
 	);
 
 	if (!mounted) return null;

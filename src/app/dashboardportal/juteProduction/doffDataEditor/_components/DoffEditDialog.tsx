@@ -21,10 +21,10 @@ import type {
 	YarnItemOption,
 } from "../../spinning/types/spinningTypes";
 
-// Shape returned by GET doff_editor_setup (spec 5.8).
+// Shape returned by GET doff_editor_setup (spec 5.8). worker_name is the
+// server-concatenated label, "E1234 - Ramesh Das" — render it, don't rebuild it.
 export type WorkerOption = {
 	eb_id: number;
-	eb_no: string | null;
 	worker_name: string;
 };
 
@@ -120,14 +120,13 @@ export default function DoffEditDialog({
 
 				<Autocomplete
 					options={workers}
-					getOptionLabel={(w) => `${w.worker_name}${w.eb_no ? ` (${w.eb_no})` : ""}`}
+					getOptionLabel={(w) => w.worker_name}
 					value={workers.find((w) => w.eb_id === ebId) ?? null}
 					onChange={(_, v) => setEbId(v ? v.eb_id : row.eb_id)}
 					isOptionEqualToValue={(opt, val) => opt.eb_id === val.eb_id}
 					renderOption={(props, w) => (
 						<li {...props} key={w.eb_id}>
 							{w.worker_name}
-							{w.eb_no ? ` (${w.eb_no})` : ""}
 						</li>
 					)}
 					size="small"
