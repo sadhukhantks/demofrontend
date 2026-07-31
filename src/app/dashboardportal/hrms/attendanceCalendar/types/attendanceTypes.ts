@@ -85,6 +85,7 @@ export interface AttendanceHeader {
   attendance_source: string | null;
   attendance_type: string | null;
   spell: string | null;
+  spell_id: number | null;
   spell_hours: number | null;
   worked_department_id: number | null;
   worked_department: string | null;

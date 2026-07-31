@@ -560,6 +560,18 @@ const apiRoutesPortalMasters = {
     ISO_MAP_TABLE: `${API_URL}/isoMenuMap/get_iso_map_table`,
     ISO_MAP_SAVE: `${API_URL}/isoMenuMap/iso_map_save`,
     ISO_MAP_DELETE: `${API_URL}/isoMenuMap/iso_map_delete`,
+    // HRMS / Production (labour) report endpoints
+    ATTENDANCE_SUMMARY_REPORT: `${API_URL}/hrmsReports/attendance-summary`,
+    WORKER_MASTER_REPORT: `${API_URL}/hrmsReports/worker-master`,
+    MAN_MACHINE_REPORT: `${API_URL}/hrmsReports/man-machine`,
+    ATTENDANCE_REGISTER_REPORT: `${API_URL}/hrmsReports/attendance-register`,
+    EMPLOYEE_WORKING_REPORT: `${API_URL}/hrmsReports/employee-working`,
+    FULL_ATTENDANCE_REPORT: `${API_URL}/hrmsReports/full-attendance`,
+    ABSENTEEISM_REPORT: `${API_URL}/hrmsReports/absenteeism`,
+    HALF_DAY_REPORT: `${API_URL}/hrmsReports/half-day`,
+    OVERSTAY_REPORT: `${API_URL}/hrmsReports/overstay`,
+    OCCUPATION_DEVIATION_REPORT: `${API_URL}/hrmsReports/occupation-deviation`,
+    CASH_ATTENDANCE_REPORT: `${API_URL}/hrmsReports/cash-attendance`,
 
     // Sales Quotation endpoints
     QUOTATION_TABLE: `${API_URL}/salesQuotation/get_quotation_table`,
@@ -799,6 +811,21 @@ const apiRoutesPortalMasters = {
     LEAVE_TYPE_CREATE: `${API_URL}/hrmsMasters/leave_type_create`,
     LEAVE_TYPE_EDIT: `${API_URL}/hrmsMasters/leave_type_edit`,
 
+    // HRMS Bio Attendance (employee↔device mapping + bio data process)
+    BIO_EMP_LINK_SETUP: `${API_URL}/hrmsMasters/bio_emp_link_setup`,
+    BIO_EMP_LINK_TABLE: `${API_URL}/hrmsMasters/get_bio_emp_link_table`,
+    BIO_EMP_LINK_BY_ID: `${API_URL}/hrmsMasters/get_bio_emp_link_by_id`,
+    BIO_EMP_LINK_CREATE: `${API_URL}/hrmsMasters/bio_emp_link_create`,
+    BIO_EMP_LINK_EDIT: `${API_URL}/hrmsMasters/bio_emp_link_edit`,
+    BIO_EMP_LINK_DELETE: `${API_URL}/hrmsMasters/bio_emp_link_delete`,
+    BIO_ATT_PROCESS_RUN: `${API_URL}/hrmsMasters/bio_att_process_run`,
+    BIO_ATT_BASIC_LIST: `${API_URL}/hrmsMasters/bio_att_basic_list`,
+    BIO_ATT_PROCESS_LIST: `${API_URL}/hrmsMasters/bio_att_process_list`,
+    BIO_ATT_DAYWISE_REPORT: `${API_URL}/hrmsMasters/bio_att_daywise_report`,
+    BIO_ATT_DAYWISE_REPORT_EXCEL: `${API_URL}/hrmsMasters/bio_att_daywise_report_excel`,
+    BIO_ATT_INOUT_REPORT: `${API_URL}/hrmsMasters/bio_att_inout_report`,
+    BIO_ATT_INOUT_REPORT_EXCEL: `${API_URL}/hrmsMasters/bio_att_inout_report_excel`,
+
     // HRMS Leave Request (transaction) endpoints
     LEAVE_REQUEST_TABLE: `${API_URL}/hrms/leave_request_list`,
     LEAVE_REQUEST_BY_ID: `${API_URL}/hrms/leave_request_by_id`,
@@ -857,10 +884,12 @@ const apiRoutesPortalMasters = {
     ATTENDANCE_APPROVE: `${API_URL}/hrms/daily_attendance_approve`,
     ATTENDANCE_REJECT: `${API_URL}/hrms/daily_attendance_reject`,
     ATTENDANCE_CREATE_SETUP: `${API_URL}/hrms/attendance_create_setup`,
+    ATTENDANCE_LEAVE_STATUS: `${API_URL}/hrms/attendance_leave_status`,
     ATTENDANCE_MACHINES: `${API_URL}/hrms/attendance_machines_by_designation`,
-    // Attendance register report — served by the Flask mobileapp mounted at the
-    // backend root (no /hrms prefix). vowerp3be/src/mobileapp/src/attendance/attendance.py
-    ATTENDANCE_REGISTER_REPORT: `${API_URL}/attendance-report`,
+    // Attendance register report (checklist page) — served by the Flask mobileapp
+    // mounted at the backend root (no /hrms prefix).
+    // vowerp3be/src/mobileapp/src/attendance/attendance.py
+    ATTENDANCE_CHECKLIST_REPORT: `${API_URL}/attendance-report`,
     // Spinning / Doff production (router prefix /api/spinningProd)
     SPINNING_DOFF_SETUP: `${API_URL}/spinningProd/doff_entry_create_setup`,
     SPINNING_DOFF_PREV_STATE: `${API_URL}/spinningProd/doff_machine_prev_state`,

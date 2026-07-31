@@ -13,6 +13,9 @@ import {
   Typography,
 } from "@mui/material";
 import { GridColDef, GridValidRowModel } from "@mui/x-data-grid";
+import { usePathname } from "next/navigation";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import { resolveReportMenuId } from "@/utils/reportMenuService";
 import ReportGrid from "./ReportGrid";
 import { exportRowsToExcel } from "./exportExcel";
 import type { BranchOption } from "./types";
@@ -85,6 +88,9 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
   const [dateTo, setDateTo] = useState<string>(initialDateTo);
   const [extraValue, setExtraValue] = useState<string>(initialExtra);
 
+  const pathname = usePathname();
+  const { selectedCompany } = useSidebarContext();
+
   const [rows, setRows] = useState<TRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,6 +119,35 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
   }, [branchId, runFetch]);
 
   const branch = branches.find((b) => b.branch_id === branchId) ?? null;
+
+  // Company / branch / report / period block written above the column headers
+  // in the exported sheet.
+  const handleExport = useCallback(async () => {
+    const reportFor =
+      dates === "range"
+        ? [dateFrom, dateTo].filter(Boolean).join(" To ")
+        : dates === "single"
+          ? dateTo
+          : "";
+    await exportRowsToExcel(columns, rows, exportName, {
+      companyName: selectedCompany?.co_name,
+      branchName: branch?.branch_name,
+      reportName: title,
+      reportNo: await resolveReportMenuId(pathname),
+      reportFor,
+    });
+  }, [
+    dates,
+    dateFrom,
+    dateTo,
+    columns,
+    rows,
+    exportName,
+    selectedCompany?.co_name,
+    branch?.branch_name,
+    title,
+    pathname,
+  ]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -218,7 +253,7 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
             variant="outlined"
             disabled={rows.length === 0}
             onClick={() => {
-              void exportRowsToExcel(columns, rows, exportName);
+              void handleExport();
             }}
             sx={{ textTransform: "none" }}
           >
