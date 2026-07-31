@@ -83,7 +83,7 @@ export default function DayBookPage() {
           setVoucherTypeOptions(
             types.map((t) => ({
               acc_voucher_type_id: t.acc_voucher_type_id,
-              voucher_type_name: t.voucher_type_name,
+              voucher_type_name: t.type_name,
             }))
           );
         }

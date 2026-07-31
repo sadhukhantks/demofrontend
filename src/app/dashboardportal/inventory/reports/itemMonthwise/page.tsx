@@ -10,10 +10,12 @@ import {
   Typography,
 } from "@mui/material";
 import { GridColDef } from "@mui/x-data-grid";
+import { usePathname } from "next/navigation";
 import ReportGrid, { numCol } from "@/components/reports/ReportGrid";
 import { exportRowsToExcel } from "@/components/reports/exportExcel";
 import { useReportBranches } from "@/components/reports/useReportBranches";
 import { currentMonthRange } from "@/components/reports/reportDates";
+import { resolveReportMenuId } from "@/utils/reportMenuService";
 import {
   fetchItemMonthwise,
   type ItemMonthwiseRow,
@@ -30,7 +32,8 @@ function prettyMonth(ym: string): string {
 }
 
 function ItemMonthwiseContent() {
-  const { coId, branches, initialBranchId } = useReportBranches();
+  const { coId, companyName, branches, initialBranchId } = useReportBranches();
+  const pathname = usePathname();
   const { from, to } = currentMonthRange();
 
   const [branchId, setBranchId] = useState<number | null>(initialBranchId);
@@ -135,7 +138,14 @@ function ItemMonthwiseContent() {
             variant="outlined"
             disabled={rows.length === 0}
             onClick={() => {
-              void exportRowsToExcel(columns, rows, "item-monthwise");
+              void (async () =>
+                exportRowsToExcel(columns, rows, "item-monthwise", {
+                  companyName,
+                  branchName: branch?.branch_name,
+                  reportName: "Item Month-wise",
+                  reportNo: await resolveReportMenuId(pathname),
+                  reportFor: [dateFrom, dateTo].filter(Boolean).join(" To "),
+                }))();
             }}
             sx={{ textTransform: "none" }}
           >

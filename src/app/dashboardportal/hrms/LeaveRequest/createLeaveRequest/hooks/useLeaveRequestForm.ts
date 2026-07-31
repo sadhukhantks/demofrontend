@@ -63,6 +63,15 @@ export function useLeaveRequestForm(params: {
     [],
   );
 
+  // Editing the emp code invalidates any previously resolved worker so a stale
+  // eb_id can never be submitted; onBlur re-runs lookupWorker to re-resolve.
+  const updateEbNo = useCallback((raw: string) => {
+    setValues((prev) => ({ ...prev, eb_no: raw.toUpperCase(), eb_id: 0 }));
+    setWorkerName("");
+    setWorkerInvalid(false);
+    setLedger([]);
+  }, []);
+
   // Load leave types
   useEffect(() => {
     if (!coId) return;
@@ -136,10 +145,13 @@ export function useLeaveRequestForm(params: {
     setLedger([]);
   }, []);
 
-  const lookupWorker = useCallback(async () => {
+  // Resolves the typed emp code against the worker API. Returns the resolved
+  // eb_id (0 when unresolved/invalid) so callers like save can validate the
+  // code via the API instead of trusting stale state.
+  const lookupWorker = useCallback(async (): Promise<number> => {
     if (!values.branch_id) {
       setError("Select a branch first");
-      return;
+      return 0;
     }
     if (!values.eb_no) {
       // Empty code (e.g. blurred after clearing): reset to a neutral state.
@@ -147,7 +159,7 @@ export function useLeaveRequestForm(params: {
       setWorkerInvalid(false);
       setValues((prev) => ({ ...prev, eb_id: 0 }));
       setLedger([]);
-      return;
+      return 0;
     }
     try {
       const { data, error: err } = await fetchWorkerByEbNo(
@@ -156,12 +168,12 @@ export function useLeaveRequestForm(params: {
       );
       if (err || !data?.data) {
         markWorkerInvalid();
-        return;
+        return 0;
       }
       const w = data.data as WorkerLookupResult;
       if (w.emp_status !== ACTIVE_EMP_STATUS) {
         markWorkerInvalid();
-        return;
+        return 0;
       }
       setWorkerName(w.worker_name);
       setWorkerInvalid(false);
@@ -179,8 +191,10 @@ export function useLeaveRequestForm(params: {
             ?.ledgers ?? []) as LeaveLedgerEntry[];
         setLedger(ledgerData);
       }
+      return w.eb_id;
     } catch {
       markWorkerInvalid();
+      return 0;
     }
   }, [values.branch_id, values.eb_no, markWorkerInvalid]);
 
@@ -208,6 +222,7 @@ export function useLeaveRequestForm(params: {
     values,
     setValues,
     updateField,
+    updateEbNo,
     statusId,
     workerName,
     workerInvalid,

@@ -13,6 +13,7 @@ import type { BranchOption } from "./types";
 export function useReportBranches(): {
   branches: BranchOption[];
   coId: number | null;
+  companyName: string | null;
   initialBranchId: number | null;
   dateParam: string | null;
 } {
@@ -36,6 +37,7 @@ export function useReportBranches(): {
   return {
     branches,
     coId: selectedCompany?.co_id ?? null,
+    companyName: selectedCompany?.co_name ?? null,
     initialBranchId,
     dateParam: searchParams.get("date"),
   };

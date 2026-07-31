@@ -47,3 +47,24 @@ export async function fetchReportMenuTree(
   }
   return reportMenuTreeResponseSchema.parse(result.data);
 }
+
+// menu_path -> menu_id, resolved once per report page (used as the "Report No"
+// in Excel export headers).
+const menuIdCache = new Map<string, number | null>();
+
+/** Resolve a report page's own menu_id from its route path. Cached; null when
+ * the path matches no menu or the lookup fails (export proceeds without it). */
+export async function resolveReportMenuId(
+  path: string | null,
+): Promise<number | null> {
+  if (!path) return null;
+  const cached = menuIdCache.get(path);
+  if (cached !== undefined) return cached;
+  try {
+    const res = await fetchReportMenuTree(path);
+    menuIdCache.set(path, res.root_menu_id);
+    return res.root_menu_id;
+  } catch {
+    return null;
+  }
+}

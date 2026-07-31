@@ -732,6 +732,7 @@ export interface AttendancePayload {
   attendance_source: string;
   attendance_type: string;
   spell: string;
+  spell_id: number;
   spell_hours: number;
   worked_department_id: number;
   worked_designation_id: number;
@@ -803,6 +804,21 @@ export const fetchAttendanceCreateSetup = async (
   );
 };
 
+/** Leave-conflict check for the Mark Attendance form (from vw_leave_dates). */
+export const fetchAttendanceLeaveStatus = async (
+  ebId: number | string,
+  attendanceDate: string,
+) => {
+  const qs = new URLSearchParams({
+    eb_id: String(ebId),
+    attendance_date: attendanceDate,
+  });
+  return fetchWithCookie(
+    `${apiRoutesPortalMasters.ATTENDANCE_LEAVE_STATUS}?${qs.toString()}`,
+    "GET",
+  );
+};
+
 export const fetchMachinesByDesignation = async (
   branchId: string | number,
   designationId?: number | string,
@@ -854,6 +870,6 @@ export const buildAttendanceRegisterQuery = (
 /** Flat attendance register rows for the Attendance Checklist page. */
 export const fetchAttendanceRegister = async (params: AttendanceRegisterParams) =>
   fetchWithCookie(
-    `${apiRoutesPortalMasters.ATTENDANCE_REGISTER_REPORT}?${buildAttendanceRegisterQuery(params)}`,
+    `${apiRoutesPortalMasters.ATTENDANCE_CHECKLIST_REPORT}?${buildAttendanceRegisterQuery(params)}`,
     "GET",
   );
