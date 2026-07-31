@@ -70,9 +70,9 @@ export default function WeavingProcessBar({ coId, branchId, date, spellId, onPro
 		setConfirmOpen(false);
 		setBusy(true);
 		setWarnings(null);
-		setBlockList(null);
+		setBlock(null);
 		const body = { co_id: Number(coId), branch_id: branchId, tran_date: date, spell_id: spellId };
-		const { data, error } = await fetchWithCookie<{
+		const { data, error, payload } = await fetchWithCookie<{
 			data: { processed: number; warnings: Warnings };
 		}>(apiRoutesPortalMasters.WEAVING_PROCESS, "POST", body);
 		setBusy(false);
@@ -169,8 +169,8 @@ export default function WeavingProcessBar({ coId, branchId, date, spellId, onPro
 				<DialogTitle>{status.locked ? "Re-process" : "Process"} day + spell?</DialogTitle>
 				<DialogContent>
 					<DialogContentText>
-						{status.locked ? "Re-process" : "Process"} {date} / {spell}? This freezes the computed
-						rows and locks the day + spell.
+						{status.locked ? "Re-process" : "Process"} {date} for the selected spell? This freezes
+						the computed rows and locks the day + spell.
 					</DialogContentText>
 				</DialogContent>
 				<DialogActions>

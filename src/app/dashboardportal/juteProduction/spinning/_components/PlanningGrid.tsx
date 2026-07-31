@@ -27,7 +27,7 @@ function rollupRowId(r: ShiftRollupRow): string {
 const num = { type: "number" as const, width: 90 };
 
 export default function PlanningGrid({ coId, branchId, date, spellId, refreshKey = 0 }: Props) {
-	const { data, loading, error } = usePlanningGrid(coId, branchId, date, spellId, refreshKey);
+	const { data, loading, error, locked } = usePlanningGrid(coId, branchId, date, spellId, refreshKey);
 
 	const rows = data?.rows ?? [];
 	const rollup = data?.shift_rollup ?? [];
