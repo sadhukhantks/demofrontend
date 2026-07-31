@@ -8,6 +8,7 @@ import TransactionWrapper from "@/components/ui/TransactionWrapper";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import { useMenuId } from "@/hooks/useMenuId";
 import { MRHeaderForm } from "../components/MRHeaderForm";
 import { MRApprovalBar } from "../components/MRApprovalBar";
 import { MRApprovalDialog } from "../components/MRApprovalDialog";
@@ -162,6 +163,12 @@ function JuteMREditPageContent() {
 	const mrIdParam = searchParams?.get("id");
 	const modeParam = searchParams?.get("mode") ?? "edit";
 	const mode: MuiFormMode = modeParam === "view" ? "view" : "edit";
+
+	// Resolve the MR menu_id so the backend can decide whether this user is the
+	// top-ranked approver (gates the Pending action). Falls back to the sidebar
+	// menu when not present in the URL.
+	const menuIdFromUrl = searchParams?.get("menu_id") || "";
+	const { getMenuId } = useMenuId({ transactionType: "mr", menuIdFromUrl });
 
 	const [loading, setLoading] = React.useState(true);
 	const [pageError, setPageError] = React.useState<string | null>(null);
@@ -334,7 +341,8 @@ function JuteMREditPageContent() {
 		setPageError(null);
 
 		try {
-			const url = `${apiRoutesPortalMasters.JUTE_MR_BY_ID}?id=${mrIdParam}`;
+			const menuId = getMenuId();
+			const url = `${apiRoutesPortalMasters.JUTE_MR_BY_ID}?id=${mrIdParam}${menuId ? `&menu_id=${menuId}` : ""}`;
 			const { data, error } = await fetchWithCookie<JuteMRDetailsResponse>(url, "GET");
 			if (error) {
 				setPageError(error);
@@ -406,7 +414,7 @@ function JuteMREditPageContent() {
 		} finally {
 			setLoading(false);
 		}
-	}, [coId, mrIdParam]);
+	}, [coId, mrIdParam, getMenuId]);
 
 	React.useEffect(() => {
 		void loadData();
@@ -456,6 +464,7 @@ function JuteMREditPageContent() {
 		coId,
 		partyBranchesLoaded,
 		partyBranchOptions,
+		getMenuId,
 		onRefresh: loadData,
 	});
 
@@ -563,7 +572,6 @@ function JuteMREditPageContent() {
 				columns: lineItemColumns,
 				getItemId: (item: MRLineItem) => item.id,
 				canEdit: canEdit,
-				onRemoveSelected: () => {},
 				title: "Line Items",
 				subtitle: `${lineItems.length} items | Total Accepted Weight: ${totalAcceptedWeight.toFixed(2)}`,
 			}}

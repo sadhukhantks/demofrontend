@@ -12,6 +12,8 @@ type UseQuotationFormSubmissionParams = {
 	filledLineItems: ReadonlyArray<EditableLineItem>;
 	isLineItemsReady: boolean;
 	requestedId: string;
+	/** Source enquiry id (AMCL enquiry flow) — persisted on the quotation header when set. */
+	salesEnquiryId?: string | null;
 };
 
 /**
@@ -25,14 +27,13 @@ export const useQuotationFormSubmission = ({
 	filledLineItems,
 	isLineItemsReady,
 	requestedId,
+	salesEnquiryId,
 }: UseQuotationFormSubmissionParams) => {
 	const [saving, setSaving] = React.useState(false);
 	const router = useRouter();
 
 	const handleFormSubmit = React.useCallback(
 		async (values: Record<string, unknown>) => {
-			console.log("[handleFormSubmit] called with values:", JSON.stringify(values));
-			console.log("[handleFormSubmit] mode:", mode, "pageError:", pageError, "setupError:", setupError, "isLineItemsReady:", isLineItemsReady);
 			if (mode === "view" || pageError || setupError) return;
 
 			if (!isLineItemsReady) {
@@ -62,6 +63,11 @@ export const useQuotationFormSubmission = ({
 				net_amount: item.netAmount,
 				total_amount: item.totalAmount,
 				remarks: item.remarks || undefined,
+				enquiry_dtl_id: item.enquiryDtlId || undefined,
+				cost_snapshot_id: item.costSnapshotId || undefined,
+				base_cost: item.baseCost ?? undefined,
+				overhead_pct: item.overheadPct ?? undefined,
+				margin_pct: item.marginPct ?? undefined,
 				gst: {
 					igst_amount: item.igstAmount,
 					igst_percent: item.taxPercentage && item.igstAmount ? item.taxPercentage : undefined,
@@ -88,11 +94,11 @@ export const useQuotationFormSubmission = ({
 				footer_notes: values.footer_notes ? String(values.footer_notes) : undefined,
 				internal_note: values.internal_note ? String(values.internal_note) : undefined,
 				terms_condition: values.terms_condition ? String(values.terms_condition) : undefined,
+				sales_enquiry_id: salesEnquiryId || undefined,
 				items: itemsPayload,
 			};
 
 			setSaving(true);
-			console.log("[handleFormSubmit] payload:", JSON.stringify(payload));
 			try {
 				if (mode === "edit" && requestedId) {
 					const result = await updateQuotation({ ...payload, sales_quotation_id: requestedId });
@@ -125,6 +131,7 @@ export const useQuotationFormSubmission = ({
 			filledLineItems,
 			isLineItemsReady,
 			requestedId,
+			salesEnquiryId,
 			router,
 		],
 	);

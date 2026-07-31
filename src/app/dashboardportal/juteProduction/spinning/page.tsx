@@ -18,6 +18,7 @@ import DoffEntryForm from "./_components/DoffEntryForm";
 import DailyDoffGrid from "./_components/DailyDoffGrid";
 import FrameMapGrid from "./_components/FrameMapGrid";
 import PlanningGrid from "./_components/PlanningGrid";
+import SpinningProcessBar from "./_components/SpinningProcessBar";
 import type { DoffEntryRow } from "./types/spinningTypes";
 import { todayISO } from "./utils/spinningCalc";
 
@@ -61,6 +62,10 @@ export default function SpinningPage() {
 	const [spell, setSpell] = React.useState<string>("");
 
 	const [editingEntry, setEditingEntry] = React.useState<DoffEntryRow | null>(null);
+	// Bumped after a Process so the planning grid + lock status re-fetch the frozen log.
+	const [reloadKey, setReloadKey] = React.useState(0);
+	// Bumped after a doff create/edit so the sibling doff grid re-fetches.
+	const [doffReloadKey, setDoffReloadKey] = React.useState(0);
 
 	const { setup, loading: setupLoading, error: setupError } = useSpinningSetup(coId, branchId);
 
@@ -198,7 +203,10 @@ export default function SpinningPage() {
 										date={tranDate}
 										spell={spell}
 										editingEntry={editingEntry}
-										onSaved={() => setEditingEntry(null)}
+										onSaved={() => {
+											setEditingEntry(null);
+											setDoffReloadKey((k) => k + 1);
+										}}
 										onCancelEdit={() => setEditingEntry(null)}
 									/>
 									<DailyDoffGrid
@@ -206,6 +214,7 @@ export default function SpinningPage() {
 										branchId={branchId}
 										date={tranDate}
 										spell={spell}
+										reloadKey={doffReloadKey}
 										onEdit={(row) => setEditingEntry(row)}
 									/>
 								</Box>
@@ -222,12 +231,25 @@ export default function SpinningPage() {
 							) : null}
 
 							{tab === 2 ? (
-								<PlanningGrid
-									coId={coId}
-									branchId={branchId}
-									date={tranDate}
-									spell={spell}
-								/>
+								<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+									{spell ? (
+										<SpinningProcessBar
+											coId={coId}
+											branchId={branchId}
+											date={tranDate}
+											spell={spell}
+											refreshKey={reloadKey}
+											onProcessed={() => setReloadKey((k) => k + 1)}
+										/>
+									) : null}
+									<PlanningGrid
+										coId={coId}
+										branchId={branchId}
+										date={tranDate}
+										spell={spell}
+										refreshKey={reloadKey}
+									/>
+								</Box>
 							) : null}
 						</>
 					)}

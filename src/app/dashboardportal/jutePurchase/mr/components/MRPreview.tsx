@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Box, Divider, Stack, Typography } from "@mui/material";
+import { Box, Stack } from "@mui/material";
 import { Button } from "@/components/ui/button";
 import type { JuteMRHeader, MRLineItem } from "../types/mrTypes";
 
@@ -50,20 +50,36 @@ const formatMoistureCondition = (actual?: number | null, allowable?: number | nu
 	return actualStr;
 };
 
-// ── Inline styles (print-friendly HTML table) ──
+/** Company address on one line: "addr1, addr2 – zipcode" */
+const formatCompanyAddress = (header: JuteMRHeader): string => {
+	const parts = [header.co_address1, header.co_address2].filter(Boolean);
+	let line = parts.join(", ");
+	if (header.co_zipcode) line = line ? `${line} – ${header.co_zipcode}` : String(header.co_zipcode);
+	return line;
+};
+
+// ── Inline styles (everything inline so the print window needs no stylesheet) ──
 const thStyle: React.CSSProperties = {
 	border: "1px solid #333",
-	padding: "6px 8px",
+	padding: "6px 7px",
 	fontWeight: 600,
-	fontSize: "11px",
+	fontSize: "10.5px",
 	textAlign: "center",
 	verticalAlign: "bottom",
-	backgroundColor: "#f5f5f5",
+	backgroundColor: "#efefef",
 };
-const tdStyle: React.CSSProperties = { border: "1px solid #333", padding: "5px 8px", fontSize: "11px" };
+const tdStyle: React.CSSProperties = { border: "1px solid #333", padding: "5px 7px", fontSize: "11px" };
 const tdRight: React.CSSProperties = { ...tdStyle, textAlign: "right" };
 const tdCenter: React.CSSProperties = { ...tdStyle, textAlign: "center" };
 const thRight: React.CSSProperties = { ...thStyle, textAlign: "right" };
+const tdTotal: React.CSSProperties = { ...tdStyle, fontWeight: 700, backgroundColor: "#f7f7f7" };
+const tdTotalRight: React.CSSProperties = { ...tdTotal, textAlign: "right" };
+const tdTotalCenter: React.CSSProperties = { ...tdTotal, textAlign: "center" };
+
+const metaLbl: React.CSSProperties = { fontWeight: 700, whiteSpace: "nowrap", padding: "3.5px 4px", fontSize: "11.5px", verticalAlign: "top", width: "15%" };
+const metaLblRight: React.CSSProperties = { ...metaLbl, textAlign: "right" };
+const metaSep: React.CSSProperties = { padding: "3.5px 4px", fontSize: "11.5px", verticalAlign: "top", width: "2%" };
+const metaVal: React.CSSProperties = { padding: "3.5px 4px", fontSize: "11.5px", verticalAlign: "top" };
 
 // ── Component ──
 
@@ -75,8 +91,8 @@ type MRPreviewProps = {
 
 /**
  * Printable preview component for Jute Material Receipt.
- * Matches the legacy print format layout: header fields, single table with
- * Bales/Marks/Advised Wt/Mill Wt/Claim Kgs/Approved Wt/Rate/Claim columns.
+ * Centered-formal layout: centered company header, ruled MATERIAL RECEIPT title
+ * band, MR no/date row, colon-separated detail rows, full-grid line items table.
  */
 export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAcceptedWeight }) => {
 	const previewRef = React.useRef<HTMLDivElement>(null);
@@ -94,29 +110,27 @@ export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAc
 		win.document.write(`<!DOCTYPE html><html><head><title>${title}</title></head><body><div id="root"></div></body></html>`);
 		win.document.close();
 
-		document.querySelectorAll("style, link[rel=\"stylesheet\"]").forEach((n) => {
-			win.document.head.appendChild(n.cloneNode(true));
-		});
-
+		// Layout is fully inline-styled; the print window only needs page setup.
+		// @page margin 0 suppresses the browser's own header/footer (date, title,
+		// about:blank, page number) — body padding provides the paper margin instead.
 		const s = win.document.createElement("style");
 		s.textContent = `
-			@media print { @page { size: A4; margin: 8mm; } }
-			body { margin: 0; padding: 16px; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-			table { width: 100%; border-collapse: collapse; }
-			th, td { border: 1px solid #333; padding: 5px 8px; font-size: 11px; }
-			th { background-color: #f5f5f5; font-weight: 600; }
-			.text-right { text-align: right; }
-			.text-center { text-align: center; }
+			@media print { @page { size: A4; margin: 0; } }
+			body { margin: 0; padding: 12mm 10mm; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 			.print-hidden { display: none !important; }
-			.co-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
-			.co-left, .co-right { min-width: 200px; max-width: 25%; }
-			.co-center { flex: 1; text-align: center; }
-			.co-logo { max-height: 56px; max-width: 180px; object-fit: contain; margin-bottom: 4px; }
 		`;
 		win.document.head.appendChild(s);
 
 		const root = win.document.getElementById("root");
-		if (root) root.innerHTML = content;
+		if (root) {
+			root.innerHTML = content;
+			const stamp = win.document.createElement("div");
+			stamp.style.cssText = "font-size:9px;color:#777;text-align:right;margin-top:6px;";
+			stamp.textContent = `Printed on: ${new Intl.DateTimeFormat("en-GB", {
+				day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+			}).format(new Date())}`;
+			root.appendChild(stamp);
+		}
 		win.focus();
 		setTimeout(() => { win.print(); win.close(); }, 300);
 	};
@@ -136,6 +150,9 @@ export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAc
 
 	if (!header) return null;
 
+	const companyAddress = formatCompanyAddress(header);
+	const poDisplay = header.po_num ?? (header.po_no != null ? String(header.po_no) : null);
+
 	return (
 		<Box>
 			{/* Print button */}
@@ -145,136 +162,94 @@ export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAc
 				</Button>
 			</Stack>
 
-			<Box ref={previewRef} sx={{ p: 2, fontFamily: "Arial, sans-serif", fontSize: "12px" }}>
-				{/* ── Header: Company Logo & Details + Title + Spacer ── */}
-				<Stack direction="row" justifyContent="space-between" alignItems="center" className="co-header" sx={{ mb: 2 }}>
-					{/* Left: Company Details */}
-					<Box className="co-left" sx={{ textAlign: "left" }}>
-						{header.co_logo && (
-							<Box
-								component="img"
-								src={header.co_logo}
-								alt="Company Logo"
-								className="co-logo"
-								sx={{ maxHeight: 56, maxWidth: 180, objectFit: "contain", mb: 0.5 }}
-							/>
-						)}
-						{header.co_name && (
-							<Typography variant="body2" fontWeight={700} sx={{ mb: 0.5 }}>
-								{header.co_name}
-							</Typography>
-						)}
-						{header.co_address1 && (
-							<Typography variant="caption" display="block" sx={{ mb: 0.25 }}>
-								{header.co_address1}
-							</Typography>
-						)}
-						{header.co_address2 && (
-							<Typography variant="caption" display="block" sx={{ mb: 0.25 }}>
-								{header.co_address2}
-							</Typography>
-						)}
-						{header.co_zipcode && (
-							<Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
-								{String(header.co_zipcode)}
-							</Typography>
-						)}
-						{header.branch_name && (
-							<Typography
-								variant="caption"
-								display="block"
-								sx={{ fontStyle: "italic", color: "text.secondary", mt: 0.5 }}
-							>
-								{header.branch_name}
-							</Typography>
-						)}
-					</Box>
+			<Box ref={previewRef} sx={{ p: 2, fontFamily: "Arial, sans-serif", fontSize: "12px", color: "#111" }}>
+				{/* ── Centered company header ── */}
+				{header.co_logo && (
+					<img
+						src={header.co_logo}
+						alt="Company Logo"
+						style={{ display: "block", margin: "0 auto 6px", maxHeight: "56px", maxWidth: "180px", objectFit: "contain" }}
+					/>
+				)}
+				{header.co_name && (
+					<div style={{ textAlign: "center", fontSize: "19px", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+						{header.co_name}
+					</div>
+				)}
+				{companyAddress && (
+					<div style={{ textAlign: "center", fontSize: "11px", color: "#333", marginTop: "4px" }}>
+						{companyAddress}
+					</div>
+				)}
+				{header.branch_name && (
+					<div style={{ textAlign: "center", fontSize: "10.5px", color: "#555", marginTop: "2px", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+						{header.branch_name}
+					</div>
+				)}
 
-					{/* Center: Title */}
-					<Box className="co-center" sx={{ flex: 1 }}>
-						<Typography variant="h5" fontWeight={700} textAlign="center">
-							Material Receipt
-						</Typography>
-					</Box>
-
-					{/* Right: Spacer */}
-					<Box className="co-right" />
-				</Stack>
-
-				{/* ── Header Fields (two-column key:value pairs) ── */}
-				<Box
-					component="table"
-					sx={{
-						width: "100%",
-						borderCollapse: "collapse",
-						mb: 2,
-						"& td": { padding: "3px 6px", fontSize: "12px", border: "none" },
+				{/* ── Title band ── */}
+				<div
+					style={{
+						borderTop: "1.5px solid #111",
+						borderBottom: "1.5px solid #111",
+						textAlign: "center",
+						fontSize: "13px",
+						fontWeight: 700,
+						letterSpacing: "0.28em",
+						padding: "6px 0",
+						marginTop: "14px",
 					}}
 				>
+					MATERIAL RECEIPT
+				</div>
+
+				{/* ── MR No / MR Date row ── */}
+				<div style={{ display: "flex", justifyContent: "space-between", fontSize: "11.5px", padding: "8px 2px", borderBottom: "1px solid #ccc", marginBottom: "10px" }}>
+					<span><b>MR No : </b><span>{header.mr_num ?? header.branch_mr_no ?? "Draft"}</span></span>
+					<span><b>MR Date : </b><span>{formatDate(header.jute_mr_date)}</span></span>
+				</div>
+
+				{/* ── Detail rows (label : value) ── */}
+				<table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "12px" }}>
 					<tbody>
 						<tr>
-							<td style={{ width: "15%", fontWeight: 600 }}>MR NO</td>
-							<td style={{ width: "3%" }}>:</td>
-							<td style={{ width: "32%" }}>{header.mr_num ?? header.branch_mr_no ?? "Draft"}</td>
-							<td style={{ width: "18%", fontWeight: 600, textAlign: "right" }}>MR DATE :</td>
-							<td style={{ width: "32%" }}>{formatDate(header.jute_mr_date)}</td>
-						</tr>
-						<tr>
-							<td style={{ fontWeight: 600 }}>M/S</td>
-							<td>:</td>
-							<td colSpan={3}>{header.party_name ?? header.supplier_name ?? "-"}</td>
+							<td style={metaLbl}>M/S</td><td style={metaSep}>:</td>
+							<td style={metaVal}>{header.party_name ?? header.supplier_name ?? "-"}</td>
+							<td style={metaLblRight}>Mukam</td><td style={metaSep}>:</td>
+							<td style={metaVal}>{header.mukam ?? ""}</td>
 						</tr>
 						{header.party_address && (
 							<tr>
-								<td style={{ fontWeight: 600 }}>PARTY ADDRESS</td>
-								<td>:</td>
-								<td colSpan={3}>{header.party_address}</td>
+								<td style={metaLbl}>Party Address</td><td style={metaSep}>:</td>
+								<td style={metaVal} colSpan={4}>{header.party_address}</td>
 							</tr>
 						)}
 						{header.party_gst_no && (
 							<tr>
-								<td style={{ fontWeight: 600 }}>PARTY GST NO</td>
-								<td>:</td>
-								<td colSpan={3}>{header.party_gst_no}</td>
+								<td style={metaLbl}>Party GST No</td><td style={metaSep}>:</td>
+								<td style={metaVal} colSpan={4}>{header.party_gst_no}</td>
 							</tr>
 						)}
 						<tr>
-							<td style={{ fontWeight: 600 }}>PO NO</td>
-							<td>:</td>
-							<td>{header.po_no != null ? String(header.po_no) : "-"}</td>
-							<td style={{ fontWeight: 600, textAlign: "right" }}>PO DATE :</td>
-							<td>{formatDate(header.po_date)}</td>
+							<td style={metaLbl}>PO No / Date</td><td style={metaSep}>:</td>
+							<td style={metaVal}>{poDisplay ?? "-"}{header.po_date ? `  /  ${formatDate(header.po_date)}` : ""}</td>
+							<td style={metaLblRight}>Lorry No</td><td style={metaSep}>:</td>
+							<td style={metaVal}>{header.vehicle_no ?? "-"}</td>
 						</tr>
 						<tr>
-							<td style={{ fontWeight: 600 }}>CHALLAN NO</td>
-							<td>:</td>
-							<td>{header.challan_no ?? "-"}</td>
-							<td style={{ fontWeight: 600, textAlign: "right" }}>CHALLAN DATE :</td>
-							<td>{formatDate(header.challan_date)}</td>
-						</tr>
-						<tr>
-							<td style={{ fontWeight: 600 }}>LORRY NO</td>
-							<td>:</td>
-							<td colSpan={3}>{header.vehicle_no ?? "-"}</td>
+							<td style={metaLbl}>Challan No / Date</td><td style={metaSep}>:</td>
+							<td style={metaVal}>{header.challan_no ?? "-"}{header.challan_date ? `  /  ${formatDate(header.challan_date)}` : ""}</td>
+							<td style={metaLblRight} /><td style={metaSep} /><td style={metaVal} />
 						</tr>
 					</tbody>
-				</Box>
+				</table>
 
-				{/* Mukam */}
-				{header.mukam && (
-					<Typography variant="body2" textAlign="center" sx={{ mb: 1 }}>
-						<strong>Mukam :</strong> {header.mukam}
-					</Typography>
-				)}
-
-				<Divider sx={{ my: 1 }} />
-
-				<Typography variant="body2" sx={{ mb: 1 }}>
-					Against the above we have received the consignment as follow:
-				</Typography>
+				<div style={{ fontSize: "11.5px", marginBottom: "8px" }}>
+					Against the above we have received the consignment as follows:
+				</div>
 
 				{/* ── Line Items Table ── */}
-				<Box component="table" sx={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
+				<table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
 					<thead>
 						<tr>
 							<th style={thStyle} rowSpan={2}>Bales/<br/>drums</th>
@@ -313,48 +288,40 @@ export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAc
 							</tr>
 						))}
 						{/* Totals row */}
-						<tr style={{ fontWeight: 700 }}>
-							<td style={tdCenter}><strong>{fmt(totals.qty, 2)}</strong></td>
-							<td style={tdStyle} />
-							<td style={tdRight}><strong>{fmt(totals.challan, 2)}</strong></td>
-							<td style={tdRight}><strong>{fmt(totals.mill, 2)}</strong></td>
-							<td style={tdRight}><strong>{totals.claimKgs ? fmt(totals.claimKgs) : ""}</strong></td>
-							<td style={tdRight}><strong>{fmt(totals.approved, 2)}</strong></td>
-							<td style={tdRight} />
-							<td style={tdStyle} />
-							<td style={tdStyle} />
+						<tr>
+							<td style={tdTotalCenter}>{fmt(totals.qty, 2)}</td>
+							<td style={tdTotal}>TOTAL</td>
+							<td style={tdTotalRight}>{fmt(totals.challan, 2)}</td>
+							<td style={tdTotalRight}>{fmt(totals.mill, 2)}</td>
+							<td style={tdTotalRight}>{totals.claimKgs ? fmt(totals.claimKgs) : ""}</td>
+							<td style={tdTotalRight}>{fmt(totals.approved, 2)}</td>
+							<td style={tdTotal} />
+							<td style={tdTotal} />
+							<td style={tdTotal} />
 						</tr>
 					</tbody>
-				</Box>
+				</table>
 
 				{/* ── Remarks ── */}
 				{header.remarks && (
-					<Box sx={{ mt: 2 }}>
-						<Typography variant="body2" fontSize="12px">
-							<strong>Remarks:</strong> {header.remarks}
-						</Typography>
-					</Box>
+					<div style={{ marginTop: "14px", fontSize: "11.5px" }}>
+						<b>Remarks : </b>{header.remarks}
+					</div>
 				)}
 
-				{/* ── Status ── */}
+				{/* ── Status stamp ── */}
 				{header.status && (
-					<Box sx={{ mt: 1 }}>
-						<Typography variant="caption" color="text.secondary">
-							Status: <strong>{header.status}</strong>
-						</Typography>
-					</Box>
+					<div style={{ marginTop: "16px" }}>
+						<span style={{ display: "inline-block", border: "2px double #111", padding: "2px 10px", fontWeight: 700, letterSpacing: "0.08em", fontSize: "10px", textTransform: "uppercase" }}>
+							Status : <strong>{header.status}</strong>
+						</span>
+					</div>
 				)}
 
 				{/* ── Footer ── */}
-				<Typography
-					variant="caption"
-					display="block"
-					textAlign="center"
-					color="text.secondary"
-					sx={{ mt: 4 }}
-				>
+				<div style={{ fontSize: "10px", color: "#555", textAlign: "center", marginTop: "28px" }}>
 					Note*: This is a computer generated print, Signature is not required.
-				</Typography>
+				</div>
 			</Box>
 		</Box>
 	);

@@ -3,6 +3,8 @@
  * @description Type definitions for Jute Material Receipt (MR) module.
  */
 
+import type { ApprovalActionPermissions } from "@/components/ui/transaction";
+
 export type MuiFormMode = "create" | "edit" | "view";
 
 // Header from /juteMR/get_mr_by_id
@@ -23,6 +25,7 @@ export type JuteMRHeader = {
 	party_gst_no: string | null;
 	po_id: number | null;
 	po_no: number | null;
+	po_num: string | null;
 	po_date: string | null;
 	challan_no: string | null;
 	challan_date: string | null;
@@ -44,6 +47,13 @@ export type JuteMRHeader = {
 	co_address1: string | null;
 	co_address2: string | null;
 	co_zipcode: number | null;
+	// Approval-hierarchy fields populated by get_mr_by_id when a menu_id is
+	// supplied. Drive level-aware action buttons: Approve/Reject follow
+	// `permissions` (current-level approver only); the frontend shows Pending
+	// only at the highest level (canApprove AND approval_level === max_approval_level).
+	approval_level?: number | null;
+	max_approval_level?: number | null;
+	permissions?: ApprovalActionPermissions;
 };
 
 // Party branch option type

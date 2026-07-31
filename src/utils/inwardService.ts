@@ -275,8 +275,11 @@ export async function updateInward(payload: Partial<InwardDetails>): Promise<{ m
 		throw new Error("Inward ID is required for update");
 	}
 
-	// Map frontend payload to backend format
+	// Map frontend payload to backend format. line.id is the inward_dtl_id for
+	// lines loaded from the DB (numeric); dialog-added lines have generated
+	// non-numeric ids and are matched by po_dtl_id instead.
 	const items = (payload.lines ?? []).map((line) => ({
+		inward_dtl_id: line.id && /^\d+$/.test(line.id) ? line.id : undefined,
 		po_dtl_id: line.poDtlId,
 		item: line.item ?? "",
 		quantity: line.quantity ?? 0,

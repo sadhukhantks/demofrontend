@@ -4,6 +4,7 @@ import * as React from "react";
 import {
 	Alert,
 	Box,
+	Button,
 	CircularProgress,
 	MenuItem,
 	Tab,
@@ -14,9 +15,12 @@ import {
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { useWeavingSetup } from "./hooks/useWeavingSetup";
+import { useLoomQualityMap } from "./hooks/useLoomQualityMap";
 import LoomQualityMapGrid from "./_components/LoomQualityMapGrid";
 import WeavingEntryGrid from "./_components/WeavingEntryGrid";
+import WeavingProcessBar from "./_components/WeavingProcessBar";
 import WeavingBeamChangeGrid from "./_components/WeavingBeamChangeGrid";
+import WeavingAdjustmentGrid from "./_components/WeavingAdjustmentGrid";
 import WeavingPlanningGrid from "./_components/WeavingPlanningGrid";
 import { todayISO } from "./utils/weavingCalc";
 
@@ -56,17 +60,34 @@ export default function WeavingPage() {
 	)?.branch_name;
 
 	const [tab, setTab] = React.useState(0);
+	// Draft values edited in the inputs; only committed to the applied* values on Search.
 	const [tranDate, setTranDate] = React.useState<string>(todayISO());
 	const [spell, setSpell] = React.useState<string>("");
+	// Applied values are what the grids actually query — they change only on Search.
+	const [appliedDate, setAppliedDate] = React.useState<string>(todayISO());
+	const [appliedSpell, setAppliedSpell] = React.useState<string>("");
 
 	const { setup, loading: setupLoading, error: setupError } = useWeavingSetup(coId, branchId);
+
+	// One Loom→Quality map fetch for the whole page — shared by the mapping editor and the
+	// Production Entry grid so switching between those tabs never refetches it. Phase 1 (saved
+	// mapping) is ~88ms; the editor's carry-forward (prev_quality_*) loads lazily after.
+	const qualityMap = useLoomQualityMap(coId, branchId, appliedDate, appliedSpell);
 
 	// Default the shared spell selector to the first available spell once setup loads.
 	React.useEffect(() => {
 		if (setup && setup.spells.length > 0 && !spell) {
 			setSpell(setup.spells[0].spell_code);
+			setAppliedSpell(setup.spells[0].spell_code);
 		}
 	}, [setup, spell]);
+
+	const [reloadKey, setReloadKey] = React.useState(0);
+
+	const handleSearch = () => {
+		setAppliedDate(tranDate);
+		setAppliedSpell(spell);
+	};
 
 	if (!mounted) return null;
 
@@ -149,6 +170,7 @@ export default function WeavingPage() {
 									<Tab label="Loom → Quality" />
 									<Tab label="Production Entry" />
 									<Tab label="Beam Change" />
+									<Tab label="Production Adjustment" />
 									<Tab label="Planning Grid" />
 								</Tabs>
 							</Box>
@@ -187,15 +209,30 @@ export default function WeavingPage() {
 										))}
 									</TextField>
 								) : null}
+								<Button variant="contained" size="small" onClick={handleSearch}>
+									Search
+								</Button>
 							</Box>
+
+							{branchId != null && appliedSpell ? (
+								<WeavingProcessBar
+									coId={coId}
+									branchId={branchId}
+									date={appliedDate}
+									spell={appliedSpell}
+									refreshKey={reloadKey}
+									onProcessed={() => setReloadKey((k) => k + 1)}
+								/>
+							) : null}
 
 							{tab === 0 ? (
 								<LoomQualityMapGrid
 									coId={coId}
 									branchId={branchId}
 									setup={setup}
-									date={tranDate}
-									spell={spell}
+									date={appliedDate}
+									spell={appliedSpell}
+									map={qualityMap}
 								/>
 							) : null}
 
@@ -204,8 +241,10 @@ export default function WeavingPage() {
 									coId={coId}
 									branchId={branchId}
 									setup={setup}
-									date={tranDate}
-									spell={spell}
+									date={appliedDate}
+									spell={appliedSpell}
+									map={qualityMap}
+									refreshKey={reloadKey}
 								/>
 							) : null}
 
@@ -213,17 +252,27 @@ export default function WeavingPage() {
 								<WeavingBeamChangeGrid
 									coId={coId}
 									branchId={branchId}
-									date={tranDate}
-									spell={spell}
+									date={appliedDate}
+									spell={appliedSpell}
 								/>
 							) : null}
 
 							{tab === 3 ? (
+								<WeavingAdjustmentGrid
+									coId={coId}
+									branchId={branchId}
+									date={appliedDate}
+									spell={appliedSpell}
+								/>
+							) : null}
+
+							{tab === 4 ? (
 								<WeavingPlanningGrid
 									coId={coId}
 									branchId={branchId}
-									date={tranDate}
-									spell={spell}
+									date={appliedDate}
+									spell={appliedSpell}
+									refreshKey={reloadKey}
 								/>
 							) : null}
 						</>

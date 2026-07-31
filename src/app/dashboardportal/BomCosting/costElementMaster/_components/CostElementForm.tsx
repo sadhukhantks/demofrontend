@@ -24,7 +24,7 @@ type CostElementFormProps = {
   parentOptions: { id: number; label: string }[];
 };
 
-const ELEMENT_TYPES = ["material", "conversion", "overhead"];
+const ELEMENT_TYPES = ["material", "conversion"];
 const BASIS_OPTIONS = [
   "",
   "per_unit",

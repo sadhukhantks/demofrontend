@@ -6,7 +6,7 @@ import {apiRoutes} from './utils/api'; // Ensure this has full absolute URLs, no
 import { determinePortalAction } from './utils/portalPermissions';
 
 
-const PROTECTED_PATHS = ['/dashboardctrldesk', '/dashboardadmin', '/dashboardportal'];
+const PROTECTED_PATHS = ['/dashboardctrldesk', '/dashboardadmin', '/dashboardportal', '/reset-password'];
 const PUBLIC_PATHS = ['/', '/login', '/_next', '/favicon.ico'];
 
 export async function middleware(request: NextRequest) {
@@ -63,7 +63,7 @@ export async function middleware(request: NextRequest) {
 
     if (pathname.startsWith('/dashboardportal')) {
       try {
-        const action = determinePortalAction(pathname);
+        const action = determinePortalAction(pathname, url.search);
         const permissionRes = await fetch(apiRoutes.PORTAL_MENU_PERMISSION_CHECK, {
           method: 'POST',
           headers: {

@@ -48,6 +48,7 @@ import {
 } from "@mui/material";
 import { ArrowLeft, LogIn, Save, LogOut } from "lucide-react";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 
@@ -219,6 +220,7 @@ function JuteGateEntryCreatePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { coId } = useSelectedCompanyCoId();
+  const { selectedBranches } = useSidebarContext();
 
   // Derive mode and ID from URL
   const modeParam = searchParams?.get("mode") ?? "create";
@@ -253,14 +255,29 @@ function JuteGateEntryCreatePageContent() {
   // QC checkpoint: qc_check=1 means QC is complete
   const isQcComplete = details?.qc_check === 1;
 
-  // Build branch options
+  // Build branch options — restricted to branches selected in the sidebar.
+  // Fall back to all setup branches only if the sidebar has no selection.
   const branchOptions = React.useMemo<Option[]>(() => {
     if (!setupData?.branches) return [];
-    return setupData.branches.map((b) => ({
+    const allowed = new Set(selectedBranches);
+    // Only restrict in create mode; edit/view must keep showing the saved branch.
+    const filtered =
+      isCreateMode && allowed.size > 0
+        ? setupData.branches.filter((b) => allowed.has(b.branch_id))
+        : setupData.branches;
+    return filtered.map((b) => ({
       label: b.branch_name,
       value: String(b.branch_id),
     }));
-  }, [setupData]);
+  }, [setupData, selectedBranches, isCreateMode]);
+
+  // Auto-select the branch when the sidebar exposes exactly one (create mode only).
+  React.useEffect(() => {
+    if (!isCreateMode) return;
+    if (branchOptions.length === 1 && !formValues.branch) {
+      setFormValues((prev) => ({ ...prev, branch: branchOptions[0].value }));
+    }
+  }, [isCreateMode, branchOptions, formValues.branch]);
 
   // Calculate weights whenever gross/tare/shortage changes (only in create/edit mode)
   React.useEffect(() => {

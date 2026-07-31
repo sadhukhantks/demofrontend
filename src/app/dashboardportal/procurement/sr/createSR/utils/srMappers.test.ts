@@ -16,6 +16,8 @@ const mockHeader: SRHeader = {
 	branch_name: "Main",
 	supplier_id: 5,
 	supplier_name: "Supplier A",
+	supplier_branch_id: null,
+	supplier_branch_options: [],
 	supplier_state_id: 1,
 	supplier_state_name: "Maharashtra",
 	bill_branch_id: 1,

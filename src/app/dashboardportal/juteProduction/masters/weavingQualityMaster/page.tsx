@@ -2,6 +2,9 @@
 
 import * as React from "react";
 import {
+	Accordion,
+	AccordionDetails,
+	AccordionSummary,
 	Alert,
 	Box,
 	Button,
@@ -15,7 +18,12 @@ import {
 	Tooltip,
 	Typography,
 } from "@mui/material";
-import { Pencil as EditOutlinedIcon, Plus as AddIcon, Trash2 as DeleteIcon } from "lucide-react";
+import {
+	ChevronDown as ExpandIcon,
+	Pencil as EditOutlinedIcon,
+	Plus as AddIcon,
+	Trash2 as DeleteIcon,
+} from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
@@ -51,7 +59,6 @@ type WeavingQualityRow = {
 	jbo_rbo: string | null;
 	reed_space: number | null;
 	tpi: number | null;
-	yarn_count: number | null;
 	active: number;
 };
 
@@ -73,7 +80,6 @@ type FormState = {
 	jbo_rbo: string;
 	reed_space: string;
 	tpi: string;
-	yarn_count: string;
 };
 
 const EMPTY_FORM: FormState = {
@@ -94,7 +100,6 @@ const EMPTY_FORM: FormState = {
 	jbo_rbo: "",
 	reed_space: "",
 	tpi: "",
-	yarn_count: "",
 };
 
 const itemLabel = (i: Pick<SetupItem, "item_code" | "item_name">): string =>
@@ -188,7 +193,6 @@ export default function WeavingQualityMasterPage() {
 			jbo_rbo: row.jbo_rbo ?? "",
 			reed_space: row.reed_space != null ? String(row.reed_space) : "",
 			tpi: row.tpi != null ? String(row.tpi) : "",
-			yarn_count: row.yarn_count != null ? String(row.yarn_count) : "",
 		});
 		setOpen(true);
 	};
@@ -229,7 +233,6 @@ export default function WeavingQualityMasterPage() {
 			jbo_rbo: form.jbo_rbo.trim() || null,
 			reed_space: numOrNull(form.reed_space),
 			tpi: numOrNull(form.tpi),
-			yarn_count: numOrNull(form.yarn_count),
 		};
 
 		const branchId = singleBranchId != null ? singleBranchId : branchOptions[0]?.branch_id ?? null;
@@ -325,12 +328,10 @@ export default function WeavingQualityMasterPage() {
 		{ field: "weaving_quality_name", headerName: "Quality Name", flex: 1, minWidth: 160 },
 		{ field: "ends", headerName: "Ends", width: 90, type: "number" },
 		{ field: "finished_length", headerName: "Fin. Length", width: 110, type: "number" },
-		{ field: "ozs_yds", headerName: "Ozs/Yds", width: 100, type: "number" },
 		{ field: "std_ozs_yds", headerName: "Std Ozs/Yds", width: 120, type: "number" },
 		{ field: "no_of_jugar_per_cut", headerName: "Jugar/Cut", width: 110, type: "number" },
 		{ field: "width", headerName: "Width", width: 90, type: "number" },
 		{ field: "shots", headerName: "Shots", width: 90, type: "number" },
-		{ field: "yarn_count", headerName: "Yarn Count", width: 110, type: "number" },
 		{
 			field: "active",
 			headerName: "Active",
@@ -410,6 +411,8 @@ export default function WeavingQualityMasterPage() {
 								</MenuItem>
 							))}
 						</TextField>
+						{/* Primary fields — DB-required and the ones that drive production
+						    calculations (finished_length, ozs_yds, std_ozs_yds, jugar/cut). */}
 						<Box
 							sx={{
 								display: "grid",
@@ -450,14 +453,6 @@ export default function WeavingQualityMasterPage() {
 							/>
 							<TextField
 								type="number"
-								label="Ozs/Yds"
-								value={form.ozs_yds}
-								onChange={(e) => setForm({ ...form, ozs_yds: e.target.value })}
-								size="small"
-								inputProps={{ step: 0.001, min: 0 }}
-							/>
-							<TextField
-								type="number"
 								label="Std Ozs/Yds"
 								value={form.std_ozs_yds}
 								onChange={(e) => setForm({ ...form, std_ozs_yds: e.target.value })}
@@ -474,86 +469,103 @@ export default function WeavingQualityMasterPage() {
 								inputProps={{ step: 1, min: 1 }}
 								helperText="Must be greater than 0"
 							/>
-							<TextField
-								type="number"
-								label="Width"
-								value={form.width}
-								onChange={(e) => setForm({ ...form, width: e.target.value })}
-								size="small"
-								inputProps={{ step: 0.001, min: 0 }}
-							/>
-							<TextField
-								type="number"
-								label="Ports"
-								value={form.ports}
-								onChange={(e) => setForm({ ...form, ports: e.target.value })}
-								size="small"
-								inputProps={{ step: 1, min: 0 }}
-							/>
-							<TextField
-								type="number"
-								label="Reed Porter"
-								value={form.reed_porter}
-								onChange={(e) => setForm({ ...form, reed_porter: e.target.value })}
-								size="small"
-								inputProps={{ step: 1, min: 0 }}
-							/>
-							<TextField
-								type="number"
-								label="Shrinkage %"
-								value={form.shrinkage_pct}
-								onChange={(e) => setForm({ ...form, shrinkage_pct: e.target.value })}
-								size="small"
-								inputProps={{ step: 0.01, min: 0 }}
-							/>
-							<TextField
-								type="number"
-								label="Shots"
-								value={form.shots}
-								onChange={(e) => setForm({ ...form, shots: e.target.value })}
-								size="small"
-								inputProps={{ step: 1, min: 0 }}
-							/>
-							<TextField
-								type="number"
-								label="MC Teeth"
-								value={form.mc_teeth}
-								onChange={(e) => setForm({ ...form, mc_teeth: e.target.value })}
-								size="small"
-								inputProps={{ step: 1, min: 0 }}
-							/>
-							<TextField
-								label="JBO / RBO"
-								value={form.jbo_rbo}
-								onChange={(e) => setForm({ ...form, jbo_rbo: e.target.value })}
-								size="small"
-								inputProps={{ maxLength: 50 }}
-							/>
-							<TextField
-								type="number"
-								label="Reed Space"
-								value={form.reed_space}
-								onChange={(e) => setForm({ ...form, reed_space: e.target.value })}
-								size="small"
-								inputProps={{ step: 0.001, min: 0 }}
-							/>
-							<TextField
-								type="number"
-								label="TPI"
-								value={form.tpi}
-								onChange={(e) => setForm({ ...form, tpi: e.target.value })}
-								size="small"
-								inputProps={{ step: 0.001, min: 0 }}
-							/>
-							<TextField
-								type="number"
-								label="Yarn Count"
-								value={form.yarn_count}
-								onChange={(e) => setForm({ ...form, yarn_count: e.target.value })}
-								size="small"
-								inputProps={{ step: 0.001, min: 0 }}
-							/>
 						</Box>
+						{/* Optional construction/reference fields — not used by any production
+						    calculation; collapsed to declutter entry. Yarn count is intentionally
+						    omitted (warp + weft each carry their own counts; a single flat count is
+						    meaningless — capture per-warp counts via composite components instead). */}
+						<Accordion
+							disableGutters
+							elevation={0}
+							sx={{ bgcolor: "transparent", "&:before": { display: "none" } }}
+						>
+							<AccordionSummary expandIcon={<ExpandIcon size={18} />} sx={{ px: 0 }}>
+								<Typography variant="body2" color="text.secondary">
+									Optional construction details
+								</Typography>
+							</AccordionSummary>
+							<AccordionDetails sx={{ px: 0 }}>
+								<Box
+									sx={{
+										display: "grid",
+										gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+										gap: 2,
+									}}
+								>
+									<TextField
+										type="number"
+										label="Width"
+										value={form.width}
+										onChange={(e) => setForm({ ...form, width: e.target.value })}
+										size="small"
+										inputProps={{ step: 0.001, min: 0 }}
+									/>
+									<TextField
+										type="number"
+										label="Ports"
+										value={form.ports}
+										onChange={(e) => setForm({ ...form, ports: e.target.value })}
+										size="small"
+										inputProps={{ step: 1, min: 0 }}
+									/>
+									<TextField
+										type="number"
+										label="Reed Porter"
+										value={form.reed_porter}
+										onChange={(e) => setForm({ ...form, reed_porter: e.target.value })}
+										size="small"
+										inputProps={{ step: 1, min: 0 }}
+									/>
+									<TextField
+										type="number"
+										label="Shrinkage %"
+										value={form.shrinkage_pct}
+										onChange={(e) => setForm({ ...form, shrinkage_pct: e.target.value })}
+										size="small"
+										inputProps={{ step: 0.01, min: 0 }}
+									/>
+									<TextField
+										type="number"
+										label="Shots"
+										value={form.shots}
+										onChange={(e) => setForm({ ...form, shots: e.target.value })}
+										size="small"
+										inputProps={{ step: 1, min: 0 }}
+									/>
+									<TextField
+										type="number"
+										label="MC Teeth"
+										value={form.mc_teeth}
+										onChange={(e) => setForm({ ...form, mc_teeth: e.target.value })}
+										size="small"
+										inputProps={{ step: 1, min: 0 }}
+									/>
+									<TextField
+										label="JBO / RBO"
+										value={form.jbo_rbo}
+										onChange={(e) => setForm({ ...form, jbo_rbo: e.target.value })}
+										size="small"
+										inputProps={{ maxLength: 50 }}
+									/>
+									<TextField
+										type="number"
+										label="Reed Space"
+										value={form.reed_space}
+										onChange={(e) => setForm({ ...form, reed_space: e.target.value })}
+										size="small"
+										inputProps={{ step: 0.001, min: 0 }}
+									/>
+									<TextField
+										type="number"
+										label="TPI"
+										value={form.tpi}
+										onChange={(e) => setForm({ ...form, tpi: e.target.value })}
+										size="small"
+										inputProps={{ step: 0.001, min: 0 }}
+									/>
+								</Box>
+							</AccordionDetails>
+						</Accordion>
 					</Box>
 				</DialogContent>
 				<DialogActions>

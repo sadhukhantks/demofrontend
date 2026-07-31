@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Button, Chip, CircularProgress, TextField, Typography } from "@mui/material";
+import { Alert, Button, Chip, CircularProgress, FormControl, InputLabel, MenuItem, Select, TextField, Typography } from "@mui/material";
+import type { SelectChangeEvent } from "@mui/material";
 import type { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui/x-data-grid";
 import { saveAs } from "file-saver";
 import { fetchWithCookie } from "@/utils/apiClient2";
@@ -25,6 +26,7 @@ type JuteMRRow = {
 	branch_name: string;
 	supplier_name: string;
 	party_name: string | null;
+	po_num: string | null;
 	challan_no: string | null;
 	gate_entry_no: string | null;
 	gate_entry_date: string;
@@ -59,6 +61,17 @@ const formatDate = (value?: string) => {
 	}).format(date);
 };
 
+// MR status ids (see backend mr.py MR_STATUS_*). NULL status_id renders as "Open".
+const MR_STATUS_FILTER_OPTIONS: ReadonlyArray<{ value: number; label: string }> = [
+	{ value: 21, label: "Draft" },
+	{ value: 1, label: "Open" },
+	{ value: 13, label: "Pending" },
+	{ value: 20, label: "Pending Approval" },
+	{ value: 3, label: "Approved" },
+	{ value: 4, label: "Rejected" },
+	{ value: 6, label: "Cancelled" },
+];
+
 const getStatusColor = (status: string): "success" | "error" | "warning" | "info" | "default" => {
 	const normalized = status?.toLowerCase() ?? "";
 	if (normalized.includes("approved") || normalized.includes("closed")) return "success";
@@ -78,6 +91,7 @@ export default function JuteMRIndexPage() {
 	const [searchValue, setSearchValue] = React.useState("");
 	const [fromDate, setFromDate] = React.useState("");
 	const [toDate, setToDate] = React.useState("");
+	const [statusFilter, setStatusFilter] = React.useState<number | null>(null);
 	const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 	const [downloading, setDownloading] = React.useState(false);
 	const [downloadError, setDownloadError] = React.useState<string | null>(null);
@@ -92,7 +106,7 @@ export default function JuteMRIndexPage() {
 				field: "mr_no",
 				headerName: "MR No",
 				flex: 0.8,
-				minWidth: 100,
+				minWidth: 90,
 				renderCell: (params: GridRenderCellParams<JuteMRRow, string | null>) => (
 					<Typography component="span" variant="body2" color="primary" sx={{ fontWeight: 600 }}>
 						{params.value ?? "-"}
@@ -102,7 +116,8 @@ export default function JuteMRIndexPage() {
 			{
 				field: "mr_date",
 				headerName: "MR Date",
-				minWidth: 120,
+				flex: 0.7,
+				minWidth: 90,
 				renderCell: (params: GridRenderCellParams<JuteMRRow, string>) => (
 					<Typography component="span" variant="body2">
 						{params.value || formatDate(params.row.mr_date_raw) || "-"}
@@ -112,20 +127,31 @@ export default function JuteMRIndexPage() {
 			{
 				field: "branch_name",
 				headerName: "Branch",
-				flex: 1,
-				minWidth: 120,
+				flex: 0.8,
+				minWidth: 80,
 			},
 			{
 				field: "supplier_name",
 				headerName: "Supplier",
-				flex: 1,
-				minWidth: 140,
+				flex: 1.2,
+				minWidth: 110,
 			},
 			{
 				field: "party_name",
 				headerName: "Party",
 				flex: 1,
-				minWidth: 120,
+				minWidth: 100,
+				renderCell: (params: GridRenderCellParams<JuteMRRow, string | null>) => (
+					<Typography component="span" variant="body2">
+						{params.value || "-"}
+					</Typography>
+				),
+			},
+			{
+				field: "po_num",
+				headerName: "PO No",
+				flex: 1,
+				minWidth: 130,
 				renderCell: (params: GridRenderCellParams<JuteMRRow, string | null>) => (
 					<Typography component="span" variant="body2">
 						{params.value || "-"}
@@ -135,7 +161,8 @@ export default function JuteMRIndexPage() {
 			{
 				field: "challan_no",
 				headerName: "Challan No",
-				minWidth: 120,
+				flex: 0.7,
+				minWidth: 85,
 				renderCell: (params: GridRenderCellParams<JuteMRRow, string | null>) => (
 					<Typography component="span" variant="body2">
 						{params.value || "-"}
@@ -145,7 +172,8 @@ export default function JuteMRIndexPage() {
 			{
 				field: "gate_entry_no",
 				headerName: "Gate Entry No",
-				minWidth: 120,
+				flex: 0.9,
+				minWidth: 100,
 				renderCell: (params: GridRenderCellParams<JuteMRRow, string | null>) => (
 					<Typography component="span" variant="body2">
 						{params.value || "-"}
@@ -155,7 +183,8 @@ export default function JuteMRIndexPage() {
 			{
 				field: "gate_entry_date",
 				headerName: "Gate Entry Date",
-				minWidth: 130,
+				flex: 0.8,
+				minWidth: 95,
 				renderCell: (params: GridRenderCellParams<JuteMRRow, string>) => (
 					<Typography component="span" variant="body2">
 						{params.value || formatDate(params.row.gate_entry_date_raw) || "-"}
@@ -165,7 +194,8 @@ export default function JuteMRIndexPage() {
 			{
 				field: "mukam",
 				headerName: "Mukam",
-				minWidth: 120,
+				flex: 0.7,
+				minWidth: 80,
 				renderCell: (params: GridRenderCellParams<JuteMRRow, string | null>) => (
 					<Typography component="span" variant="body2">
 						{params.value || "-"}
@@ -175,7 +205,8 @@ export default function JuteMRIndexPage() {
 			{
 				field: "vehicle_no",
 				headerName: "Vehicle No",
-				minWidth: 120,
+				flex: 0.7,
+				minWidth: 85,
 				renderCell: (params: GridRenderCellParams<JuteMRRow, string | null>) => (
 					<Typography component="span" variant="body2">
 						{params.value || "-"}
@@ -185,7 +216,8 @@ export default function JuteMRIndexPage() {
 			{
 				field: "mr_weight",
 				headerName: "MR Weight",
-				minWidth: 110,
+				flex: 0.6,
+				minWidth: 80,
 				type: "number",
 				align: "right",
 				headerAlign: "right",
@@ -198,7 +230,8 @@ export default function JuteMRIndexPage() {
 			{
 				field: "status",
 				headerName: "Status",
-				minWidth: 120,
+				flex: 0.7,
+				minWidth: 95,
 				renderCell: (params: GridRenderCellParams<JuteMRRow, string>) => (
 					<Chip size="small" color={getStatusColor(params.value ?? "")} label={params.value || "Open"} />
 				),
@@ -226,6 +259,7 @@ export default function JuteMRIndexPage() {
 			if (trimmedSearch) query.set("search", trimmedSearch);
 			if (fromDate) query.set("from_date", fromDate);
 			if (toDate) query.set("to_date", toDate);
+			if (statusFilter !== null) query.set("status_id", String(statusFilter));
 
 			const url = `${apiRoutesPortalMasters.JUTE_MR_TABLE}?${query.toString()}`;
 			const { data, error } = await fetchWithCookie(url, "GET");
@@ -255,6 +289,7 @@ export default function JuteMRIndexPage() {
 					branch_name: (r.branch_name ?? "") as string,
 					supplier_name: (r.supplier_name ?? "") as string,
 					party_name: (r.party_name ?? null) as string | null,
+					po_num: (r.po_num ?? null) as string | null,
 					challan_no: (r.challan_no ?? null) as string | null,
 					gate_entry_no: (r.gate_entry_no ?? null) as string | null,
 					gate_entry_date_raw: normalizedGate,
@@ -277,7 +312,7 @@ export default function JuteMRIndexPage() {
 		} finally {
 			setLoading(false);
 		}
-	}, [coId, paginationModel.page, paginationModel.pageSize, searchValue, fromDate, toDate]);
+	}, [coId, paginationModel.page, paginationModel.pageSize, searchValue, fromDate, toDate, statusFilter]);
 
 	React.useEffect(() => {
 		if (coId) {
@@ -307,6 +342,12 @@ export default function JuteMRIndexPage() {
 		setToDate(value);
 	}, []);
 
+	const handleStatusFilterChange = React.useCallback((event: SelectChangeEvent<string>) => {
+		const raw = event.target.value;
+		setPaginationModel((prev) => ({ ...prev, page: 0 }));
+		setStatusFilter(raw === "" ? null : Number(raw));
+	}, []);
+
 	const handleClearDates = React.useCallback(() => {
 		setPaginationModel((prev) => ({ ...prev, page: 0 }));
 		setFromDate("");
@@ -326,6 +367,7 @@ export default function JuteMRIndexPage() {
 				search: searchValue,
 				fromDate,
 				toDate,
+				statusId: statusFilter,
 			});
 			if (!blob || blob.size === 0) {
 				setDownloadError("No data for the selected filters.");
@@ -342,7 +384,7 @@ export default function JuteMRIndexPage() {
 		} finally {
 			setDownloading(false);
 		}
-	}, [coId, searchValue, fromDate, toDate]);
+	}, [coId, searchValue, fromDate, toDate, statusFilter]);
 
 	const handleView = React.useCallback(
 		(row: JuteMRRow) => {
@@ -383,10 +425,11 @@ export default function JuteMRIndexPage() {
 			onPaginationModelChange={handlePaginationModelChange}
 			loading={loading}
 			showLoadingUntilLoaded
+			autoHeight
 			search={{
 				value: searchValue,
 				onChange: handleSearchChange,
-				placeholder: "Search by MR no, supplier, party, challan, vehicle, gate entry, mukam, or branch.",
+				placeholder: "Search by MR no, PO no, supplier, party, challan, vehicle, gate entry, mukam, or branch.",
 				debounceDelayMs: 500,
 			}}
 			toolbarContent={
@@ -407,6 +450,22 @@ export default function JuteMRIndexPage() {
 						onChange={handleToDateChange}
 						InputLabelProps={{ shrink: true }}
 					/>
+					<FormControl size="small" sx={{ minWidth: 160 }}>
+						<InputLabel id="mr-status-filter-label">Status</InputLabel>
+						<Select<string>
+							labelId="mr-status-filter-label"
+							label="Status"
+							value={statusFilter === null ? "" : String(statusFilter)}
+							onChange={handleStatusFilterChange}
+						>
+							<MenuItem value="">All statuses</MenuItem>
+							{MR_STATUS_FILTER_OPTIONS.map((option) => (
+								<MenuItem key={option.value} value={String(option.value)}>
+									{option.label}
+								</MenuItem>
+							))}
+						</Select>
+					</FormControl>
 					{(fromDate || toDate) ? (
 						<Button size="small" variant="outlined" onClick={handleClearDates}>
 							Clear dates

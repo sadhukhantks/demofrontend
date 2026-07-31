@@ -406,6 +406,44 @@ export interface GstSummaryRow {
 }
 
 // ============================================================
+// Company Settings & Posting Queue
+// ============================================================
+
+export const POSTING_MODES = ["OFF", "AUTO_DRAFT", "AUTO_APPROVED"] as const;
+export type PostingMode = (typeof POSTING_MODES)[number];
+
+export const DUE_DATE_RULES = ["PO_CREDIT_DAYS", "MANUAL"] as const;
+export type DueDateRule = (typeof DUE_DATE_RULES)[number];
+
+export interface CompanySettings {
+  co_id: number;
+  posting_mode_purchase: PostingMode;
+  posting_mode_jute_purchase: PostingMode;
+  posting_mode_sales: PostingMode;
+  posting_mode_drcr: PostingMode;
+  due_date_rule: DueDateRule;
+  default_credit_days?: number | null;
+  enable_tds: number;
+}
+
+export const POSTING_QUEUE_STATUSES = [
+  "PENDING", "POSTED", "DRAFTED", "SKIPPED", "FAILED",
+] as const;
+export type PostingQueueStatus = (typeof POSTING_QUEUE_STATUSES)[number];
+
+export interface PostingQueueRow {
+  acc_posting_queue_id: number;
+  co_id: number;
+  source_doc_type: string;
+  source_doc_id: number;
+  status: PostingQueueStatus;
+  acc_voucher_id: number | null;
+  attempt_count: number;
+  last_error: string | null;
+  updated_date_time: string | null;
+}
+
+// ============================================================
 // Warning
 // ============================================================
 

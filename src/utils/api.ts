@@ -33,6 +33,8 @@ const apiRoutes ={
     PORTAL_USER_CREATE_FULL: `${API_URL}/admin/PortalData/get_user_create_setup_data`,
     CREATE_PORTAL_USER: `${API_URL}/admin/PortalData/create_user_portal`,
     EDIT_PORTAL_USER: `${API_URL}/admin/PortalData/edit_user_portal`,
+    RESET_PORTAL_USER_PASSWORD: `${API_URL}/admin/PortalData/reset_user_password`,
+    CHANGE_PASSWORD: `${API_URL}/authRoutes/change-password`,
     PORTAL_USER_EDIT_BY_USERID: `${API_URL}/admin/PortalData/get_user_edit_setup_data`,
     PORTAL_CO_BRANCH_SUBMENU: `${API_URL}/admin/PortalData/co_branch_submenu`,
     PORTAL_APPROVAL_LEVELS_DATA: `${API_URL}/admin/PortalData/approval_level_data_setup`,
@@ -441,6 +443,26 @@ const apiRoutesPortalMasters = {
     PO_CLONE: `${API_URL}/procurementPO/clone_po`,
     PO_VALIDATE_ITEM: `${API_URL}/procurementPO/validate_item_for_po`,
 
+    // Price Enquiry
+    ENQUIRY_TABLE: `${API_URL}/priceEnquiry/get_enquiry_table`,
+    GET_ENQUIRY_SETUP: `${API_URL}/priceEnquiry/get_enquiry_setup`,
+    ENQUIRY_CREATE: `${API_URL}/priceEnquiry/create_enquiry`,
+    ENQUIRY_UPDATE: `${API_URL}/priceEnquiry/update_enquiry`,
+    GET_ENQUIRY_BY_ID: `${API_URL}/priceEnquiry/get_enquiry_by_id`,
+    GET_APPROVED_INDENT_ITEMS_FOR_ENQUIRY: `${API_URL}/priceEnquiry/get_approved_indent_items`,
+    ENQUIRY_ADD_RESPONSE: `${API_URL}/priceEnquiry/add_response`,
+    ENQUIRY_UPDATE_RESPONSE: `${API_URL}/priceEnquiry/update_response`,
+    ENQUIRY_GET_RESPONSE_BY_ID: `${API_URL}/priceEnquiry/get_response_by_id`,
+    ENQUIRY_GET_COMPARISON: `${API_URL}/priceEnquiry/get_responses_for_comparison`,
+    ENQUIRY_SELECT_RESPONSE: `${API_URL}/priceEnquiry/select_response`,
+    ENQUIRY_GET_PO_PREFILL: `${API_URL}/priceEnquiry/get_po_prefill_data`,
+    ENQUIRY_SEND_FOR_APPROVAL: `${API_URL}/priceEnquiry/send_for_approval`,
+    ENQUIRY_APPROVE: `${API_URL}/priceEnquiry/approve_enquiry`,
+    ENQUIRY_REJECT: `${API_URL}/priceEnquiry/reject_enquiry`,
+    ENQUIRY_CANCEL: `${API_URL}/priceEnquiry/cancel_enquiry`,
+    ENQUIRY_REOPEN: `${API_URL}/priceEnquiry/reopen_enquiry`,
+    ENQUIRY_MARK_RFQ_SENT: `${API_URL}/priceEnquiry/mark_rfq_sent`,
+
     INWARD_TABLE: `${API_URL}/procurementInward/get_inward_table`,
     GET_INWARD_SETUP_1: `${API_URL}/procurementInward/get_inward_setup_1`,
     GET_INWARD_SETUP_2: `${API_URL}/procurementInward/get_inward_setup_2`,
@@ -511,6 +533,33 @@ const apiRoutesPortalMasters = {
     ISSUE_CONSUMPTION_REPORT: `${API_URL}/inventoryReports/issue-consumption`,
     ISSUE_MACHINEWISE_REPORT: `${API_URL}/inventoryReports/issue-machinewise`,
 
+    // Sales Enquiry endpoints (AMCL enquiry flow Phase 1)
+    SALES_ENQUIRY_TABLE: `${API_URL}/salesEnquiry/get_enquiry_table`,
+    SALES_ENQUIRY_BOARD: `${API_URL}/salesEnquiry/get_enquiry_board`,
+    SALES_ENQUIRY_SETUP: `${API_URL}/salesEnquiry/get_enquiry_setup`,
+    SALES_ENQUIRY_BY_ID: `${API_URL}/salesEnquiry/get_enquiry_by_id`,
+    SALES_ENQUIRY_CREATE: `${API_URL}/salesEnquiry/create_enquiry`,
+    SALES_ENQUIRY_UPDATE: `${API_URL}/salesEnquiry/update_enquiry`,
+    SALES_ENQUIRY_OPEN: `${API_URL}/salesEnquiry/open_enquiry`,
+    SALES_ENQUIRY_CANCEL_DRAFT: `${API_URL}/salesEnquiry/cancel_draft_enquiry`,
+    SALES_ENQUIRY_SEND_FOR_APPROVAL: `${API_URL}/salesEnquiry/send_enquiry_for_approval`,
+    SALES_ENQUIRY_APPROVE: `${API_URL}/salesEnquiry/approve_enquiry`,
+    SALES_ENQUIRY_REJECT: `${API_URL}/salesEnquiry/reject_enquiry`,
+    SALES_ENQUIRY_REOPEN: `${API_URL}/salesEnquiry/reopen_enquiry`,
+    SALES_ENQUIRY_MOVE_STAGE: `${API_URL}/salesEnquiry/move_stage`,
+    SALES_ENQUIRY_CLOSE: `${API_URL}/salesEnquiry/close_enquiry`,
+    SALES_ENQUIRY_CONFIRM_LINE_COSTING: `${API_URL}/salesEnquiry/confirm_line_costing`,
+    SALES_ENQUIRY_PRICE_CHECK_CREATE: `${API_URL}/salesEnquiry/create_price_check`,
+    SALES_ENQUIRY_PRICE_CHECK_PENDING: `${API_URL}/salesEnquiry/get_price_check_pending_list`,
+    SALES_ENQUIRY_PRICE_CHECK_BY_ID: `${API_URL}/salesEnquiry/get_price_check_by_id`,
+    SALES_ENQUIRY_PRICE_CHECK_RESPOND: `${API_URL}/salesEnquiry/respond_price_check`,
+    QUOTATION_ENQUIRY_LINES: `${API_URL}/salesQuotation/get_enquiry_lines_for_quotation`,
+    SALES_ORDER_ENQUIRY_LINES: `${API_URL}/salesOrder/get_enquiry_lines_for_sales_order`,
+
+    // ISO document number map (per company x menu)
+    ISO_MAP_TABLE: `${API_URL}/isoMenuMap/get_iso_map_table`,
+    ISO_MAP_SAVE: `${API_URL}/isoMenuMap/iso_map_save`,
+    ISO_MAP_DELETE: `${API_URL}/isoMenuMap/iso_map_delete`,
     // HRMS / Production (labour) report endpoints
     ATTENDANCE_SUMMARY_REPORT: `${API_URL}/hrmsReports/attendance-summary`,
     WORKER_MASTER_REPORT: `${API_URL}/hrmsReports/worker-master`,
@@ -727,7 +776,13 @@ const apiRoutesPortalMasters = {
     ACC_REPORT_GST_SUMMARY: `${API_URL}/accounting/reports/gst_summary`,
 
     // Opening Balance
-    ACC_OPENING_BILLS_IMPORT: `${API_URL}/accounting/opening_bills/import`,
+    ACC_OPENING_BILLS_IMPORT: `${API_URL}/accounting/opening_bills`,
+
+    // Company Settings & Posting Queue
+    ACC_COMPANY_SETTINGS: `${API_URL}/accounting/company_settings`,
+    ACC_COMPANY_SETTINGS_UPDATE: `${API_URL}/accounting/company_settings`,
+    ACC_POSTING_QUEUE: `${API_URL}/accounting/posting_queue`,
+    ACC_POSTING_QUEUE_RETRY: `${API_URL}/accounting/posting_queue`,
 
     // Shift Master endpoints
     SHIFT_TABLE: `${API_URL}/hrmsMasters/get_shift_table`,
@@ -846,9 +901,10 @@ const apiRoutesPortalMasters = {
     SPINNING_FRAME_MAP_GET: `${API_URL}/spinningProd/frame_map_get`,
     SPINNING_FRAME_MAP_SAVE: `${API_URL}/spinningProd/frame_map_save`,
     SPINNING_FRAME_MAP_MAPPED: `${API_URL}/spinningProd/frame_map_mapped`,
-    // Spinning planning grid (router prefix /api/spinningProd)
+    // Spinning planning grid + Process/Lock (router prefix /api/spinningProd)
     SPINNING_PLANNING_GRID: `${API_URL}/spinningProd/planning_grid`,
-    SPINNING_PLANNING_GRID_SAVE: `${API_URL}/spinningProd/planning_grid_save`,
+    SPINNING_PROCESS: `${API_URL}/spinningProd/process`,
+    SPINNING_PROCESS_STATUS: `${API_URL}/spinningProd/process_status`,
     // Winding production (router prefix /api/windingProd) — *_EDIT/*_UPDATE/*_DELETE and
     // WINDING_QUALITY_SAVE are base paths; caller appends /${id}?co_id=...
     // Doff
@@ -884,11 +940,122 @@ const apiRoutesPortalMasters = {
     SPINNING_SQC_COUNT_SAVE: `${API_URL}/juteSQC/sqc_count_save`,
     SPINNING_SQC_COUNT_BY_DATE: `${API_URL}/juteSQC/sqc_count_by_date`,
     SPINNING_SQC_COUNT_DELETE: `${API_URL}/juteSQC/sqc_count_delete`,
+    // Spreader SQC / R-08-04 Roll Weight (router prefix /api/juteSQC) — SPREADER_SQC_ROLL_WT_DELETE is a base path; caller appends /${id}
+    SPREADER_SQC_ROLL_WT_SETUP: `${API_URL}/juteSQC/get_spreader_roll_wt_setup`,
+    SPREADER_SQC_ROLL_WT_SAVE: `${API_URL}/juteSQC/create_spreader_roll_wt`,
+    SPREADER_SQC_ROLL_WT_BY_DATE: `${API_URL}/juteSQC/get_spreader_roll_wt_by_date`,
+    SPREADER_SQC_ROLL_WT_DELETE: `${API_URL}/juteSQC/spreader_roll_wt_delete`,
+    // Spreader SQC / R-08-03 Sliver Weight (router prefix /api/juteSQC) — SPREADER_SLIVER_WT_DELETE is a base path; caller appends /${id}
+    SPREADER_SLIVER_WT_SETUP: `${API_URL}/juteSQC/get_spreader_sliver_wt_setup`,
+    SPREADER_SLIVER_WT_SAVE: `${API_URL}/juteSQC/create_spreader_sliver_wt`,
+    SPREADER_SLIVER_WT_BY_DATE: `${API_URL}/juteSQC/get_spreader_sliver_wt_by_date`,
+    SPREADER_SLIVER_WT_DELETE: `${API_URL}/juteSQC/spreader_sliver_wt_delete`,
+    // Breaker Card SQC / R-08-05/06/07 Coarse-Side SWT (router prefix /api/juteSQC) — multi-row create; BREAKER_CARD_SWT_DELETE is a base path; caller appends /${id}
+    BREAKER_CARD_SWT_SETUP: `${API_URL}/juteSQC/get_breaker_card_swt_setup`,
+    BREAKER_CARD_SWT_SAVE: `${API_URL}/juteSQC/create_breaker_card_swt`,
+    BREAKER_CARD_SWT_BY_DATE: `${API_URL}/juteSQC/get_breaker_card_swt_by_date`,
+    BREAKER_CARD_SWT_DELETE: `${API_URL}/juteSQC/breaker_card_swt_delete`,
+    // Inter Card & Tow Breaker SQC / R-08-07A Card Sliver Weight (router prefix /api/juteSQC) — multi-row create; CARD_SLIVER_WT_DELETE is a base path; caller appends /${id}
+    CARD_SLIVER_WT_SETUP: `${API_URL}/juteSQC/get_card_sliver_wt_setup`,
+    CARD_SLIVER_WT_SAVE: `${API_URL}/juteSQC/create_card_sliver_wt`,
+    CARD_SLIVER_WT_BY_DATE: `${API_URL}/juteSQC/get_card_sliver_wt_by_date`,
+    CARD_SLIVER_WT_DELETE: `${API_URL}/juteSQC/card_sliver_wt_delete`,
+    // Finisher Drawing SQC / R-08-12/13/14 Finisher Drawing Sliver Weight (router prefix /api/juteSQC) — multi-row create; FIN_DRAW_SLIVER_WT_DELETE is a base path; caller appends /${id}
+    FIN_DRAW_SLIVER_WT_SETUP: `${API_URL}/juteSQC/get_fin_draw_sliver_wt_setup`,
+    FIN_DRAW_SLIVER_WT_SAVE: `${API_URL}/juteSQC/create_fin_draw_sliver_wt`,
+    FIN_DRAW_SLIVER_WT_BY_DATE: `${API_URL}/juteSQC/get_fin_draw_sliver_wt_by_date`,
+    FIN_DRAW_SLIVER_WT_DELETE: `${API_URL}/juteSQC/fin_draw_sliver_wt_delete`,
+    // Drawhead & Finisher Card SQC / R-08-08/09/10 Draw Sliver Weight (router prefix /api/juteSQC) — multi-row create; DRAW_SLIVER_WT_DELETE is a base path; caller appends /${id}
+    DRAW_SLIVER_WT_SETUP: `${API_URL}/juteSQC/get_draw_sliver_wt_setup`,
+    DRAW_SLIVER_WT_SAVE: `${API_URL}/juteSQC/create_draw_sliver_wt`,
+    DRAW_SLIVER_WT_BY_DATE: `${API_URL}/juteSQC/get_draw_sliver_wt_by_date`,
+    DRAW_SLIVER_WT_DELETE: `${API_URL}/juteSQC/draw_sliver_wt_delete`,
+    // Weaving Pick SQC / R-08-21 Loom Width & Picks (router prefix /api/juteSQC) — WEAVING_SQC_PICK_DELETE is a base path; caller appends /${id}
+    WEAVING_SQC_PICK_SETUP:   `${API_URL}/juteSQC/weaving_sqc_pick_setup`,
+    WEAVING_SQC_PICK_SAVE:    `${API_URL}/juteSQC/weaving_sqc_pick_save`,
+    WEAVING_SQC_PICK_BY_DATE: `${API_URL}/juteSQC/weaving_sqc_pick_by_date`,
+    WEAVING_SQC_PICK_DELETE:  `${API_URL}/juteSQC/weaving_sqc_pick_delete`,
     // R-08-15 Yarn QR & CV % (router prefix /api/juteSQC) — SPINNING_SQC_QR_CV_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_QR_CV_SETUP: `${API_URL}/juteSQC/sqc_qr_cv_setup`,
     SPINNING_SQC_QR_CV_SAVE: `${API_URL}/juteSQC/sqc_qr_cv_save`,
     SPINNING_SQC_QR_CV_BY_DATE: `${API_URL}/juteSQC/sqc_qr_cv_by_date`,
     SPINNING_SQC_QR_CV_DELETE: `${API_URL}/juteSQC/sqc_qr_cv_delete`,
+    // R-08-15A Yarn QR% & CV% (Special Purpose) (router prefix /api/juteSQC) — header + 12-reading grid; QR_CV_15A_SQC_DELETE is a base path; caller appends /${id}
+    QR_CV_15A_SQC_SETUP: `${API_URL}/juteSQC/qr_cv_15a_setup`,
+    QR_CV_15A_SQC_SAVE: `${API_URL}/juteSQC/qr_cv_15a_save`,
+    QR_CV_15A_SQC_BY_DATE: `${API_URL}/juteSQC/qr_cv_15a_by_date`,
+    QR_CV_15A_SQC_DELETE: `${API_URL}/juteSQC/qr_cv_15a_delete`,
+    // R-08-17 Yarn TPI & TPI CV% (router prefix /api/juteSQC) — header + 20-reading TPI grid; YARN_TPI_SQC_DELETE is a base path; caller appends /${id}
+    YARN_TPI_SQC_SETUP: `${API_URL}/juteSQC/yarn_tpi_setup`,
+    YARN_TPI_SQC_SAVE: `${API_URL}/juteSQC/yarn_tpi_save`,
+    YARN_TPI_SQC_BY_DATE: `${API_URL}/juteSQC/yarn_tpi_by_date`,
+    YARN_TPI_SQC_DELETE: `${API_URL}/juteSQC/yarn_tpi_delete`,
+    // R-08-18 Beam MR% (router prefix /api/juteSQC) — single reading-set per save (5 MR% readings); BEAM_MR_DELETE POSTs {beam_mr_id, co_id}
+    BEAM_MR_CREATE_SETUP: `${API_URL}/juteSQC/get_beam_mr_create_setup`,
+    BEAM_MR_CREATE: `${API_URL}/juteSQC/create_beam_mr`,
+    BEAM_MR_BY_DATE: `${API_URL}/juteSQC/get_beam_mr_by_date`,
+    BEAM_MR_TABLE: `${API_URL}/juteSQC/get_beam_mr_table`,
+    BEAM_MR_DELETE: `${API_URL}/juteSQC/delete_beam_mr`,
+    // R-08-20 Cutting Length (router prefix /api/juteSQC) — one save = one date's reading-set (header + 20 cut-length readings); CUTTING_LENGTH_DELETE POSTs {cutting_length_id, co_id}
+    CUTTING_LENGTH_CREATE_SETUP: `${API_URL}/juteSQC/cutting_length_create_setup`,
+    CUTTING_LENGTH_CREATE: `${API_URL}/juteSQC/create_cutting_length`,
+    CUTTING_LENGTH_BY_DATE: `${API_URL}/juteSQC/get_cutting_length_by_date`,
+    CUTTING_LENGTH_TABLE: `${API_URL}/juteSQC/get_cutting_length_table`,
+    CUTTING_LENGTH_DELETE: `${API_URL}/juteSQC/delete_cutting_length`,
+    // R-08-25 Packing MR% (router prefix /api/juteSQC) — one save = one (date, quality column) reading-set (header + 10 MR% readings); group roll-up by quality_group; PACKING_MR_DELETE POSTs {packing_mr_id, co_id}
+    PACKING_MR_CREATE_SETUP: `${API_URL}/juteSQC/packing_mr_create_setup`,
+    PACKING_MR_CREATE: `${API_URL}/juteSQC/create_packing_mr`,
+    PACKING_MR_BY_DATE: `${API_URL}/juteSQC/get_packing_mr_by_date`,
+    PACKING_MR_TABLE: `${API_URL}/juteSQC/get_packing_mr_table`,
+    PACKING_MR_DELETE: `${API_URL}/juteSQC/delete_packing_mr`,
+    // R-08-19 Fabric Construction (router prefix /api/juteSQC) — one save = one cloth-quality block (header + up to 5 sample rows); FABRIC_CONSTRUCTION_DELETE POSTs {fabric_const_id, co_id}
+    FABRIC_CONSTRUCTION_CREATE_SETUP: `${API_URL}/juteSQC/get_fabric_construction_create_setup`,
+    FABRIC_CONSTRUCTION_CREATE: `${API_URL}/juteSQC/create_fabric_construction`,
+    FABRIC_CONSTRUCTION_BY_DATE: `${API_URL}/juteSQC/get_fabric_construction_by_date`,
+    FABRIC_CONSTRUCTION_TABLE: `${API_URL}/juteSQC/get_fabric_construction_table`,
+    FABRIC_CONSTRUCTION_DELETE: `${API_URL}/juteSQC/delete_fabric_construction`,
+    // R-08-23 Bag Weight (router prefix /api/juteSQC) — one save = one (date, bag type) block (header std_bag_weight/std_mr_pct + up to 24 reading rows {mr, obs}); BAG_WEIGHT_DELETE POSTs {bag_weight_id, co_id}
+    BAG_WEIGHT_CREATE_SETUP: `${API_URL}/juteSQC/bag_weight_create_setup`,
+    BAG_WEIGHT_CREATE: `${API_URL}/juteSQC/create_bag_weight`,
+    BAG_WEIGHT_BY_DATE: `${API_URL}/juteSQC/get_bag_weight_by_date`,
+    BAG_WEIGHT_TABLE: `${API_URL}/juteSQC/get_bag_weight_table`,
+    BAG_WEIGHT_DELETE: `${API_URL}/juteSQC/delete_bag_weight`,
+    // Humidity Recording (router prefix /api/juteSQC) — plant-wide dept temp/RH log; one save = one (date, dept, round) reading-set (header + 1..3 spot readings {spot_label, reading_time, temp_c, rh_pct}); server computes avg_temp/avg_rh; HUMIDITY_DELETE POSTs {humidity_id, co_id}
+    HUMIDITY_CREATE_SETUP: `${API_URL}/juteSQC/humidity_create_setup`,
+    HUMIDITY_CREATE: `${API_URL}/juteSQC/create_humidity`,
+    HUMIDITY_BY_DATE: `${API_URL}/juteSQC/get_humidity_by_date`,
+    HUMIDITY_TABLE: `${API_URL}/juteSQC/get_humidity_table`,
+    HUMIDITY_DELETE: `${API_URL}/juteSQC/delete_humidity`,
+    // R-08-02 Emulsion (router prefix /api/juteSQC) — daily batching jute-oil recipe log; one save = ONE flat row per date (NO readings array). Header: oil_used/tank/measured oil_pct + std band (snapshot) + additive columns. Server computes theoretical_oil_pct (reference) and oil_pct_status (OK/LOW/HIGH); EMULSION_DELETE POSTs {emulsion_id, co_id}
+    EMULSION_CREATE_SETUP: `${API_URL}/juteSQC/emulsion_create_setup`,
+    EMULSION_CREATE: `${API_URL}/juteSQC/create_emulsion`,
+    EMULSION_BY_DATE: `${API_URL}/juteSQC/get_emulsion_by_date`,
+    EMULSION_TABLE: `${API_URL}/juteSQC/get_emulsion_table`,
+    EMULSION_DELETE: `${API_URL}/juteSQC/delete_emulsion`,
+    // R-08-24 Bag Checking (router prefix /api/juteSQC) — finished-bag acceptance inspection; one save = one (date, bag type) block (header: vendor_name/id_code free text + 7 std snapshots + N per-bag detail rows with 7 measures + defects); BAG_CHECK_DELETE POSTs {bag_check_id, co_id}
+    BAG_CHECK_CREATE_SETUP: `${API_URL}/juteSQC/bag_check_create_setup`,
+    BAG_CHECK_CREATE: `${API_URL}/juteSQC/create_bag_check`,
+    BAG_CHECK_BY_DATE: `${API_URL}/juteSQC/get_bag_check_by_date`,
+    BAG_CHECK_TABLE: `${API_URL}/juteSQC/get_bag_check_table`,
+    BAG_CHECK_DELETE: `${API_URL}/juteSQC/delete_bag_check`,
+    // R-08-21 Width & Picks (router prefix /api/juteSQC) — one save = one (date, cloth-quality) group (header std_width_cm/std_picks + N loom reading rows); WIDTH_PICKS_DELETE POSTs {width_picks_id, co_id}
+    WIDTH_PICKS_CREATE_SETUP: `${API_URL}/juteSQC/width_picks_create_setup`,
+    WIDTH_PICKS_CREATE: `${API_URL}/juteSQC/create_width_picks`,
+    WIDTH_PICKS_BY_DATE: `${API_URL}/juteSQC/get_width_picks_by_date`,
+    WIDTH_PICKS_TABLE: `${API_URL}/juteSQC/get_width_picks_table`,
+    WIDTH_PICKS_DELETE: `${API_URL}/juteSQC/delete_width_picks`,
+    // R-08-22 Stitch (router prefix /api/juteSQC) — finishing sewing-stitch-density QC; one save = one (date, sewing machine) reading-set (header std_stitch + 5 stitch counts); STITCH_DELETE POSTs {stitch_id, co_id}
+    STITCH_CREATE_SETUP: `${API_URL}/juteSQC/stitch_create_setup`,
+    STITCH_CREATE: `${API_URL}/juteSQC/create_stitch`,
+    STITCH_BY_DATE: `${API_URL}/juteSQC/get_stitch_by_date`,
+    STITCH_TABLE: `${API_URL}/juteSQC/get_stitch_table`,
+    STITCH_DELETE: `${API_URL}/juteSQC/delete_stitch`,
+    // R-08-28 Fabric Fault (router prefix /api/juteSQC) — weaving woven-cloth defect tally; one save = one inspected piece (header + fixed 15-fault count array); day roll-up server-computed; FABRIC_FAULT_DELETE POSTs {fabric_fault_id, co_id}
+    FABRIC_FAULT_CREATE_SETUP: `${API_URL}/juteSQC/fabric_fault_create_setup`,
+    FABRIC_FAULT_CREATE: `${API_URL}/juteSQC/create_fabric_fault`,
+    FABRIC_FAULT_BY_DATE: `${API_URL}/juteSQC/get_fabric_fault_by_date`,
+    FABRIC_FAULT_TABLE: `${API_URL}/juteSQC/get_fabric_fault_table`,
+    FABRIC_FAULT_DELETE: `${API_URL}/juteSQC/delete_fabric_fault`,
     // RHMR (Temperature / Humidity per date + spell) — SPINNING_SQC_RHMR_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_RHMR_SETUP: `${API_URL}/juteSQC/sqc_rhmr_setup`,
     SPINNING_SQC_RHMR_SEARCH: `${API_URL}/juteSQC/sqc_rhmr_search`,
@@ -934,6 +1101,35 @@ const apiRoutesPortalMasters = {
     BEAMING_ENTRY_DELETE: `${API_URL}/beamingProd/entry_delete`,
     BEAMING_PLANNING_GRID: `${API_URL}/beamingProd/planning_grid`,
     BEAMING_PLANNING_GRID_SAVE: `${API_URL}/beamingProd/planning_grid_save`,
+    // Finishing Spec Sheet (router prefix /api/finishingTargetMap) — clone of beamingTargetMap,
+    // adding the `process` dimension on every call. *_EDIT/*_DELETE are base paths; caller appends /${id}
+    FINISHING_TARGET_MAP_SETUP: `${API_URL}/finishingTargetMap/target_map_setup`,
+    FINISHING_TARGET_MAP_GRID: `${API_URL}/finishingTargetMap/target_map_grid`,
+    FINISHING_TARGET_MAP_BULK_SAVE: `${API_URL}/finishingTargetMap/target_map_bulk_save`,
+    FINISHING_TARGET_MAP_LIST: `${API_URL}/finishingTargetMap/target_map_list`,
+    FINISHING_TARGET_MAP_CREATE: `${API_URL}/finishingTargetMap/target_map_create`,
+    FINISHING_TARGET_MAP_EDIT: `${API_URL}/finishingTargetMap/target_map_edit`,
+    FINISHING_TARGET_MAP_DELETE: `${API_URL}/finishingTargetMap/target_map_delete`,
+    // Finishing Quality Master (router prefix /api/finishingMasters) — cloth (type 1) & bag (type 2)
+    // qualities. *_DETAIL/*_EDIT/*_DELETE are base paths; caller appends /${id}?co_id=...
+    FINISHING_QUALITY_SETUP: `${API_URL}/finishingMasters/quality_setup`,
+    FINISHING_QUALITY_LIST: `${API_URL}/finishingMasters/quality_list`,
+    FINISHING_QUALITY_DETAIL: `${API_URL}/finishingMasters/quality_detail`,
+    FINISHING_QUALITY_CREATE: `${API_URL}/finishingMasters/quality_create`,
+    FINISHING_QUALITY_EDIT: `${API_URL}/finishingMasters/quality_edit`,
+    FINISHING_QUALITY_DELETE: `${API_URL}/finishingMasters/quality_delete`,
+    // Finishing Production Entry (router prefix /api/finishingProd) — built by the production-entry slice.
+    FINISHING_PROD_ENTRY_SETUP: `${API_URL}/finishingProd/entry_setup`,
+    FINISHING_PROD_ENTRY_SAVE: `${API_URL}/finishingProd/entry_save`,
+    FINISHING_PROD_ENTRY_BY_DATE: `${API_URL}/finishingProd/entry_by_date`,
+    FINISHING_PROD_ENTRY_DELETE: `${API_URL}/finishingProd/entry_delete`,
+    // Labour processes (sacksewing): resolve emp_code -> eb_id + name, branch-scoped.
+    FINISHING_PROD_EMPLOYEE_LOOKUP: `${API_URL}/finishingProd/employee_lookup`,
+    // Finishing SQC — ACTUALS ONLY (router prefix /api/juteSQC, shared with Spinning/Beaming SQC).
+    // Proxies to finishingTargetMap with value_role='actual'.
+    FINISHING_SQC_SETUP: `${API_URL}/juteSQC/finishing_sqc_setup`,
+    FINISHING_SQC_ACTUAL_GRID: `${API_URL}/juteSQC/finishing_sqc_actual_grid`,
+    FINISHING_SQC_ACTUAL_SAVE: `${API_URL}/juteSQC/finishing_sqc_actual_save`,
     // Weaving Quality Master (router prefix /api/weavingMasters) — WEAVING_QUALITY_EDIT/DELETE are
     // base paths; caller appends /${id}?co_id=...
     WEAVING_QUALITY_SETUP: `${API_URL}/weavingMasters/weaving_quality_setup`,
@@ -954,6 +1150,8 @@ const apiRoutesPortalMasters = {
     // base paths; caller appends /${id}?co_id=...
     WEAVING_ENTRY_CREATE_SETUP: `${API_URL}/weavingProd/entry_create_setup`,
     WEAVING_ENTRIES_BY_DATE: `${API_URL}/weavingProd/entries_by_date`,
+    // Light table-direct read for the entry grid: inputs + open_jugar + jpc only.
+    WEAVING_ENTRY_INPUTS_BY_DATE: `${API_URL}/weavingProd/entry_inputs_by_date`,
     WEAVING_MACHINE_STANDARDS: `${API_URL}/weavingProd/machine_standards`,
     WEAVING_ENTRY_CREATE: `${API_URL}/weavingProd/entry_create`,
     WEAVING_ENTRY_EDIT: `${API_URL}/weavingProd/entry_edit`,
@@ -962,11 +1160,18 @@ const apiRoutesPortalMasters = {
     WEAVING_PLANNING_GRID_SAVE: `${API_URL}/weavingProd/planning_grid_save`,
     // Loom -> Quality map (router prefix /api/weavingProd)
     WEAVING_QUALITY_MAP_GET: `${API_URL}/weavingProd/quality_map_get`,
+    // Cheap saved-mapping-only read (no carry-forward) — used by the entry grid.
+    WEAVING_QUALITY_MAP_SAVED: `${API_URL}/weavingProd/quality_map_saved`,
     WEAVING_QUALITY_MAP_SAVE: `${API_URL}/weavingProd/quality_map_save`,
     WEAVING_QUALITY_MAP_MAPPED: `${API_URL}/weavingProd/quality_map_mapped`,
     // Beam-change tab (router prefix /api/weavingProd)
     WEAVING_BEAM_MAP_GET: `${API_URL}/weavingProd/beam_map_get`,
     WEAVING_BEAM_MAP_SAVE: `${API_URL}/weavingProd/beam_map_save`,
+    WEAVING_ADJUSTMENT_GET: `${API_URL}/weavingProd/adjustment_get`,
+    WEAVING_ADJUSTMENT_SAVE: `${API_URL}/weavingProd/adjustment_save`,
+    // Process + lock (router prefix /api/weavingProd)
+    WEAVING_PROCESS: `${API_URL}/weavingProd/process`,
+    WEAVING_PROCESS_STATUS: `${API_URL}/weavingProd/process_status`,
 };
 
 // Support tickets (Zendesk-style). Raised from Portal/Tenant Admin widgets,

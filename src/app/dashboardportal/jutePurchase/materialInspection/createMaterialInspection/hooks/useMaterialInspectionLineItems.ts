@@ -34,9 +34,13 @@ export function useGateEntryLineItems({
 		maintainTrailingBlank: mode !== "view",
 	});
 
-	// Recalculate weights when header values change
+	// Recalculate weights when header values change. CREATE-only: in edit this
+	// fired on load (formValues transition 0 -> saved header weights) and replaced
+	// every persisted per-line weight with a header-proportional share — proven on
+	// sls MR 27960 where the original April gate weights were rewritten at QC save.
+	// Qty edits in any mode still recalc via handleLineFieldChange below.
 	React.useEffect(() => {
-		if (mode === "view") return;
+		if (mode !== "create") return;
 		if (headerChallanWeight <= 0 && headerActualWeight <= 0) return;
 
 		setLineItems((prev) => {

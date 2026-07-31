@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Chip, Typography } from "@mui/material";
+import { Alert, Chip, FormControl, InputLabel, MenuItem, Select, Typography } from "@mui/material";
+import type { SelectChangeEvent } from "@mui/material";
 import type { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui/x-data-grid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -27,6 +28,10 @@ type JutePORow = {
 	mukam: string;
 	vehicle_type: string;
 	vehicle_qty: number | null;
+	received_lorries: number | null;
+	pending_lorries: number | null;
+	received_qty_qtl: number | null;
+	pending_qty_qtl: number | null;
 	status: string;
 };
 
@@ -63,6 +68,17 @@ const getStatusColor = (status: string): "success" | "error" | "warning" | "info
 	return "default";
 };
 
+// Jute PO status ids — from jutePO.py status-change endpoints
+// (21=Draft, 1=Open, 20=Pending Approval, 3=Approved, 4=Rejected, 6=Cancelled).
+const JUTE_PO_STATUS_OPTIONS: ReadonlyArray<{ value: number; label: string }> = [
+	{ value: 21, label: "Draft" },
+	{ value: 1, label: "Open" },
+	{ value: 20, label: "Pending Approval" },
+	{ value: 3, label: "Approved" },
+	{ value: 4, label: "Rejected" },
+	{ value: 6, label: "Cancelled" },
+];
+
 export default function JutePOIndexPage() {
 	const router = useRouter();
 	const [rows, setRows] = React.useState<JutePORow[]>([]);
@@ -70,6 +86,7 @@ export default function JutePOIndexPage() {
 	const [loading, setLoading] = React.useState(false);
 	const [paginationModel, setPaginationModel] = React.useState<GridPaginationModel>({ page: 0, pageSize: 10 });
 	const [searchValue, setSearchValue] = React.useState("");
+	const [statusFilter, setStatusFilter] = React.useState<number | null>(null);
 	const [fromDate, setFromDate] = React.useState("");
 	const [toDate, setToDate] = React.useState("");
 	const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -80,12 +97,13 @@ export default function JutePOIndexPage() {
 	}, []);
 
 	const downloadFetcher = React.useCallback(
-		(p: { coId: string; search: string; fromDate: string; toDate: string }) =>
+		(p: { coId: string; search: string; fromDate: string; toDate: string; statusId: number | null }) =>
 			fetchExcelBlob(apiRoutesPortalMasters.JUTE_PO_DOWNLOAD, {
 				coId: p.coId,
 				search: p.search,
 				fromDate: p.fromDate || null,
 				toDate: p.toDate || null,
+				statusId: p.statusId,
 			}),
 		[]
 	);
@@ -157,6 +175,50 @@ export default function JutePOIndexPage() {
 				),
 			},
 			{
+				field: "received_lorries",
+				headerName: "Lorries Received",
+				minWidth: 120,
+				type: "number",
+				renderCell: (params: GridRenderCellParams<JutePORow, number | null>) => (
+					<Typography component="span" variant="body2">
+						{params.value ?? "-"}
+					</Typography>
+				),
+			},
+			{
+				field: "pending_lorries",
+				headerName: "Lorries Pending",
+				minWidth: 120,
+				type: "number",
+				renderCell: (params: GridRenderCellParams<JutePORow, number | null>) => (
+					<Typography component="span" variant="body2">
+						{params.value ?? "-"}
+					</Typography>
+				),
+			},
+			{
+				field: "received_qty_qtl",
+				headerName: "Qty Received (Qtl)",
+				minWidth: 130,
+				type: "number",
+				renderCell: (params: GridRenderCellParams<JutePORow, number | null>) => (
+					<Typography component="span" variant="body2">
+						{params.value ?? "-"}
+					</Typography>
+				),
+			},
+			{
+				field: "pending_qty_qtl",
+				headerName: "Qty Pending (Qtl)",
+				minWidth: 130,
+				type: "number",
+				renderCell: (params: GridRenderCellParams<JutePORow, number | null>) => (
+					<Typography component="span" variant="body2">
+						{params.value ?? "-"}
+					</Typography>
+				),
+			},
+			{
 				field: "status",
 				headerName: "Status",
 				minWidth: 120,
@@ -192,6 +254,7 @@ export default function JutePOIndexPage() {
 			if (co_id) query.set("co_id", co_id);
 			const trimmedSearch = searchValue.trim();
 			if (trimmedSearch) query.set("search", trimmedSearch);
+			if (statusFilter !== null) query.set("status_id", String(statusFilter));
 			if (fromDate) query.set("from_date", fromDate);
 			if (toDate) query.set("to_date", toDate);
 
@@ -222,6 +285,10 @@ export default function JutePOIndexPage() {
 					mukam: (r.mukam ?? r.mukam_name ?? "") as string,
 					vehicle_type: (r.vehicle_type ?? r.vehicleType ?? "") as string,
 					vehicle_qty: (r.vehicle_qty ?? r.vehicleQty ?? r.no_of_vehicles ?? null) as number | null,
+					received_lorries: (r.received_lorries ?? null) as number | null,
+					pending_lorries: (r.pending_lorries ?? null) as number | null,
+					received_qty_qtl: (r.received_qty_qtl ?? null) as number | null,
+					pending_qty_qtl: (r.pending_qty_qtl ?? null) as number | null,
 					status: (r.status ?? r.status_name ?? r.po_status ?? "Pending") as string,
 				};
 			});
@@ -237,7 +304,7 @@ export default function JutePOIndexPage() {
 		} finally {
 			setLoading(false);
 		}
-	}, [paginationModel.page, paginationModel.pageSize, searchValue, fromDate, toDate]);
+	}, [paginationModel.page, paginationModel.pageSize, searchValue, statusFilter, fromDate, toDate]);
 
 	React.useEffect(() => {
 		fetchJutePOs();
@@ -251,6 +318,12 @@ export default function JutePOIndexPage() {
 		const value = event.target.value;
 		setPaginationModel((prev) => ({ ...prev, page: 0 }));
 		setSearchValue(value);
+	}, []);
+
+	const handleStatusFilterChange = React.useCallback((event: SelectChangeEvent<string>) => {
+		const raw = event.target.value;
+		setPaginationModel((prev) => ({ ...prev, page: 0 }));
+		setStatusFilter(raw === "" ? null : Number(raw));
 	}, []);
 
 	const handleFromDateChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -270,8 +343,8 @@ export default function JutePOIndexPage() {
 	}, []);
 
 	const handleDownload = React.useCallback(() => {
-		download({ coId: coIdState, search: searchValue, fromDate, toDate });
-	}, [download, coIdState, searchValue, fromDate, toDate]);
+		download({ coId: coIdState, search: searchValue, fromDate, toDate, statusId: statusFilter });
+	}, [download, coIdState, searchValue, fromDate, toDate, statusFilter]);
 
 	const handleCreateJutePO = React.useCallback(() => {
 		router.push("/dashboardportal/jutePurchase/po/createPO");
@@ -316,6 +389,7 @@ export default function JutePOIndexPage() {
 			onPaginationModelChange={handlePaginationModelChange}
 			loading={loading}
 			showLoadingUntilLoaded
+			autoHeight
 			search={{
 				value: searchValue,
 				onChange: handleSearchChange,
@@ -324,17 +398,35 @@ export default function JutePOIndexPage() {
 			}}
 			createAction={{ onClick: handleCreateJutePO, label: "Create Jute PO" }}
 			toolbarContent={
-				<DateRangeToolbar
-					fromDate={fromDate}
-					toDate={toDate}
-					onFromDateChange={handleFromDateChange}
-					onToDateChange={handleToDateChange}
-					onClearDates={handleClearDates}
-					onDownload={handleDownload}
-					downloading={downloading}
-					downloadDisabled={!coIdState || loading}
-					mounted={mounted}
-				/>
+				<>
+					<FormControl size="small" sx={{ minWidth: 180 }}>
+						<InputLabel id="jute-po-status-filter-label">Status</InputLabel>
+						<Select<string>
+							labelId="jute-po-status-filter-label"
+							label="Status"
+							value={statusFilter === null ? "" : String(statusFilter)}
+							onChange={handleStatusFilterChange}
+						>
+							<MenuItem value="">All statuses</MenuItem>
+							{JUTE_PO_STATUS_OPTIONS.map((option) => (
+								<MenuItem key={option.value} value={String(option.value)}>
+									{option.label}
+								</MenuItem>
+							))}
+						</Select>
+					</FormControl>
+					<DateRangeToolbar
+						fromDate={fromDate}
+						toDate={toDate}
+						onFromDateChange={handleFromDateChange}
+						onToDateChange={handleToDateChange}
+						onClearDates={handleClearDates}
+						onDownload={handleDownload}
+						downloading={downloading}
+						downloadDisabled={!coIdState || loading}
+						mounted={mounted}
+					/>
+				</>
 			}
 			onView={handleView}
 			onEdit={handleEdit}

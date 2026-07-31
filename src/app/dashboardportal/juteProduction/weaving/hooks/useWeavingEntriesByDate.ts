@@ -5,8 +5,10 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WeavingEntryRow } from "../types/weavingTypes";
 
-// GET WEAVING_ENTRIES_BY_DATE?co_id&tran_date&branch_id&spell?&machine_id?
-// -> { data: WeavingEntryRow[] }. Mirrors useDoffEntriesByDate / useBeamingEntriesByDate.
+// GET WEAVING_ENTRY_INPUTS_BY_DATE?co_id&tran_date&branch_id&spell?&machine_id?
+// -> { data: WeavingEntryRow[] } (light rows: inputs + open_jugar + jpc/fl — no
+// standards/pick/stoppage probes; ~7x fewer per-row lookups than entries_by_date).
+// Mirrors useDoffEntriesByDate / useBeamingEntriesByDate.
 export function useWeavingEntriesByDate(
 	coId: string | null | undefined,
 	tranDate: string,
@@ -18,6 +20,10 @@ export function useWeavingEntriesByDate(
 ) {
 	const [rows, setRows] = React.useState<WeavingEntryRow[]>([]);
 	const [loading, setLoading] = React.useState(false);
+	// True once the CURRENT (co, date, branch, spell) fetch has completed — consumers that
+	// seed local state from `rows` must wait for it: `loading` starts false, so on mount the
+	// first render commits BEFORE the fetch effect flips it and a loading-only gate seeds blanks.
+	const [loaded, setLoaded] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
 	const [version, setVersion] = React.useState(0);
 
@@ -26,11 +32,13 @@ export function useWeavingEntriesByDate(
 	React.useEffect(() => {
 		if (!coId || !tranDate || branchId == null) {
 			setRows([]);
+			setLoaded(false);
 			return;
 		}
 		let cancelled = false;
 		setLoading(true);
-		let url = `${apiRoutesPortalMasters.WEAVING_ENTRIES_BY_DATE}?co_id=${coId}&tran_date=${tranDate}&branch_id=${branchId}`;
+		setLoaded(false);
+		let url = `${apiRoutesPortalMasters.WEAVING_ENTRY_INPUTS_BY_DATE}?co_id=${coId}&tran_date=${tranDate}&branch_id=${branchId}`;
 		if (spell) url += `&spell=${spell}`;
 		if (machineId != null) url += `&machine_id=${machineId}`;
 		void fetchWithCookie<{ data: WeavingEntryRow[] }>(url, "GET").then(({ data, error: err }) => {
@@ -43,11 +51,12 @@ export function useWeavingEntriesByDate(
 				setRows(data?.data ?? []);
 			}
 			setLoading(false);
+			setLoaded(true);
 		});
 		return () => {
 			cancelled = true;
 		};
 	}, [coId, tranDate, branchId, spell, machineId, version, refreshKey]);
 
-	return { rows, loading, error, refresh };
+	return { rows, loading, loaded, error, refresh };
 }

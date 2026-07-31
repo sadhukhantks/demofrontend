@@ -1,25 +1,26 @@
 /**
  * @component InventorySearchTable
- * @description Searchable table for available inventory items from approved SRs.
- * Uses simple HTML table to avoid MUI DataGrid SSR issues.
+ * @description Dialog-based search for available inventory items from approved SRs.
+ * Fetches only on explicit search (Search button / Enter) and inserts items one at a time
+ * via an Add button.
  */
 "use client";
 
 import React from "react";
 import {
 	Box,
-	Paper,
 	Typography,
 	TextField,
 	InputAdornment,
 	Button,
-	Checkbox,
 	CircularProgress,
 	Pagination,
+	Dialog,
+	DialogTitle,
+	DialogContent,
 } from "@mui/material";
 import { Search, Plus, AlertCircle } from "lucide-react";
 import { fetchInventoryList, type InventoryListItem } from "@/utils/issueService";
-import { useDebounce } from "@/hooks/use-debounce";
 import {
 	Table,
 	TableHeader,
@@ -34,11 +35,15 @@ type InventorySearchTableProps = {
 	coId: string;
 	/** Branch ID to filter inventory */
 	branchId: string;
-	/** Whether the table is disabled (e.g., in view mode) */
+	/** Whether the control is disabled (e.g., in view mode) */
 	disabled?: boolean;
-	/** Callback when items are selected for insertion */
+	/** Callback when an item is selected for insertion */
 	onInsertItems: (items: InventoryListItem[]) => void;
+	/** inward_dtl_id values already present in the issue (rendered as "Added", disabled) */
+	addedInwardDtlIds?: Set<string>;
 };
+
+const EMPTY_ADDED: Set<string> = new Set();
 
 const PAGE_SIZE = 10;
 
@@ -74,30 +79,38 @@ export function InventorySearchTable({
 	branchId,
 	disabled = false,
 	onInsertItems,
+	addedInwardDtlIds = EMPTY_ADDED,
 }: InventorySearchTableProps) {
 	// State
+	const [open, setOpen] = React.useState(false);
 	const [rows, setRows] = React.useState<InventoryListItem[]>([]);
 	const [loading, setLoading] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
 	const [totalRows, setTotalRows] = React.useState(0);
 	const [page, setPage] = React.useState(1);
 	const [searchValue, setSearchValue] = React.useState("");
-	const [selectedIds, setSelectedIds] = React.useState<Set<number>>(new Set());
+	// Search only runs when the user presses the Search button (or Enter) —
+	// typing alone never fetches, so slow typists aren't hit with premature results.
+	const [submittedSearch, setSubmittedSearch] = React.useState("");
 
-	// Debounce search
-	const debouncedSearch = useDebounce(searchValue, 300);
+	// Monotonic request id — guards against out-of-order fetch responses
+	// (a slower earlier request resolving after a newer one would clobber rows).
+	const reqIdRef = React.useRef(0);
 
 	// Calculate total pages
 	const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
 
-	// Fetch data
+	// Fetch data — only when dialog is open AND a search was submitted
+	// (no upfront full-list load, to keep the dialog fast)
 	const fetchData = React.useCallback(async () => {
-		if (!coId || !branchId) {
+		if (!coId || !branchId || !open || !submittedSearch) {
 			setRows([]);
 			setTotalRows(0);
+			setError(null);
 			return;
 		}
 
+		const reqId = ++reqIdRef.current;
 		setLoading(true);
 		setError(null);
 
@@ -106,75 +119,69 @@ export function InventorySearchTable({
 				branchId,
 				page,
 				limit: PAGE_SIZE,
-				search: debouncedSearch || undefined,
+				search: submittedSearch,
 			});
 
+			if (reqId !== reqIdRef.current) return; // a newer request superseded this one
 			setRows(result.data);
 			setTotalRows(result.total);
 		} catch (err) {
+			if (reqId !== reqIdRef.current) return;
 			const message = err instanceof Error ? err.message : "Failed to load inventory";
 			setError(message);
 			setRows([]);
 			setTotalRows(0);
 		} finally {
-			setLoading(false);
+			if (reqId === reqIdRef.current) setLoading(false);
 		}
-	}, [coId, branchId, page, debouncedSearch]);
+	}, [coId, branchId, open, page, submittedSearch]);
 
-	// Fetch on mount and when deps change
+	// Fetch when deps change
 	React.useEffect(() => {
 		void fetchData();
 	}, [fetchData]);
 
-	// Clear selection when data changes
-	React.useEffect(() => {
-		setSelectedIds(new Set());
-	}, [rows]);
-
-	// Handle select all
-	const handleSelectAll = React.useCallback(
-		(checked: boolean) => {
-			if (checked) {
-				setSelectedIds(new Set(rows.map((row) => row.inward_dtl_id)));
-			} else {
-				setSelectedIds(new Set());
-			}
-		},
-		[rows]
-	);
-
-	// Handle individual row selection
-	const handleSelectRow = React.useCallback((id: number, checked: boolean) => {
-		setSelectedIds((prev) => {
-			const newSet = new Set(prev);
-			if (checked) {
-				newSet.add(id);
-			} else {
-				newSet.delete(id);
-			}
-			return newSet;
-		});
+	// Reset transient state when the dialog closes
+	const handleClose = React.useCallback(() => {
+		setOpen(false);
+		setSearchValue("");
+		setSubmittedSearch("");
+		setPage(1);
+		setRows([]);
+		setTotalRows(0);
+		setError(null);
 	}, []);
 
-	// Handle insert
-	const handleInsert = React.useCallback(() => {
-		if (selectedIds.size === 0) return;
+	// Handle add (single row, direct insert)
+	const handleAdd = React.useCallback(
+		(row: InventoryListItem) => {
+			onInsertItems([row]);
+		},
+		[onInsertItems]
+	);
 
-		const selectedItems = rows.filter((row) => selectedIds.has(row.inward_dtl_id));
-
-		if (selectedItems.length > 0) {
-			onInsertItems(selectedItems);
-			setSelectedIds(new Set());
-		}
-	}, [selectedIds, rows, onInsertItems]);
-
-	// Handle search change
+	// Handle search change (typing only updates the field — no fetch)
 	const handleSearchChange = React.useCallback(
 		(event: React.ChangeEvent<HTMLInputElement>) => {
 			setSearchValue(event.target.value);
-			setPage(1); // Reset to first page on search
 		},
 		[]
+	);
+
+	// Submit search (button click or Enter)
+	const handleSearchSubmit = React.useCallback(() => {
+		setPage(1); // Reset to first page on new search
+		setSubmittedSearch(searchValue.trim());
+	}, [searchValue]);
+
+	const handleSearchKeyDown = React.useCallback(
+		(event: React.KeyboardEvent<HTMLInputElement>) => {
+			if (event.key === "Enter") {
+				event.preventDefault();
+				handleSearchSubmit();
+			}
+		},
+		[handleSearchSubmit]
 	);
 
 	// Handle page change
@@ -185,193 +192,185 @@ export function InventorySearchTable({
 		[]
 	);
 
-	// Check if all rows are selected
-	const allSelected = rows.length > 0 && rows.every((row) => selectedIds.has(row.inward_dtl_id));
-	const someSelected = rows.some((row) => selectedIds.has(row.inward_dtl_id));
-
-	// Show placeholder if no branch selected
-	if (!branchId) {
-		return (
-			<Paper elevation={0} className="border border-gray-200 rounded-lg p-6">
-				<Typography variant="body2" color="text.secondary" className="text-center">
-					Select a branch to view available inventory.
-				</Typography>
-			</Paper>
-		);
-	}
-
 	return (
-		<Paper elevation={0} className="border border-gray-200 rounded-lg overflow-hidden">
-			{/* Header */}
-			<Box className="p-4 border-b border-gray-200 bg-gray-50">
-				<Box className="flex items-center justify-between gap-4">
-					<Box>
-						<Typography variant="subtitle1" fontWeight={600}>
-							Available Inventory
-						</Typography>
-						<Typography variant="body2" color="text.secondary">
-							Search and select items to add to the issue.
-						</Typography>
-					</Box>
-					<Box className="flex items-center gap-3">
-						<TextField
-							size="small"
-							placeholder="Search by item, group, or GRN..."
-							value={searchValue}
-							onChange={handleSearchChange}
-							disabled={disabled}
-							slotProps={{
-								input: {
-									startAdornment: (
-										<InputAdornment position="start">
-											<Search className="h-4 w-4 text-gray-400" />
-										</InputAdornment>
-									),
-								},
-							}}
-							sx={{ width: 280 }}
-						/>
-						<Button
-							variant="contained"
-							size="small"
-							startIcon={<Plus className="h-4 w-4" />}
-							onClick={handleInsert}
-							disabled={disabled || selectedIds.size === 0}
-						>
-							Insert to Issue ({selectedIds.size})
-						</Button>
-					</Box>
-				</Box>
-			</Box>
+		<Box>
+			<Button
+				variant="outlined"
+				size="small"
+				startIcon={<Search className="h-4 w-4" />}
+				onClick={() => setOpen(true)}
+				disabled={disabled || !branchId}
+			>
+				Add from Inventory
+			</Button>
 
-			{/* Error display */}
-			{error ? (
-				<Box className="p-4 bg-red-50 border-b border-red-200 flex items-center gap-2">
-					<AlertCircle className="h-4 w-4 text-red-600" />
-					<Typography variant="body2" className="text-red-700">
-						{error}
-					</Typography>
-				</Box>
-			) : null}
-
-			{/* Table */}
-			<Box className="relative">
-				{loading && (
-					<Box className="absolute inset-0 bg-white/70 z-10 flex items-center justify-center">
-						<CircularProgress size={24} />
+			<Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
+				<DialogTitle>
+					<Box className="flex items-center justify-between gap-4">
+						<Box>
+							<Typography variant="subtitle1" fontWeight={600}>
+								Available Inventory
+							</Typography>
+							<Typography variant="body2" color="text.secondary">
+								Search items and add them to the issue.
+							</Typography>
+						</Box>
+						<Box className="flex items-center gap-2">
+							<TextField
+								size="small"
+								autoFocus
+								placeholder="Search by item, group, or SR no..."
+								value={searchValue}
+								onChange={handleSearchChange}
+								onKeyDown={handleSearchKeyDown}
+								disabled={disabled}
+								slotProps={{
+									input: {
+										startAdornment: (
+											<InputAdornment position="start">
+												<Search className="h-4 w-4 text-gray-400" />
+											</InputAdornment>
+										),
+									},
+								}}
+								sx={{ width: 320 }}
+							/>
+							<Button
+								variant="contained"
+								size="small"
+								onClick={handleSearchSubmit}
+								disabled={disabled || !searchValue.trim() || loading}
+							>
+								Search
+							</Button>
+						</Box>
 					</Box>
-				)}
+				</DialogTitle>
 
-				<Table>
-					<TableHeader>
-						<TableRow>
-							{!disabled && (
-								<TableHead className="w-10">
-									<Checkbox
-										size="small"
-										checked={allSelected}
-										indeterminate={someSelected && !allSelected}
-										onChange={(e) => handleSelectAll(e.target.checked)}
-										disabled={disabled || rows.length === 0}
-									/>
-								</TableHead>
-							)}
-							<TableHead>GRN No</TableHead>
-							<TableHead className="w-24">Date</TableHead>
-							<TableHead>Item Group</TableHead>
-							<TableHead>Item Code</TableHead>
-							<TableHead>Item Name</TableHead>
-							<TableHead className="w-16">UOM</TableHead>
-							<TableHead className="w-20 text-right">Avl Qty</TableHead>
-							<TableHead className="w-24 text-right">Rate</TableHead>
-							<TableHead>Warehouse</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{rows.length === 0 ? (
-							<TableRow>
-								<TableCell
-									colSpan={disabled ? 9 : 10}
-									className="text-center py-8 text-gray-500"
-								>
-									{debouncedSearch
-										? "No items match your search."
-										: "No available inventory found."}
-								</TableCell>
-							</TableRow>
-						) : (
-							rows.map((row) => (
-								<TableRow
-									key={row.inward_dtl_id}
-									className={
-										selectedIds.has(row.inward_dtl_id)
-											? "bg-blue-50"
-											: undefined
-									}
-								>
-									{!disabled && (
-										<TableCell className="w-10">
-											<Checkbox
-												size="small"
-												checked={selectedIds.has(row.inward_dtl_id)}
-												onChange={(e) =>
-													handleSelectRow(row.inward_dtl_id, e.target.checked)
-												}
-												disabled={disabled}
-											/>
-										</TableCell>
-									)}
-									<TableCell className="font-mono text-xs">
-										{row.inward_no || "-"}
-									</TableCell>
-									<TableCell className="text-xs">
-										{formatDate(row.inward_date)}
-									</TableCell>
-									<TableCell className="text-sm">
-										{row.item_grp_name || "-"}
-									</TableCell>
-									<TableCell className="font-mono text-xs">
-										{row.full_item_code || row.item_code || "-"}
-									</TableCell>
-									<TableCell className="text-sm">
-										{row.item_name || "-"}
-									</TableCell>
-									<TableCell className="text-xs">
-										{row.uom_name || "-"}
-									</TableCell>
-									<TableCell className="text-right font-mono text-sm">
-										{formatNumber(row.available_qty, 2)}
-									</TableCell>
-									<TableCell className="text-right font-mono text-sm">
-										{formatNumber(row.rate, 2)}
-									</TableCell>
-									<TableCell className="text-xs">
-										{row.warehouse_name || "-"}
-									</TableCell>
-								</TableRow>
-							))
+				<DialogContent dividers>
+					{/* Error display */}
+					{error ? (
+						<Box className="p-3 mb-3 bg-red-50 border border-red-200 rounded flex items-center gap-2">
+							<AlertCircle className="h-4 w-4 text-red-600" />
+							<Typography variant="body2" className="text-red-700">
+								{error}
+							</Typography>
+						</Box>
+					) : null}
+
+					<Box className="relative">
+						{loading && (
+							<Box className="absolute inset-0 bg-white/70 z-10 flex items-center justify-center">
+								<CircularProgress size={24} />
+							</Box>
 						)}
-					</TableBody>
-				</Table>
-			</Box>
 
-			{/* Pagination */}
-			{totalPages > 1 && (
-				<Box className="p-3 border-t border-gray-200 flex items-center justify-between">
-					<Typography variant="body2" color="text.secondary">
-						Showing {(page - 1) * PAGE_SIZE + 1} to{" "}
-						{Math.min(page * PAGE_SIZE, totalRows)} of {totalRows} items
-					</Typography>
-					<Pagination
-						count={totalPages}
-						page={page}
-						onChange={handlePageChange}
-						size="small"
-						color="primary"
-					/>
-				</Box>
-			)}
-		</Paper>
+						<Table>
+							<TableHeader>
+								<TableRow>
+									<TableHead>SR No</TableHead>
+									<TableHead className="w-24">Date</TableHead>
+									<TableHead>Item Group</TableHead>
+									<TableHead>Item Code</TableHead>
+									<TableHead>Item Name</TableHead>
+									<TableHead className="w-16">UOM</TableHead>
+									<TableHead className="w-20 text-right">Avl Qty</TableHead>
+									<TableHead className="w-24 text-right">Rate</TableHead>
+									<TableHead>Warehouse</TableHead>
+									<TableHead className="w-16" />
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{rows.length === 0 ? (
+									<TableRow>
+										<TableCell
+											colSpan={10}
+											className="text-center py-8 text-gray-500"
+										>
+											{submittedSearch
+												? "No items match your search."
+												: "Type a search term and press Search."}
+										</TableCell>
+									</TableRow>
+								) : (
+									rows.map((row) => {
+										const alreadyAdded = addedInwardDtlIds.has(
+											String(row.inward_dtl_id)
+										);
+										const itemLabel =
+											row.item_name || row.item_code || "item";
+										return (
+										<TableRow key={row.inward_dtl_id}>
+											<TableCell className="font-mono text-xs">
+												{row.sr_no || "-"}
+											</TableCell>
+											<TableCell className="text-xs">
+												{formatDate(row.inward_date)}
+											</TableCell>
+											<TableCell className="text-sm">
+												{row.item_grp_name || "-"}
+											</TableCell>
+											<TableCell className="font-mono text-xs">
+												{row.full_item_code || row.item_code || "-"}
+											</TableCell>
+											<TableCell className="text-sm">
+												{row.item_name || "-"}
+											</TableCell>
+											<TableCell className="text-xs">
+												{row.uom_name || "-"}
+											</TableCell>
+											<TableCell className="text-right font-mono text-sm">
+												{formatNumber(row.available_qty, 2)}
+											</TableCell>
+											<TableCell className="text-right font-mono text-sm">
+												{formatNumber(row.rate, 2)}
+											</TableCell>
+											<TableCell className="text-xs">
+												{row.warehouse_name || "-"}
+											</TableCell>
+											<TableCell>
+												<Button
+													variant="contained"
+													size="small"
+													startIcon={<Plus className="h-4 w-4" />}
+													onClick={() => handleAdd(row)}
+													disabled={disabled || alreadyAdded}
+													aria-label={
+														alreadyAdded
+															? `${itemLabel} already added`
+															: `Add ${itemLabel} to issue`
+													}
+												>
+													{alreadyAdded ? "Added" : "Add"}
+												</Button>
+											</TableCell>
+										</TableRow>
+										);
+									})
+								)}
+							</TableBody>
+						</Table>
+					</Box>
+
+					{/* Pagination */}
+					{totalPages > 1 && (
+						<Box className="pt-3 flex items-center justify-between">
+							<Typography variant="body2" color="text.secondary">
+								Showing {(page - 1) * PAGE_SIZE + 1} to{" "}
+								{Math.min(page * PAGE_SIZE, totalRows)} of {totalRows} items
+							</Typography>
+							<Pagination
+								count={totalPages}
+								page={page}
+								onChange={handlePageChange}
+								size="small"
+								color="primary"
+							/>
+						</Box>
+					)}
+				</DialogContent>
+			</Dialog>
+		</Box>
 	);
 }
 

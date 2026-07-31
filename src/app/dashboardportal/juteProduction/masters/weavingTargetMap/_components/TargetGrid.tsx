@@ -54,6 +54,7 @@ type Props = {
 	saving: boolean;
 	effectiveDate: string;
 	paramLabels: Record<string, string>;
+	refLabel?: string;
 	onSave: (cells: DirtyCell[]) => void;
 };
 
@@ -69,6 +70,7 @@ export default function TargetGrid({
 	saving,
 	effectiveDate,
 	paramLabels,
+	refLabel = "Quality",
 	onSave,
 }: Props) {
 	// Baseline = the loaded value per cell as a string ("" when absent). A cell is
@@ -139,7 +141,7 @@ export default function TargetGrid({
 	}
 
 	if (grid.rows.length === 0) {
-		return <Alert severity="info">No weaving qualities found for this company.</Alert>;
+		return <Alert severity="info">No rows found for this company.</Alert>;
 	}
 
 	if (grid.params.length === 0) {
@@ -174,7 +176,7 @@ export default function TargetGrid({
 					<TableHead>
 						<TableRow>
 							<TableCell>Code</TableCell>
-							<TableCell>Quality</TableCell>
+							<TableCell>{refLabel}</TableCell>
 							{grid.params.map((p) => (
 								<TableCell key={p} align="right">
 									{paramLabels[p] ?? p}

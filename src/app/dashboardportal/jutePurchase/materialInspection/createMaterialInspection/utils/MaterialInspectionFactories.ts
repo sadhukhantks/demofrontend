@@ -78,12 +78,20 @@ export const buildDefaultFormValues = (): GateEntryFormValues => {
  */
 export const lineHasAnyData = (line: GateEntryLineItem): boolean =>
 	Boolean(
-		line.challanItem ||
+		// A persisted row is never "blank" — useLineItems prunes trailing blank
+		// rows, and pruning a DB row would drop it from the save payload, which
+		// the backend reconcile then deactivates
+		line.jute_mr_li_id ||
+			line.challanItem ||
 			line.challanQuality ||
 			line.challanQty ||
+			line.challanWeight ||
 			line.actualItem ||
 			line.actualQuality ||
 			line.actualQty ||
+			line.actualWeight ||
+			line.allowableMoisture ||
+			(line.moistureReadings?.length ?? 0) > 0 ||
 			line.remarks
 	);
 
