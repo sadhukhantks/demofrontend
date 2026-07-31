@@ -21,7 +21,7 @@ function planningRowId(r: PlanningGridRow): string {
 }
 
 function rollupRowId(r: ShiftRollupRow): string {
-	return `${r.machine_id}:${r.item_id}:${r.shift}`;
+	return `${r.machine_id}:${r.item_id}:${r.shift_bucket}`;
 }
 
 const num = { type: "number" as const, width: 90 };
@@ -64,9 +64,9 @@ export default function PlanningGrid({ coId, branchId, date, spellId, refreshKey
 
 	const rollupColumns = React.useMemo<GridColDef<ShiftRollupRow>[]>(
 		() => [
-			{ field: "machine_id", headerName: "Machine", width: 100, type: "number" },
-			{ field: "item_id", headerName: "Yarn", width: 100, type: "number" },
-			{ field: "shift", headerName: "Shift", width: 80 },
+			{ field: "mech_code", headerName: "Machine", width: 100 },
+			{ field: "item_code", headerName: "Yarn", width: 110 },
+			{ field: "shift_bucket", headerName: "Shift", width: 80 },
 			{ field: "prod_doff", headerName: "Prod (Doff)", width: 120, type: "number" },
 			{ field: "prod_wind", headerName: "Prod (Wind)", width: 120, type: "number" },
 			{ field: "doff_eff", headerName: "Doff Eff %", width: 110, type: "number" },
@@ -82,9 +82,15 @@ export default function PlanningGrid({ coId, branchId, date, spellId, refreshKey
 			<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
 				<Typography variant="subtitle2">Planning grid (per frame / spell)</Typography>
 				<Typography variant="caption" color="text.secondary">
-					All values are computed server-side and shown read-only.
+					All values are computed server-side and shown read-only. Use Process to freeze + lock.
 				</Typography>
 			</Box>
+
+			{locked ? (
+				<Alert severity="info">
+					This day + spell is processed and locked — the grid shows the frozen log.
+				</Alert>
+			) : null}
 
 			{error ? <Alert severity="error">{error}</Alert> : null}
 

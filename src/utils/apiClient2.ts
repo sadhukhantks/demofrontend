@@ -5,6 +5,9 @@ type FetchResult<T = any> = {
     data: T | null;
     error: string | null;
     status: number;
+    // Raw error response body (e.g. { detail: {...} }) — error flattens structured
+    // details to a string, so callers needing the full 4xx payload read this.
+    payload?: unknown;
 };
 
 // Regular function for direct API calls
@@ -49,7 +52,7 @@ export const fetchWithCookie = async <T = any>(
             if (!message) {
                 message = `Request failed with status ${response.status}`;
             }
-            return { data: null, error: message, status: response.status };
+            return { data: null, error: message, status: response.status, payload };
         }
 
         return { data: response.data ?? null, error: null, status: response.status };
@@ -68,7 +71,12 @@ export const fetchWithCookie = async <T = any>(
             message = err instanceof Error ? err.message : String(err);
         }
         console.error(`Error in fetchWithCookie for ${url}:`, message);
-        return { data: null, error: message, status };
+        return {
+            data: null,
+            error: message,
+            status,
+            payload: axios.isAxiosError(err) ? err.response?.data : undefined,
+        };
     }
 };
 

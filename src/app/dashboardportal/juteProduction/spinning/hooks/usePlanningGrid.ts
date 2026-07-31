@@ -46,5 +46,12 @@ export function usePlanningGrid(
 		};
 	}, [coId, branchId, tranDate, spellId, version, refreshKey]);
 
-	return { data, loading, error, refresh };
+	return {
+		data,
+		loading,
+		error,
+		refresh,
+		locked: data?.locked ?? false,
+		reprocess_needed: data?.reprocess_needed ?? false,
+	};
 }

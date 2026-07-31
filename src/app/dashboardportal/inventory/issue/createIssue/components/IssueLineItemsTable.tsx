@@ -38,10 +38,10 @@ export const useIssueLineItemColumns = ({
 }: UseIssueLineItemColumnsParams): TransactionLineColumn<EditableLineItem>[] => {
 	return React.useMemo(
 		() => [
-			// GRN No (read-only - from inventory)
+			// SR No (read-only - from inventory)
 			{
 				id: "grnNo",
-				header: "GRN No",
+				header: "SR No",
 				width: "1fr",
 				minWidth: "90px",
 				renderCell: ({ item }) => (
@@ -50,7 +50,7 @@ export const useIssueLineItemColumns = ({
 					</span>
 				),
 				getTooltip: ({ item }) =>
-					item.grnNo ? `GRN: ${item.grnNo}, Inward ID: ${item.inwardDtlId}` : undefined,
+					item.grnNo ? `SR: ${item.grnNo}, Inward Dtl ID: ${item.inwardDtlId}` : undefined,
 			},
 
 			// Item Code (read-only - from inventory, hierarchical full_item_code)

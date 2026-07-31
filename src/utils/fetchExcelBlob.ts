@@ -7,6 +7,7 @@ export type ExcelBlobParams = {
 	fromDate?: string | null;
 	toDate?: string | null;
 	branchIds?: string | null;
+	statusId?: number | string | null;
 };
 
 /**
@@ -22,6 +23,8 @@ export async function fetchExcelBlob(url: string, params: ExcelBlobParams): Prom
 		qs.append("branch_id", String(params.branchId));
 	if (params.branchIds && params.branchIds.trim()) qs.append("branch_ids", params.branchIds.trim());
 	if (params.search && params.search.trim()) qs.append("search", params.search.trim());
+	if (params.statusId !== null && params.statusId !== undefined && String(params.statusId) !== "")
+		qs.append("status_id", String(params.statusId));
 	if (params.fromDate) qs.append("from_date", params.fromDate);
 	if (params.toDate) qs.append("to_date", params.toDate);
 

@@ -1,7 +1,8 @@
 /**
  * @component InventorySearchTable
  * @description Dialog-based search for available inventory items from approved SRs.
- * Fetches only on search (no upfront load) and inserts items one at a time via an Add button.
+ * Fetches only on explicit search (Search button / Enter) and inserts items one at a time
+ * via an Add button.
  */
 "use client";
 
@@ -20,7 +21,6 @@ import {
 } from "@mui/material";
 import { Search, Plus, AlertCircle } from "lucide-react";
 import { fetchInventoryList, type InventoryListItem } from "@/utils/issueService";
-import { useDebounce } from "@/hooks/use-debounce";
 import {
 	Table,
 	TableHeader,
@@ -89,21 +89,21 @@ export function InventorySearchTable({
 	const [totalRows, setTotalRows] = React.useState(0);
 	const [page, setPage] = React.useState(1);
 	const [searchValue, setSearchValue] = React.useState("");
+	// Search only runs when the user presses the Search button (or Enter) —
+	// typing alone never fetches, so slow typists aren't hit with premature results.
+	const [submittedSearch, setSubmittedSearch] = React.useState("");
 
 	// Monotonic request id — guards against out-of-order fetch responses
 	// (a slower earlier request resolving after a newer one would clobber rows).
 	const reqIdRef = React.useRef(0);
 
-	// Debounce search
-	const debouncedSearch = useDebounce(searchValue, 300);
-
 	// Calculate total pages
 	const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
 
-	// Fetch data — only when dialog is open AND a search term is present
+	// Fetch data — only when dialog is open AND a search was submitted
 	// (no upfront full-list load, to keep the dialog fast)
 	const fetchData = React.useCallback(async () => {
-		if (!coId || !branchId || !open || !debouncedSearch) {
+		if (!coId || !branchId || !open || !submittedSearch) {
 			setRows([]);
 			setTotalRows(0);
 			setError(null);
@@ -119,7 +119,7 @@ export function InventorySearchTable({
 				branchId,
 				page,
 				limit: PAGE_SIZE,
-				search: debouncedSearch,
+				search: submittedSearch,
 			});
 
 			if (reqId !== reqIdRef.current) return; // a newer request superseded this one
@@ -134,7 +134,7 @@ export function InventorySearchTable({
 		} finally {
 			if (reqId === reqIdRef.current) setLoading(false);
 		}
-	}, [coId, branchId, open, page, debouncedSearch]);
+	}, [coId, branchId, open, page, submittedSearch]);
 
 	// Fetch when deps change
 	React.useEffect(() => {
@@ -145,6 +145,7 @@ export function InventorySearchTable({
 	const handleClose = React.useCallback(() => {
 		setOpen(false);
 		setSearchValue("");
+		setSubmittedSearch("");
 		setPage(1);
 		setRows([]);
 		setTotalRows(0);
@@ -159,13 +160,28 @@ export function InventorySearchTable({
 		[onInsertItems]
 	);
 
-	// Handle search change
+	// Handle search change (typing only updates the field — no fetch)
 	const handleSearchChange = React.useCallback(
 		(event: React.ChangeEvent<HTMLInputElement>) => {
 			setSearchValue(event.target.value);
-			setPage(1); // Reset to first page on search
 		},
 		[]
+	);
+
+	// Submit search (button click or Enter)
+	const handleSearchSubmit = React.useCallback(() => {
+		setPage(1); // Reset to first page on new search
+		setSubmittedSearch(searchValue.trim());
+	}, [searchValue]);
+
+	const handleSearchKeyDown = React.useCallback(
+		(event: React.KeyboardEvent<HTMLInputElement>) => {
+			if (event.key === "Enter") {
+				event.preventDefault();
+				handleSearchSubmit();
+			}
+		},
+		[handleSearchSubmit]
 	);
 
 	// Handle page change
@@ -199,24 +215,35 @@ export function InventorySearchTable({
 								Search items and add them to the issue.
 							</Typography>
 						</Box>
-						<TextField
-							size="small"
-							autoFocus
-							placeholder="Search by item, group, or GRN..."
-							value={searchValue}
-							onChange={handleSearchChange}
-							disabled={disabled}
-							slotProps={{
-								input: {
-									startAdornment: (
-										<InputAdornment position="start">
-											<Search className="h-4 w-4 text-gray-400" />
-										</InputAdornment>
-									),
-								},
-							}}
-							sx={{ width: 320 }}
-						/>
+						<Box className="flex items-center gap-2">
+							<TextField
+								size="small"
+								autoFocus
+								placeholder="Search by item, group, or SR no..."
+								value={searchValue}
+								onChange={handleSearchChange}
+								onKeyDown={handleSearchKeyDown}
+								disabled={disabled}
+								slotProps={{
+									input: {
+										startAdornment: (
+											<InputAdornment position="start">
+												<Search className="h-4 w-4 text-gray-400" />
+											</InputAdornment>
+										),
+									},
+								}}
+								sx={{ width: 320 }}
+							/>
+							<Button
+								variant="contained"
+								size="small"
+								onClick={handleSearchSubmit}
+								disabled={disabled || !searchValue.trim() || loading}
+							>
+								Search
+							</Button>
+						</Box>
 					</Box>
 				</DialogTitle>
 
@@ -241,7 +268,7 @@ export function InventorySearchTable({
 						<Table>
 							<TableHeader>
 								<TableRow>
-									<TableHead>GRN No</TableHead>
+									<TableHead>SR No</TableHead>
 									<TableHead className="w-24">Date</TableHead>
 									<TableHead>Item Group</TableHead>
 									<TableHead>Item Code</TableHead>
@@ -260,9 +287,9 @@ export function InventorySearchTable({
 											colSpan={10}
 											className="text-center py-8 text-gray-500"
 										>
-											{debouncedSearch
+											{submittedSearch
 												? "No items match your search."
-												: "Type to search available inventory."}
+												: "Type a search term and press Search."}
 										</TableCell>
 									</TableRow>
 								) : (
@@ -275,7 +302,7 @@ export function InventorySearchTable({
 										return (
 										<TableRow key={row.inward_dtl_id}>
 											<TableCell className="font-mono text-xs">
-												{row.inward_no || "-"}
+												{row.sr_no || "-"}
 											</TableCell>
 											<TableCell className="text-xs">
 												{formatDate(row.inward_date)}

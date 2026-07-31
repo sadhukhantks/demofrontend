@@ -36,6 +36,12 @@ export type EditableLineItem = {
 	cgstAmount?: number;
 	sgstAmount?: number;
 	taxAmount?: number;
+	/** Enquiry-flow cost basis (AMCL Phase 1) — carried when the line was pre-filled from an enquiry. */
+	enquiryDtlId?: string | null;
+	costSnapshotId?: string | null;
+	baseCost?: number | null;
+	overheadPct?: number | null;
+	marginPct?: number | null;
 };
 
 /**

@@ -8,6 +8,11 @@ import {
 	Button,
 	Chip,
 	CircularProgress,
+	Dialog,
+	DialogActions,
+	DialogContent,
+	DialogContentText,
+	DialogTitle,
 	Snackbar,
 	Typography,
 } from "@mui/material";
@@ -27,8 +32,13 @@ type Props = {
 };
 
 type WarnLoom = { machine_id: number; mech_code?: string; machine_name?: string };
-type Warnings = { no_worker: WarnLoom[]; no_standard: WarnLoom[]; no_picks: WarnLoom[] };
-type BlockDetail = { message: string; unmapped: WarnLoom[] };
+type Warnings = {
+	no_worker: WarnLoom[];
+	no_standard: WarnLoom[];
+	no_picks: WarnLoom[];
+	negative_jugar?: WarnLoom[];
+};
+type BlockDetail = { message: string; unmapped?: WarnLoom[]; quality_mismatch?: WarnLoom[] };
 
 const codes = (looms: WarnLoom[] = []) =>
 	looms.map((l) => l.mech_code ?? `#${l.machine_id}`).join(", ");
@@ -49,13 +59,15 @@ export default function WeavingProcessBar({ coId, branchId, date, spellId, onPro
 	);
 
 	const [busy, setBusy] = React.useState(false);
+	const [confirmOpen, setConfirmOpen] = React.useState(false);
 	const [warnings, setWarnings] = React.useState<Warnings | null>(null);
-	const [blockList, setBlockList] = React.useState<WarnLoom[] | null>(null);
+	const [block, setBlock] = React.useState<BlockDetail | null>(null);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
 	const lockedNoEdit = status.locked && !canEdit;
 
 	const handleProcess = async () => {
+		setConfirmOpen(false);
 		setBusy(true);
 		setWarnings(null);
 		setBlockList(null);
@@ -65,12 +77,13 @@ export default function WeavingProcessBar({ coId, branchId, date, spellId, onPro
 		}>(apiRoutesPortalMasters.WEAVING_PROCESS, "POST", body);
 		setBusy(false);
 		if (error) {
-			// BLOCK (400) returns the unmapped looms in detail.unmapped.
-			const detail = (error as unknown as { detail?: BlockDetail })?.detail;
-			if (detail?.unmapped?.length) {
-				setBlockList(detail.unmapped);
+			// BLOCK (400) carries the offending loom lists in the raw payload's detail
+			// (fetchWithCookie flattens error to detail.message only).
+			const detail = (payload as { detail?: BlockDetail } | null | undefined)?.detail;
+			if (detail && (detail.unmapped?.length || detail.quality_mismatch?.length)) {
+				setBlock(detail);
 			} else {
-				setSnack(typeof error === "string" ? error : "Process failed");
+				setSnack(error);
 			}
 			return;
 		}
@@ -89,7 +102,7 @@ export default function WeavingProcessBar({ coId, branchId, date, spellId, onPro
 					variant="contained"
 					color={status.locked ? "warning" : "primary"}
 					size="small"
-					onClick={handleProcess}
+					onClick={() => setConfirmOpen(true)}
 					disabled={busy || statusLoading || lockedNoEdit}
 				>
 					{busy ? "Processing…" : status.locked ? "Re-process" : "Process day + spell"}
@@ -118,15 +131,23 @@ export default function WeavingProcessBar({ coId, branchId, date, spellId, onPro
 				) : null}
 			</Box>
 
-			{blockList ? (
-				<Alert severity="error" onClose={() => setBlockList(null)}>
-					<AlertTitle>Cannot process — map a quality first</AlertTitle>
-					These looms have production but no mapped quality: {codes(blockList)}
+			{block ? (
+				<Alert severity="error" onClose={() => setBlock(null)}>
+					<AlertTitle>Cannot process — fix the loom mapping first</AlertTitle>
+					{block.unmapped?.length ? (
+						<div>Production but no mapped quality: {codes(block.unmapped)}</div>
+					) : null}
+					{block.quality_mismatch?.length ? (
+						<div>Entry quality differs from mapped quality: {codes(block.quality_mismatch)}</div>
+					) : null}
 				</Alert>
 			) : null}
 
 			{warnings &&
-			(warnings.no_worker.length || warnings.no_standard.length || warnings.no_picks.length) ? (
+			(warnings.no_worker.length ||
+				warnings.no_standard.length ||
+				warnings.no_picks.length ||
+				warnings.negative_jugar?.length) ? (
 				<Alert severity="warning" onClose={() => setWarnings(null)}>
 					<AlertTitle>Processed with warnings</AlertTitle>
 					{warnings.no_worker.length ? (
@@ -138,8 +159,27 @@ export default function WeavingProcessBar({ coId, branchId, date, spellId, onPro
 					{warnings.no_picks.length ? (
 						<div>No SQC pick reading for: {codes(warnings.no_picks)}</div>
 					) : null}
+					{warnings.negative_jugar?.length ? (
+						<div>Negative jugar (closing &lt; opening) for: {codes(warnings.negative_jugar)}</div>
+					) : null}
 				</Alert>
 			) : null}
+
+			<Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
+				<DialogTitle>{status.locked ? "Re-process" : "Process"} day + spell?</DialogTitle>
+				<DialogContent>
+					<DialogContentText>
+						{status.locked ? "Re-process" : "Process"} {date} / {spell}? This freezes the computed
+						rows and locks the day + spell.
+					</DialogContentText>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
+					<Button variant="contained" onClick={handleProcess}>
+						{status.locked ? "Re-process" : "Process"}
+					</Button>
+				</DialogActions>
+			</Dialog>
 
 			<Snackbar
 				open={!!snack}

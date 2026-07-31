@@ -19,17 +19,20 @@ import {
 import { Pencil as EditOutlinedIcon, Plus as AddIcon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 
 type WtRow = {
 	spreader_machine_attr_id: number;
 	co_id: number;
+	branch_id?: number | null;
 	machine_id: number;
 	wt_per_roll: number;
 	active: number;
 	machine_name?: string | null;
 	mech_code?: string | null;
+	branch_name?: string | null;
 };
 
 type SetupMachine = {
@@ -42,6 +45,29 @@ type SetupMachine = {
 
 export default function SpreaderMachineWtPage() {
 	const { coId } = useSelectedCompanyCoId();
+	const { selectedBranches, selectedCompany } = useSidebarContext();
+
+	// Branch resolution: 1 sidebar branch → auto-use it; several → user must pick one.
+	const sidebarBranchIds = React.useMemo(() => selectedBranches.map(Number), [selectedBranches]);
+	const [pageBranchId, setPageBranchId] = React.useState<number | "">("");
+	React.useEffect(() => {
+		if (sidebarBranchIds.length === 1) {
+			setPageBranchId(sidebarBranchIds[0]);
+		} else if (sidebarBranchIds.length === 0) {
+			setPageBranchId("");
+		} else {
+			setPageBranchId((prev) =>
+				prev !== "" && sidebarBranchIds.includes(prev as number) ? prev : ""
+			);
+		}
+	}, [sidebarBranchIds]);
+	const branchId = pageBranchId === "" ? null : (pageBranchId as number);
+	const branchOptions = React.useMemo(
+		() => (selectedCompany?.branches ?? []).filter((b) => sidebarBranchIds.includes(Number(b.branch_id))),
+		[selectedCompany, sidebarBranchIds]
+	);
+	const selectedBranchName = branchOptions.find((b) => Number(b.branch_id) === branchId)?.branch_name;
+
 	const [rows, setRows] = React.useState<WtRow[]>([]);
 	const [machines, setMachines] = React.useState<SetupMachine[]>([]);
 	const [loading, setLoading] = React.useState(false);
@@ -57,15 +83,19 @@ export default function SpreaderMachineWtPage() {
 	}, []);
 
 	const refresh = React.useCallback(async () => {
-		if (!coId) return;
+		if (!coId || branchId == null) {
+			setRows([]);
+			setMachines([]);
+			return;
+		}
 		setLoading(true);
 		const [list, setup] = await Promise.all([
 			fetchWithCookie<{ data: WtRow[] }>(
-				`${apiRoutesPortalMasters.SPREADER_MACHINE_WT_LIST}?co_id=${coId}`,
+				`${apiRoutesPortalMasters.SPREADER_MACHINE_WT_LIST}?co_id=${coId}&branch_id=${branchId}`,
 				"GET"
 			),
 			fetchWithCookie<{ data: { machines: SetupMachine[] } }>(
-				`${apiRoutesPortalMasters.SPREADER_MACHINE_WT_CREATE_SETUP}?co_id=${coId}`,
+				`${apiRoutesPortalMasters.SPREADER_MACHINE_WT_CREATE_SETUP}?co_id=${coId}&branch_id=${branchId}`,
 				"GET"
 			),
 		]);
@@ -73,17 +103,18 @@ export default function SpreaderMachineWtPage() {
 		setRows(list.data?.data ?? []);
 		setMachines(setup.data?.data?.machines ?? []);
 		setLoading(false);
-	}, [coId]);
+	}, [coId, branchId]);
 
 	React.useEffect(() => {
 		void refresh();
 	}, [refresh]);
 
 	const handleSave = async () => {
-		if (!coId) return;
+		if (!coId || branchId == null) return;
 		setError(null);
 		const payload = {
 			co_id: Number(coId),
+			branch_id: branchId,
 			machine_id: Number(form.machine_id),
 			wt_per_roll: Number(form.wt_per_roll),
 			active: Number(form.active),
@@ -168,6 +199,10 @@ export default function SpreaderMachineWtPage() {
 		return <Alert severity="warning" sx={{ m: 2 }}>Select a company to continue.</Alert>;
 	}
 
+	if (sidebarBranchIds.length === 0) {
+		return <Alert severity="warning" sx={{ m: 2 }}>Select at least one branch in the sidebar to continue.</Alert>;
+	}
+
 	const usedMachineIds = new Set(rows.map((r) => r.machine_id));
 	const machineOptions = editing
 		? machines.filter((m) => m.machine_id === editing.machine_id)
@@ -184,11 +219,32 @@ export default function SpreaderMachineWtPage() {
 						Roll weight (kg) per spreader machine.
 					</Typography>
 				</Box>
-				<Button variant="contained" startIcon={<AddIcon size={18} />} onClick={openCreate}>
+				<Button variant="contained" startIcon={<AddIcon size={18} />} onClick={openCreate} disabled={branchId == null}>
 					New
 				</Button>
 			</Box>
+			{sidebarBranchIds.length > 1 ? (
+				<TextField
+					select
+					size="small"
+					label="Branch"
+					value={pageBranchId}
+					onChange={(e) => setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))}
+					sx={{ mb: 2, minWidth: 240 }}
+				>
+					{branchOptions.map((b) => (
+						<MenuItem key={b.branch_id} value={Number(b.branch_id)}>
+							{b.branch_name}
+						</MenuItem>
+					))}
+				</TextField>
+			) : selectedBranchName ? (
+				<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+					Branch: {selectedBranchName}
+				</Typography>
+			) : null}
 			{error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
+			{branchId == null ? <Alert severity="info" sx={{ mb: 2 }}>Select a branch to load machine weights.</Alert> : null}
 			<Box sx={{ width: "100%" }}>
 				<DataGrid
 					autoHeight

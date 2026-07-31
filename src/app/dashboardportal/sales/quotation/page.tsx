@@ -1,13 +1,24 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Chip, Typography } from "@mui/material";
+import { Alert, Typography } from "@mui/material";
 import type { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui/x-data-grid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { useRouter } from "next/navigation";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import {
+	SALES_STATUS_IDS,
+	SalesStatusChip,
+	SalesStatusFilter,
+	asNumberOrNull,
+	asString,
+	buildSalesListQuery,
+	formatListCurrency,
+	formatListDate,
+	parseListResponse,
+} from "../utils/salesListShared";
 
 type QuotationRow = {
 	id: string | number;
@@ -22,49 +33,18 @@ type QuotationRow = {
 	status_id?: number | null;
 };
 
-const formatDate = (value?: string) => {
-	if (!value) return "-";
-	const trimmed = value.trim();
-	let date: Date | null = null;
-	const ymdMatch = trimmed.match(/^([0-9]{4})-([0-9]{2})-([0-9]{2})$/);
-	if (ymdMatch) {
-		const [, year, month, day] = ymdMatch;
-		date = new Date(Number(year), Number(month) - 1, Number(day));
-	} else {
-		const parsed = new Date(trimmed);
-		if (!Number.isNaN(parsed.getTime())) {
-			date = parsed;
-		}
-	}
-	if (!date || Number.isNaN(date.getTime())) {
-		return trimmed;
-	}
-	return new Intl.DateTimeFormat("en-GB", {
-		day: "2-digit",
-		month: "short",
-		year: "numeric",
-	}).format(date);
-};
-
-const formatCurrency = (value: number | null | undefined) => {
-	if (value === null || value === undefined) return "-";
-	return new Intl.NumberFormat("en-IN", {
-		style: "currency",
-		currency: "INR",
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2,
-	}).format(value);
-};
-
 export default function SalesQuotationIndexPage() {
 	const router = useRouter();
-	const { selectedBranches } = useSidebarContext();
+	const { selectedCompany, selectedBranches } = useSidebarContext();
 	const [rows, setRows] = React.useState<QuotationRow[]>([]);
 	const [totalRows, setTotalRows] = React.useState(0);
 	const [loading, setLoading] = React.useState(false);
 	const [paginationModel, setPaginationModel] = React.useState<GridPaginationModel>({ page: 0, pageSize: 10 });
 	const [searchValue, setSearchValue] = React.useState("");
+	const [statusFilter, setStatusFilter] = React.useState<number | null>(null);
 	const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+
+	const coId = selectedCompany?.co_id ?? null;
 
 	const columns = React.useMemo<GridColDef[]>(() => [
 		{
@@ -84,7 +64,7 @@ export default function SalesQuotationIndexPage() {
 			minWidth: 140,
 			renderCell: (params: GridRenderCellParams<QuotationRow, string>) => (
 				<Typography component="span" variant="body2">
-					{params.value || formatDate(typeof params.row.quotation_date_raw === "string" ? params.row.quotation_date_raw : "") || "-"}
+					{params.value || "-"}
 				</Typography>
 			),
 		},
@@ -100,7 +80,7 @@ export default function SalesQuotationIndexPage() {
 			minWidth: 120,
 			renderCell: (params: GridRenderCellParams<QuotationRow, number | null>) => (
 				<Typography component="span" variant="body2">
-					{formatCurrency(params.value)}
+					{formatListCurrency(params.value)}
 				</Typography>
 			),
 		},
@@ -113,9 +93,9 @@ export default function SalesQuotationIndexPage() {
 		{
 			field: "status",
 			headerName: "Status",
-			minWidth: 130,
+			minWidth: 150,
 			renderCell: (params: GridRenderCellParams<QuotationRow, string>) => (
-				<Chip size="small" color={params.value === "Approved" ? "success" : params.value === "Rejected" ? "error" : "default"} label={params.value || "Pending"} />
+				<SalesStatusChip statusId={params.row.status_id} label={params.value} />
 			),
 		},
 	], []);
@@ -125,54 +105,41 @@ export default function SalesQuotationIndexPage() {
 		setErrorMessage(null);
 
 		try {
-			let co_id = "";
-			try {
-				const storedCompany = localStorage.getItem("sidebar_selectedCompany");
-				if (storedCompany) {
-					const parsed = JSON.parse(storedCompany);
-					co_id = parsed?.co_id ? String(parsed.co_id) : "";
-				}
-			} catch {
-				co_id = "";
-			}
-
-			const query = new URLSearchParams({
-				page: String(paginationModel.page + 1),
-				limit: String(paginationModel.pageSize),
+			const queryString = buildSalesListQuery({
+				page: paginationModel.page,
+				pageSize: paginationModel.pageSize,
+				coId,
+				branchIds: selectedBranches,
+				search: searchValue,
+				statusId: statusFilter,
 			});
-			if (co_id) query.set("co_id", co_id);
-			if (selectedBranches.length === 1) query.set("branch_id", String(selectedBranches[0]));
-			const trimmedSearch = searchValue.trim();
-			if (trimmedSearch) query.set("search", trimmedSearch);
 
-			const url = `${apiRoutesPortalMasters.QUOTATION_TABLE}?${query.toString()}`;
+			const url = `${apiRoutesPortalMasters.QUOTATION_TABLE}?${queryString}`;
 			const { data, error } = await fetchWithCookie(url, "GET");
 
 			if (error) {
 				throw new Error(error);
 			}
 
-			const rawRows = Array.isArray((data as any)?.data) ? (data as any).data : Array.isArray(data) ? data : [];
-			const mappedRows: QuotationRow[] = rawRows.map((row: any) => {
-				const rawDate = row.quotation_date ?? row.created_at ?? "";
-				const normalizedRaw = typeof rawDate === "string" ? rawDate : rawDate ? String(rawDate) : "";
+			const { rows: rawRows, total } = parseListResponse(data);
+			const mappedRows: QuotationRow[] = rawRows.map((row, index) => {
+				const normalizedRaw = asString(row.quotation_date ?? row.created_at);
 				return {
-					id: row.sales_quotation_id ?? row.id ?? `${row.quotation_no ?? "sq"}-${Math.random().toString(36).slice(2, 8)}`,
-					quotation_no: row.quotation_no ?? "",
+					id: asNumberOrNull(row.sales_quotation_id) ?? asNumberOrNull(row.id) ?? `sq-${paginationModel.page}-${index}`,
+					quotation_no: asString(row.quotation_no),
 					quotation_date_raw: normalizedRaw,
-					quotation_date: formatDate(normalizedRaw),
-					party_name: row.party_name ?? row.customer_name ?? "",
-					net_amount: row.net_amount ?? row.gross_amount ?? null,
-					branch_id: row.branch_id ?? undefined,
-					branch_name: row.branch_name ?? "",
-					status: row.status_name ?? row.status ?? "Pending",
-					status_id: row.status_id ?? row.statusId ?? null,
+					quotation_date: formatListDate(normalizedRaw),
+					party_name: asString(row.party_name ?? row.customer_name),
+					net_amount: asNumberOrNull(row.net_amount ?? row.gross_amount),
+					branch_id: asNumberOrNull(row.branch_id) ?? undefined,
+					branch_name: asString(row.branch_name),
+					status: asString(row.status_name ?? row.status) || "Pending",
+					status_id: asNumberOrNull(row.status_id ?? row.statusId),
 				};
 			});
 
 			setRows(mappedRows);
-			const total = Number((data as any)?.total ?? mappedRows.length ?? 0);
-			setTotalRows(Number.isNaN(total) ? mappedRows.length : total);
+			setTotalRows(total ?? mappedRows.length);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Failed to load quotations";
 			setErrorMessage(message);
@@ -181,7 +148,7 @@ export default function SalesQuotationIndexPage() {
 		} finally {
 			setLoading(false);
 		}
-	}, [paginationModel.page, paginationModel.pageSize, searchValue, selectedBranches]);
+	}, [paginationModel.page, paginationModel.pageSize, searchValue, statusFilter, coId, selectedBranches]);
 
 	React.useEffect(() => {
 		fetchQuotations();
@@ -195,6 +162,11 @@ export default function SalesQuotationIndexPage() {
 		const value = event.target.value;
 		setPaginationModel(prev => ({ ...prev, page: 0 }));
 		setSearchValue(value);
+	}, []);
+
+	const handleStatusFilterChange = React.useCallback((statusId: number | null) => {
+		setPaginationModel(prev => ({ ...prev, page: 0 }));
+		setStatusFilter(statusId);
 	}, []);
 
 	const handleCreateQuotation = React.useCallback(() => {
@@ -234,9 +206,10 @@ export default function SalesQuotationIndexPage() {
 			showLoadingUntilLoaded
 			search={{ value: searchValue, onChange: handleSearchChange, placeholder: "Search by quotation no., customer, or branch", debounceDelayMs: 1000 }}
 			createAction={{ onClick: handleCreateQuotation, label: "Create Quotation" }}
+			toolbarContent={<SalesStatusFilter value={statusFilter} onChange={handleStatusFilterChange} />}
 			onView={handleView}
 			onEdit={handleEdit}
-			isRowEditable={(row) => Number(row.status_id) !== 3}
+			isRowEditable={(row) => Number(row.status_id) !== SALES_STATUS_IDS.APPROVED}
 		>
 			{errorMessage ? (
 				<Alert severity="error" sx={{ mt: 2 }}>

@@ -443,6 +443,26 @@ const apiRoutesPortalMasters = {
     PO_CLONE: `${API_URL}/procurementPO/clone_po`,
     PO_VALIDATE_ITEM: `${API_URL}/procurementPO/validate_item_for_po`,
 
+    // Price Enquiry
+    ENQUIRY_TABLE: `${API_URL}/priceEnquiry/get_enquiry_table`,
+    GET_ENQUIRY_SETUP: `${API_URL}/priceEnquiry/get_enquiry_setup`,
+    ENQUIRY_CREATE: `${API_URL}/priceEnquiry/create_enquiry`,
+    ENQUIRY_UPDATE: `${API_URL}/priceEnquiry/update_enquiry`,
+    GET_ENQUIRY_BY_ID: `${API_URL}/priceEnquiry/get_enquiry_by_id`,
+    GET_APPROVED_INDENT_ITEMS_FOR_ENQUIRY: `${API_URL}/priceEnquiry/get_approved_indent_items`,
+    ENQUIRY_ADD_RESPONSE: `${API_URL}/priceEnquiry/add_response`,
+    ENQUIRY_UPDATE_RESPONSE: `${API_URL}/priceEnquiry/update_response`,
+    ENQUIRY_GET_RESPONSE_BY_ID: `${API_URL}/priceEnquiry/get_response_by_id`,
+    ENQUIRY_GET_COMPARISON: `${API_URL}/priceEnquiry/get_responses_for_comparison`,
+    ENQUIRY_SELECT_RESPONSE: `${API_URL}/priceEnquiry/select_response`,
+    ENQUIRY_GET_PO_PREFILL: `${API_URL}/priceEnquiry/get_po_prefill_data`,
+    ENQUIRY_SEND_FOR_APPROVAL: `${API_URL}/priceEnquiry/send_for_approval`,
+    ENQUIRY_APPROVE: `${API_URL}/priceEnquiry/approve_enquiry`,
+    ENQUIRY_REJECT: `${API_URL}/priceEnquiry/reject_enquiry`,
+    ENQUIRY_CANCEL: `${API_URL}/priceEnquiry/cancel_enquiry`,
+    ENQUIRY_REOPEN: `${API_URL}/priceEnquiry/reopen_enquiry`,
+    ENQUIRY_MARK_RFQ_SENT: `${API_URL}/priceEnquiry/mark_rfq_sent`,
+
     INWARD_TABLE: `${API_URL}/procurementInward/get_inward_table`,
     GET_INWARD_SETUP_1: `${API_URL}/procurementInward/get_inward_setup_1`,
     GET_INWARD_SETUP_2: `${API_URL}/procurementInward/get_inward_setup_2`,
@@ -512,6 +532,46 @@ const apiRoutesPortalMasters = {
     ITEM_MONTHWISE_REPORT: `${API_URL}/inventoryReports/item-monthwise`,
     ISSUE_CONSUMPTION_REPORT: `${API_URL}/inventoryReports/issue-consumption`,
     ISSUE_MACHINEWISE_REPORT: `${API_URL}/inventoryReports/issue-machinewise`,
+
+    // Sales Enquiry endpoints (AMCL enquiry flow Phase 1)
+    SALES_ENQUIRY_TABLE: `${API_URL}/salesEnquiry/get_enquiry_table`,
+    SALES_ENQUIRY_BOARD: `${API_URL}/salesEnquiry/get_enquiry_board`,
+    SALES_ENQUIRY_SETUP: `${API_URL}/salesEnquiry/get_enquiry_setup`,
+    SALES_ENQUIRY_BY_ID: `${API_URL}/salesEnquiry/get_enquiry_by_id`,
+    SALES_ENQUIRY_CREATE: `${API_URL}/salesEnquiry/create_enquiry`,
+    SALES_ENQUIRY_UPDATE: `${API_URL}/salesEnquiry/update_enquiry`,
+    SALES_ENQUIRY_OPEN: `${API_URL}/salesEnquiry/open_enquiry`,
+    SALES_ENQUIRY_CANCEL_DRAFT: `${API_URL}/salesEnquiry/cancel_draft_enquiry`,
+    SALES_ENQUIRY_SEND_FOR_APPROVAL: `${API_URL}/salesEnquiry/send_enquiry_for_approval`,
+    SALES_ENQUIRY_APPROVE: `${API_URL}/salesEnquiry/approve_enquiry`,
+    SALES_ENQUIRY_REJECT: `${API_URL}/salesEnquiry/reject_enquiry`,
+    SALES_ENQUIRY_REOPEN: `${API_URL}/salesEnquiry/reopen_enquiry`,
+    SALES_ENQUIRY_MOVE_STAGE: `${API_URL}/salesEnquiry/move_stage`,
+    SALES_ENQUIRY_CLOSE: `${API_URL}/salesEnquiry/close_enquiry`,
+    SALES_ENQUIRY_CONFIRM_LINE_COSTING: `${API_URL}/salesEnquiry/confirm_line_costing`,
+    SALES_ENQUIRY_PRICE_CHECK_CREATE: `${API_URL}/salesEnquiry/create_price_check`,
+    SALES_ENQUIRY_PRICE_CHECK_PENDING: `${API_URL}/salesEnquiry/get_price_check_pending_list`,
+    SALES_ENQUIRY_PRICE_CHECK_BY_ID: `${API_URL}/salesEnquiry/get_price_check_by_id`,
+    SALES_ENQUIRY_PRICE_CHECK_RESPOND: `${API_URL}/salesEnquiry/respond_price_check`,
+    QUOTATION_ENQUIRY_LINES: `${API_URL}/salesQuotation/get_enquiry_lines_for_quotation`,
+    SALES_ORDER_ENQUIRY_LINES: `${API_URL}/salesOrder/get_enquiry_lines_for_sales_order`,
+
+    // ISO document number map (per company x menu)
+    ISO_MAP_TABLE: `${API_URL}/isoMenuMap/get_iso_map_table`,
+    ISO_MAP_SAVE: `${API_URL}/isoMenuMap/iso_map_save`,
+    ISO_MAP_DELETE: `${API_URL}/isoMenuMap/iso_map_delete`,
+    // HRMS / Production (labour) report endpoints
+    ATTENDANCE_SUMMARY_REPORT: `${API_URL}/hrmsReports/attendance-summary`,
+    WORKER_MASTER_REPORT: `${API_URL}/hrmsReports/worker-master`,
+    MAN_MACHINE_REPORT: `${API_URL}/hrmsReports/man-machine`,
+    ATTENDANCE_REGISTER_REPORT: `${API_URL}/hrmsReports/attendance-register`,
+    EMPLOYEE_WORKING_REPORT: `${API_URL}/hrmsReports/employee-working`,
+    FULL_ATTENDANCE_REPORT: `${API_URL}/hrmsReports/full-attendance`,
+    ABSENTEEISM_REPORT: `${API_URL}/hrmsReports/absenteeism`,
+    HALF_DAY_REPORT: `${API_URL}/hrmsReports/half-day`,
+    OVERSTAY_REPORT: `${API_URL}/hrmsReports/overstay`,
+    OCCUPATION_DEVIATION_REPORT: `${API_URL}/hrmsReports/occupation-deviation`,
+    CASH_ATTENDANCE_REPORT: `${API_URL}/hrmsReports/cash-attendance`,
 
     // Sales Quotation endpoints
     QUOTATION_TABLE: `${API_URL}/salesQuotation/get_quotation_table`,
@@ -751,6 +811,21 @@ const apiRoutesPortalMasters = {
     LEAVE_TYPE_CREATE: `${API_URL}/hrmsMasters/leave_type_create`,
     LEAVE_TYPE_EDIT: `${API_URL}/hrmsMasters/leave_type_edit`,
 
+    // HRMS Bio Attendance (employee↔device mapping + bio data process)
+    BIO_EMP_LINK_SETUP: `${API_URL}/hrmsMasters/bio_emp_link_setup`,
+    BIO_EMP_LINK_TABLE: `${API_URL}/hrmsMasters/get_bio_emp_link_table`,
+    BIO_EMP_LINK_BY_ID: `${API_URL}/hrmsMasters/get_bio_emp_link_by_id`,
+    BIO_EMP_LINK_CREATE: `${API_URL}/hrmsMasters/bio_emp_link_create`,
+    BIO_EMP_LINK_EDIT: `${API_URL}/hrmsMasters/bio_emp_link_edit`,
+    BIO_EMP_LINK_DELETE: `${API_URL}/hrmsMasters/bio_emp_link_delete`,
+    BIO_ATT_PROCESS_RUN: `${API_URL}/hrmsMasters/bio_att_process_run`,
+    BIO_ATT_BASIC_LIST: `${API_URL}/hrmsMasters/bio_att_basic_list`,
+    BIO_ATT_PROCESS_LIST: `${API_URL}/hrmsMasters/bio_att_process_list`,
+    BIO_ATT_DAYWISE_REPORT: `${API_URL}/hrmsMasters/bio_att_daywise_report`,
+    BIO_ATT_DAYWISE_REPORT_EXCEL: `${API_URL}/hrmsMasters/bio_att_daywise_report_excel`,
+    BIO_ATT_INOUT_REPORT: `${API_URL}/hrmsMasters/bio_att_inout_report`,
+    BIO_ATT_INOUT_REPORT_EXCEL: `${API_URL}/hrmsMasters/bio_att_inout_report_excel`,
+
     // HRMS Leave Request (transaction) endpoints
     LEAVE_REQUEST_TABLE: `${API_URL}/hrms/leave_request_list`,
     LEAVE_REQUEST_BY_ID: `${API_URL}/hrms/leave_request_by_id`,
@@ -809,10 +884,12 @@ const apiRoutesPortalMasters = {
     ATTENDANCE_APPROVE: `${API_URL}/hrms/daily_attendance_approve`,
     ATTENDANCE_REJECT: `${API_URL}/hrms/daily_attendance_reject`,
     ATTENDANCE_CREATE_SETUP: `${API_URL}/hrms/attendance_create_setup`,
+    ATTENDANCE_LEAVE_STATUS: `${API_URL}/hrms/attendance_leave_status`,
     ATTENDANCE_MACHINES: `${API_URL}/hrms/attendance_machines_by_designation`,
-    // Attendance register report — served by the Flask mobileapp mounted at the
-    // backend root (no /hrms prefix). vowerp3be/src/mobileapp/src/attendance/attendance.py
-    ATTENDANCE_REGISTER_REPORT: `${API_URL}/attendance-report`,
+    // Attendance register report (checklist page) — served by the Flask mobileapp
+    // mounted at the backend root (no /hrms prefix).
+    // vowerp3be/src/mobileapp/src/attendance/attendance.py
+    ATTENDANCE_CHECKLIST_REPORT: `${API_URL}/attendance-report`,
     // Spinning / Doff production (router prefix /api/spinningProd)
     SPINNING_DOFF_SETUP: `${API_URL}/spinningProd/doff_entry_create_setup`,
     SPINNING_DOFF_PREV_STATE: `${API_URL}/spinningProd/doff_machine_prev_state`,
@@ -824,7 +901,7 @@ const apiRoutesPortalMasters = {
     SPINNING_FRAME_MAP_GET: `${API_URL}/spinningProd/frame_map_get`,
     SPINNING_FRAME_MAP_SAVE: `${API_URL}/spinningProd/frame_map_save`,
     SPINNING_FRAME_MAP_MAPPED: `${API_URL}/spinningProd/frame_map_mapped`,
-    // Spinning planning grid (router prefix /api/spinningProd)
+    // Spinning planning grid + Process/Lock (router prefix /api/spinningProd)
     SPINNING_PLANNING_GRID: `${API_URL}/spinningProd/planning_grid`,
     // Spinning process / staleness + quality mapper + sync (spec 5.3/5.4/5.6)
     SPINNING_PROCESS_STATUS: `${API_URL}/spinningProd/process_status`,

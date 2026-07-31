@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   fetchAttendanceById,
   fetchAttendanceCreateSetup,
+  fetchAttendanceLeaveStatus,
   fetchDesignationsBySubDept,
   fetchMachinesByDesignation,
   fetchWorkerByEbNo,
@@ -39,6 +40,7 @@ const blankValues: AttendanceFormValues = {
   attendance_source: "Manual",
   attendance_type: "R",
   spell: "",
+  spell_id: 0,
   spell_hours: 0,
   worked_department_id: 0,
   worked_designation_id: 0,
@@ -75,6 +77,11 @@ export function useAttendanceForm(params: {
   const [machineOptions, setMachineOptions] = useState<MachineOption[]>([]);
   const [approveButton, setApproveButton] = useState(false);
   const [rejectButton, setRejectButton] = useState(false);
+  // Leave conflict for the selected employee + date (from vw_leave_dates).
+  const [leaveStatus, setLeaveStatus] = useState<{
+    on_leave: boolean;
+    payable: string | null;
+  } | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -171,6 +178,7 @@ export function useAttendanceForm(params: {
           attendance_source: h.attendance_source ?? "Manual",
           attendance_type: h.attendance_type ?? "R",
           spell: h.spell ?? "",
+          spell_id: h.spell_id ?? 0,
           spell_hours: Number(h.spell_hours ?? 0),
           worked_department_id: h.worked_department_id ?? 0,
           worked_designation_id: h.worked_designation_id ?? 0,
@@ -241,11 +249,12 @@ export function useAttendanceForm(params: {
 
   // Selecting a spell auto-fills entry/exit time + spell hours.
   const applySpell = useCallback(
-    (spellName: string) => {
-      const opt = spellOptions.find((s) => s.spell_name === spellName);
+    (spellId: number) => {
+      const opt = spellOptions.find((s) => s.spell_id === spellId);
       setValues((prev) => ({
         ...prev,
-        spell: spellName,
+        spell: opt?.spell_name ?? "",
+        spell_id: spellId,
         spell_hours: opt?.working_hours ?? prev.spell_hours,
         entry_time: opt?.starting_time ?? prev.entry_time,
         exit_time: opt?.end_time ?? prev.exit_time,
@@ -279,6 +288,30 @@ export function useAttendanceForm(params: {
     }));
   }, []);
 
+  // Leave check: whenever a valid employee + date is set, verify the date is
+  // not a leave date (vw_leave_dates). Runs after EB-No lookup resolves eb_id
+  // and again if the date changes.
+  useEffect(() => {
+    if (!values.eb_id || !values.attendance_date) {
+      setLeaveStatus(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error: err } = await fetchAttendanceLeaveStatus(
+        values.eb_id,
+        values.attendance_date,
+      );
+      if (cancelled || err || !data?.data) return;
+      setLeaveStatus(
+        data.data as { on_leave: boolean; payable: string | null },
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [values.eb_id, values.attendance_date]);
+
   // Apply the sidebar's default branch once available (create mode).
   useEffect(() => {
     if (mode !== "create" || !defaultBranchId) return;
@@ -300,6 +333,7 @@ export function useAttendanceForm(params: {
     machineOptions,
     approveButton,
     rejectButton,
+    leaveStatus,
     loadingDetail,
     error,
     setError,

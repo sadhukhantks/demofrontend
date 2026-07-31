@@ -64,6 +64,10 @@ export default function SpinningPage() {
 	const [spellId, setSpellId] = React.useState<number | "">("");
 
 	const [editingEntry, setEditingEntry] = React.useState<DoffEntryRow | null>(null);
+	// Bumped after a Process so the planning grid + lock status re-fetch the frozen log.
+	const [reloadKey, setReloadKey] = React.useState(0);
+	// Bumped after a doff create/edit so the sibling doff grid re-fetches.
+	const [doffReloadKey, setDoffReloadKey] = React.useState(0);
 
 	// statusKey: bumped by ANY grid mutation -> SpinningProcessBar re-checks
 	// staleness immediately (spec 5.6.1). dataKey: bumped after Process (and

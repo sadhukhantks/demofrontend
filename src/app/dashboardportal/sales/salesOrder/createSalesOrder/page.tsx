@@ -33,6 +33,7 @@ import {
 	getSalesOrderById,
 	type SalesOrderDetails,
 } from "@/utils/salesOrderService";
+import { fetchEnquiryLinesForSalesOrder } from "@/utils/enquiryService";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { toast } from "@/hooks/use-toast";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
@@ -99,8 +100,14 @@ function SalesOrderTransactionPageContent() {
 	const requestedId = searchParams?.get("id") || "";
 	const branchIdFromUrl = searchParams?.get("branch_id") || "";
 	const menuIdFromUrl = searchParams?.get("menu_id") || "";
+	const salesEnquiryIdFromUrl = searchParams?.get("sales_enquiry_id") || "";
 
 	const mode: MuiFormMode = modeParam === "edit" ? "edit" : modeParam === "view" ? "view" : "create";
+
+	// AMCL enquiry flow: direct sales order from an enquiry (tender path, decision Q3).
+	const [salesEnquiryId, setSalesEnquiryId] = React.useState<string | null>(
+		mode === "create" && salesEnquiryIdFromUrl ? salesEnquiryIdFromUrl : null
+	);
 
 	const branchOptions = useBranchOptions();
 	const { coId } = useSelectedCompanyCoId();
@@ -907,7 +914,45 @@ function SalesOrderTransactionPageContent() {
 		requestedId,
 		formValues,
 		invoiceTypeCode,
+		salesEnquiryId,
 	});
+
+	// Prefill customer/branch from the source enquiry (direct/tender path) and
+	// carry the link from loaded details in edit/view mode.
+	const enquiryPrefillAppliedRef = React.useRef(false);
+	React.useEffect(() => {
+		if (mode !== "create" || !salesEnquiryIdFromUrl || enquiryPrefillAppliedRef.current) return;
+		enquiryPrefillAppliedRef.current = true;
+		void (async () => {
+			try {
+				const { data, error } = await fetchEnquiryLinesForSalesOrder(salesEnquiryIdFromUrl);
+				if (error) throw new Error(error);
+				const enquiryHeader = (data?.master?.enquiry ?? {}) as Record<string, unknown>;
+				const partyId = enquiryHeader.party_id != null ? String(enquiryHeader.party_id) : "";
+				const enquiryBranch = enquiryHeader.branch_id != null ? String(enquiryHeader.branch_id) : "";
+				setFormValues((prev) => ({
+					...prev,
+					...(partyId ? { party: partyId } : {}),
+					...(enquiryBranch ? { branch: enquiryBranch } : {}),
+				}));
+				toast({
+					title: "Direct sales order from enquiry",
+					description: "Customer pre-filled from the enquiry. Add the order lines as per the customer's PO.",
+				});
+			} catch (error) {
+				toast({
+					variant: "destructive",
+					title: "Unable to load the source enquiry",
+					description: error instanceof Error ? error.message : "Please try again.",
+				});
+				setSalesEnquiryId(null);
+			}
+		})();
+	}, [mode, salesEnquiryIdFromUrl, setFormValues]);
+
+	React.useEffect(() => {
+		if (soDetails?.salesEnquiryId) setSalesEnquiryId(String(soDetails.salesEnquiryId));
+	}, [soDetails]);
 
 	// Unified primary actions — shows Create, Save, or Approval buttons in the same location
 	const primaryActions = React.useMemo<TransactionAction[] | undefined>(() => {
