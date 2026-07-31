@@ -13,9 +13,7 @@ type Props = {
 	coId: string;
 	branchId: number;
 	date: string;
-	spell: string;
-	// Bumped by the page after Process — refetches the grid without remounting it.
-	refreshKey?: number;
+	spellId: number | null;
 };
 
 // Stable composite row id: a loom appears per spell + quality.
@@ -35,14 +33,8 @@ const numCol = { type: "number" as const, valueFormatter: roundInt };
 
 const num = { ...numCol, width: 90 };
 
-export default function WeavingPlanningGrid({ coId, branchId, date, spell, refreshKey }: Props) {
-	const { data, loading, error, refresh } = useWeavingPlanningGrid(
-		coId,
-		branchId,
-		date,
-		spell,
-		refreshKey
-	);
+export default function WeavingPlanningGrid({ coId, branchId, date, spellId }: Props) {
+	const { data, loading, error, refresh } = useWeavingPlanningGrid(coId, branchId, date, spellId);
 	const [saving, setSaving] = React.useState(false);
 	const [snack, setSnack] = React.useState<string | null>(null);
 

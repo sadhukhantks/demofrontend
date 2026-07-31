@@ -25,17 +25,17 @@ type Props = {
 	coId: string;
 	branchId: number;
 	date: string;
-	spell: string;
+	spellId: number | null;
 };
 
 // One beam_no per loom for the date/spell. Mirrors LoomQualityMapGrid but the editable
 // cell is a free-text beam number instead of a quality dropdown.
-export default function WeavingBeamChangeGrid({ coId, branchId, date, spell }: Props) {
+export default function WeavingBeamChangeGrid({ coId, branchId, date, spellId }: Props) {
 	const { rows, lastUpdated, loading, error, refresh } = useWeavingBeamMap(
 		coId,
 		branchId,
 		date,
-		spell
+		spellId
 	);
 	const [edits, setEdits] = React.useState<Record<number, string>>({});
 	const [saving, setSaving] = React.useState(false);
@@ -81,7 +81,13 @@ export default function WeavingBeamChangeGrid({ coId, branchId, date, spell }: P
 			})
 			.filter((x): x is { machine_id: number; beam_no: string } => x !== null);
 
-		const body = { co_id: Number(coId), branch_id: Number(branchId), tran_date: date, spell, entries };
+		const body = {
+			co_id: Number(coId),
+			branch_id: Number(branchId),
+			tran_date: date,
+			spell_id: spellId,
+			entries,
+		};
 		const { error: err } = await fetchWithCookie(
 			apiRoutesPortalMasters.WEAVING_BEAM_MAP_SAVE,
 			"POST",
@@ -96,7 +102,7 @@ export default function WeavingBeamChangeGrid({ coId, branchId, date, spell }: P
 		refresh();
 	};
 
-	if (!spell) {
+	if (spellId == null) {
 		return <Alert severity="info">Select a spell to load beam changes.</Alert>;
 	}
 

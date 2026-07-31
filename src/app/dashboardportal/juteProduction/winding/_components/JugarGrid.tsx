@@ -10,14 +10,14 @@ type Props = {
 	coId: string;
 	branchId: number;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	refreshSignal: number;
 };
 
 // Read-only day grid of jugar entries (the BE exposes no jugar delete; edits go
 // through the form's Save -> Update path).
-export default function JugarGrid({ coId, branchId, date, spell, refreshSignal }: Props) {
-	const { rows, loading, error, refresh } = useJugarByDate(coId, date, branchId, spell);
+export default function JugarGrid({ coId, branchId, date, spellId, refreshSignal }: Props) {
+	const { rows, loading, error, refresh } = useJugarByDate(coId, date, branchId, spellId);
 
 	React.useEffect(() => {
 		refresh();
@@ -29,8 +29,8 @@ export default function JugarGrid({ coId, branchId, date, spell, refreshSignal }
 			{ field: "winding_jugar_id", headerName: "ID", width: 70 },
 			{ field: "tran_date", headerName: "Date", width: 110 },
 			{ field: "spell_code", headerName: "Spell", width: 70 },
-			{ field: "mech_code", headerName: "Mc Code", width: 100 },
-			{ field: "machine_name", headerName: "Machine", width: 180 },
+			{ field: "emp_code", headerName: "EB No", width: 100 },
+			{ field: "worker_name", headerName: "Winder", width: 180 },
 			{
 				field: "open_close",
 				headerName: "Type",

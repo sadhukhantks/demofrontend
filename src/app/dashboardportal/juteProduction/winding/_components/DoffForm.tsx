@@ -1,15 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, Button, MenuItem, Snackbar, TextField } from "@mui/material";
+import { Alert, Autocomplete, Box, Button, MenuItem, Snackbar, TextField } from "@mui/material";
 import { Save as SaveIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WindingDoffSetup } from "../types/windingTypes";
 import { useWindingDoffPrevState } from "../hooks/useWindingDoffPrevState";
+import { useQualityByDate } from "../hooks/useQualityByDate";
 import {
 	computeWindingNet,
-	computeWindingNetPerMc,
 	validateWindingNet,
 	WINDING_NET_MIN,
 	WINDING_NET_MAX,
@@ -20,18 +20,15 @@ type Props = {
 	branchId: number;
 	setup: WindingDoffSetup;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	onSaved: () => void;
 };
 
-// A combined doff is one weighing shared across 1..3 machines (same trolly +
-// spool). The net is split EQUALLY (integer per mc) and one row is written per
-// machine. The Save gate mirrors the backend: net > 0 and 1 <= net/mc <= 500.
-export default function DoffForm({ coId, branchId, setup, date, spell, onSaved }: Props) {
-	const [noOfMachines, setNoOfMachines] = React.useState<number>(1);
-	const [mc1, setMc1] = React.useState<number | "">("");
-	const [mc2, setMc2] = React.useState<number | "">("");
-	const [mc3, setMc3] = React.useState<number | "">("");
+// A doff is one weighing by one winder: pick the EB no, pick (or inherit) the
+// yarn, enter the gross weight — no machine anywhere on the form. Exactly one
+// row is written. The Save gate mirrors the backend: net > 0 and 1 <= net <= 500.
+export default function DoffForm({ coId, branchId, setup, date, spellId, onSaved }: Props) {
+	const [ebId, setEbId] = React.useState<number | "">("");
 	const [trollyId, setTrollyId] = React.useState<number | "">("");
 	const [spoolId, setSpoolId] = React.useState<number | "">("");
 	const [yarnItemId, setYarnItemId] = React.useState<number | "">("");
@@ -52,84 +49,60 @@ export default function DoffForm({ coId, branchId, setup, date, spell, onSaved }
 	const trollyWt = trolly?.trolly_weight ?? 0;
 	const spoolWt = spool?.trolly_weight ?? 0;
 
-	// Prefill from MC#1's last active doff (trolly/spool/quality).
+	// Prefill from this winder's last active doff (trolly/spool/quality).
 	const { state: prevState } = useWindingDoffPrevState(
 		coId,
-		mc1 === "" ? null : Number(mc1),
+		ebId === "" ? null : Number(ebId),
 		branchId,
 	);
+
+	// The person -> quality map for this date + spell (Quality tab). Read-only
+	// here: it seeds the Yarn field, which stays editable inline.
+	const { rows: qualityRows } = useQualityByDate(coId, date, branchId, spellId);
+	const mappedItemId = React.useMemo(() => {
+		if (ebId === "") return null;
+		return qualityRows.find((r) => r.eb_id === Number(ebId))?.item_id ?? null;
+	}, [qualityRows, ebId]);
 
 	React.useEffect(() => {
 		if (prevState) {
 			if (prevState.trolly_id != null) setTrollyId(prevState.trolly_id);
 			if (prevState.spool_id != null) setSpoolId(prevState.spool_id);
-			if (prevState.item_id != null) setYarnItemId(prevState.item_id);
+			// The quality map wins — the previous doff is only the fallback.
+			if (prevState.item_id != null && mappedItemId == null) setYarnItemId(prevState.item_id);
 		}
 		// Only re-run when a new prev state arrives.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [prevState?.winding_doff_id]);
 
-	const machineIds = React.useMemo<number[]>(() => {
-		const out: number[] = [];
-		if (mc1 !== "") out.push(Number(mc1));
-		if (noOfMachines >= 2 && mc2 !== "") out.push(Number(mc2));
-		if (noOfMachines >= 3 && mc3 !== "") out.push(Number(mc3));
-		return out;
-	}, [mc1, mc2, mc3, noOfMachines]);
+	React.useEffect(() => {
+		if (mappedItemId != null) setYarnItemId(mappedItemId);
+	}, [mappedItemId]);
 
 	const grossNum = grossWeight === "" ? 0 : Number(grossWeight);
-	const net = grossWeight === "" ? 0 : computeWindingNet(grossNum, trollyWt, noOfMachines, spoolWt);
-	const netPerMc =
-		grossWeight === "" ? 0 : computeWindingNetPerMc(grossNum, trollyWt, noOfMachines, spoolWt);
+	const net = grossWeight === "" ? 0 : computeWindingNet(grossNum, trollyWt, spoolWt);
 	const netPositive = net > 0;
-	const netPerMcInRange = validateWindingNet(netPerMc);
-
-	const machinesComplete = machineIds.length === noOfMachines;
-	const noDuplicateMachines = new Set(machineIds).size === machineIds.length;
+	const netInRange = validateWindingNet(net);
 
 	const formInvalid =
 		!date ||
-		!spell ||
-		!machinesComplete ||
-		!noDuplicateMachines ||
+		spellId == null ||
+		ebId === "" ||
 		trollyId === "" ||
 		spoolId === "" ||
 		yarnItemId === "" ||
 		grossWeight === "" ||
 		grossNum <= 0 ||
 		!netPositive ||
-		!netPerMcInRange ||
+		!netInRange ||
 		saving;
-
-	const machineSelect = (
-		label: string,
-		value: number | "",
-		setValue: (v: number | "") => void,
-	) => (
-		<TextField
-			select
-			label={label}
-			value={value}
-			onChange={(e) => setValue(e.target.value === "" ? "" : Number(e.target.value))}
-			size="small"
-			fullWidth
-		>
-			{setup.machines.map((m) => (
-				<MenuItem key={m.machine_id} value={m.machine_id}>
-					{m.mech_code} — {m.machine_name}
-				</MenuItem>
-			))}
-		</TextField>
-	);
 
 	const handleSubmit = async () => {
 		if (formInvalid) {
-			if (!noDuplicateMachines) {
-				setError("Each machine can only be selected once.");
-			} else if (!netPositive) {
+			if (!netPositive) {
 				setError("Net weight must be greater than 0.");
-			} else if (!netPerMcInRange) {
-				setError(`Per-machine net must be between ${WINDING_NET_MIN} and ${WINDING_NET_MAX} kg.`);
+			} else if (!netInRange) {
+				setError(`Net must be between ${WINDING_NET_MIN} and ${WINDING_NET_MAX} kg.`);
 			} else {
 				setError("Please complete all required fields.");
 			}
@@ -142,25 +115,23 @@ export default function DoffForm({ coId, branchId, setup, date, spell, onSaved }
 			co_id: Number(coId),
 			branch_id: Number(branchId),
 			tran_date: date,
-			spell,
-			no_of_machines: noOfMachines,
-			machine_ids: machineIds,
+			spell_id: spellId,
+			eb_id: Number(ebId),
 			trolly_id: Number(trollyId),
 			spool_id: Number(spoolId),
 			quality_id: Number(yarnItemId),
 			gross_weight: grossNum,
 		};
 		const { data, error: err } = await fetchWithCookie<{
-			data: { winding_doff_ids: number[]; net: number; net_per_mc: number };
+			data: { winding_doff_id: number; net: number; row_gross_wt: number };
 		}>(apiRoutesPortalMasters.WINDING_DOFF_CREATE, "POST", body);
 		setSaving(false);
 		if (err) {
 			setError(err);
 			return;
 		}
-		const ids = data?.data?.winding_doff_ids ?? [];
-		setSnack(`Saved ${ids.length} doff row(s) (net/mc ${data?.data?.net_per_mc}).`);
-		setGrossWeight(""); // Keep machines/trolly/spool/quality for rapid sequential entry.
+		setSnack(`Saved doff #${data?.data?.winding_doff_id} (net ${data?.data?.net}).`);
+		setGrossWeight(""); // Keep worker/trolly/spool/quality for rapid sequential entry.
 		onSaved();
 	};
 
@@ -177,23 +148,22 @@ export default function DoffForm({ coId, branchId, setup, date, spell, onSaved }
 					},
 				}}
 			>
-				<TextField
-					select
-					label="No. of Machines"
-					value={noOfMachines}
-					onChange={(e) => setNoOfMachines(Number(e.target.value))}
+				<Autocomplete
+					options={setup.workers}
+					getOptionLabel={(w) => w.label}
+					renderOption={(props, w) => (
+						<li {...props} key={w.eb_id}>
+							{w.label}
+						</li>
+					)}
+					value={ebId === "" ? null : setup.workers.find((w) => w.eb_id === Number(ebId)) ?? null}
+					onChange={(_, newVal) => setEbId(newVal ? newVal.eb_id : "")}
 					size="small"
 					fullWidth
-				>
-					{[1, 2, 3].map((n) => (
-						<MenuItem key={n} value={n}>
-							{n}
-						</MenuItem>
-					))}
-				</TextField>
-				{machineSelect("Machine #1", mc1, setMc1)}
-				{noOfMachines >= 2 ? machineSelect("Machine #2", mc2, setMc2) : <Box />}
-				{noOfMachines >= 3 ? machineSelect("Machine #3", mc3, setMc3) : null}
+					clearOnEscape
+					isOptionEqualToValue={(opt, val) => opt.eb_id === val.eb_id}
+					renderInput={(params) => <TextField {...params} label="EB No" />}
+				/>
 				<TextField
 					select
 					label="Trolly"
@@ -229,6 +199,13 @@ export default function DoffForm({ coId, branchId, setup, date, spell, onSaved }
 					onChange={(e) => setYarnItemId(e.target.value === "" ? "" : Number(e.target.value))}
 					size="small"
 					fullWidth
+					helperText={
+						ebId === ""
+							? ""
+							: mappedItemId != null
+								? "From the quality map — editable"
+								: "No quality mapped for this winder"
+					}
 				>
 					{setup.yarn_items.map((y) => (
 						<MenuItem key={y.item_id} value={y.item_id}>
@@ -259,25 +236,20 @@ export default function DoffForm({ coId, branchId, setup, date, spell, onSaved }
 					fullWidth
 				/>
 				<TextField
-					label="Net (total)"
+					label="Net"
 					value={grossWeight === "" ? "" : net}
 					InputProps={{ readOnly: true }}
 					size="small"
 					fullWidth
-					error={grossWeight !== "" && !netPositive}
-					helperText={grossWeight !== "" && !netPositive ? "Net must be > 0" : ""}
-				/>
-				<TextField
-					label="Net / Machine"
-					value={grossWeight === "" ? "" : netPerMc}
-					InputProps={{ readOnly: true }}
-					size="small"
-					fullWidth
-					error={grossWeight !== "" && netPositive && !netPerMcInRange}
+					error={grossWeight !== "" && (!netPositive || !netInRange)}
 					helperText={
-						grossWeight !== "" && netPositive && !netPerMcInRange
-							? `Must be ${WINDING_NET_MIN}–${WINDING_NET_MAX}`
-							: "Same value written to each machine"
+						grossWeight === ""
+							? ""
+							: !netPositive
+								? "Net must be > 0"
+								: !netInRange
+									? `Must be ${WINDING_NET_MIN}–${WINDING_NET_MAX}`
+									: ""
 					}
 				/>
 			</Box>

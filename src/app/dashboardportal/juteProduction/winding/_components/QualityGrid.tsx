@@ -3,6 +3,7 @@
 import * as React from "react";
 import {
 	Alert,
+	Autocomplete,
 	Box,
 	Button,
 	CircularProgress,
@@ -18,7 +19,7 @@ import {
 	Tooltip,
 	Typography,
 } from "@mui/material";
-import { RefreshCw as GetIcon, Save as SaveIcon } from "lucide-react";
+import { RefreshCw as GetIcon, Save as SaveIcon, Trash2 as DeleteIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { YarnItemOption, WindingQualityRow } from "../types/windingTypes";
@@ -30,7 +31,7 @@ type Props = {
 	coId: string;
 	branchId: number;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	yarnItems: YarnItemOption[];
 };
 
@@ -39,10 +40,12 @@ type EditState = {
 	no_of_spindle: string;
 };
 
-// "Get Quality" auto-seeds one row per winding machine (inheriting the prior
-// spell's yarn + spindle) and returns the rows; each row's yarn + spindle
-// (1..30) is editable and saved individually.
-export default function QualityGrid({ coId, branchId, date, spell, yarnItems }: Props) {
+// The person -> quality map for one date + spell. "Get Quality" seeds one row
+// per winder carried forward from the previous spell (nothing when there is no
+// prior spell) and returns them; each row's yarn + spindle (1..30) is editable
+// and saved individually. Winders are added with the picker and removed with
+// the row bin — the doff form prefills its Yarn from this map.
+export default function QualityGrid({ coId, branchId, date, spellId, yarnItems }: Props) {
 	const { setup, loading: setupLoading, error: setupError, run, reset } = useQualitySetup(
 		coId,
 		branchId,
@@ -51,25 +54,28 @@ export default function QualityGrid({ coId, branchId, date, spell, yarnItems }: 
 		coId,
 		date,
 		branchId,
-		spell || null,
+		spellId,
 	);
 	const [edits, setEdits] = React.useState<Record<number, EditState>>({});
 	const [savingId, setSavingId] = React.useState<number | null>(null);
+	const [deletingId, setDeletingId] = React.useState<number | null>(null);
+	const [adding, setAdding] = React.useState(false);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
 	const yarnOpts = setup?.yarn_items ?? yarnItems;
+	const mapRows = React.useMemo(() => setup?.rows ?? [], [setup]);
 
 	// Reset the editable section when the date/spell context changes.
 	React.useEffect(() => {
 		reset();
 		setEdits({});
-	}, [date, spell, reset]);
+	}, [date, spellId, reset]);
 
 	// Seed local edit state from fetched setup rows.
 	React.useEffect(() => {
 		if (!setup) return;
 		const seed: Record<number, EditState> = {};
-		setup.machines.forEach((r) => {
+		setup.rows.forEach((r) => {
 			seed[r.winding_daily_qlty_id] = {
 				item_id: r.item_id ?? "",
 				no_of_spindle: String(r.no_of_spindle ?? 0),
@@ -78,18 +84,64 @@ export default function QualityGrid({ coId, branchId, date, spell, yarnItems }: 
 		setEdits(seed);
 	}, [setup]);
 
+	// Winders not yet on the map — the only ones worth offering in the picker.
+	const addableWorkers = React.useMemo(() => {
+		const mapped = new Set(mapRows.map((r) => r.eb_id));
+		return (setup?.workers ?? []).filter((w) => !mapped.has(w.eb_id));
+	}, [setup, mapRows]);
+
 	const handleGet = async () => {
-		if (!spell) {
+		if (spellId == null) {
 			setSnack("Select a spell first.");
 			return;
 		}
-		await run(date, spell);
+		await run(date, spellId);
 	};
 
 	const setYarn = (id: number, value: number | "") =>
 		setEdits((prev) => ({ ...prev, [id]: { ...prev[id], item_id: value } }));
 	const setSpindle = (id: number, value: string) =>
 		setEdits((prev) => ({ ...prev, [id]: { ...prev[id], no_of_spindle: value } }));
+
+	const handleAddWinder = async (ebId: number) => {
+		if (spellId == null) return;
+		setAdding(true);
+		const body = {
+			co_id: Number(coId),
+			branch_id: Number(branchId),
+			tran_date: date,
+			spell_id: spellId,
+			eb_id: ebId,
+		};
+		const { error: err } = await fetchWithCookie<{ data: { winding_daily_qlty_id: number } }>(
+			apiRoutesPortalMasters.WINDING_QUALITY_ADD,
+			"POST",
+			body,
+		);
+		setAdding(false);
+		if (err) {
+			setSnack(err);
+			return;
+		}
+		setSnack("Winder added.");
+		await run(date, spellId);
+		refreshDay();
+	};
+
+	const handleDeleteRow = async (row: WindingQualityRow) => {
+		if (!window.confirm(`Remove ${row.emp_code ?? row.eb_id} from this spell's map?`)) return;
+		setDeletingId(row.winding_daily_qlty_id);
+		const url = `${apiRoutesPortalMasters.WINDING_QUALITY_DELETE}/${row.winding_daily_qlty_id}?co_id=${coId}`;
+		const { error: err } = await fetchWithCookie(url, "DELETE");
+		setDeletingId(null);
+		if (err) {
+			setSnack(err);
+			return;
+		}
+		setSnack("Winder removed.");
+		if (spellId != null) await run(date, spellId);
+		refreshDay();
+	};
 
 	const handleSaveRow = async (row: WindingQualityRow) => {
 		const e = edits[row.winding_daily_qlty_id];
@@ -112,7 +164,7 @@ export default function QualityGrid({ coId, branchId, date, spell, yarnItems }: 
 			setSnack(err);
 			return;
 		}
-		setSnack(`Saved yarn for ${row.mech_code ?? row.machine_id}`);
+		setSnack(`Saved yarn for ${row.emp_code ?? row.eb_id}`);
 		refreshDay();
 	};
 
@@ -126,10 +178,32 @@ export default function QualityGrid({ coId, branchId, date, spell, yarnItems }: 
 						size="small"
 						startIcon={<GetIcon size={16} />}
 						onClick={handleGet}
-						disabled={setupLoading || !spell}
+						disabled={setupLoading || spellId == null}
 					>
 						{setupLoading ? "Loading…" : "Get Quality"}
 					</Button>
+					{setup ? (
+						<Autocomplete
+							options={addableWorkers}
+							getOptionLabel={(w) => w.label}
+							renderOption={(props, w) => (
+								<li {...props} key={w.eb_id}>
+									{w.label}
+								</li>
+							)}
+							value={null}
+							onChange={(_, newVal) => {
+								if (newVal) void handleAddWinder(newVal.eb_id);
+							}}
+							size="small"
+							disabled={adding || spellId == null}
+							clearOnEscape
+							blurOnSelect
+							isOptionEqualToValue={(opt, val) => opt.eb_id === val.eb_id}
+							sx={{ minWidth: 280 }}
+							renderInput={(params) => <TextField {...params} label="Add winder" />}
+						/>
+					) : null}
 				</Box>
 
 				{setupError ? <Alert severity="error">{setupError}</Alert> : null}
@@ -138,28 +212,29 @@ export default function QualityGrid({ coId, branchId, date, spell, yarnItems }: 
 					<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
 						<CircularProgress />
 					</Box>
-				) : setup && setup.machines.length > 0 ? (
+				) : setup && mapRows.length > 0 ? (
 					<Box sx={{ width: "100%", overflowX: "auto" }}>
 						<Table size="small" sx={{ minWidth: 760 }}>
 							<TableHead>
 								<TableRow>
-									<TableCell>Mc Code</TableCell>
-									<TableCell>Machine</TableCell>
+									<TableCell>EB No</TableCell>
+									<TableCell>Winder</TableCell>
 									<TableCell>Yarn</TableCell>
 									<TableCell>No. of Spindle</TableCell>
 									<TableCell align="right">Save</TableCell>
+									<TableCell align="right">Remove</TableCell>
 								</TableRow>
 							</TableHead>
 							<TableBody>
-								{setup.machines.map((r) => {
+								{mapRows.map((r) => {
 									const e = edits[r.winding_daily_qlty_id] ?? {
 										item_id: "",
 										no_of_spindle: "0",
 									};
 									return (
 										<TableRow key={r.winding_daily_qlty_id}>
-											<TableCell>{r.mech_code}</TableCell>
-											<TableCell>{r.machine_name}</TableCell>
+											<TableCell>{r.emp_code}</TableCell>
+											<TableCell>{r.worker_name}</TableCell>
 											<TableCell>
 												<TextField
 													select
@@ -208,6 +283,21 @@ export default function QualityGrid({ coId, branchId, date, spell, yarnItems }: 
 													</span>
 												</Tooltip>
 											</TableCell>
+											<TableCell align="right">
+												<Tooltip title="Remove winder">
+													<span>
+														<IconButton
+															size="small"
+															color="error"
+															onClick={() => handleDeleteRow(r)}
+															disabled={deletingId === r.winding_daily_qlty_id}
+															sx={{ minWidth: 40, minHeight: 40 }}
+														>
+															<DeleteIcon size={16} />
+														</IconButton>
+													</span>
+												</Tooltip>
+											</TableCell>
 										</TableRow>
 									);
 								})}
@@ -215,9 +305,12 @@ export default function QualityGrid({ coId, branchId, date, spell, yarnItems }: 
 						</Table>
 					</Box>
 				) : setup ? (
-					<Alert severity="info">No winding machines found for this date and spell.</Alert>
+					<Alert severity="info">
+						No winders on the map for this date and spell — nothing was carried forward from the
+						previous spell. Use &ldquo;Add winder&rdquo; above to build it.
+					</Alert>
 				) : (
-					<Alert severity="info">Press &ldquo;Get Quality&rdquo; to load / seed the machine rows.</Alert>
+					<Alert severity="info">Press &ldquo;Get Quality&rdquo; to load / seed the winder rows.</Alert>
 				)}
 			</Box>
 
@@ -230,8 +323,8 @@ export default function QualityGrid({ coId, branchId, date, spell, yarnItems }: 
 						<TableHead>
 							<TableRow>
 								<TableCell>Spell</TableCell>
-								<TableCell>Mc Code</TableCell>
-								<TableCell>Machine</TableCell>
+								<TableCell>EB No</TableCell>
+								<TableCell>Winder</TableCell>
 								<TableCell>Yarn</TableCell>
 								<TableCell>Spindles</TableCell>
 							</TableRow>
@@ -253,8 +346,8 @@ export default function QualityGrid({ coId, branchId, date, spell, yarnItems }: 
 								dayRows.map((r) => (
 									<TableRow key={r.winding_daily_qlty_id}>
 										<TableCell>{r.spell_code}</TableCell>
-										<TableCell>{r.mech_code}</TableCell>
-										<TableCell>{r.machine_name}</TableCell>
+										<TableCell>{r.emp_code}</TableCell>
+										<TableCell>{r.worker_name}</TableCell>
 										<TableCell>{r.item_code ?? "—"}</TableCell>
 										<TableCell>{r.no_of_spindle}</TableCell>
 									</TableRow>

@@ -9,7 +9,7 @@ export function useDoffMachinePrevState(
 	coId: string | null | undefined,
 	machineId: number | null,
 	tranDate: string,
-	spell: string | null,
+	spellId: number | null,
 	trollyId: number | null
 ) {
 	const [state, setState] = React.useState<DoffPrevState | null>(null);
@@ -19,13 +19,13 @@ export function useDoffMachinePrevState(
 	const refresh = React.useCallback(() => setVersion((v) => v + 1), []);
 
 	React.useEffect(() => {
-		if (!coId || machineId == null || !tranDate || !spell || trollyId == null) {
+		if (!coId || machineId == null || !tranDate || spellId == null || trollyId == null) {
 			setState(null);
 			return;
 		}
 		let cancelled = false;
 		setLoading(true);
-		const url = `${apiRoutesPortalMasters.SPINNING_DOFF_PREV_STATE}?co_id=${coId}&machine_id=${machineId}&tran_date=${tranDate}&spell=${spell}&trolly_id=${trollyId}`;
+		const url = `${apiRoutesPortalMasters.SPINNING_DOFF_PREV_STATE}?co_id=${coId}&machine_id=${machineId}&tran_date=${tranDate}&spell_id=${spellId}&trolly_id=${trollyId}`;
 		void fetchWithCookie<{ data: DoffPrevState }>(url, "GET").then(({ data }) => {
 			if (cancelled) return;
 			setState(data?.data ?? null);
@@ -34,7 +34,7 @@ export function useDoffMachinePrevState(
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, machineId, tranDate, spell, trollyId, version]);
+	}, [coId, machineId, tranDate, spellId, trollyId, version]);
 
 	return { state, loading, refresh };
 }

@@ -33,7 +33,7 @@ type Props = {
 	branchId: number;
 	setup: WeavingSetup;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	// Shared, page-owned map fetch (reused across tab switches — no reload on this tab).
 	map: LoomQualityMapState;
 	// Bumped by the page after Process — refetches entries without remounting the grid.
@@ -64,14 +64,14 @@ function byLineThenCode(a: LoomQualityMapRow, b: LoomQualityMapRow): number {
 
 // Loom rows on the production grid never carry a quality dropdown — the quality is
 // MAPPED on the Loom → Quality tab and inherited read-only here (like spinning).
-export default function WeavingEntryGrid({ coId, branchId, setup, date, spell, map, refreshKey }: Props) {
+export default function WeavingEntryGrid({ coId, branchId, date, spellId, map }: Props) {
 	// The mapped quality per loom (read-only source for this grid) comes from the page-owned,
 	// shared map fetch — this grid needs only the loom list + saved mapping (it ignores the
 	// editor's carry-forward). Sharing means switching to this tab does NOT refetch the map.
 	const { rows: mapRows, loading: mapLoading, error: mapError } = map;
 	// Existing day entries (to prefill cuts/jugar and show server-computed outputs).
-	const { rows: entryRows, loading: entriesLoading, loaded: entriesLoaded, error: entriesError, refresh } =
-		useWeavingEntriesByDate(coId, date, branchId, spell, null, refreshKey);
+	const { rows: entryRows, loading: entriesLoading, error: entriesError, refresh } =
+		useWeavingEntriesByDate(coId, date, branchId, spellId);
 
 	const [edits, setEdits] = React.useState<Record<number, CellEdit>>({});
 	const [savingId, setSavingId] = React.useState<number | null>(null);
@@ -192,7 +192,7 @@ export default function WeavingEntryGrid({ coId, branchId, setup, date, spell, m
 			co_id: Number(coId),
 			branch_id: Number(branchId),
 			tran_date: date,
-			spell,
+			spell_id: spellId,
 			machine_id: machineId,
 			cuts: Number(cell.cuts),
 			close_jugar: Number(cell.close_jugar || 0),
@@ -209,86 +209,7 @@ export default function WeavingEntryGrid({ coId, branchId, setup, date, spell, m
 		refresh();
 	};
 
-	// Collect looms whose live total jugar is negative — gate the save behind a confirm.
-	const negativesFor = (machineIds: number[]) =>
-		machineIds.flatMap((id) => {
-			const r = mapRows.find((m) => m.machine_id === id);
-			if (!r) return [];
-			const tj = liveJugar(r, edits[id] ?? { cuts: "", close_jugar: "" }, entryByMachine[id]);
-			// id rides along as the React key — dev3 carries duplicate mech_code rows.
-			return tj != null && tj < 0 ? [{ id, code: r.mech_code ?? `#${id}`, value: tj }] : [];
-		});
-
-	const handleSave = (machineId: number) => {
-		const cell = edits[machineId] ?? { cuts: "", close_jugar: "" };
-		if (cell.cuts === "" || Number(cell.cuts) < 0) {
-			setSnack("Enter cuts for this loom.");
-			return;
-		}
-		const negatives = negativesFor([machineId]);
-		if (negatives.length) {
-			setConfirm({ negatives, proceed: () => void doSaveRow(machineId) });
-			return;
-		}
-		void doSaveRow(machineId);
-	};
-
-	const doSaveAll = async () => {
-		const spellId = setup.spells.find((s) => s.spell_code === spell)?.spell_id;
-		if (spellId == null) {
-			setSnack("Unknown spell — cannot batch save.");
-			return;
-		}
-		setSavingAll(true);
-		const body = {
-			co_id: Number(coId),
-			branch_id: Number(branchId),
-			tran_date: date,
-			rows: dirtyRows.map((r) => {
-				const cell = edits[r.machine_id];
-				return {
-					spell_id: spellId,
-					machine_id: r.machine_id,
-					cuts: Number(cell?.cuts || 0),
-					close_jugar: Number(cell?.close_jugar || 0),
-				};
-			}),
-		};
-		const { data, error: err } = await fetchWithCookie<{
-			data?: { saved?: number; skipped?: number };
-			saved?: number;
-			skipped?: number;
-		}>(apiRoutesPortalMasters.WEAVING_PLANNING_GRID_SAVE, "POST", body);
-		setSavingAll(false);
-		if (err) {
-			setSnack(err);
-			return;
-		}
-		const saved = data?.data?.saved ?? data?.saved ?? body.rows.length;
-		const skipped = data?.data?.skipped ?? data?.skipped ?? 0;
-		const held = dirtyNoCuts.length
-			? ` ${dirtyNoCuts.length} edited row(s) not sent — cuts empty.`
-			: "";
-		setSnack(`Batch saved ${saved} row(s), skipped ${skipped}.${held}`);
-		refresh();
-	};
-
-	const handleSaveAll = () => {
-		if (dirtyRows.length === 0) {
-			if (dirtyNoCuts.length) {
-				setSnack(`${dirtyNoCuts.length} edited row(s) need cuts before saving.`);
-			}
-			return;
-		}
-		const negatives = negativesFor(dirtyRows.map((r) => r.machine_id));
-		if (negatives.length) {
-			setConfirm({ negatives, proceed: () => void doSaveAll() });
-			return;
-		}
-		void doSaveAll();
-	};
-
-	if (!spell) {
+	if (spellId == null) {
 		return <Alert severity="info">Select a spell to load the production grid.</Alert>;
 	}
 

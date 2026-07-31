@@ -8,17 +8,11 @@ import {
 	Button,
 	Chip,
 	CircularProgress,
-	Dialog,
-	DialogActions,
-	DialogContent,
-	DialogContentText,
-	DialogTitle,
 	Snackbar,
 	Typography,
 } from "@mui/material";
 import { usePathname } from "next/navigation";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
-import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { useSpinningProcessStatus } from "../hooks/useSpinningProcessStatus";
 
@@ -26,32 +20,63 @@ type Props = {
 	coId: string;
 	branchId: number;
 	date: string;
-	spell: string;
-	// Bumped by the page after a Process elsewhere — refetches lock status without remount.
+	spellId: number | null;
+	// Bumped by page.tsx whenever ANY grid mutates (doff create/edit/delete,
+	// mapper save, sync) so the staleness chip flips immediately (spec 5.6.1).
 	refreshKey?: number;
 	// Bumped after a successful Process so the grids re-fetch (locked -> frozen log).
 	onProcessed?: () => void;
 };
 
-type WarnFrame = { machine_id: number; mech_code?: string; machine_name?: string };
-type Warnings = {
-	no_standard: WarnFrame[];
-	no_count: WarnFrame[];
+type WarnMachine = { machine_id?: number; mech_code?: string | null; machine_name?: string | null };
+type BlockDetail = { message?: string; unmapped?: WarnMachine[] };
+
+const codes = (machines: WarnMachine[] = []) =>
+	machines.map((m) => m.mech_code ?? `#${m.machine_id}`).join(", ");
+
+// Human labels for the warn categories we know; anything else the backend adds
+// later still renders via the generic branch (spec 5.6.2 — drop nothing).
+const WARN_LABELS: Record<string, string> = {
+	no_standard: "No speed standard for",
+	no_count: "No SQC count observation for",
+	doffs_no_operator: "Doffs still without operator after sync",
+	attendance_inactive: "Stamped operator's attendance later rejected/deactivated for",
 };
-type BlockDetail = { message: string; unmapped?: WarnFrame[] };
 
-const codes = (frames: WarnFrame[] = []) =>
-	frames.map((f) => f.mech_code ?? `#${f.machine_id}`).join(", ");
+function renderWarnValue(value: unknown): string {
+	if (typeof value === "number" || typeof value === "string") return String(value);
+	if (Array.isArray(value)) {
+		if (value.length === 0) return "";
+		if (typeof value[0] === "object" && value[0] !== null) {
+			return codes(value as WarnMachine[]);
+		}
+		return value.join(", ");
+	}
+	return JSON.stringify(value);
+}
 
-// The Process button: validates the inputs server-side, freezes computed rows into
-// the log and locks the (date,spell). A locked unit needs Edit permission to re-process
-// or mutate; reprocess_needed flags doff/winding drift since the last Process.
+function warnLines(warnings: Record<string, unknown>): { key: string; text: string }[] {
+	const lines: { key: string; text: string }[] = [];
+	for (const [key, value] of Object.entries(warnings)) {
+		if (key === "sync") continue; // rendered separately as info counts
+		if (value == null) continue;
+		if (Array.isArray(value) && value.length === 0) continue;
+		if (typeof value === "number" && value === 0) continue;
+		const label = WARN_LABELS[key] ?? key.replace(/_/g, " ");
+		lines.push({ key, text: `${label}: ${renderWarnValue(value)}` });
+	}
+	return lines;
+}
+
+// The Process button (replaces the dead Planning-Grid Save, G1): runs fill-sync
+// server-side, blocks on unmapped doffs (B1), freezes the day-slice into
+// jute_prod_spinning_daily and locks the (date,spell) unit.
 export default function SpinningProcessBar({
 	coId,
 	branchId,
 	date,
-	spell,
-	refreshKey,
+	spellId,
+	refreshKey = 0,
 	onProcessed,
 }: Props) {
 	const pathname = usePathname();
@@ -62,46 +87,70 @@ export default function SpinningProcessBar({
 		coId,
 		branchId,
 		date,
-		spell,
+		spellId,
 		refreshKey
 	);
 
 	const [busy, setBusy] = React.useState(false);
-	const [confirmOpen, setConfirmOpen] = React.useState(false);
-	const [warnings, setWarnings] = React.useState<Warnings | null>(null);
+	const [warnings, setWarnings] = React.useState<Record<string, unknown> | null>(null);
 	const [block, setBlock] = React.useState<BlockDetail | null>(null);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
 	const lockedNoEdit = status.locked && !canEdit;
 
 	const handleProcess = async () => {
-		setConfirmOpen(false);
 		setBusy(true);
 		setWarnings(null);
 		setBlock(null);
-		const body = { co_id: Number(coId), branch_id: branchId, tran_date: date, spell };
-		const { data, error, payload } = await fetchWithCookie<{
-			data: { processed: number; warnings: Warnings };
-		}>(apiRoutesPortalMasters.SPINNING_PROCESS, "POST", body);
-		setBusy(false);
-		if (error) {
-			// BLOCK (400) carries the offending frame list in the raw payload's detail
-			// (fetchWithCookie flattens error to detail.message only).
-			const detail = (payload as { detail?: BlockDetail } | null | undefined)?.detail;
-			if (detail && detail.unmapped?.length) {
-				setBlock(detail);
-			} else {
-				setSnack(error);
+		try {
+			// Native fetch (not fetchWithCookie): the B1 BLOCK 400 carries the
+			// unmapped machine list in detail.unmapped, which fetchWithCookie
+			// flattens to a message string.
+			const res = await fetch(apiRoutesPortalMasters.SPINNING_PROCESS, {
+				method: "POST",
+				credentials: "include",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					co_id: Number(coId),
+					branch_id: branchId,
+					tran_date: date,
+					spell_id: spellId,
+				}),
+			});
+			const payload = (await res.json().catch(() => null)) as {
+				data?: { processed: number; warnings: Record<string, unknown> };
+				detail?: BlockDetail | string;
+			} | null;
+			if (!res.ok) {
+				const detail = payload?.detail;
+				if (detail && typeof detail === "object" && detail.unmapped?.length) {
+					setBlock(detail);
+				} else {
+					const msg =
+						typeof detail === "string"
+							? detail
+							: detail?.message ?? `Process failed (${res.status})`;
+					setSnack(msg);
+				}
+				return;
 			}
-			return;
+			setWarnings(payload?.data?.warnings ?? null);
+			setSnack(`Processed ${payload?.data?.processed ?? 0} frames — day/spell locked.`);
+			refresh();
+			onProcessed?.();
+		} catch (e) {
+			setSnack(e instanceof Error ? e.message : "Process failed");
+		} finally {
+			setBusy(false);
 		}
-		setWarnings(data?.data?.warnings ?? null);
-		setSnack(`Processed ${data?.data?.processed ?? 0} frames — day/spell locked.`);
-		refresh();
-		onProcessed?.();
 	};
 
-	if (!spell) return null;
+	if (spellId == null) return null;
+
+	const lines = warnings ? warnLines(warnings) : [];
+	const sync = warnings?.sync as
+		| { quality_stamped?: number; operator_stamped?: number }
+		| undefined;
 
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
@@ -110,7 +159,7 @@ export default function SpinningProcessBar({
 					variant="contained"
 					color={status.locked ? "warning" : "primary"}
 					size="small"
-					onClick={() => setConfirmOpen(true)}
+					onClick={handleProcess}
 					disabled={busy || statusLoading || lockedNoEdit}
 				>
 					{busy ? "Processing…" : status.locked ? "Re-process" : "Process day + spell"}
@@ -125,7 +174,15 @@ export default function SpinningProcessBar({
 				)}
 
 				{status.reprocess_needed ? (
-					<Chip size="small" color="warning" label="Entries changed — reprocess" />
+					<Chip size="small" color="warning" label="Entries changed after processing — reprocess" />
+				) : null}
+
+				{!statusLoading ? (
+					<Typography variant="caption" color="text.secondary">
+						{status.locked
+							? `Processed (frozen) data as of ${status.processed_date_time ?? "—"}`
+							: "Live data — not processed yet"}
+					</Typography>
 				) : null}
 
 				{lockedNoEdit ? (
@@ -137,40 +194,26 @@ export default function SpinningProcessBar({
 
 			{block ? (
 				<Alert severity="error" onClose={() => setBlock(null)}>
-					<AlertTitle>Cannot process — fix the frame mapping first</AlertTitle>
-					{block.unmapped?.length ? (
-						<div>Production but no mapped yarn quality: {codes(block.unmapped)}</div>
-					) : null}
+					<AlertTitle>Cannot process — map a quality first</AlertTitle>
+					These frames have doff production but no mapped quality: {codes(block.unmapped)}.
+					Save a rule in Frame → Quality (or run Sync), then process again.
 				</Alert>
 			) : null}
 
-			{warnings && (warnings.no_standard.length || warnings.no_count.length) ? (
+			{warnings && lines.length > 0 ? (
 				<Alert severity="warning" onClose={() => setWarnings(null)}>
 					<AlertTitle>Processed with warnings</AlertTitle>
-					{warnings.no_standard.length ? (
-						<div>No speed/efficiency standard for: {codes(warnings.no_standard)}</div>
-					) : null}
-					{warnings.no_count.length ? (
-						<div>No yarn count for: {codes(warnings.no_count)}</div>
+					{lines.map((l) => (
+						<div key={l.key}>{l.text}</div>
+					))}
+					{sync ? (
+						<Typography variant="caption" color="text.secondary">
+							Sync ran first: {sync.quality_stamped ?? 0} quality / {sync.operator_stamped ?? 0}{" "}
+							operator stamp(s).
+						</Typography>
 					) : null}
 				</Alert>
 			) : null}
-
-			<Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
-				<DialogTitle>{status.locked ? "Re-process" : "Process"} day + spell?</DialogTitle>
-				<DialogContent>
-					<DialogContentText>
-						{status.locked ? "Re-process" : "Process"} {date} / {spell}? This freezes the computed
-						rows and locks the day + spell.
-					</DialogContentText>
-				</DialogContent>
-				<DialogActions>
-					<Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
-					<Button variant="contained" onClick={handleProcess}>
-						{status.locked ? "Re-process" : "Process"}
-					</Button>
-				</DialogActions>
-			</Dialog>
 
 			<Snackbar
 				open={!!snack}

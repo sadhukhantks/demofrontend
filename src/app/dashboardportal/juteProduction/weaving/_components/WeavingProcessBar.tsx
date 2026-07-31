@@ -26,9 +26,7 @@ type Props = {
 	coId: string;
 	branchId: number;
 	date: string;
-	spell: string;
-	// Bumped by the page after a Process elsewhere — refetches lock status without remount.
-	refreshKey?: number;
+	spellId: number;
 	// Bumped after a successful Process so the grids re-fetch (locked -> frozen log).
 	onProcessed?: () => void;
 };
@@ -48,14 +46,7 @@ const codes = (looms: WarnLoom[] = []) =>
 // The Process button: validates the 5 inputs server-side, freezes computed rows into
 // the log and locks the (date,spell). A locked unit needs Edit permission to re-process
 // or mutate; reprocess_needed flags SQC/stoppage drift since the last Process.
-export default function WeavingProcessBar({
-	coId,
-	branchId,
-	date,
-	spell,
-	refreshKey,
-	onProcessed,
-}: Props) {
+export default function WeavingProcessBar({ coId, branchId, date, spellId, onProcessed }: Props) {
 	const pathname = usePathname();
 	const { hasMenuAccess } = useSidebarContext();
 	const canEdit = hasMenuAccess(pathname, "edit");
@@ -64,8 +55,7 @@ export default function WeavingProcessBar({
 		coId,
 		branchId,
 		date,
-		spell,
-		refreshKey
+		spellId
 	);
 
 	const [busy, setBusy] = React.useState(false);
@@ -80,9 +70,9 @@ export default function WeavingProcessBar({
 		setConfirmOpen(false);
 		setBusy(true);
 		setWarnings(null);
-		setBlock(null);
-		const body = { co_id: Number(coId), branch_id: branchId, tran_date: date, spell };
-		const { data, error, payload } = await fetchWithCookie<{
+		setBlockList(null);
+		const body = { co_id: Number(coId), branch_id: branchId, tran_date: date, spell_id: spellId };
+		const { data, error } = await fetchWithCookie<{
 			data: { processed: number; warnings: Warnings };
 		}>(apiRoutesPortalMasters.WEAVING_PROCESS, "POST", body);
 		setBusy(false);
@@ -103,7 +93,7 @@ export default function WeavingProcessBar({
 		onProcessed?.();
 	};
 
-	if (!spell) return null;
+	if (spellId == null) return null;
 
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>

@@ -8,7 +8,14 @@ import {
   GridRowClassNameParams,
 } from '@mui/x-data-grid';
 import { Box } from '@mui/material';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  useColumnsSizedToContent,
+  wrappingGridSx,
+  autoRowHeight,
+  showCellTooltip,
+  WRAPPED_HEADER_HEIGHT,
+} from './gridAutoSize';
 
 interface MuiDataGridProps {
   rows: GridRowsProp;
@@ -76,6 +83,10 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
     setIsMounted(true);
   }, []);
 
+  // Columns size themselves to their content (capped at ~30 chars, then the cell
+  // wraps) and every cell gets a hover tooltip — applied here so all grids inherit it.
+  const sizedColumns = useColumnsSizedToContent(columns, rows as readonly Record<string, unknown>[]);
+
   // Render empty placeholder with same dimensions to avoid hydration mismatch
   // The placeholder must be identical on server and client for initial render
   if (!isMounted) {
@@ -95,7 +106,7 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
   }
 
   return (
-    <Box sx={{
+    <Box onMouseOver={showCellTooltip} sx={{
       height: autoHeight ? 'auto' : 500,
       width: '100%',
       '& .MuiDataGrid-root': {
@@ -109,8 +120,10 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
     }}>
       <DataGrid
         rows={rows}
-        columns={columns}
+        columns={sizedColumns}
         autoHeight={autoHeight}
+        getRowHeight={autoRowHeight}
+        columnHeaderHeight={WRAPPED_HEADER_HEIGHT}
         getRowId={(row) => row.id ?? row.co_id}
         loading={showLoadingUntilLoaded ? loading : false}
         paginationMode={paginationMode}
@@ -139,12 +152,14 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
         disableDensitySelector={disableDensitySelector}
         getRowClassName={getRowClassName}
         sx={{
+          ...wrappingGridSx,
           '& .MuiDataGrid-columnHeader': {
             backgroundColor: '#3ea6da',
             color: 'white',
             fontWeight: 'bold',
           },
           '& .MuiDataGrid-columnHeaderTitle': {
+            ...wrappingGridSx['& .MuiDataGrid-columnHeaderTitle'],
             fontWeight: 'bold',
           },
           '& .MuiDataGrid-toolbarContainer': {

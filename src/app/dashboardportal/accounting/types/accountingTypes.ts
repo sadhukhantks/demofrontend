@@ -20,6 +20,13 @@ export const ACC_STATUS_IDS = {
 
 export type AccStatusId = (typeof ACC_STATUS_IDS)[keyof typeof ACC_STATUS_IDS];
 
+/**
+ * Statuses the backend's update_draft_voucher accepts. Rejected (4) is NOT
+ * editable — the user reopens (4 -> 1) first. Keep in sync with the backend.
+ */
+export const isVoucherStatusEditable = (statusId: number): boolean =>
+  statusId === ACC_STATUS_IDS.DRAFT || statusId === ACC_STATUS_IDS.OPEN;
+
 export const VOUCHER_CATEGORIES = [
   "PAYMENT", "RECEIPT", "JOURNAL", "CONTRA",
   "SALES", "PURCHASE", "DEBIT_NOTE", "CREDIT_NOTE",
