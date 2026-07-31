@@ -10,10 +10,12 @@ import {
   Typography,
 } from "@mui/material";
 import { GridColDef } from "@mui/x-data-grid";
+import { usePathname } from "next/navigation";
 import ReportGrid, { numCol } from "@/components/reports/ReportGrid";
 import { exportRowsToExcel } from "@/components/reports/exportExcel";
 import { useReportBranches } from "@/components/reports/useReportBranches";
 import { currentMonthRange } from "@/components/reports/reportDates";
+import { resolveReportMenuId } from "@/utils/reportMenuService";
 import {
   fetchItemLedgerReport,
   searchItems,
@@ -40,7 +42,9 @@ const columns: GridColDef<LedgerGridRow>[] = [
 ];
 
 function ItemLedgerContent() {
-  const { branches, coId, initialBranchId, dateParam } = useReportBranches();
+  const { branches, coId, companyName, initialBranchId, dateParam } =
+    useReportBranches();
+  const pathname = usePathname();
   const { from, to } = currentMonthRange();
 
   const [branchId, setBranchId] = useState<number | null>(initialBranchId);
@@ -207,7 +211,14 @@ function ItemLedgerContent() {
             variant="outlined"
             disabled={rows.length === 0}
             onClick={() => {
-              void exportRowsToExcel(columns, gridRows, "item-ledger");
+              void (async () =>
+                exportRowsToExcel(columns, gridRows, "item-ledger", {
+                  companyName,
+                  branchName: branch?.branch_name,
+                  reportName: "Item Ledger",
+                  reportNo: await resolveReportMenuId(pathname),
+                  reportFor: [dateFrom, dateTo].filter(Boolean).join(" To "),
+                }))();
             }}
             sx={{ textTransform: "none" }}
           >

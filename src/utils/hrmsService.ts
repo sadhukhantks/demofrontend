@@ -870,6 +870,6 @@ export const buildAttendanceRegisterQuery = (
 /** Flat attendance register rows for the Attendance Checklist page. */
 export const fetchAttendanceRegister = async (params: AttendanceRegisterParams) =>
   fetchWithCookie(
-    `${apiRoutesPortalMasters.ATTENDANCE_REGISTER_REPORT}?${buildAttendanceRegisterQuery(params)}`,
+    `${apiRoutesPortalMasters.ATTENDANCE_CHECKLIST_REPORT}?${buildAttendanceRegisterQuery(params)}`,
     "GET",
   );
