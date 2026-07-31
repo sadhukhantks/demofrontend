@@ -1,12 +1,23 @@
 // TypeScript response/request shapes for the Winding production portal feature.
 // Field names/types mirror the backend (src/juteProduction/winding_entry.py +
 // winding_query.py). All responses are double-unwrapped: { data: ... }.
+//
+// Entry is PERSON-keyed (eb_id), not machine-keyed — see the backend spec
+// docs/winding-person-keyed-entry-spec.md. The worker columns on a row type are
+// nullable because the worker may not resolve: the backend reads every row with a
+// LEFT JOIN to HRMS, so a row whose employee was deleted or deactivated still comes
+// back (kept in the grid) with emp_code / worker_name null.
 
-export type WindingMachineOption = {
-	machine_id: number;
-	machine_name: string;
-	mech_code: string;
-	branch_id: number | null;
+// A winder from HRMS masters (hrms_ed_official_details + _personal_details).
+// `label` is concatenated server-side ("02413 - LAXMI DEBI") so every screen
+// shows the identical string. `designation` is display-only — it is never a
+// filter (winding designations share no common prefix).
+export type WindingWorkerOption = {
+	eb_id: number;
+	emp_code: string | null;
+	worker_name: string | null;
+	designation: string | null;
+	label: string;
 };
 
 export type WindingSpellOption = {
@@ -34,7 +45,7 @@ export type YarnItemOption = {
 
 // Response of WINDING_DOFF_SETUP (data.{...}).
 export type WindingDoffSetup = {
-	machines: WindingMachineOption[];
+	workers: WindingWorkerOption[];
 	yarn_items: YarnItemOption[];
 	trollies: WindingTrollyOption[];
 	spools: WindingTrollyOption[];
@@ -43,26 +54,25 @@ export type WindingDoffSetup = {
 
 // Response of WINDING_JUGAR_SETUP.
 export type WindingJugarSetup = {
-	machines: WindingMachineOption[];
+	workers: WindingWorkerOption[];
 	spells: WindingSpellOption[];
 };
 
 // Response of WINDING_DOFF_PREV_STATE (data may be null).
 export type WindingDoffPrevState = {
 	winding_doff_id: number;
-	machine_id: number;
+	eb_id: number | null;
 	item_id: number | null;
 	trolly_id: number | null;
 	trolly_wt: number;
 	spool_id: number | null;
 	spool_wt: number;
-	no_of_machines: number | null;
 	gross_input_wt: number;
 	production_qty: number;
 	tran_date?: string;
 };
 
-// One row from WINDING_DOFF_BY_DATE (one machine of a combined doff).
+// One row from WINDING_DOFF_BY_DATE (one weighing by one winder).
 export type WindingDoffRow = {
 	winding_doff_id: number;
 	co_id: number;
@@ -70,9 +80,9 @@ export type WindingDoffRow = {
 	tran_date: string;
 	spell_id: number;
 	spell_code: string | null;
-	machine_id: number;
-	mech_code: string | null;
-	machine_name: string | null;
+	eb_id: number | null;
+	emp_code: string | null;
+	worker_name: string | null;
 	item_id: number | null;
 	item_code: string | null;
 	trolly_id: number;
@@ -81,11 +91,9 @@ export type WindingDoffRow = {
 	spool_id: number;
 	spool_name: string | null;
 	spool_wt: number;
-	no_of_machines: number | null;
 	gross_input_wt: number;
 	production_qty: number;
 	row_gross_wt: number;
-	operator_id: number | null;
 };
 
 // Response of WINDING_JUGAR_PREV_STATE.
@@ -103,14 +111,14 @@ export type WindingJugarRow = {
 	tran_date: string;
 	spell_id: number;
 	spell_code: string | null;
-	machine_id: number;
-	mech_code: string | null;
-	machine_name: string | null;
+	eb_id: number | null;
+	emp_code: string | null;
+	worker_name: string | null;
 	weight: number;
 	open_close: "O" | "C";
 };
 
-// One row from WINDING_QUALITY_SETUP / WINDING_QUALITY_BY_DATE.
+// One row of the person -> quality map (WINDING_QUALITY_SETUP / _BY_DATE).
 export type WindingQualityRow = {
 	winding_daily_qlty_id: number;
 	co_id: number;
@@ -118,16 +126,19 @@ export type WindingQualityRow = {
 	tran_date: string;
 	spell_id: number;
 	spell_code: string | null;
-	machine_id: number;
-	mech_code: string | null;
-	machine_name: string | null;
+	eb_id: number | null;
+	emp_code: string | null;
+	worker_name: string | null;
 	item_id: number | null;
 	item_code: string | null;
 	no_of_spindle: number;
 };
 
-// Response of WINDING_QUALITY_SETUP (data.{...}).
+// Response of WINDING_QUALITY_SETUP (data.{...}). `rows` is the day's map (one
+// row per person carried forward from the previous spell — empty when there is
+// no prior spell); `workers` feeds the "Add winder" picker.
 export type WindingQualitySetup = {
-	machines: WindingQualityRow[];
+	rows: WindingQualityRow[];
 	yarn_items: YarnItemOption[];
+	workers: WindingWorkerOption[];
 };

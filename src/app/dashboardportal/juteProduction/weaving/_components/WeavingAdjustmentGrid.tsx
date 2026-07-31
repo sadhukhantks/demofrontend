@@ -25,7 +25,7 @@ type Props = {
 	coId: string;
 	branchId: number;
 	date: string;
-	spell: string;
+	spellId: number | null;
 };
 
 // Compact styling so all columns fit narrow (phone) widths with minimal horizontal scroll.
@@ -38,8 +38,8 @@ const numInputSx = {
 // Reduce-jugar adjustment per loom for a (date, spell). Editing "Reduce Jugar" sets
 // less_production on the loom's daily row, which deducts from production_yds in
 // vw_weaving_daily. Only mapped looms are editable; batch "save all dirty".
-export default function WeavingAdjustmentGrid({ coId, branchId, date, spell }: Props) {
-	const { rows, loading, error, refresh } = useWeavingAdjustment(coId, branchId, date, spell);
+export default function WeavingAdjustmentGrid({ coId, branchId, date, spellId }: Props) {
+	const { rows, loading, error, refresh } = useWeavingAdjustment(coId, branchId, date, spellId);
 	const [edits, setEdits] = React.useState<Record<number, string>>({});
 	const [saving, setSaving] = React.useState(false);
 	const [snack, setSnack] = React.useState<string | null>(null);
@@ -92,7 +92,13 @@ export default function WeavingAdjustmentGrid({ coId, branchId, date, spell }: P
 				less_production: Number(edits[r.machine_id] || 0),
 			}));
 
-		const body = { co_id: Number(coId), branch_id: Number(branchId), tran_date: date, spell, entries };
+		const body = {
+			co_id: Number(coId),
+			branch_id: Number(branchId),
+			tran_date: date,
+			spell_id: spellId,
+			entries,
+		};
 		const { data, error: err } = await fetchWithCookie<{ data: { saved: number; skipped: number } }>(
 			apiRoutesPortalMasters.WEAVING_ADJUSTMENT_SAVE,
 			"POST",
@@ -109,7 +115,7 @@ export default function WeavingAdjustmentGrid({ coId, branchId, date, spell }: P
 		refresh();
 	};
 
-	if (!spell) {
+	if (spellId == null) {
 		return <Alert severity="info">Select a spell to load production adjustments.</Alert>;
 	}
 

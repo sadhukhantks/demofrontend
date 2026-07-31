@@ -59,6 +59,7 @@ import {
 import {
   ACC_STATUS_IDS,
   VOUCHER_CATEGORIES,
+  isVoucherStatusEditable,
 } from "@/app/dashboardportal/accounting/types/accountingTypes";
 import type { MuiFormMode } from "@/components/ui/muiform";
 
@@ -67,6 +68,8 @@ import type { MuiFormMode } from "@/components/ui/muiform";
 interface LedgerOption {
   label: string;
   value: number;
+  /** party_mst id carried by the ledger (set on P-type ledgers only). */
+  party_id: number | null;
 }
 
 interface LineItemRow {
@@ -226,10 +229,7 @@ function VoucherTransactionPageContent() {
   const isEditable =
     mode !== "view" &&
     !isAutoPosted &&
-    (voucherDetail == null ||
-      voucherDetail.status_id === ACC_STATUS_IDS.DRAFT ||
-      voucherDetail.status_id === ACC_STATUS_IDS.OPEN ||
-      voucherDetail.status_id === ACC_STATUS_IDS.REJECTED);
+    (voucherDetail == null || isVoucherStatusEditable(voucherDetail.status_id));
 
   // ── React Hook Form ───────────────────────────────────────────────────────
 
@@ -251,6 +251,13 @@ function VoucherTransactionPageContent() {
   });
 
   // ── Derived totals ────────────────────────────────────────────────────────
+
+  // party_id columns are party_mst ids (the backend joins party_mst), so the
+  // Party pickers may only offer ledgers that actually carry a party_id.
+  const partyOptions = React.useMemo(
+    () => ledgerOptions.filter((o) => o.party_id != null),
+    [ledgerOptions]
+  );
 
   const filledLines = React.useMemo(() => lineItems.filter(lineHasData), [lineItems]);
 
@@ -292,11 +299,7 @@ function VoucherTransactionPageContent() {
     if (!voucherDetail) return {};
     const sid = voucherDetail.status_id;
     return {
-      canSave:
-        !isAutoPosted &&
-        (sid === ACC_STATUS_IDS.DRAFT ||
-          sid === ACC_STATUS_IDS.OPEN ||
-          sid === ACC_STATUS_IDS.REJECTED),
+      canSave: !isAutoPosted && isVoucherStatusEditable(sid),
       canOpen: sid === ACC_STATUS_IDS.DRAFT && !isAutoPosted,
       canCancelDraft: sid === ACC_STATUS_IDS.DRAFT && !isAutoPosted,
       canReopen:
@@ -325,6 +328,7 @@ function VoucherTransactionPageContent() {
         (l: ServiceLedger) => ({
           label: l.ledger_name,
           value: l.acc_ledger_id,
+          party_id: l.party_id ?? null,
         })
       );
       setLedgerOptions(opts);
@@ -847,14 +851,14 @@ function VoucherTransactionPageContent() {
               <Autocomplete
                 size="small"
                 disabled={isViewMode || !isEditable}
-                options={ledgerOptions}
+                options={partyOptions}
                 getOptionLabel={(opt) => opt.label}
                 isOptionEqualToValue={(opt, val) => opt.value === val.value}
                 value={
-                  ledgerOptions.find((o) => String(o.value) === field.value) ?? null
+                  partyOptions.find((o) => String(o.party_id) === field.value) ?? null
                 }
                 onChange={(_e, newVal) => {
-                  field.onChange(newVal ? String(newVal.value) : "");
+                  field.onChange(newVal?.party_id != null ? String(newVal.party_id) : "");
                 }}
                 renderInput={(params) => <TextField {...params} label="Party" />}
               />
@@ -940,6 +944,7 @@ function VoucherTransactionPageContent() {
                           ? ledgerOptions.find((o) => o.value === line.acc_ledger_id) ?? {
                               label: line.ledger_name,
                               value: line.acc_ledger_id,
+                              party_id: null,
                             }
                           : null
                       }
@@ -1017,16 +1022,16 @@ function VoucherTransactionPageContent() {
                     <Autocomplete
                       size="small"
                       disabled={!isEditable}
-                      options={ledgerOptions}
+                      options={partyOptions}
                       getOptionLabel={(opt) => opt.label}
                       isOptionEqualToValue={(opt, val) => opt.value === val.value}
                       value={
                         line.party_id != null
-                          ? ledgerOptions.find((o) => o.value === line.party_id) ?? null
+                          ? partyOptions.find((o) => o.party_id === line.party_id) ?? null
                           : null
                       }
                       onChange={(_e, newVal) =>
-                        handleLineChange(line.uid, "party_id", newVal?.value ?? null)
+                        handleLineChange(line.uid, "party_id", newVal?.party_id ?? null)
                       }
                       renderInput={(params) => (
                         <TextField {...params} placeholder="-" variant="outlined" />

@@ -12,6 +12,8 @@ import type {
   CompanySettings,
   PostingQueueRow,
   PostingQueueStatus,
+  DayBookRow,
+  CashBookRow,
 } from "@/app/dashboardportal/accounting/types/accountingTypes";
 
 // Shared module types (single source of truth in accountingTypes.ts).
@@ -155,16 +157,6 @@ export type LedgerReportRow = {
   debit: number;
   credit: number;
   balance: number;
-};
-
-export type DayBookEntry = {
-  voucher_no: string;
-  voucher_date: string;
-  voucher_type: string;
-  ledger_name: string;
-  debit: number;
-  credit: number;
-  narration?: string;
 };
 
 export type PartyOutstandingRow = {
@@ -442,6 +434,25 @@ export async function fetchVoucherTypes(coId: number): Promise<VoucherType[]> {
   return data?.data ?? [];
 }
 
+export type CreateVoucherTypeRequest = {
+  co_id: number;
+  voucher_type_name: string;
+  type_category: VoucherCategory;
+  prefix?: string;
+};
+
+/** Create a voucher type (manual setup path — no company activation needed). */
+export async function createVoucherType(payload: CreateVoucherTypeRequest): Promise<VoucherType> {
+  const { data, error } = await fetchWithCookie<{ data: VoucherType }>(
+    apiRoutesPortalMasters.ACC_VOUCHER_TYPES,
+    "POST",
+    payload,
+  );
+
+  if (error) throw new Error(error);
+  return data?.data as VoucherType;
+}
+
 /** Fetch financial years for a company. */
 export async function fetchFinancialYears(coId: number): Promise<FinancialYear[]> {
   const query = buildQuery({ co_id: coId });
@@ -502,9 +513,12 @@ export async function fetchVouchers(params: {
   partyId?: number;
   sourceDocType?: string;
   statusId?: number;
+  /** Free-text match on voucher_no / party name / voucher type name. */
+  search?: string;
   page?: number;
   limit?: number;
 }): Promise<VoucherListResponse> {
+  const trimmedSearch = params.search?.trim();
   const query = buildQuery({
     co_id: params.coId,
     branch_id: params.branchId,
@@ -514,6 +528,7 @@ export async function fetchVouchers(params: {
     party_id: params.partyId,
     source_doc_type: params.sourceDocType,
     status_id: params.statusId,
+    search: trimmedSearch || undefined,
     page: params.page,
     limit: params.limit,
   });
@@ -546,14 +561,19 @@ export async function fetchVoucherDetail(voucherId: number): Promise<Voucher> {
 
 /** Create a new voucher. */
 export async function createVoucher(payload: CreateVoucherRequest): Promise<{ message: string; acc_voucher_id?: number; voucher_no?: string }> {
-  const { data, error } = await fetchWithCookie<{ message: string; acc_voucher_id?: number; voucher_no?: string }>(
+  // Backend wraps the service result: {"data": {voucher_id, voucher_no, status_id, ...}}
+  const { data, error } = await fetchWithCookie<{ data?: { voucher_id?: number; voucher_no?: string } }>(
     apiRoutesPortalMasters.ACC_VOUCHER_CREATE,
     "POST",
     payload,
   );
 
   if (error) throw new Error(error);
-  return data ?? { message: "Voucher created." };
+  return {
+    message: "Voucher created.",
+    acc_voucher_id: data?.data?.voucher_id,
+    voucher_no: data?.data?.voucher_no,
+  };
 }
 
 /** Update an existing voucher. */
@@ -766,7 +786,7 @@ export async function fetchDayBook(params: {
   toDate: string;
   branchId?: number;
   voucherTypeId?: number;
-}): Promise<DayBookEntry[]> {
+}): Promise<DayBookRow[]> {
   const query = buildQuery({
     co_id: params.coId,
     from_date: params.fromDate,
@@ -774,7 +794,7 @@ export async function fetchDayBook(params: {
     branch_id: params.branchId,
     voucher_type_id: params.voucherTypeId,
   });
-  const { data, error } = await fetchWithCookie<{ data: DayBookEntry[] }>(
+  const { data, error } = await fetchWithCookie<{ data: DayBookRow[] }>(
     `${apiRoutesPortalMasters.ACC_REPORT_DAY_BOOK}?${query}`,
     "GET",
   );
@@ -789,14 +809,14 @@ export async function fetchCashBook(params: {
   fromDate: string;
   toDate: string;
   branchId?: number;
-}): Promise<DayBookEntry[]> {
+}): Promise<CashBookRow[]> {
   const query = buildQuery({
     co_id: params.coId,
     from_date: params.fromDate,
     to_date: params.toDate,
     branch_id: params.branchId,
   });
-  const { data, error } = await fetchWithCookie<{ data: DayBookEntry[] }>(
+  const { data, error } = await fetchWithCookie<{ data: CashBookRow[] }>(
     `${apiRoutesPortalMasters.ACC_REPORT_CASH_BOOK}?${query}`,
     "GET",
   );

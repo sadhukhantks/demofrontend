@@ -449,7 +449,16 @@ export default function LedgersPage() {
         maxWidth="sm"
         fullWidth
       >
-        <form onSubmit={handleSubmit(onSubmit)}>
+        {/* Second handleSubmit arg: never let a validation failure look like a no-op. */}
+        <form
+          onSubmit={handleSubmit(onSubmit, () =>
+            setSnackbar({
+              open: true,
+              message: "Please correct the highlighted fields.",
+              severity: "error",
+            })
+          )}
+        >
           <DialogTitle>{editId ? "Edit Ledger" : "Create Ledger"}</DialogTitle>
           <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 2 }}>
             <Controller
@@ -589,9 +598,14 @@ export default function LedgersPage() {
               control={control}
               render={({ field }) => (
                 <TextField
-                  {...field}
+                  value={field.value ?? ""}
+                  onChange={(e) =>
+                    field.onChange(e.target.value === "" ? 0 : Number(e.target.value))
+                  }
                   label="Opening Balance"
                   type="number"
+                  error={!!errors.opening_balance}
+                  helperText={errors.opening_balance?.message}
                   fullWidth
                   margin="dense"
                 />
