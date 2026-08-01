@@ -1,7 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Autocomplete, Box, Button, MenuItem, Snackbar, TextField } from "@mui/material";
+import {
+	Alert,
+	Autocomplete,
+	Box,
+	Button,
+	createFilterOptions,
+	Snackbar,
+	TextField,
+} from "@mui/material";
+import type { FilterOptionsState } from "@mui/material";
 import { Save as SaveIcon, X as CancelIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -22,6 +31,30 @@ type Props = {
 
 const NET_MIN = 5;
 const NET_MAX = 60;
+
+// Enter accepts the option ONLY when typing narrowed the list to exactly one
+// match. `autoHighlight` does the accepting (MUI selects the highlighted =
+// first option on Enter); we swallow Enter whenever the filter left 0 or 2+
+// options, so multi-match lists behave exactly as before.
+// ponytail: props bag, not a wrapper component — the three fields differ too much.
+function useEnterOnSingleMatch<T>() {
+	const filtered = React.useRef<T[]>([]);
+	const filter = React.useMemo(() => createFilterOptions<T>(), []);
+	return {
+		autoHighlight: true,
+		filterOptions: (options: T[], state: FilterOptionsState<T>) => {
+			const result = filter(options, state);
+			filtered.current = result;
+			return result;
+		},
+		onKeyDown: (event: React.KeyboardEvent & { defaultMuiPrevented?: boolean }) => {
+			if (event.key === "Enter" && filtered.current.length !== 1) {
+				// MUI v7 checks defaultMuiPrevented (not defaultPrevented) to bail out.
+				event.defaultMuiPrevented = true;
+			}
+		},
+	};
+}
 
 export default function DoffEntryForm({
 	coId,
@@ -53,6 +86,10 @@ export default function DoffEntryForm({
 		() => setup.trollies.find((t) => t.trolly_id === Number(trollyId)) ?? null,
 		[trollyId, setup.trollies]
 	);
+
+	const machineEnter = useEnterOnSingleMatch<(typeof setup.machines)[number]>();
+	const trollyEnter = useEnterOnSingleMatch<(typeof setup.trollies)[number]>();
+	const yarnEnter = useEnterOnSingleMatch<(typeof setup.yarn_items)[number]>();
 
 	const bobbinWeight = machine?.bobbin_weight ?? 0;
 	const trollyWeight = trolly?.trolly_weight ?? 0;
@@ -194,6 +231,33 @@ export default function DoffEntryForm({
 		onSaved();
 	};
 
+	// Keyboard-only entry: Enter commits the field and jumps to the next editable
+	// one; Enter on the last one (Gross Weight) saves. An Autocomplete whose list
+	// is still ambiguous (2+ matches, see useEnterOnSingleMatch) swallows Enter —
+	// MUI never preventDefaults it — so that case must not advance either.
+	const gridRef = React.useRef<HTMLDivElement>(null);
+	const handleEnterAdvance = (event: React.KeyboardEvent<HTMLDivElement>) => {
+		if (event.key !== "Enter") return;
+		const el = event.target as HTMLElement;
+		const popupOpen =
+			el.getAttribute("role") === "combobox" && el.getAttribute("aria-expanded") === "true";
+		if (popupOpen && !event.defaultPrevented) return;
+		const fields = Array.from(
+			gridRef.current?.querySelectorAll<HTMLInputElement>(
+				"input:not([readonly]):not([disabled])"
+			) ?? []
+		);
+		const idx = fields.indexOf(el as HTMLInputElement);
+		if (idx === -1) return;
+		const next = fields[idx + 1];
+		if (next) {
+			next.focus();
+			next.select();
+			return;
+		}
+		if (!saving) void handleSubmit();
+	};
+
 	const handleCancelEdit = () => {
 		onCancelEdit();
 		setMachineId("");
@@ -207,6 +271,8 @@ export default function DoffEntryForm({
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
 			<Box
+				ref={gridRef}
+				onKeyDown={handleEnterAdvance}
 				sx={{
 					display: "grid",
 					gap: 2,
@@ -227,25 +293,34 @@ export default function DoffEntryForm({
 					disabled={editing}
 					clearOnEscape
 					isOptionEqualToValue={(opt, val) => opt.machine_id === val.machine_id}
+					renderOption={(props, m) => (
+						<li {...props} key={m.machine_id}>
+							{m.mech_code} — {m.machine_name}
+						</li>
+					)}
 					renderInput={(params) => <TextField {...params} label="Machine" />}
+					{...machineEnter}
 				/>
-				<TextField
-					select
-					label="Trolly"
-					value={trollyId}
-					onChange={(e) => setTrollyId(e.target.value === "" ? "" : Number(e.target.value))}
+				{/* Weight in the label: a branch can carry duplicate trolly NAMES
+				    (dev3 br-2 has two '3'/'8'/'10') — name alone reads like a
+				    cross-branch leak, and it keeps the search text unambiguous. */}
+				<Autocomplete
+					options={setup.trollies}
+					getOptionLabel={(t) => `${t.trolly_name} — ${t.trolly_weight} kg`}
+					value={trolly}
+					onChange={(_, newVal) => setTrollyId(newVal ? newVal.trolly_id : "")}
 					size="small"
 					fullWidth
-				>
-					{setup.trollies.map((t) => (
-						<MenuItem key={t.trolly_id} value={t.trolly_id}>
-							{/* Weight in the label: a branch can carry duplicate trolly
-							    NAMES (dev3 br-2 has two '3'/'8'/'10') — name alone reads
-							    like a cross-branch leak. */}
+					clearOnEscape
+					isOptionEqualToValue={(opt, val) => opt.trolly_id === val.trolly_id}
+					renderOption={(props, t) => (
+						<li {...props} key={t.trolly_id}>
 							{t.trolly_name} — {t.trolly_weight} kg
-						</MenuItem>
-					))}
-				</TextField>
+						</li>
+					)}
+					renderInput={(params) => <TextField {...params} label="Trolly" />}
+					{...trollyEnter}
+				/>
 				<Autocomplete
 					options={setup.yarn_items}
 					getOptionLabel={(y) => `${y.item_name} (${y.item_code})`}
@@ -274,6 +349,7 @@ export default function DoffEntryForm({
 							}
 						/>
 					)}
+					{...yarnEnter}
 				/>
 				<TextField
 					label="Bobbin Wt"

@@ -43,6 +43,17 @@ export type YarnItemOption = {
 	item_name: string | null;
 };
 
+// A winding machine (machine_mst). Entry stays PERSON-keyed — the machine is
+// only recorded alongside the winder on the quality map, never a key.
+export type WindingMachineOption = {
+	machine_id: number;
+	machine_name: string | null;
+	mech_code: string | null;
+	dept_id: number | null;
+	dept_name: string | null;
+	branch_id: number | null;
+};
+
 // Response of WINDING_DOFF_SETUP (data.{...}).
 export type WindingDoffSetup = {
 	workers: WindingWorkerOption[];
@@ -131,14 +142,19 @@ export type WindingQualityRow = {
 	worker_name: string | null;
 	item_id: number | null;
 	item_code: string | null;
+	machine_id: number | null;
+	machine_name: string | null;
+	mech_code: string | null;
 	no_of_spindle: number;
 };
 
 // Response of WINDING_QUALITY_SETUP (data.{...}). `rows` is the day's map (one
 // row per person carried forward from the previous spell — empty when there is
-// no prior spell); `workers` feeds the "Add winder" picker.
+// no prior spell); `workers` feeds the "Add winder" picker and `machines` the
+// per-row machine picker.
 export type WindingQualitySetup = {
 	rows: WindingQualityRow[];
 	yarn_items: YarnItemOption[];
 	workers: WindingWorkerOption[];
+	machines: WindingMachineOption[];
 };

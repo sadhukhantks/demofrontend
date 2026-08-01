@@ -3,6 +3,8 @@
 // all values on save and is authoritative — these helpers are display-only so
 // the operator sees the net before pressing Save.
 
+import type { WindingDoffRow } from "../types/windingTypes";
+
 // Net-weight gate (kg): 1 <= net <= 500 (constants.py WINDING_NET_MIN /
 // WINDING_NET_MAX). One weighing = one person = one row, so there is no split
 // and the gate applies to the single net.
@@ -41,4 +43,40 @@ export function computeWindingRowGrossWt(
 // A doff net must fall within [WINDING_NET_MIN, WINDING_NET_MAX].
 export function validateWindingNet(net: number): boolean {
 	return WINDING_NET_MIN <= net && net <= WINDING_NET_MAX;
+}
+
+// Winder-wise production rollup — one row per (winder, yarn quality) with every
+// doff net of the day listed ("34 + 45 + 30") and summed. Display-only.
+export type WinderWiseRow = {
+	id: string;
+	winder: string;
+	item_code: string;
+	weights: string;
+	total: number;
+};
+
+export function groupWinderWise(rows: WindingDoffRow[]): WinderWiseRow[] {
+	const map = new Map<string, { winder: string; item_code: string; nets: number[] }>();
+	for (const r of rows) {
+		const key = `${r.eb_id ?? "-"}|${r.item_id ?? "-"}`;
+		let g = map.get(key);
+		if (!g) {
+			g = {
+				winder: [r.emp_code, r.worker_name].filter(Boolean).join(" - ") || "—",
+				item_code: r.item_code ?? "—",
+				nets: [],
+			};
+			map.set(key, g);
+		}
+		g.nets.push(round3(Number(r.production_qty) || 0));
+	}
+	return [...map.entries()]
+		.map(([id, g]) => ({
+			id,
+			winder: g.winder,
+			item_code: g.item_code,
+			weights: g.nets.join(" + "),
+			total: round3(g.nets.reduce((a, b) => a + b, 0)),
+		}))
+		.sort((a, b) => a.winder.localeCompare(b.winder) || a.item_code.localeCompare(b.item_code));
 }
