@@ -352,6 +352,14 @@ export default function DoffEntryForm({
 					{...yarnEnter}
 				/>
 				<TextField
+					type="number"
+					label="Gross Weight"
+					value={grossWeight}
+					onChange={(e) => setGrossWeight(e.target.value)}
+					size="small"
+					fullWidth
+				/>
+				<TextField
 					label="Bobbin Wt"
 					value={machine ? String(bobbinWeight) : ""}
 					InputProps={{ readOnly: true }}
@@ -359,14 +367,6 @@ export default function DoffEntryForm({
 					fullWidth
 					error={bobbinMissing}
 					helperText={bobbinMissing ? "No bobbin standard for this machine" : ""}
-				/>
-				<TextField
-					type="number"
-					label="Gross Weight"
-					value={grossWeight}
-					onChange={(e) => setGrossWeight(e.target.value)}
-					size="small"
-					fullWidth
 				/>
 				<TextField
 					label="Tare Weight"
