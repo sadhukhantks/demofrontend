@@ -5,6 +5,7 @@ import type { WindingDoffRow } from "../types/windingTypes";
 function doff(p: Partial<WindingDoffRow>): WindingDoffRow {
 	return {
 		winding_doff_id: 1,
+		weighing_id: 1,
 		co_id: 1,
 		branch_id: 2,
 		tran_date: "2026-08-01",
