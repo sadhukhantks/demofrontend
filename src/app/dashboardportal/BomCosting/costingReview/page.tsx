@@ -79,6 +79,10 @@ function CostingReviewContent() {
 	const { selectedCompany, selectedBranches } = useSidebarContext();
 	const coId = selectedCompany?.co_id ?? null;
 
+	// sidebar context hydrates from localStorage — SSR sees no company, so defer render
+	const [mounted, setMounted] = React.useState(false);
+	React.useEffect(() => setMounted(true), []);
+
 	const [rows, setRows] = React.useState<EnquiryListRow[]>([]);
 	const [loading, setLoading] = React.useState(false);
 	const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -146,6 +150,8 @@ function CostingReviewContent() {
 		}
 		await load();
 	}, [expandedId, coId, load]);
+
+	if (!mounted) return null;
 
 	if (!coId) {
 		return (
