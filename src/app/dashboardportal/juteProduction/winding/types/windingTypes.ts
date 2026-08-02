@@ -43,6 +43,17 @@ export type YarnItemOption = {
 	item_name: string | null;
 };
 
+// A winding machine (machine_mst). Entry stays PERSON-keyed — the machine is
+// only recorded alongside the winder on the quality map, never a key.
+export type WindingMachineOption = {
+	machine_id: number;
+	machine_name: string | null;
+	mech_code: string | null;
+	dept_id: number | null;
+	dept_name: string | null;
+	branch_id: number | null;
+};
+
 // Response of WINDING_DOFF_SETUP (data.{...}).
 export type WindingDoffSetup = {
 	workers: WindingWorkerOption[];
@@ -75,6 +86,9 @@ export type WindingDoffPrevState = {
 // One row from WINDING_DOFF_BY_DATE (one weighing by one winder).
 export type WindingDoffRow = {
 	winding_doff_id: number;
+	// Shared-weighing group key. Rows of one weighing share it; the backend
+	// COALESCEs it to the row's own id, so a solo row is its own group.
+	weighing_id: number;
 	co_id: number;
 	branch_id: number | null;
 	tran_date: string;
@@ -96,11 +110,22 @@ export type WindingDoffRow = {
 	row_gross_wt: number;
 };
 
-// Response of WINDING_JUGAR_PREV_STATE.
-export type WindingJugarPrevState = {
+// One side (opening / closing) of WINDING_JUGAR_STATE. `source` says where the
+// weight came from: "saved" (a row already stored for this date/spell/winder —
+// a manual entry always wins), "carry" (the previous spell's closing leftover),
+// "carry_open" (the winder's previous opening, opening side only) or "none" (0).
+// winding_jugar_id is non-null only for "saved".
+export type WindingJugarSide = {
 	weight: number;
 	winding_jugar_id: number | null;
-	open_close: "O" | "C";
+	source: "saved" | "carry" | "carry_open" | "none";
+};
+
+// Response of WINDING_JUGAR_STATE — both ends of the spell in one call.
+export type WindingJugarState = {
+	spell_id: number | null;
+	opening: WindingJugarSide;
+	closing: WindingJugarSide;
 };
 
 // One row from WINDING_JUGAR_BY_DATE.
@@ -131,14 +156,19 @@ export type WindingQualityRow = {
 	worker_name: string | null;
 	item_id: number | null;
 	item_code: string | null;
+	machine_id: number | null;
+	machine_name: string | null;
+	mech_code: string | null;
 	no_of_spindle: number;
 };
 
 // Response of WINDING_QUALITY_SETUP (data.{...}). `rows` is the day's map (one
 // row per person carried forward from the previous spell — empty when there is
-// no prior spell); `workers` feeds the "Add winder" picker.
+// no prior spell); `workers` feeds the "Add winder" picker and `machines` the
+// per-row machine picker.
 export type WindingQualitySetup = {
 	rows: WindingQualityRow[];
 	yarn_items: YarnItemOption[];
 	workers: WindingWorkerOption[];
+	machines: WindingMachineOption[];
 };

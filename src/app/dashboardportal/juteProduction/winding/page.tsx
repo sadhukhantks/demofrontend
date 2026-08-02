@@ -20,6 +20,7 @@ import DoffGrid from "./_components/DoffGrid";
 import JugarForm from "./_components/JugarForm";
 import JugarGrid from "./_components/JugarGrid";
 import QualityGrid from "./_components/QualityGrid";
+import WinderWiseGrid from "./_components/WinderWiseGrid";
 import { todayISO } from "../spinning/utils/spinningCalc";
 
 export default function WindingPage() {
@@ -153,6 +154,7 @@ export default function WindingPage() {
 									<Tab label="Doff Entry" />
 									<Tab label="Jugar" />
 									<Tab label="Quality" />
+									<Tab label="Winder Wise Production" />
 								</Tabs>
 							</Box>
 
@@ -237,6 +239,16 @@ export default function WindingPage() {
 									date={tranDate}
 									spellId={spellId === "" ? null : spellId}
 									yarnItems={doffSetup.yarn_items}
+								/>
+							) : null}
+
+							{tab === 3 ? (
+								<WinderWiseGrid
+									coId={coId}
+									branchId={branchId}
+									date={tranDate}
+									spellId={spellId === "" ? null : spellId}
+									refreshSignal={doffSignal}
 								/>
 							) : null}
 						</>

@@ -17,6 +17,7 @@ import { useSpinningSetup } from "./hooks/useSpinningSetup";
 import DoffEntryForm from "./_components/DoffEntryForm";
 import DailyDoffGrid from "./_components/DailyDoffGrid";
 import FrameMapGrid from "./_components/FrameMapGrid";
+import FrameWiseGrid from "./_components/FrameWiseGrid";
 import PlanningGrid from "./_components/PlanningGrid";
 import SpinningProcessBar from "./_components/SpinningProcessBar";
 import type { DoffEntryRow } from "./types/spinningTypes";
@@ -104,8 +105,8 @@ export default function SpinningPage() {
 	}
 
 	// Spell selector applies to Doff Entry (0), Frame → Quality (1) and the
-	// Planning Grid (2, optional filter).
-	const showSpell = tab === 0 || tab === 1 || tab === 2;
+	// Planning Grid (2, optional filter) and Frame Wise Production (3).
+	const showSpell = tab === 0 || tab === 1 || tab === 2 || tab === 3;
 	const showDate = true;
 
 	return (
@@ -164,6 +165,7 @@ export default function SpinningPage() {
 									<Tab label="Doff Entry" />
 									<Tab label="Frame → Quality" />
 									<Tab label="Planning Grid" />
+									<Tab label="Frame Wise Production" />
 								</Tabs>
 							</Box>
 
@@ -260,6 +262,17 @@ export default function SpinningPage() {
 									branchId={branchId}
 									date={tranDate}
 									spellId={spellId === "" ? null : spellId}
+									refreshKey={dataKey}
+								/>
+							) : null}
+
+							{tab === 3 ? (
+								<FrameWiseGrid
+									coId={coId}
+									branchId={branchId}
+									date={tranDate}
+									spellId={spellId === "" ? null : spellId}
+									spells={setup.spells}
 									refreshKey={dataKey}
 								/>
 							) : null}

@@ -22,7 +22,11 @@ import {
 import { RefreshCw as GetIcon, Save as SaveIcon, Trash2 as DeleteIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
-import type { YarnItemOption, WindingQualityRow } from "../types/windingTypes";
+import type {
+	YarnItemOption,
+	WindingMachineOption,
+	WindingQualityRow,
+} from "../types/windingTypes";
 import { useQualitySetup } from "../hooks/useQualitySetup";
 import { useQualityByDate } from "../hooks/useQualityByDate";
 import { SPINDLE_MIN, SPINDLE_MAX } from "../utils/windingCalc";
@@ -37,6 +41,7 @@ type Props = {
 
 type EditState = {
 	item_id: number | "";
+	machine_id: number | "";
 	no_of_spindle: string;
 };
 
@@ -63,7 +68,10 @@ export default function QualityGrid({ coId, branchId, date, spellId, yarnItems }
 	const [snack, setSnack] = React.useState<string | null>(null);
 
 	const yarnOpts = setup?.yarn_items ?? yarnItems;
+	const machineOpts = React.useMemo(() => setup?.machines ?? [], [setup]);
 	const mapRows = React.useMemo(() => setup?.rows ?? [], [setup]);
+	const machineLabel = (m: WindingMachineOption) =>
+		`${m.mech_code ?? ""} — ${m.machine_name ?? ""}`;
 
 	// Reset the editable section when the date/spell context changes.
 	React.useEffect(() => {
@@ -78,6 +86,7 @@ export default function QualityGrid({ coId, branchId, date, spellId, yarnItems }
 		setup.rows.forEach((r) => {
 			seed[r.winding_daily_qlty_id] = {
 				item_id: r.item_id ?? "",
+				machine_id: r.machine_id ?? "",
 				no_of_spindle: String(r.no_of_spindle ?? 0),
 			};
 		});
@@ -100,6 +109,8 @@ export default function QualityGrid({ coId, branchId, date, spellId, yarnItems }
 
 	const setYarn = (id: number, value: number | "") =>
 		setEdits((prev) => ({ ...prev, [id]: { ...prev[id], item_id: value } }));
+	const setMachine = (id: number, value: number | "") =>
+		setEdits((prev) => ({ ...prev, [id]: { ...prev[id], machine_id: value } }));
 	const setSpindle = (id: number, value: string) =>
 		setEdits((prev) => ({ ...prev, [id]: { ...prev[id], no_of_spindle: value } }));
 
@@ -156,6 +167,7 @@ export default function QualityGrid({ coId, branchId, date, spellId, yarnItems }
 		const body = {
 			co_id: Number(coId),
 			item_id: e.item_id === "" ? null : Number(e.item_id),
+			machine_id: e.machine_id === "" ? null : Number(e.machine_id),
 			no_of_spindle: spindle,
 		};
 		const { error: err } = await fetchWithCookie(url, "PUT", body);
@@ -214,11 +226,11 @@ export default function QualityGrid({ coId, branchId, date, spellId, yarnItems }
 					</Box>
 				) : setup && mapRows.length > 0 ? (
 					<Box sx={{ width: "100%", overflowX: "auto" }}>
-						<Table size="small" sx={{ minWidth: 760 }}>
+						<Table size="small" sx={{ minWidth: 960 }}>
 							<TableHead>
 								<TableRow>
-									<TableCell>EB No</TableCell>
 									<TableCell>Winder</TableCell>
+									<TableCell>Machine</TableCell>
 									<TableCell>Yarn</TableCell>
 									<TableCell>No. of Spindle</TableCell>
 									<TableCell align="right">Save</TableCell>
@@ -229,12 +241,36 @@ export default function QualityGrid({ coId, branchId, date, spellId, yarnItems }
 								{mapRows.map((r) => {
 									const e = edits[r.winding_daily_qlty_id] ?? {
 										item_id: "",
+										machine_id: "",
 										no_of_spindle: "0",
 									};
 									return (
 										<TableRow key={r.winding_daily_qlty_id}>
-											<TableCell>{r.emp_code}</TableCell>
-											<TableCell>{r.worker_name}</TableCell>
+											<TableCell>{`${r.emp_code ?? ""} — ${r.worker_name ?? ""}`}</TableCell>
+											<TableCell>
+												<Autocomplete
+													options={machineOpts}
+													getOptionLabel={machineLabel}
+													renderOption={(props, m) => (
+														<li {...props} key={m.machine_id}>
+															{machineLabel(m)}
+														</li>
+													)}
+													value={
+														e.machine_id === ""
+															? null
+															: machineOpts.find((m) => m.machine_id === Number(e.machine_id)) ?? null
+													}
+													onChange={(_, newVal) =>
+														setMachine(r.winding_daily_qlty_id, newVal ? newVal.machine_id : "")
+													}
+													size="small"
+													clearOnEscape
+													isOptionEqualToValue={(opt, val) => opt.machine_id === val.machine_id}
+													sx={{ minWidth: 200 }}
+													renderInput={(params) => <TextField {...params} />}
+												/>
+											</TableCell>
 											<TableCell>
 												<TextField
 													select
@@ -322,9 +358,8 @@ export default function QualityGrid({ coId, branchId, date, spellId, yarnItems }
 					<Table size="small" sx={{ minWidth: 760 }}>
 						<TableHead>
 							<TableRow>
-								<TableCell>Spell</TableCell>
-								<TableCell>EB No</TableCell>
 								<TableCell>Winder</TableCell>
+								<TableCell>Machine</TableCell>
 								<TableCell>Yarn</TableCell>
 								<TableCell>Spindles</TableCell>
 							</TableRow>
@@ -332,22 +367,21 @@ export default function QualityGrid({ coId, branchId, date, spellId, yarnItems }
 						<TableBody>
 							{dayLoading ? (
 								<TableRow>
-									<TableCell colSpan={5} align="center">
+									<TableCell colSpan={4} align="center">
 										<CircularProgress size={20} />
 									</TableCell>
 								</TableRow>
 							) : dayRows.length === 0 ? (
 								<TableRow>
-									<TableCell colSpan={5} align="center">
+									<TableCell colSpan={4} align="center">
 										No entries for this date / spell.
 									</TableCell>
 								</TableRow>
 							) : (
 								dayRows.map((r) => (
 									<TableRow key={r.winding_daily_qlty_id}>
-										<TableCell>{r.spell_code}</TableCell>
-										<TableCell>{r.emp_code}</TableCell>
-										<TableCell>{r.worker_name}</TableCell>
+										<TableCell>{`${r.emp_code ?? ""} — ${r.worker_name ?? ""}`}</TableCell>
+										<TableCell>{r.mech_code ?? r.machine_name ?? "—"}</TableCell>
 										<TableCell>{r.item_code ?? "—"}</TableCell>
 										<TableCell>{r.no_of_spindle}</TableCell>
 									</TableRow>

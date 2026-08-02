@@ -28,20 +28,28 @@ export default function DoffGrid({ coId, branchId, date, spellId, refreshSignal,
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [refreshSignal]);
 
+	// Delete removes the whole WEIGHING, not just the clicked share — say so, or
+	// a shared trolly loses three rows on a confirm that mentioned one.
 	const handleDelete = React.useCallback(
-		async (id: number) => {
-			if (!window.confirm(`Delete winding doff #${id}?`)) return;
+		async (row: WindingDoffRow) => {
+			const id = row.winding_doff_id;
+			const shares = rows.filter((r) => r.weighing_id === row.weighing_id).length;
+			const prompt =
+				shares > 1
+					? `This weighing is shared by ${shares} winders. Delete all ${shares} rows?`
+					: `Delete winding doff #${id}?`;
+			if (!window.confirm(prompt)) return;
 			const url = `${apiRoutesPortalMasters.WINDING_DOFF_DELETE}/${id}?co_id=${coId}`;
 			const { error: err } = await fetchWithCookie(url, "DELETE");
 			if (err) {
 				setSnack(err);
 				return;
 			}
-			setSnack(`Deleted doff #${id}`);
+			setSnack(shares > 1 ? `Deleted weighing (${shares} rows)` : `Deleted doff #${id}`);
 			refresh();
 			onChanged();
 		},
-		[coId, refresh, onChanged],
+		[coId, rows, refresh, onChanged],
 	);
 
 	const columns = React.useMemo<GridColDef<WindingDoffRow>[]>(
@@ -57,7 +65,7 @@ export default function DoffGrid({ coId, branchId, date, spellId, refreshSignal,
 						<IconButton
 							size="small"
 							color="error"
-							onClick={() => handleDelete(params.row.winding_doff_id)}
+							onClick={() => handleDelete(params.row)}
 							sx={{ minWidth: 40, minHeight: 40 }}
 						>
 							<DeleteIcon size={16} />

@@ -923,7 +923,7 @@ const apiRoutesPortalMasters = {
     WINDING_DOFF_DELETE: `${API_URL}/windingProd/doff_delete`,
     // Jugar
     WINDING_JUGAR_SETUP: `${API_URL}/windingProd/jugar_setup`,
-    WINDING_JUGAR_PREV_STATE: `${API_URL}/windingProd/jugar_prev_state`,
+    WINDING_JUGAR_STATE: `${API_URL}/windingProd/jugar_state`,
     WINDING_JUGAR_SAVE: `${API_URL}/windingProd/jugar_save`,
     WINDING_JUGAR_UPDATE: `${API_URL}/windingProd/jugar_update`,
     WINDING_JUGAR_BY_DATE: `${API_URL}/windingProd/jugar_by_date`,
