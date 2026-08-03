@@ -69,6 +69,18 @@ function PriceCheckContent() {
 	const [mounted, setMounted] = React.useState(false);
 	React.useEffect(() => setMounted(true), []);
 
+	// The list endpoint filters one branch at a time, so the page always sends a
+	// concrete branch — sidebar pick by default, switchable when the company has more.
+	const branchOptions = React.useMemo(() => selectedCompany?.branches ?? [], [selectedCompany]);
+	const [branchId, setBranchId] = React.useState<number | null>(null);
+	React.useEffect(() => {
+		setBranchId((prev) =>
+			prev && branchOptions.some((b) => b.branch_id === prev)
+				? prev
+				: selectedBranches[0] ?? branchOptions[0]?.branch_id ?? null
+		);
+	}, [branchOptions, selectedBranches]);
+
 	const [rows, setRows] = React.useState<PriceCheckRow[]>([]);
 	const [loading, setLoading] = React.useState(false);
 	const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -85,7 +97,7 @@ function PriceCheckContent() {
 		setLoading(true);
 		setErrorMessage(null);
 		try {
-			const { data, error } = await fetchPriceCheckPending(coId, selectedBranches.length === 1 ? selectedBranches[0] : null);
+			const { data, error } = await fetchPriceCheckPending(coId, branchId);
 			if (error) throw new Error(error);
 			setRows(data?.data ?? []);
 		} catch (err) {
@@ -93,7 +105,7 @@ function PriceCheckContent() {
 		} finally {
 			setLoading(false);
 		}
-	}, [coId, selectedBranches]);
+	}, [coId, branchId]);
 
 	React.useEffect(() => {
 		load();
@@ -170,9 +182,27 @@ function PriceCheckContent() {
 						Pricing consults from Design &amp; Costing — confirm current purchase prices for enquiry costing.
 					</Typography>
 				</Box>
-				<Button size="small" variant="outlined" startIcon={<RefreshCw size={16} />} onClick={load} disabled={loading}>
-					Refresh
-				</Button>
+				<Stack direction="row" alignItems="center" gap={1}>
+					{branchOptions.length > 1 ? (
+						<TextField
+							select
+							size="small"
+							label="Branch"
+							sx={{ minWidth: 200 }}
+							value={branchId ?? ""}
+							onChange={(e) => setBranchId(e.target.value === "" ? null : Number(e.target.value))}
+						>
+							{branchOptions.map((branch) => (
+								<MenuItem key={branch.branch_id} value={branch.branch_id}>
+									{branch.branch_name}
+								</MenuItem>
+							))}
+						</TextField>
+					) : null}
+					<Button size="small" variant="outlined" startIcon={<RefreshCw size={16} />} onClick={load} disabled={loading}>
+						Refresh
+					</Button>
+				</Stack>
 			</Stack>
 
 			{errorMessage ? <Alert severity="error" onClose={() => setErrorMessage(null)}>{errorMessage}</Alert> : null}
