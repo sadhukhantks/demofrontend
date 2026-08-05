@@ -17,7 +17,7 @@ const columns: GridColDef<IssueItemwiseReportRow>[] = [
   { field: "branch_name", headerName: "Branch", flex: 1, minWidth: 120 },
   { field: "department", headerName: "Department", flex: 1, minWidth: 120 },
   { field: "item_grp_name", headerName: "Item Group", flex: 1, minWidth: 130 },
-  { field: "item_name", headerName: "Item", flex: 1, minWidth: 160 },
+  { field: "item_name", headerName: "Item Description", width: 450 },
   { field: "uom_name", headerName: "UOM", width: 80 },
   numCol("req_quantity", "Req Qty"),
   numCol("issue_qty", "Issue Qty"),

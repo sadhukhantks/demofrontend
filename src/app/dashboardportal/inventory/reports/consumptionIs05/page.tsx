@@ -14,9 +14,11 @@ import {
 const columns: GridColDef<IssueMachinewiseRow>[] = [
   { field: "machine_name", headerName: "Machine", flex: 1, minWidth: 160 },
   { field: "department", headerName: "Department", flex: 1, minWidth: 140 },
+  { field: "item_code", headerName: "Item Code", width: 120 },
   { field: "item_grp_name", headerName: "Item Group", flex: 1, minWidth: 140 },
-  { field: "item_name", headerName: "Item", flex: 1, minWidth: 180 },
+  { field: "item_name", headerName: "Item Description", width: 450 },
   { field: "uom_name", headerName: "UOM", width: 80 },
+  { field: "expense_type_name", headerName: "Exp Type", width: 120 },
   numCol("issue_qty", "Issue Qty"),
   numCol("issue_value", "Issue Value", 130),
 ];

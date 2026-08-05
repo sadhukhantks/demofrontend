@@ -66,7 +66,7 @@ function ItemMonthwiseContent() {
   const columns: GridColDef<ItemMonthwiseRow>[] = useMemo(
     () => [
       { field: "item_grp_name", headerName: "Item Group", flex: 1, minWidth: 140 },
-      { field: "item_name", headerName: "Item", flex: 1, minWidth: 200 },
+      { field: "item_name", headerName: "Item Description", width: 450 },
       { field: "uom_name", headerName: "UOM", width: 80 },
       ...months.map((m) => numCol<ItemMonthwiseRow>(m, prettyMonth(m))),
       numCol<ItemMonthwiseRow>("total", "Total", 120),
