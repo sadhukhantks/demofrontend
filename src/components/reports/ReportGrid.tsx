@@ -28,6 +28,19 @@ interface ReportGridProps<T extends GridValidRowModel> {
   height?: number;
   sortField?: string;
   sortDir?: "asc" | "desc";
+  /** Marks summary rows to render bold. Defaults to detecting cells whose text
+   * is "Total" / "Grand Total" / "Opening Balance" / "Closing". */
+  isTotalRow?: (row: T) => boolean;
+}
+
+const TOTAL_ROW_RE = /^(grand\s+total|total|opening\s+balance|closing)$/i;
+
+/** Shared summary-row detection — also used by the Excel export so grid and
+ * sheet highlight the same rows. */
+export function isReportTotalRow(row: GridValidRowModel): boolean {
+  return Object.values(row).some(
+    (v) => typeof v === "string" && TOTAL_ROW_RE.test(v.trim()),
+  );
 }
 
 /**
@@ -45,6 +58,7 @@ export default function ReportGrid<T extends GridValidRowModel>({
   height = 600,
   sortField,
   sortDir = "asc",
+  isTotalRow = isReportTotalRow,
 }: ReportGridProps<T>) {
   // Same content-width + hover-tooltip treatment the list grids get. While no branch
   // is selected the previous branch's rows may still be held, so don't size from them.
@@ -103,8 +117,14 @@ export default function ReportGrid<T extends GridValidRowModel>({
               : {}),
           }}
           disableRowSelectionOnClick
+          getRowHeight={() => "auto"}
+          getRowClassName={(params) =>
+            isTotalRow(params.row) ? "report-total-row" : ""
+          }
           sx={{
             ...wrappingGridSx,
+            border: "1px solid",
+            borderColor: "divider",
             "& .MuiDataGrid-columnHeader": {
               backgroundColor: "#3ea6da",
               color: "white",
@@ -113,6 +133,33 @@ export default function ReportGrid<T extends GridValidRowModel>({
             "& .MuiDataGrid-columnHeaderTitle": {
               ...wrappingGridSx["& .MuiDataGrid-columnHeaderTitle"],
               fontWeight: "bold",
+            "& .MuiDataGrid-columnHeader:not(:last-of-type)": {
+              borderRight: "1px solid rgba(255,255,255,0.4)",
+            },
+            "& .MuiDataGrid-columnHeaderTitle": {
+              fontWeight: 700,
+              whiteSpace: "normal",
+              lineHeight: 1.2,
+            },
+            "& .MuiDataGrid-cell": {
+              borderRight: "1px solid",
+              borderRightColor: "divider",
+              whiteSpace: "normal",
+              wordBreak: "break-word",
+              display: "flex",
+              alignItems: "center",
+              py: 0.5,
+            },
+            "& .MuiDataGrid-cell:last-of-type": { borderRight: "none" },
+            "& .MuiDataGrid-cell--textRight": { justifyContent: "flex-end" },
+            "& .report-total-row, & .report-total-row:hover, & .report-total-row.Mui-hovered":
+              {
+                backgroundColor: "#3ea6da",
+                color: "white",
+              },
+            "& .report-total-row .MuiDataGrid-cell": {
+              fontWeight: 700,
+              borderRightColor: "rgba(255,255,255,0.4)",
             },
           }}
         />

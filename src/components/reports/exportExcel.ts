@@ -1,4 +1,5 @@
 import { GridColDef, GridValidRowModel } from "@mui/x-data-grid";
+import { isReportTotalRow } from "./ReportGrid";
 
 /** Optional report header block prepended above the column headers in the sheet. */
 export interface ReportExportHeader {
@@ -10,20 +11,22 @@ export interface ReportExportHeader {
   reportFor?: string | null;
 }
 
+const BLUE = "FF3EA6DA";
+const WHITE = "FFFFFFFF";
+const GRID_LINE = { style: "thin", color: { argb: "FF9E9E9E" } } as const;
+const HEADER_LINE = { style: "thin", color: { argb: WHITE } } as const;
+
 /**
- * Export grid rows to a real .xlsx file using the grid's own column defs.
- * Header = each column's headerName; cell = the raw row value for that field
- * (numbers stay numeric in the sheet). Filename gets a timestamp so repeated
- * exports don't collide. When `header` is given, a report header block
- * (Company / Branch / Report / Report No / Report For) is written above the
- * column headers.
+ * Export grid rows to a styled .xlsx file using the grid's own column defs,
+ * matching the on-screen report look: blue header band with white bold text,
+ * borders on every cell, Total / Grand Total rows styled like the header, the
+ * Item Description column 70 chars wide with wrapping, and other columns
+ * auto-sized to content. Numbers stay numeric (2-decimal format for numeric
+ * columns). When `header` is given, a report header block (Company / Branch /
+ * Report / Report No / Report For) is written above the column headers.
  *
- * xlsx + file-saver are imported dynamically so the heavy spreadsheet lib is
+ * exceljs + file-saver are imported dynamically so the heavy spreadsheet lib is
  * loaded only when the user actually exports — it stays out of the page bundle.
- *
- * ponytail: exports raw field values (no valueFormatter) — numeric columns
- * land as numbers; a couple of coded columns (e.g. txn type R/I) export their
- * code. Map them through the formatter only if a prettier sheet is needed.
  */
 export async function exportRowsToExcel<T extends GridValidRowModel>(
   columns: GridColDef<T>[],
@@ -31,42 +34,113 @@ export async function exportRowsToExcel<T extends GridValidRowModel>(
   fileNamePrefix = "jute-report",
   header?: ReportExportHeader,
 ): Promise<void> {
-  const XLSX = await import("xlsx");
+  const ExcelJS = await import("exceljs");
   const { saveAs } = await import("file-saver");
 
-  const colHeader = columns.map((c) => c.headerName ?? String(c.field));
-  const data = rows.map((row) =>
-    columns.reduce<Record<string, unknown>>((acc, c) => {
-      const key = c.headerName ?? String(c.field);
-      acc[key] = (row as Record<string, unknown>)[c.field as string] ?? "";
-      return acc;
-    }, {}),
-  );
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Report");
 
-  const meta: (string | number)[][] = [];
+  // Report header block: each line merged across all report columns, centered.
+  //   COMPANY NAME
+  //   BranchName (Branch)
+  //   ReportName For the Period <from> To <to> (Report No: N)
   if (header) {
-    if (header.companyName) meta.push(["Company:", header.companyName]);
-    if (header.branchName) meta.push(["Branch:", header.branchName]);
-    if (header.reportName) meta.push(["Report:", header.reportName]);
-    if (header.reportNo != null && header.reportNo !== "") {
-      meta.push(["Report No:", header.reportNo]);
+    const addCenteredRow = (value: string, size: number) => {
+      const r = ws.addRow([value]);
+      ws.mergeCells(r.number, 1, r.number, columns.length);
+      const cell = r.getCell(1);
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      cell.font = { bold: true, size };
+    };
+    let wrote = false;
+    if (header.companyName) {
+      addCenteredRow(header.companyName, 14);
+      wrote = true;
     }
-    if (header.reportFor) meta.push(["Report For:", header.reportFor]);
-    if (meta.length) meta.push([]); // blank spacer row before the column headers
+    if (header.branchName) {
+      addCenteredRow(`${header.branchName} (Branch)`, 12);
+      wrote = true;
+    }
+    if (header.reportName) {
+      let line = header.reportName;
+      if (header.reportFor) line += ` For the Period ${header.reportFor}`;
+      if (header.reportNo != null && header.reportNo !== "") {
+        line += ` (Report No: ${header.reportNo})`;
+      }
+      addCenteredRow(line, 12);
+      wrote = true;
+    }
+    if (wrote) ws.addRow([]); // blank spacer row before the column headers
   }
 
-  let ws;
-  if (meta.length) {
-    ws = XLSX.utils.aoa_to_sheet(meta);
-    XLSX.utils.sheet_add_json(ws, data, { header: colHeader, origin: meta.length });
-  } else {
-    ws = XLSX.utils.json_to_sheet(data, { header: colHeader });
+  const headerRow = ws.addRow(
+    columns.map((c) => c.headerName ?? String(c.field)),
+  );
+  headerRow.eachCell((cell) => {
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BLUE } };
+    cell.font = { bold: true, color: { argb: WHITE } };
+    cell.alignment = { vertical: "middle", wrapText: true };
+    cell.border = {
+      top: GRID_LINE,
+      bottom: GRID_LINE,
+      left: HEADER_LINE,
+      right: HEADER_LINE,
+    };
+  });
+
+  for (const row of rows) {
+    const r = ws.addRow(
+      columns.map(
+        (c) => (row as Record<string, unknown>)[c.field as string] ?? "",
+      ),
+    );
+    const total = isReportTotalRow(row);
+    r.eachCell({ includeEmpty: true }, (cell) => {
+      cell.border = {
+        top: GRID_LINE,
+        bottom: GRID_LINE,
+        left: total ? HEADER_LINE : GRID_LINE,
+        right: total ? HEADER_LINE : GRID_LINE,
+      };
+      cell.alignment = { vertical: "top", wrapText: true };
+      if (total) {
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: BLUE },
+        };
+        cell.font = { bold: true, color: { argb: WHITE } };
+      }
+    });
   }
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Report");
-  const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+
+  columns.forEach((c, i) => {
+    const col = ws.getColumn(i + 1);
+    const name = c.headerName ?? String(c.field);
+    if (/item description/i.test(name)) {
+      col.width = 70;
+    } else {
+      const maxLen = Math.max(
+        name.length,
+        ...rows.map(
+          (r) =>
+            String((r as Record<string, unknown>)[c.field as string] ?? "")
+              .length,
+        ),
+      );
+      col.width = Math.min(Math.max(maxLen + 2, 10), 40);
+    }
+    if (c.type === "number") col.numFmt = "0.00";
+  });
+
+  // Freeze everything above the first data row so headers stay visible.
+  ws.views = [{ state: "frozen", ySplit: headerRow.number }];
+
+  const buf = await wb.xlsx.writeBuffer();
   saveAs(
-    new Blob([out], { type: "application/octet-stream" }),
+    new Blob([buf], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }),
     `${fileNamePrefix}-${Date.now()}.xlsx`,
   );
 }

@@ -12,6 +12,7 @@ import {
 } from "@/utils/inventoryReportService";
 
 const columns: GridColDef<ConsumptionRow>[] = [
+  { field: "item_group_code", headerName: "Group Code", width: 120 },
   { field: "item_group", headerName: "Item Group", flex: 1, minWidth: 200 },
   numCol("production", "Production"),
   numCol("overhauling", "Overhauling"),
