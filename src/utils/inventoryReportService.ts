@@ -9,13 +9,21 @@ import { apiRoutesPortalMasters } from "./api";
 /** Row from GET /inventoryReports/inventory-stock (Stores Inventory List). */
 export interface InventoryStockReportRow {
   item_id: number;
+  item_code: string | null;
   item_name: string | null;
   item_grp_name: string | null;
   uom_name: string | null;
   opening_qty: number | null;
+  opening_val: number | null;
   receipt_qty: number | null;
+  receipt_val: number | null;
   issue_qty: number | null;
+  issue_val: number | null;
   closing_qty: number | null;
+  closing_val: number | null;
+  last_receipt_date: string | null;
+  last_issue_date: string | null;
+  no_consumption_days: number | null;
 }
 
 interface InventoryStockReportResponse {
@@ -66,11 +74,14 @@ export interface IssueItemwiseReportRow {
   issue_date: string | null;
   branch_name: string | null;
   department: string | null;
+  item_code: string | null;
   item_name: string | null;
   item_grp_name: string | null;
   uom_name: string | null;
   req_quantity: number | null;
   issue_qty: number | null;
+  issue_value: number | null;
+  sr_no: string | null;
   expense_type_name: string | null;
   cost_factor_name: string | null;
   machine_name: string | null;
@@ -119,18 +130,23 @@ export interface ItemLedgerRow {
   txn_type: string;
   ref_no: string | null;
   in_qty: number;
+  in_val: number;
   out_qty: number;
+  out_val: number;
   balance: number;
+  balance_val: number;
 }
 
 interface ItemLedgerResponse {
   opening_qty: number;
+  opening_val: number;
   data: ItemLedgerRow[];
   total: number;
 }
 
 export interface ItemLedgerResult {
   openingQty: number;
+  openingVal: number;
   rows: ItemLedgerRow[];
 }
 
@@ -157,12 +173,17 @@ export async function fetchItemLedgerReport(p: {
   if (result.error || !result.data) {
     throw new Error(result.error ?? "Failed to fetch item ledger");
   }
-  return { openingQty: result.data.opening_qty, rows: result.data.data };
+  return {
+    openingQty: result.data.opening_qty,
+    openingVal: result.data.opening_val,
+    rows: result.data.data,
+  };
 }
 
 /** Row from GET /inventoryReports/inventory-minmax. */
 export interface InventoryMinMaxRow {
   item_id: number;
+  item_code: string | null;
   item_name: string | null;
   item_grp_name: string | null;
   uom_name: string | null;
@@ -171,6 +192,9 @@ export interface InventoryMinMaxRow {
   reorder_qty: number | null;
   lead_time: number | null;
   current_qty: number;
+  pending_indent_qty: number | null;
+  pending_po_qty: number | null;
+  qty_to_be_ordered: number | null;
   status: string;
 }
 
@@ -233,7 +257,9 @@ export interface ConsumptionRow {
   id: number;
   department?: string | null;
   cost_factor?: string | null;
+  item_code?: string | null;
   item_name?: string | null;
+  item_group_code?: string | null;
   item_group?: string | null;
   production: number;
   overhauling: number;
@@ -273,9 +299,11 @@ export interface IssueMachinewiseRow {
   id: number;
   machine_name: string | null;
   department: string | null;
+  item_code: string | null;
   item_grp_name: string | null;
   item_name: string | null;
   uom_name: string | null;
+  expense_type_name: string | null;
   issue_qty: number;
   issue_value: number;
 }
@@ -305,6 +333,7 @@ export interface ItemOption {
   item_id: number;
   item_name: string;
   full_item_code: string | null;
+  uom_name: string | null;
 }
 
 interface ItemSearchResponse {

@@ -3,6 +3,7 @@
 import * as React from "react";
 import {
 	Alert,
+	Autocomplete,
 	Box,
 	Button,
 	Chip,
@@ -57,6 +58,17 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell,
 	React.useEffect(() => {
 		setEdits({});
 	}, [date, spell]);
+
+	// Default the Line filter to the first line once rows arrive — rendering every loom at
+	// once (400+ rows of selects) is what made the tab slow, so there is no "All lines" option.
+	React.useEffect(() => {
+		setLineFilter((cur) => {
+			if (cur !== "") return cur;
+			const first = [...rows].sort(byLineThenCode)[0];
+			if (!first) return "";
+			return first.line_no != null ? String(first.line_no) : "none";
+		});
+	}, [rows]);
 
 	// Seed/patch edit state (loom -> weaving_quality_id) WITHOUT clobbering the operator's picks.
 	// Rows arrive in two phases (saved mapping first, then lazy carry-forward merged in), so this
@@ -148,12 +160,14 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell,
 	}
 
 	// Unique shed lines for the filter dropdown ("none" bucket for unassigned looms).
-	const lineOptions = Array.from(
-		new Set(rows.map((r) => r.line_no).filter((l): l is number => l != null))
-	).sort((a, b) => a - b);
-	const hasNoLine = rows.some((r) => r.line_no == null);
+	const lineOptions = [
+		...Array.from(new Set(rows.map((r) => r.line_no).filter((l): l is number => l != null)))
+			.sort((a, b) => a - b)
+			.map(String),
+		...(rows.some((r) => r.line_no == null) ? ["none"] : []),
+	];
 	const visibleRows = [...rows].sort(byLineThenCode).filter((r) => {
-		if (lineFilter === "") return true;
+		if (lineFilter === "") return false; // not defaulted yet — avoid the full-grid paint
 		return lineFilter === "none" ? r.line_no == null : r.line_no === Number(lineFilter);
 	});
 
@@ -179,22 +193,17 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell,
 				>
 					Mapped
 				</Button>
-				<TextField
-					select
+				<Autocomplete
 					size="small"
-					label="Line"
-					value={lineFilter}
-					onChange={(e) => setLineFilter(e.target.value)}
-					sx={{ minWidth: 120 }}
-				>
-					<MenuItem value="">All lines</MenuItem>
-					{lineOptions.map((l) => (
-						<MenuItem key={l} value={String(l)}>
-							Line {l}
-						</MenuItem>
-					))}
-					{hasNoLine ? <MenuItem value="none">No line</MenuItem> : null}
-				</TextField>
+					options={lineOptions}
+					value={lineFilter === "" ? null : lineFilter}
+					onChange={(_e, v) => {
+						if (v) setLineFilter(v); // ignore clear — a blank filter shows nothing
+					}}
+					getOptionLabel={(o) => (o === "none" ? "No line" : `Line ${o}`)}
+					sx={{ minWidth: 140 }}
+					renderInput={(params) => <TextField {...params} label="Line" />}
+				/>
 				{carryForwardLoading ? (
 					<Typography
 						variant="caption"

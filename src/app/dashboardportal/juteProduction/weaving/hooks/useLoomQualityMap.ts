@@ -7,6 +7,16 @@ import type { LoomQualityMapRow } from "../types/weavingTypes";
 
 type MapResponse = { data: LoomQualityMapRow[]; last_updated: string | null };
 
+// machine_mst.line_no is INT on dev3 but VARCHAR on some tenants (e.g. sls), so the API
+// may deliver "4" instead of 4 — which breaks the grids' strict line-filter comparison.
+// Coerce once here so every consumer sees the declared number | null.
+function normalizeLineNo(rows: LoomQualityMapRow[]): LoomQualityMapRow[] {
+	return rows.map((r) => {
+		const n = r.line_no == null ? null : Number(r.line_no);
+		return { ...r, line_no: n == null || Number.isNaN(n) ? null : n };
+	});
+}
+
 // Loom → Quality map data, loaded in up to two phases:
 //   Phase 1 (always): GET /quality_map_saved — the loom list + today's saved mapping. Cheap
 //     (~88ms) — the grid renders from this immediately. prev_quality_* come back null.
@@ -57,7 +67,7 @@ export function useLoomQualityMap(
 				return;
 			}
 			setError(null);
-			setRows(data?.data ?? []);
+			setRows(normalizeLineNo(data?.data ?? []));
 			setLastUpdated(data?.last_updated ?? null);
 			setLoading(false);
 			if (savedOnly) {

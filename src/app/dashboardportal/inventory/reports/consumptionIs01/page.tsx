@@ -14,7 +14,8 @@ import {
 const columns: GridColDef<ConsumptionRow>[] = [
   { field: "department", headerName: "Department", flex: 1, minWidth: 150 },
   { field: "cost_factor", headerName: "Cost Center", flex: 1, minWidth: 140 },
-  { field: "item_name", headerName: "Item", flex: 1, minWidth: 180 },
+  { field: "item_code", headerName: "Item Code", width: 120 },
+  { field: "item_name", headerName: "Item Description", width: 450 },
   numCol("production", "Production"),
   numCol("overhauling", "Overhauling"),
   numCol("maintenance", "Maintenance"),
