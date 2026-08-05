@@ -33,7 +33,7 @@ type Props = {
 	branchId: number;
 	setup: WeavingSetup;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	// Shared, page-owned map fetch (reused across tab switches — no reload on this tab).
 	map: LoomQualityMapState;
 	// Bumped by the page after Process — refetches entries without remounting the grid.
@@ -64,14 +64,14 @@ function byLineThenCode(a: LoomQualityMapRow, b: LoomQualityMapRow): number {
 
 // Loom rows on the production grid never carry a quality dropdown — the quality is
 // MAPPED on the Loom → Quality tab and inherited read-only here (like spinning).
-export default function WeavingEntryGrid({ coId, branchId, setup, date, spell, map, refreshKey }: Props) {
+export default function WeavingEntryGrid({ coId, branchId, date, spellId, map, refreshKey = 0 }: Props) {
 	// The mapped quality per loom (read-only source for this grid) comes from the page-owned,
 	// shared map fetch — this grid needs only the loom list + saved mapping (it ignores the
 	// editor's carry-forward). Sharing means switching to this tab does NOT refetch the map.
 	const { rows: mapRows, loading: mapLoading, error: mapError } = map;
 	// Existing day entries (to prefill cuts/jugar and show server-computed outputs).
 	const { rows: entryRows, loading: entriesLoading, loaded: entriesLoaded, error: entriesError, refresh } =
-		useWeavingEntriesByDate(coId, date, branchId, spell, null, refreshKey);
+		useWeavingEntriesByDate(coId, date, branchId, spellId, null, refreshKey);
 
 	const [edits, setEdits] = React.useState<Record<number, CellEdit>>({});
 	const [savingId, setSavingId] = React.useState<number | null>(null);
@@ -99,7 +99,7 @@ export default function WeavingEntryGrid({ coId, branchId, setup, date, spell, m
 	// A fresh grid when the (date, spell) cell identity changes.
 	React.useEffect(() => {
 		setEdits({});
-	}, [date, spell]);
+	}, [date, spellId]);
 
 	// Default the Line filter to the first line once rows arrive — rendering every loom at
 	// once (400+ rows of inputs) is what made the tab slow, so there is no "All lines" option.
@@ -203,7 +203,7 @@ export default function WeavingEntryGrid({ coId, branchId, setup, date, spell, m
 			co_id: Number(coId),
 			branch_id: Number(branchId),
 			tran_date: date,
-			spell,
+			spell_id: spellId,
 			machine_id: machineId,
 			cuts: Number(cell.cuts),
 			close_jugar: Number(cell.close_jugar || 0),
@@ -245,9 +245,8 @@ export default function WeavingEntryGrid({ coId, branchId, setup, date, spell, m
 	};
 
 	const doSaveAll = async () => {
-		const spellId = setup.spells.find((s) => s.spell_code === spell)?.spell_id;
 		if (spellId == null) {
-			setSnack("Unknown spell — cannot batch save.");
+			setSnack("Select a spell — cannot batch save.");
 			return;
 		}
 		setSavingAll(true);
@@ -299,7 +298,7 @@ export default function WeavingEntryGrid({ coId, branchId, setup, date, spell, m
 		void doSaveAll();
 	};
 
-	if (!spell) {
+	if (spellId == null) {
 		return <Alert severity="info">Select a spell to load the production grid.</Alert>;
 	}
 

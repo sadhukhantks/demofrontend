@@ -9,6 +9,7 @@ import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { fetchVouchers } from "@/utils/accountingService";
 import {
   ACC_STATUS_IDS,
+  isVoucherStatusEditable,
   type VoucherListRow,
 } from "@/app/dashboardportal/accounting/types/accountingTypes";
 
@@ -109,15 +110,14 @@ export default function VoucherListPage() {
     [router]
   );
 
-  const isRowEditable = React.useCallback((row: VoucherListRow): boolean => {
-    const sid = row.status_id;
-    return (
-      sid !== ACC_STATUS_IDS.APPROVED &&
-      sid !== ACC_STATUS_IDS.CANCELLED &&
-      sid !== ACC_STATUS_IDS.CLOSED &&
-      row.is_auto_posted !== 1
-    );
-  }, []);
+  // Mirrors the backend's update_draft_voucher gate (Draft/Open only), so the
+  // pencil never routes to an edit screen that would be read-only anyway.
+  // Rejected vouchers must be reopened (4 -> 1) before they can be edited.
+  const isRowEditable = React.useCallback(
+    (row: VoucherListRow): boolean =>
+      isVoucherStatusEditable(row.status_id) && row.is_auto_posted !== 1,
+    []
+  );
 
   // ── Columns ─────────────────────────────────────────────────────────────────
 
@@ -226,10 +226,12 @@ export default function VoucherListPage() {
     setErrorMessage(null);
 
     try {
+      const trimmedSearch = searchValue.trim();
       const result = await fetchVouchers({
         coId: Number(coId),
         page: paginationModel.page + 1,
         limit: paginationModel.pageSize,
+        search: trimmedSearch || undefined,
       });
 
       const mapped: VoucherListRow[] = (result.vouchers ?? []).map((v) => ({
@@ -267,7 +269,7 @@ export default function VoucherListPage() {
     } finally {
       setLoading(false);
     }
-  }, [coId, paginationModel.page, paginationModel.pageSize]);
+  }, [coId, paginationModel.page, paginationModel.pageSize, searchValue]);
 
   React.useEffect(() => {
     void fetchData();

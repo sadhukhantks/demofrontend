@@ -10,8 +10,8 @@ type Props = {
 	coId: string;
 	branchId: number;
 	date: string;
-	spell: string;
-	// Bumped by the page after Process — refetches the grid (frozen log) without remount.
+	spellId: number | null;
+	// Bumped after Process so a locked unit re-fetches the frozen log.
 	refreshKey?: number;
 };
 
@@ -26,14 +26,8 @@ function rollupRowId(r: ShiftRollupRow): string {
 
 const num = { type: "number" as const, width: 90 };
 
-export default function PlanningGrid({ coId, branchId, date, spell, refreshKey }: Props) {
-	const { data, loading, error, locked } = usePlanningGrid(
-		coId,
-		branchId,
-		date,
-		spell,
-		refreshKey
-	);
+export default function PlanningGrid({ coId, branchId, date, spellId, refreshKey = 0 }: Props) {
+	const { data, loading, error, locked } = usePlanningGrid(coId, branchId, date, spellId, refreshKey);
 
 	const rows = data?.rows ?? [];
 	const rollup = data?.shift_rollup ?? [];
@@ -81,6 +75,8 @@ export default function PlanningGrid({ coId, branchId, date, spell, refreshKey }
 		[]
 	);
 
+	// G1: the old Save button posted to the removed planning_grid_save route —
+	// the SpinningProcessBar's Process button owns freezing now.
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
 			<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>

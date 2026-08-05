@@ -131,8 +131,18 @@ const getVisibleButtons = (
     }
   }
 
-  // Open (1) - Show Approve button instead of Send for Approval
+  // Open (1) - Approve directly, or Send for Approval when the caller opts in
+  // (the shared backend permission builder never grants canSendForApproval, so
+  // modules that take their permissions from the API are unaffected).
   if (statusId === 1) {
+    if (permissions.canSendForApproval && handlers.onSendForApproval) {
+      buttons.push({
+        id: "send-for-approval",
+        label: "Send for Approval",
+        variant: "primary" as const,
+        onClick: handlers.onSendForApproval,
+      });
+    }
     if (permissions.canApprove && handlers.onApprove) {
       buttons.push({
         id: "approve",

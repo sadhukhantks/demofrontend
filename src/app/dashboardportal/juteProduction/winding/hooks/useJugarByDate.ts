@@ -11,7 +11,7 @@ export function useJugarByDate(
 	coId: string | null | undefined,
 	tranDate: string,
 	branchId: number | null,
-	spell?: string | null,
+	spellId?: number | null,
 ) {
 	const [rows, setRows] = React.useState<WindingJugarRow[]>([]);
 	const [loading, setLoading] = React.useState(false);
@@ -28,7 +28,7 @@ export function useJugarByDate(
 		let cancelled = false;
 		setLoading(true);
 		let url = `${apiRoutesPortalMasters.WINDING_JUGAR_BY_DATE}?co_id=${coId}&tran_date=${tranDate}&branch_id=${branchId}`;
-		if (spell) url += `&spell=${spell}`;
+		if (spellId != null) url += `&spell_id=${spellId}`;
 		void fetchWithCookie<{ data: WindingJugarRow[] }>(url, "GET").then(({ data, error: err }) => {
 			if (cancelled) return;
 			if (err) {
@@ -43,7 +43,7 @@ export function useJugarByDate(
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, tranDate, branchId, spell, version]);
+	}, [coId, tranDate, branchId, spellId, version]);
 
 	return { rows, loading, error, refresh };
 }

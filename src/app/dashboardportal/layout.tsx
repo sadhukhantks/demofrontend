@@ -92,7 +92,9 @@ export default function DashboardLayout({
           </div>
 
           <div className="flex-1 flex flex-col overflow-hidden">
-            <main className="flex-1 overflow-x-hidden overflow-y-auto bg-white">
+            {/* pb-24 keeps the floating support Fab (bottom-right) from covering
+                page-bottom controls such as DataGrid pagination arrows */}
+            <main className="flex-1 overflow-x-hidden overflow-y-auto bg-white pb-24">
               {children}
             </main>
           </div>

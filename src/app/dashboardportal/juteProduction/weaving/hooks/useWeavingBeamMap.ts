@@ -5,7 +5,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WeavingBeamMapRow } from "../types/weavingTypes";
 
-// GET WEAVING_BEAM_MAP_GET?co_id&branch_id&tran_date&spell
+// GET WEAVING_BEAM_MAP_GET?co_id&branch_id&tran_date&spell_id
 // -> { data: WeavingBeamMapRow[], last_updated: string | null }.
 // Mirrors useLoomQualityMap — one beam_no per loom for the date/spell. Companion
 // endpoint: WEAVING_BEAM_MAP_SAVE (POST entries).
@@ -13,7 +13,7 @@ export function useWeavingBeamMap(
 	coId: string | null | undefined,
 	branchId: number | null,
 	tranDate: string,
-	spell: string | null
+	spellId: number | null
 ) {
 	const [rows, setRows] = React.useState<WeavingBeamMapRow[]>([]);
 	const [lastUpdated, setLastUpdated] = React.useState<string | null>(null);
@@ -24,13 +24,13 @@ export function useWeavingBeamMap(
 	const refresh = React.useCallback(() => setVersion((v) => v + 1), []);
 
 	React.useEffect(() => {
-		if (!coId || branchId == null || !tranDate || !spell) {
+		if (!coId || branchId == null || !tranDate || spellId == null) {
 			setRows([]);
 			return;
 		}
 		let cancelled = false;
 		setLoading(true);
-		const url = `${apiRoutesPortalMasters.WEAVING_BEAM_MAP_GET}?co_id=${coId}&branch_id=${branchId}&tran_date=${tranDate}&spell=${spell}`;
+		const url = `${apiRoutesPortalMasters.WEAVING_BEAM_MAP_GET}?co_id=${coId}&branch_id=${branchId}&tran_date=${tranDate}&spell_id=${spellId}`;
 		void fetchWithCookie<{ data: WeavingBeamMapRow[]; last_updated: string | null }>(url, "GET").then(
 			({ data, error: err }) => {
 				if (cancelled) return;
@@ -49,7 +49,7 @@ export function useWeavingBeamMap(
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, branchId, tranDate, spell, version]);
+	}, [coId, branchId, tranDate, spellId, version]);
 
 	return { rows, lastUpdated, loading, error, refresh };
 }

@@ -107,7 +107,7 @@ export type WeavingEntryCreateBody = {
 	co_id: number;
 	branch_id: number;
 	tran_date: string;
-	spell: string;
+	spell_id: number;
 	machine_id: number;
 	cuts: number;
 	close_jugar: number;

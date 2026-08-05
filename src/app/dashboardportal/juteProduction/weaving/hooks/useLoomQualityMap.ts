@@ -29,7 +29,7 @@ export function useLoomQualityMap(
 	coId: string | null | undefined,
 	branchId: number | null,
 	tranDate: string,
-	spell: string | null,
+	spellId: number | null,
 	savedOnly = false
 ) {
 	const [rows, setRows] = React.useState<LoomQualityMapRow[]>([]);
@@ -42,13 +42,13 @@ export function useLoomQualityMap(
 	const refresh = React.useCallback(() => setVersion((v) => v + 1), []);
 
 	React.useEffect(() => {
-		if (!coId || branchId == null || !tranDate || !spell) {
+		if (!coId || branchId == null || !tranDate || spellId == null) {
 			setRows([]);
 			setLastUpdated(null);
 			return;
 		}
 		let cancelled = false;
-		const qs = `?co_id=${coId}&branch_id=${branchId}&tran_date=${tranDate}&spell=${spell}`;
+		const qs = `?co_id=${coId}&branch_id=${branchId}&tran_date=${tranDate}&spell_id=${spellId}`;
 		setLoading(true);
 		setCarryForwardLoading(!savedOnly);
 
@@ -104,7 +104,7 @@ export function useLoomQualityMap(
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, branchId, tranDate, spell, savedOnly, version]);
+	}, [coId, branchId, tranDate, spellId, savedOnly, version]);
 
 	return { rows, lastUpdated, loading, carryForwardLoading, error, refresh };
 }

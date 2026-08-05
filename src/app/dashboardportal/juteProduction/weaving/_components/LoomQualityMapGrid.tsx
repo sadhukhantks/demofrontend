@@ -40,13 +40,13 @@ type Props = {
 	branchId: number;
 	setup: WeavingSetup;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	// The map fetch is owned by the page and shared with the entry grid, so switching tabs
 	// doesn't refetch. This tab is the only consumer of the lazy carry-forward (prev_quality_*).
 	map: LoomQualityMapState;
 };
 
-export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell, map }: Props) {
+export default function LoomQualityMapGrid({ coId, branchId, setup, date, spellId, map }: Props) {
 	const { rows, lastUpdated, loading, carryForwardLoading, error, refresh } = map;
 	const [edits, setEdits] = React.useState<Record<number, number | "">>({});
 	const [saving, setSaving] = React.useState(false);
@@ -57,7 +57,7 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell,
 	// Reset local edits when the cell identity (date/spell) changes — a fresh grid.
 	React.useEffect(() => {
 		setEdits({});
-	}, [date, spell]);
+	}, [date, spellId]);
 
 	// Default the Line filter to the first line once rows arrive — rendering every loom at
 	// once (400+ rows of selects) is what made the tab slow, so there is no "All lines" option.
@@ -122,7 +122,13 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell,
 			})
 			.filter((x): x is { machine_id: number; weaving_quality_id: number } => x !== null);
 
-		const body = { co_id: Number(coId), branch_id: Number(branchId), tran_date: date, spell, entries };
+		const body = {
+			co_id: Number(coId),
+			branch_id: Number(branchId),
+			tran_date: date,
+			spell_id: spellId,
+			entries,
+		};
 		const { error: err } = await fetchWithCookie(
 			apiRoutesPortalMasters.WEAVING_QUALITY_MAP_SAVE,
 			"POST",
@@ -139,7 +145,7 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell,
 
 	const handleMapped = async () => {
 		setBusy(true);
-		const body = { co_id: Number(coId), branch_id: Number(branchId), tran_date: date, spell };
+		const body = { co_id: Number(coId), branch_id: Number(branchId), tran_date: date, spell_id: spellId };
 		const { data, error: err } = await fetchWithCookie<{
 			data: { quality_stamped: number; operator_stamped: number };
 		}>(apiRoutesPortalMasters.WEAVING_QUALITY_MAP_MAPPED, "POST", body);
@@ -155,7 +161,7 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spell,
 		refresh();
 	};
 
-	if (!spell) {
+	if (spellId == null) {
 		return <Alert severity="info">Select a spell to load loom → quality mapping.</Alert>;
 	}
 

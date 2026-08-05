@@ -5,7 +5,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WindingJugarSetup } from "../types/windingTypes";
 
-// WINDING_JUGAR_SETUP — winding machines + spells for the Jugar tab.
+// WINDING_JUGAR_SETUP — winders (HRMS masters) + spells for the Jugar tab.
 // No-ops while !coId / branch unresolved.
 export function useJugarSetup(
 	coId: string | null | undefined,

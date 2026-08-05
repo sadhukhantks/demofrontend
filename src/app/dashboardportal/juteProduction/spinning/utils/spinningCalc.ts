@@ -5,6 +5,8 @@
 // encode legacy unit conversions (count system, lb<->kg, inches<->yards). Do NOT
 // "simplify" them — they reproduce the exact mill audit spreadsheet.
 
+import type { DoffEntryRow } from "../types/spinningTypes";
+
 function round2(x: number): number {
 	return Math.round(x * 100) / 100;
 }
@@ -86,6 +88,94 @@ export function sampleStdDev(nums: number[]): number | null {
 	const mean = vals.reduce((acc, v) => acc + v, 0) / n;
 	const variance = vals.reduce((acc, v) => acc + (v - mean) * (v - mean), 0) / (n - 1);
 	return Math.sqrt(variance);
+}
+
+// Frame-wise production rollup — one row per (frame, yarn quality) with every
+// doff net of the spell listed ("34 + 45 + 30"), summed and averaged.
+// Display-only; mirrors winding's groupWinderWise.
+export type FrameWiseRow = {
+	id: string;
+	frame: string;
+	item_code: string;
+	operators: string;
+	doffs: number;
+	weights: string;
+	total: number;
+	avg_doff: number;
+	prev_avg_doff: number | null;
+};
+
+// Average net of every doff in the group, keyed the same way as the main rollup
+// so the previous spell's averages line up frame-for-frame.
+function frameAverages(rows: DoffEntryRow[]): Map<string, number> {
+	const acc = new Map<string, { sum: number; n: number }>();
+	for (const r of rows) {
+		const key = `${r.mc_id ?? "-"}|${r.item_id ?? "-"}`;
+		const g = acc.get(key) ?? { sum: 0, n: 0 };
+		g.sum += Number(r.net_weight) || 0;
+		g.n += 1;
+		acc.set(key, g);
+	}
+	return new Map([...acc].map(([k, g]) => [k, round3(g.sum / g.n)]));
+}
+
+export function groupFrameWise(rows: DoffEntryRow[], prevRows: DoffEntryRow[] = []): FrameWiseRow[] {
+	const prevAvg = frameAverages(prevRows);
+	const map = new Map<
+		string,
+		{ frame: string; item_code: string; operators: Set<string>; nets: number[] }
+	>();
+	for (const r of rows) {
+		const key = `${r.mc_id ?? "-"}|${r.item_id ?? "-"}`;
+		let g = map.get(key);
+		if (!g) {
+			g = {
+				frame: r.mech_code || r.machine_name || "—",
+				item_code: r.item_code ?? "—",
+				operators: new Set<string>(),
+				nets: [],
+			};
+			map.set(key, g);
+		}
+		if (r.eb_name) g.operators.add(r.eb_name);
+		g.nets.push(round3(Number(r.net_weight) || 0));
+	}
+	return [...map.entries()]
+		.map(([id, g]) => {
+			const total = round3(g.nets.reduce((a, b) => a + b, 0));
+			return {
+				id,
+				frame: g.frame,
+				item_code: g.item_code,
+				operators: [...g.operators].sort().join(", ") || "—",
+				doffs: g.nets.length,
+				weights: g.nets.join(" + "),
+				total,
+				avg_doff: round3(total / g.nets.length),
+				prev_avg_doff: prevAvg.get(id) ?? null,
+			};
+		})
+		.sort((a, b) => a.frame.localeCompare(b.frame) || a.item_code.localeCompare(b.item_code));
+}
+
+// Previous shift = the spell before `spellId` in starting_time order (the order
+// the setup endpoint returns them); on the day's first spell it rolls back to
+// the last spell of the previous date. null when the spell isn't in the list.
+export function prevShiftRef(
+	spells: { spell_id: number }[],
+	spellId: number | null,
+	tranDate: string,
+): { spellId: number; date: string } | null {
+	if (spellId == null || spells.length === 0) return null;
+	const idx = spells.findIndex((s) => s.spell_id === spellId);
+	if (idx < 0) return null;
+	if (idx > 0) return { spellId: spells[idx - 1].spell_id, date: tranDate };
+	const d = new Date(`${tranDate}T00:00:00`);
+	if (Number.isNaN(d.getTime())) return null;
+	d.setDate(d.getDate() - 1);
+	const m = String(d.getMonth() + 1).padStart(2, "0");
+	const day = String(d.getDate()).padStart(2, "0");
+	return { spellId: spells[spells.length - 1].spell_id, date: `${d.getFullYear()}-${m}-${day}` };
 }
 
 export function todayISO(): string {

@@ -12,7 +12,7 @@ export function useQualityByDate(
 	coId: string | null | undefined,
 	tranDate: string,
 	branchId: number | null,
-	spell?: string | null,
+	spellId?: number | null,
 ) {
 	const [rows, setRows] = React.useState<WindingQualityRow[]>([]);
 	const [loading, setLoading] = React.useState(false);
@@ -29,7 +29,7 @@ export function useQualityByDate(
 		let cancelled = false;
 		setLoading(true);
 		let url = `${apiRoutesPortalMasters.WINDING_QUALITY_BY_DATE}?co_id=${coId}&tran_date=${tranDate}&branch_id=${branchId}`;
-		if (spell) url += `&spell=${spell}`;
+		if (spellId != null) url += `&spell_id=${spellId}`;
 		void fetchWithCookie<{ data: WindingQualityRow[] }>(url, "GET").then(({ data, error: err }) => {
 			if (cancelled) return;
 			if (err) {
@@ -44,7 +44,7 @@ export function useQualityByDate(
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, tranDate, branchId, spell, version]);
+	}, [coId, tranDate, branchId, spellId, version]);
 
 	return { rows, loading, error, refresh };
 }

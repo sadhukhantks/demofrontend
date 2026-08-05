@@ -17,6 +17,7 @@ import { useSpinningSetup } from "./hooks/useSpinningSetup";
 import DoffEntryForm from "./_components/DoffEntryForm";
 import DailyDoffGrid from "./_components/DailyDoffGrid";
 import FrameMapGrid from "./_components/FrameMapGrid";
+import FrameWiseGrid from "./_components/FrameWiseGrid";
 import PlanningGrid from "./_components/PlanningGrid";
 import SpinningProcessBar from "./_components/SpinningProcessBar";
 import type { DoffEntryRow } from "./types/spinningTypes";
@@ -59,7 +60,9 @@ export default function SpinningPage() {
 
 	const [tab, setTab] = React.useState(0);
 	const [tranDate, setTranDate] = React.useState<string>(todayISO());
-	const [spell, setSpell] = React.useState<string>("");
+	// Selected spell_id from setup.spells (branch-correct — spell codes repeat
+	// per branch); every payload sends spell_id, never the code string.
+	const [spellId, setSpellId] = React.useState<number | "">("");
 
 	const [editingEntry, setEditingEntry] = React.useState<DoffEntryRow | null>(null);
 	// Bumped after a Process so the planning grid + lock status re-fetch the frozen log.
@@ -67,14 +70,21 @@ export default function SpinningPage() {
 	// Bumped after a doff create/edit so the sibling doff grid re-fetches.
 	const [doffReloadKey, setDoffReloadKey] = React.useState(0);
 
+	// statusKey: bumped by ANY grid mutation -> SpinningProcessBar re-checks
+	// staleness immediately (spec 5.6.1). dataKey: bumped after Process (and
+	// doff saves) -> grids re-fetch (locked units serve the frozen log).
+	const [statusKey, setStatusKey] = React.useState(0);
+	const [dataKey, setDataKey] = React.useState(0);
+	const onMutated = React.useCallback(() => setStatusKey((k) => k + 1), []);
+
 	const { setup, loading: setupLoading, error: setupError } = useSpinningSetup(coId, branchId);
 
 	// Default the shared spell selector to the first available spell once setup loads.
 	React.useEffect(() => {
-		if (setup && setup.spells.length > 0 && !spell) {
-			setSpell(setup.spells[0].spell_code);
+		if (setup && setup.spells.length > 0 && spellId === "") {
+			setSpellId(setup.spells[0].spell_id);
 		}
-	}, [setup, spell]);
+	}, [setup, spellId]);
 
 	if (!mounted) return null;
 
@@ -95,8 +105,8 @@ export default function SpinningPage() {
 	}
 
 	// Spell selector applies to Doff Entry (0), Frame → Quality (1) and the
-	// Planning Grid (2, optional filter).
-	const showSpell = tab === 0 || tab === 1 || tab === 2;
+	// Planning Grid (2, optional filter) and Frame Wise Production (3).
+	const showSpell = tab === 0 || tab === 1 || tab === 2 || tab === 3;
 	const showDate = true;
 
 	return (
@@ -155,6 +165,7 @@ export default function SpinningPage() {
 									<Tab label="Doff Entry" />
 									<Tab label="Frame → Quality" />
 									<Tab label="Planning Grid" />
+									<Tab label="Frame Wise Production" />
 								</Tabs>
 							</Box>
 
@@ -181,18 +192,30 @@ export default function SpinningPage() {
 										select
 										size="small"
 										label="Spell"
-										value={spell}
-										onChange={(e) => setSpell(e.target.value)}
+										value={spellId}
+										onChange={(e) =>
+											setSpellId(e.target.value === "" ? "" : Number(e.target.value))
+										}
 										sx={{ minWidth: 160 }}
 									>
 										{setup.spells.map((s) => (
-											<MenuItem key={s.spell_code} value={s.spell_code}>
+											<MenuItem key={s.spell_id} value={s.spell_id}>
 												{s.spell_code} ({Number(s.working_hours)} hrs)
 											</MenuItem>
 										))}
 									</TextField>
 								) : null}
 							</Box>
+
+							{/* One process/staleness bar, visible on all three tabs (spec 5.6). */}
+							<SpinningProcessBar
+								coId={coId}
+								branchId={branchId}
+								date={tranDate}
+								spellId={spellId === "" ? null : spellId}
+								refreshKey={statusKey}
+								onProcessed={() => setDataKey((k) => k + 1)}
+							/>
 
 							{tab === 0 ? (
 								<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
@@ -201,11 +224,12 @@ export default function SpinningPage() {
 										branchId={branchId}
 										setup={setup}
 										date={tranDate}
-										spell={spell}
+										spellId={spellId === "" ? null : spellId}
 										editingEntry={editingEntry}
 										onSaved={() => {
 											setEditingEntry(null);
-											setDoffReloadKey((k) => k + 1);
+											onMutated();
+											setDataKey((k) => k + 1);
 										}}
 										onCancelEdit={() => setEditingEntry(null)}
 									/>
@@ -213,9 +237,10 @@ export default function SpinningPage() {
 										coId={coId}
 										branchId={branchId}
 										date={tranDate}
-										spell={spell}
-										reloadKey={doffReloadKey}
+										spellId={spellId === "" ? null : spellId}
 										onEdit={(row) => setEditingEntry(row)}
+										onMutated={onMutated}
+										refreshKey={dataKey}
 									/>
 								</Box>
 							) : null}
@@ -226,30 +251,30 @@ export default function SpinningPage() {
 									branchId={branchId}
 									setup={setup}
 									date={tranDate}
-									spell={spell}
+									spellId={spellId === "" ? null : spellId}
+									onMutated={onMutated}
 								/>
 							) : null}
 
 							{tab === 2 ? (
-								<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-									{spell ? (
-										<SpinningProcessBar
-											coId={coId}
-											branchId={branchId}
-											date={tranDate}
-											spell={spell}
-											refreshKey={reloadKey}
-											onProcessed={() => setReloadKey((k) => k + 1)}
-										/>
-									) : null}
-									<PlanningGrid
-										coId={coId}
-										branchId={branchId}
-										date={tranDate}
-										spell={spell}
-										refreshKey={reloadKey}
-									/>
-								</Box>
+								<PlanningGrid
+									coId={coId}
+									branchId={branchId}
+									date={tranDate}
+									spellId={spellId === "" ? null : spellId}
+									refreshKey={dataKey}
+								/>
+							) : null}
+
+							{tab === 3 ? (
+								<FrameWiseGrid
+									coId={coId}
+									branchId={branchId}
+									date={tranDate}
+									spellId={spellId === "" ? null : spellId}
+									spells={setup.spells}
+									refreshKey={dataKey}
+								/>
 							) : null}
 						</>
 					)}

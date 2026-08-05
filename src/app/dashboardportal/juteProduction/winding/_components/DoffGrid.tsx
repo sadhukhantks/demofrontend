@@ -13,13 +13,13 @@ type Props = {
 	coId: string;
 	branchId: number;
 	date: string;
-	spell: string;
+	spellId: number | null;
 	refreshSignal: number;
 	onChanged: () => void;
 };
 
-export default function DoffGrid({ coId, branchId, date, spell, refreshSignal, onChanged }: Props) {
-	const { rows, loading, error, refresh } = useDoffByDate(coId, date, branchId, spell);
+export default function DoffGrid({ coId, branchId, date, spellId, refreshSignal, onChanged }: Props) {
+	const { rows, loading, error, refresh } = useDoffByDate(coId, date, branchId, spellId);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
 	// Re-fetch when the parent reports a new doff was saved.
@@ -28,20 +28,28 @@ export default function DoffGrid({ coId, branchId, date, spell, refreshSignal, o
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [refreshSignal]);
 
+	// Delete removes the whole WEIGHING, not just the clicked share — say so, or
+	// a shared trolly loses three rows on a confirm that mentioned one.
 	const handleDelete = React.useCallback(
-		async (id: number) => {
-			if (!window.confirm(`Delete winding doff #${id}?`)) return;
+		async (row: WindingDoffRow) => {
+			const id = row.winding_doff_id;
+			const shares = rows.filter((r) => r.weighing_id === row.weighing_id).length;
+			const prompt =
+				shares > 1
+					? `This weighing is shared by ${shares} winders. Delete all ${shares} rows?`
+					: `Delete winding doff #${id}?`;
+			if (!window.confirm(prompt)) return;
 			const url = `${apiRoutesPortalMasters.WINDING_DOFF_DELETE}/${id}?co_id=${coId}`;
 			const { error: err } = await fetchWithCookie(url, "DELETE");
 			if (err) {
 				setSnack(err);
 				return;
 			}
-			setSnack(`Deleted doff #${id}`);
+			setSnack(shares > 1 ? `Deleted weighing (${shares} rows)` : `Deleted doff #${id}`);
 			refresh();
 			onChanged();
 		},
-		[coId, refresh, onChanged],
+		[coId, rows, refresh, onChanged],
 	);
 
 	const columns = React.useMemo<GridColDef<WindingDoffRow>[]>(
@@ -57,7 +65,7 @@ export default function DoffGrid({ coId, branchId, date, spell, refreshSignal, o
 						<IconButton
 							size="small"
 							color="error"
-							onClick={() => handleDelete(params.row.winding_doff_id)}
+							onClick={() => handleDelete(params.row)}
 							sx={{ minWidth: 40, minHeight: 40 }}
 						>
 							<DeleteIcon size={16} />
@@ -68,12 +76,11 @@ export default function DoffGrid({ coId, branchId, date, spell, refreshSignal, o
 			{ field: "winding_doff_id", headerName: "ID", width: 70 },
 			{ field: "tran_date", headerName: "Date", width: 110 },
 			{ field: "spell_code", headerName: "Spell", width: 70 },
-			{ field: "mech_code", headerName: "Mc Code", width: 100 },
-			{ field: "machine_name", headerName: "Machine", width: 160 },
+			{ field: "emp_code", headerName: "EB No", width: 100 },
+			{ field: "worker_name", headerName: "Winder", width: 180 },
 			{ field: "item_code", headerName: "Yarn", width: 110 },
 			{ field: "trolly_name", headerName: "Trolly", width: 120 },
 			{ field: "spool_name", headerName: "Spool", width: 120 },
-			{ field: "no_of_machines", headerName: "#Mc", width: 70, type: "number" },
 			{
 				field: "gross_input_wt",
 				headerName: "Gross",
@@ -83,7 +90,7 @@ export default function DoffGrid({ coId, branchId, date, spell, refreshSignal, o
 			},
 			{
 				field: "production_qty",
-				headerName: "Net/Mc",
+				headerName: "Net",
 				width: 90,
 				type: "number",
 				valueFormatter: (value: number | null) => (value == null ? "" : value),
