@@ -138,3 +138,5 @@ docker build \
   -e USE_NEXT_PROXY=true \
   -p 3000:3000 \
   vowerp-frontend
+
+  developed by vow team

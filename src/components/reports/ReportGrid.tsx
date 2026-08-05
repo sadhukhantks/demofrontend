@@ -117,7 +117,6 @@ export default function ReportGrid<T extends GridValidRowModel>({
               : {}),
           }}
           disableRowSelectionOnClick
-          getRowHeight={() => "auto"}
           getRowClassName={(params) =>
             isTotalRow(params.row) ? "report-total-row" : ""
           }
@@ -132,14 +131,10 @@ export default function ReportGrid<T extends GridValidRowModel>({
             },
             "& .MuiDataGrid-columnHeaderTitle": {
               ...wrappingGridSx["& .MuiDataGrid-columnHeaderTitle"],
-              fontWeight: "bold",
+              fontWeight: 700,
+            },
             "& .MuiDataGrid-columnHeader:not(:last-of-type)": {
               borderRight: "1px solid rgba(255,255,255,0.4)",
-            },
-            "& .MuiDataGrid-columnHeaderTitle": {
-              fontWeight: 700,
-              whiteSpace: "normal",
-              lineHeight: 1.2,
             },
             "& .MuiDataGrid-cell": {
               borderRight: "1px solid",
