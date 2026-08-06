@@ -11,10 +11,78 @@ export interface ReportExportHeader {
   reportFor?: string | null;
 }
 
-const BLUE = "FF3EA6DA";
-const WHITE = "FFFFFFFF";
-const GRID_LINE = { style: "thin", color: { argb: "FF9E9E9E" } } as const;
-const HEADER_LINE = { style: "thin", color: { argb: WHITE } } as const;
+export const BLUE = "FF3EA6DA";
+export const WHITE = "FFFFFFFF";
+export const GRID_LINE = { style: "thin", color: { argb: "FF9E9E9E" } } as const;
+export const HEADER_LINE = { style: "thin", color: { argb: WHITE } } as const;
+
+/** Minimal structural view of an exceljs worksheet — lets callers that build
+ * their own sheets share the helpers below without importing exceljs types. */
+export type Worksheet = {
+  addRow: (values: unknown[]) => {
+    number: number;
+    getCell: (i: number) => Record<string, unknown>;
+    eachCell: (
+      optsOrCb: unknown,
+      cb?: (cell: Record<string, unknown>) => void,
+    ) => void;
+  };
+  mergeCells: (r1: number, c1: number, r2: number, c2: number) => void;
+  getColumn: (i: number) => Record<string, unknown>;
+  views: unknown[];
+};
+
+/** Writes the centered Company / Branch / Report title block and returns
+ * whether anything was written (callers add a spacer row after). */
+export function writeReportHeaderBlock(
+  ws: Worksheet,
+  header: ReportExportHeader,
+  width: number,
+): boolean {
+  const addCenteredRow = (value: string, size: number) => {
+    const r = ws.addRow([value]);
+    ws.mergeCells(r.number, 1, r.number, width);
+    const cell = r.getCell(1);
+    cell.alignment = { horizontal: "center", vertical: "middle" };
+    cell.font = { bold: true, size };
+  };
+  let wrote = false;
+  if (header.companyName) {
+    addCenteredRow(header.companyName, 14);
+    wrote = true;
+  }
+  if (header.branchName) {
+    addCenteredRow(`${header.branchName} (Branch)`, 12);
+    wrote = true;
+  }
+  if (header.reportName) {
+    let line = header.reportName;
+    if (header.reportFor) line += ` For the Period ${header.reportFor}`;
+    if (header.reportNo != null && header.reportNo !== "") {
+      line += ` (Report No: ${header.reportNo})`;
+    }
+    addCenteredRow(line, 12);
+    wrote = true;
+  }
+  return wrote;
+}
+
+/** Applies the blue header-band styling to an already-added row. */
+export function styleHeaderRow(row: {
+  eachCell: (cb: (cell: Record<string, unknown>) => void) => void;
+}): void {
+  row.eachCell((cell) => {
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BLUE } };
+    cell.font = { bold: true, color: { argb: WHITE } };
+    cell.alignment = { vertical: "middle", wrapText: true };
+    cell.border = {
+      top: GRID_LINE,
+      bottom: GRID_LINE,
+      left: HEADER_LINE,
+      right: HEADER_LINE,
+    };
+  });
+}
 
 /**
  * Export grid rows to a styled .xlsx file using the grid's own column defs,
@@ -39,54 +107,40 @@ export async function exportRowsToExcel<T extends GridValidRowModel>(
 
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Report");
+  buildReportSheet(ws as unknown as Worksheet, columns, rows, header);
 
+  const buf = await wb.xlsx.writeBuffer();
+  saveAs(
+    new Blob([buf], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }),
+    `${fileNamePrefix}-${Date.now()}.xlsx`,
+  );
+}
+
+/**
+ * Writes a complete styled report sheet: header block, blue column-header band,
+ * bordered data rows, content-sized columns and a frozen header. Shared by
+ * {@link exportRowsToExcel} and by pages that assemble multi-sheet workbooks.
+ */
+export function buildReportSheet<T extends GridValidRowModel>(
+  ws: Worksheet,
+  columns: GridColDef<T>[],
+  rows: T[],
+  header?: ReportExportHeader,
+): void {
   // Report header block: each line merged across all report columns, centered.
   //   COMPANY NAME
   //   BranchName (Branch)
   //   ReportName For the Period <from> To <to> (Report No: N)
-  if (header) {
-    const addCenteredRow = (value: string, size: number) => {
-      const r = ws.addRow([value]);
-      ws.mergeCells(r.number, 1, r.number, columns.length);
-      const cell = r.getCell(1);
-      cell.alignment = { horizontal: "center", vertical: "middle" };
-      cell.font = { bold: true, size };
-    };
-    let wrote = false;
-    if (header.companyName) {
-      addCenteredRow(header.companyName, 14);
-      wrote = true;
-    }
-    if (header.branchName) {
-      addCenteredRow(`${header.branchName} (Branch)`, 12);
-      wrote = true;
-    }
-    if (header.reportName) {
-      let line = header.reportName;
-      if (header.reportFor) line += ` For the Period ${header.reportFor}`;
-      if (header.reportNo != null && header.reportNo !== "") {
-        line += ` (Report No: ${header.reportNo})`;
-      }
-      addCenteredRow(line, 12);
-      wrote = true;
-    }
-    if (wrote) ws.addRow([]); // blank spacer row before the column headers
+  if (header && writeReportHeaderBlock(ws, header, columns.length)) {
+    ws.addRow([]); // blank spacer row before the column headers
   }
 
   const headerRow = ws.addRow(
     columns.map((c) => c.headerName ?? String(c.field)),
   );
-  headerRow.eachCell((cell) => {
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BLUE } };
-    cell.font = { bold: true, color: { argb: WHITE } };
-    cell.alignment = { vertical: "middle", wrapText: true };
-    cell.border = {
-      top: GRID_LINE,
-      bottom: GRID_LINE,
-      left: HEADER_LINE,
-      right: HEADER_LINE,
-    };
-  });
+  styleHeaderRow(headerRow);
 
   for (const row of rows) {
     const r = ws.addRow(
@@ -135,12 +189,4 @@ export async function exportRowsToExcel<T extends GridValidRowModel>(
 
   // Freeze everything above the first data row so headers stay visible.
   ws.views = [{ state: "frozen", ySplit: headerRow.number }];
-
-  const buf = await wb.xlsx.writeBuffer();
-  saveAs(
-    new Blob([buf], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    }),
-    `${fileNamePrefix}-${Date.now()}.xlsx`,
-  );
 }

@@ -4,9 +4,8 @@ import {
   ATT_TYPE_LABELS,
   attTypeLabel,
   checklistFilterSchema,
-  csvFilename,
+  excelFilename,
   mapReportRows,
-  rowsToCsv,
 } from "./checklistUtils";
 import type { AttendanceReportRow } from "../types/attendanceChecklistTypes";
 
@@ -28,6 +27,7 @@ const makeRow = (overrides: Partial<AttendanceReportRow> = {}): AttendanceReport
   idle_hours: 0,
   has_photo: true,
   machine_nos: "",
+  remarks: "",
   ...overrides,
 });
 
@@ -90,19 +90,29 @@ describe("mapReportRows", () => {
   });
 
   it("maps backend fields to grid fields", () => {
-    const [row] = mapReportRows([makeRow()]);
+    const [row] = mapReportRows([
+      makeRow({ machine_nos: "S409, S410", remarks: "late in" }),
+    ]);
     expect(row).toEqual({
       id: 1,
+      sno: 1,
       date: "2026-06-01",
       spell: "A",
       ebNo: "E001",
       name: "Ravi Kumar",
       department: "Spinning",
       designation: "Operator",
-      source: "Face",
       attType: "Regular",
+      source: "Face",
       workingHours: 8,
+      machineNos: "S409, S410",
+      remarks: "late in",
     });
+  });
+
+  it("numbers rows sequentially from 1", () => {
+    const rows = mapReportRows([makeRow({ id: 7 }), makeRow({ id: 8 }), makeRow({ id: 9 })]);
+    expect(rows.map((r) => r.sno)).toEqual([1, 2, 3]);
   });
 
   it("defaults blank fields safely", () => {
@@ -118,6 +128,8 @@ describe("mapReportRows", () => {
     expect(row.name).toBe("");
     expect(row.attType).toBe("Regular"); // blank code treated as R
     expect(row.workingHours).toBe(0);
+    expect(row.machineNos).toBe("");
+    expect(row.remarks).toBe("");
   });
 });
 
@@ -155,40 +167,10 @@ describe("checklistFilterSchema", () => {
   });
 });
 
-describe("rowsToCsv", () => {
-  const gridRow = {
-    id: 1,
-    date: "2026-06-01",
-    spell: "A",
-    ebNo: "E001",
-    name: "Kumar, Ravi",
-    department: "Spinning",
-    designation: 'Operator "Sr"',
-    source: "Face",
-    attType: "Regular",
-    workingHours: 7.5,
-  };
-
-  it("emits a header row and one line per record", () => {
-    const csv = rowsToCsv([gridRow]);
-    const lines = csv.split("\n");
-    expect(lines[0]).toBe(
-      "Date,Spell,EB No,Name,Department,Designation,Source,Type,Working Hours",
-    );
-    expect(lines).toHaveLength(2);
-  });
-
-  it("escapes commas and quotes", () => {
-    const csv = rowsToCsv([gridRow]);
-    expect(csv).toContain('"Kumar, Ravi"');
-    expect(csv).toContain('"Operator ""Sr"""');
-  });
-});
-
-describe("csvFilename", () => {
-  it("includes the searched range", () => {
-    expect(csvFilename("2026-06-01", "2026-06-12")).toBe(
-      "attendance-checklist_2026-06-01_2026-06-12.csv",
+describe("excelFilename", () => {
+  it("includes the searched range and no extension (exportRowsToExcel adds it)", () => {
+    expect(excelFilename("2026-06-01", "2026-06-12")).toBe(
+      "attendance-checklist_2026-06-01_2026-06-12",
     );
   });
 });

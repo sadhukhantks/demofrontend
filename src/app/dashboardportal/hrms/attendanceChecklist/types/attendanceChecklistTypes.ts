@@ -25,6 +25,7 @@ export interface AttendanceReportRow {
   idle_hours: number;
   has_photo: boolean;
   machine_nos: string;
+  remarks: string;
 }
 
 /** Body of GET /attendance-report. */
@@ -34,19 +35,25 @@ export interface AttendanceReportResponse {
   total: number;
 }
 
-/** Row shape consumed by the DataGrid and the CSV/print outputs. */
+/** Row shape consumed by the DataGrid and the Excel/print outputs. Field order
+ * mirrors the legacy report 657 column list. */
 export interface ChecklistGridRow {
   id: number;
+  /** 1-based serial number — a real field so it exports with the sheet. */
+  sno: number;
   date: string;
   spell: string;
   ebNo: string;
   name: string;
   department: string;
   designation: string;
-  source: string;
   /** Readable label: Regular / OT / Cash */
   attType: string;
+  /** attendance_source as stored: F / M / P */
+  source: string;
   workingHours: number;
+  machineNos: string;
+  remarks: string;
 }
 
 /** Values held by the filter form (all strings — MuiForm field values). */
