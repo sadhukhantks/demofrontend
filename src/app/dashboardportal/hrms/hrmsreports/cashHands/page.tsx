@@ -1,5 +1,12 @@
 "use client";
-import React, { Suspense, useCallback, useMemo, useState } from "react";
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Alert,
   Autocomplete,
@@ -57,7 +64,18 @@ function Content() {
   const { selectedCompany } = useSidebarContext();
   const { from, to } = currentMonthRange();
 
-  const [branchId, setBranchId] = useState<number | null>(initialBranchId);
+  // Seeded null, then filled in after mount. initialBranchId comes from the
+  // sidebar context, which hydrates from localStorage on the first CLIENT
+  // render — using it during the first render makes the branch Autocomplete
+  // render differently than the server HTML and breaks hydration.
+  const [branchId, setBranchId] = useState<number | null>(null);
+  const seededBranch = useRef(false);
+  useEffect(() => {
+    if (seededBranch.current || initialBranchId == null) return;
+    seededBranch.current = true;
+    setBranchId(initialBranchId);
+  }, [initialBranchId]);
+
   const [dateFrom, setDateFrom] = useState(from);
   const [dateTo, setDateTo] = useState(to);
   const [rows, setRows] = useState<CashHandsRow[]>([]);
@@ -72,18 +90,17 @@ function Content() {
   }>({ open: false, message: "", severity: "success" });
 
   // Branch is required for every call below, so `branchId` gates the buttons.
-  const effectiveBranch = branchId ?? initialBranchId;
-  const branch = branches.find((b) => b.branch_id === effectiveBranch) ?? null;
-  const ready = coId != null && effectiveBranch != null;
+  const branch = branches.find((b) => b.branch_id === branchId) ?? null;
+  const ready = coId != null && branchId != null;
 
   const load = useCallback(async () => {
-    if (coId == null || effectiveBranch == null) return;
+    if (coId == null || branchId == null) return;
     setLoading(true);
     setError(null);
     try {
       const p = {
         coId,
-        branchId: effectiveBranch,
+        branchId: branchId,
         dateFrom,
         dateTo,
       };
@@ -100,15 +117,15 @@ function Content() {
     } finally {
       setLoading(false);
     }
-  }, [coId, effectiveBranch, dateFrom, dateTo]);
+  }, [coId, branchId, dateFrom, dateTo]);
 
   const handleProcess = useCallback(async () => {
-    if (coId == null || effectiveBranch == null) return;
+    if (coId == null || branchId == null) return;
     setProcessing(true);
     try {
       const res = await processCashHands({
         coId,
-        branchId: effectiveBranch,
+        branchId: branchId,
         dateFrom,
         dateTo,
       });
@@ -132,7 +149,7 @@ function Content() {
     } finally {
       setProcessing(false);
     }
-  }, [coId, effectiveBranch, dateFrom, dateTo, load]);
+  }, [coId, branchId, dateFrom, dateTo, load]);
 
   const handleExcel = useCallback(async () => {
     await exportCashHandsWorkbook(columns, rows, summaryColumns, summary, {
@@ -144,15 +161,15 @@ function Content() {
   }, [rows, summary, selectedCompany?.co_name, branch?.branch_name, dateFrom, dateTo]);
 
   const pdfHref = useMemo(() => {
-    if (coId == null || effectiveBranch == null) return "";
+    if (coId == null || branchId == null) return "";
     return cashHandsPdfUrl({
       coId,
-      branchId: effectiveBranch,
+      branchId: branchId,
       dateFrom,
       dateTo,
       companyName: selectedCompany?.co_name,
     });
-  }, [coId, effectiveBranch, dateFrom, dateTo, selectedCompany?.co_name]);
+  }, [coId, branchId, dateFrom, dateTo, selectedCompany?.co_name]);
 
   const totals = useMemo(
     () => ({
@@ -254,7 +271,7 @@ function Content() {
         getRowId={(r) => r.id}
         loading={loading}
         error={error}
-        branchId={effectiveBranch}
+        branchId={branchId}
         sortField="pay_date"
       />
     </Box>

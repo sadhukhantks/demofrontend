@@ -98,7 +98,7 @@ export default function DailyRateEntryPage() {
 
   const columns = useMemo<GridColDef<DailyRateRow>[]>(
     () => [
-      { field: "app_date", headerName: "Date", width: 120 },
+      { field: "app_date", headerName: "Effective From", width: 130 },
       { field: "emp_code", headerName: "EB No", width: 120 },
       { field: "emp_name", headerName: "Employee Name", flex: 2, minWidth: 200 },
       { field: "designation", headerName: "Designation", flex: 2, minWidth: 180 },
