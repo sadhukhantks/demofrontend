@@ -1,5 +1,5 @@
 import { GridColDef, GridValidRowModel } from "@mui/x-data-grid";
-import { isReportTotalRow } from "./ReportGrid";
+import { reportTotalLevel } from "./ReportGrid";
 
 /** Optional report header block prepended above the column headers in the sheet. */
 export interface ReportExportHeader {
@@ -15,6 +15,13 @@ export const BLUE = "FF3EA6DA";
 export const WHITE = "FFFFFFFF";
 export const GRID_LINE = { style: "thin", color: { argb: "FF9E9E9E" } } as const;
 export const HEADER_LINE = { style: "thin", color: { argb: WHITE } } as const;
+
+/** Summary-row shading per level — same three shades the grid renders. */
+const TOTAL_ROW_FILL = {
+  grand: { bg: BLUE, text: WHITE },
+  group: { bg: "FF6FBDE3", text: WHITE },
+  sub: { bg: "FFD7ECF8", text: "FF0C3C60" },
+} as const;
 
 /** Minimal structural view of an exceljs worksheet — lets callers that build
  * their own sheets share the helpers below without importing exceljs types. */
@@ -142,28 +149,31 @@ export function buildReportSheet<T extends GridValidRowModel>(
   );
   styleHeaderRow(headerRow);
 
+  const leadField = String(columns[0]?.field ?? "");
   for (const row of rows) {
     const r = ws.addRow(
       columns.map(
         (c) => (row as Record<string, unknown>)[c.field as string] ?? "",
       ),
     );
-    const total = isReportTotalRow(row);
+    const level = reportTotalLevel(row, leadField);
+    const style = level ? TOTAL_ROW_FILL[level] : null;
     r.eachCell({ includeEmpty: true }, (cell) => {
+      const edge = style && level !== "sub" ? HEADER_LINE : GRID_LINE;
       cell.border = {
         top: GRID_LINE,
         bottom: GRID_LINE,
-        left: total ? HEADER_LINE : GRID_LINE,
-        right: total ? HEADER_LINE : GRID_LINE,
+        left: edge,
+        right: edge,
       };
       cell.alignment = { vertical: "top", wrapText: true };
-      if (total) {
+      if (style) {
         cell.fill = {
           type: "pattern",
           pattern: "solid",
-          fgColor: { argb: BLUE },
+          fgColor: { argb: style.bg },
         };
-        cell.font = { bold: true, color: { argb: WHITE } };
+        cell.font = { bold: true, color: { argb: style.text } };
       }
     });
   }
