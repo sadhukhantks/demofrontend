@@ -100,6 +100,10 @@ export interface IssueItemwiseReportParams {
   dateTo?: string;
   itemGrpId?: number | null;
   search?: string;
+  /** Drill-down filters — the ids of the consumption-report row being opened. */
+  deptId?: number | null;
+  costFactorId?: number | null;
+  itemId?: number | null;
 }
 
 /** Fetch the item-wise material issue report over an optional date range. */
@@ -113,6 +117,9 @@ export async function fetchIssueItemwiseReport(
   if (p.branchId != null) qs.set("branch_id", String(p.branchId));
   if (p.itemGrpId != null) qs.set("item_grp_id", String(p.itemGrpId));
   if (p.search) qs.set("search", p.search);
+  if (p.deptId != null) qs.set("dept_id", String(p.deptId));
+  if (p.costFactorId != null) qs.set("cost_factor_id", String(p.costFactorId));
+  if (p.itemId != null) qs.set("item_id", String(p.itemId));
   // ponytail: fetch all rows in one page (backend caps at 10000).
   qs.set("limit", "10000");
 
@@ -261,11 +268,17 @@ export interface ConsumptionRow {
   item_name?: string | null;
   item_group_code?: string | null;
   item_group?: string | null;
+  /** Ids carried for the row drill-down; absent on the Grand Total row. */
+  dept_id?: number | null;
+  cost_factor_id?: number | null;
+  item_id?: number | null;
   production: number;
   overhauling: number;
   maintenance: number;
   capital: number;
   general: number;
+  /** Value on issue lines with no (or an unrecognised) expense type. */
+  others: number;
   total: number;
 }
 
@@ -277,7 +290,14 @@ export type ConsumptionDimension =
 
 export async function fetchIssueConsumption(
   dimension: ConsumptionDimension,
-  p: { coId: number; branchId: number; dateFrom: string; dateTo: string },
+  p: {
+    coId: number;
+    branchId: number;
+    dateFrom: string;
+    dateTo: string;
+    /** Item code prefix — "172" lists every code starting 172 (IS01 filter). */
+    itemCode?: string;
+  },
 ): Promise<ConsumptionRow[]> {
   const qs = new URLSearchParams({
     dimension,
@@ -286,6 +306,7 @@ export async function fetchIssueConsumption(
     date_to: p.dateTo,
   });
   if (p.branchId != null) qs.set("branch_id", String(p.branchId));
+  if (p.itemCode?.trim()) qs.set("item_code", p.itemCode.trim());
   const url = `${apiRoutesPortalMasters.ISSUE_CONSUMPTION_REPORT}?${qs.toString()}`;
   const result = await fetchWithCookie<{ data: Omit<ConsumptionRow, "id">[] }>(url);
   if (result.error || !result.data) {

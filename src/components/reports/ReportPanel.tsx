@@ -31,7 +31,8 @@ export interface ReportFilters {
 
 interface ExtraSelect {
   label: string;
-  options: { value: string; label: string }[];
+  /** Omit for a free-text box instead of a dropdown (e.g. Item Code). */
+  options?: { value: string; label: string }[];
 }
 
 interface ReportPanelProps<TRow extends GridValidRowModel> {
@@ -55,6 +56,8 @@ interface ReportPanelProps<TRow extends GridValidRowModel> {
   sortField?: string;
   sortDir?: "asc" | "desc";
   exportName: string;
+  /** Optional row drill-down (see ReportGrid); not fired for total rows. */
+  onRowDoubleClick?: (row: TRow) => void;
 }
 
 /**
@@ -81,6 +84,7 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
   sortField,
   sortDir,
   exportName,
+  onRowDoubleClick,
 }: ReportPanelProps<TRow>) {
   // Draft filters — bound to the inputs.
   const [branchId, setBranchId] = useState<number | null>(initialBranchId);
@@ -216,7 +220,20 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
             />
           )}
 
-          {extra && (
+          {extra && !extra.options && (
+            <TextField
+              label={extra.label}
+              value={extraValue}
+              onChange={(e) => setExtraValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void runFetch();
+              }}
+              size="small"
+              sx={{ width: 170 }}
+            />
+          )}
+
+          {extra?.options && (
             <FormControl size="small" sx={{ minWidth: 150 }}>
               <InputLabel id="report-extra-label">{extra.label}</InputLabel>
               <Select
@@ -271,6 +288,7 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
         branchId={branchId}
         sortField={sortField}
         sortDir={sortDir}
+        onRowDoubleClick={onRowDoubleClick}
       />
     </Box>
   );

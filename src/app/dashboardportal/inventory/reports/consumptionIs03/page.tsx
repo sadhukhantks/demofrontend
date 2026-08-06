@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { Suspense } from "react";
 import { Box, CircularProgress } from "@mui/material";
 import { GridColDef } from "@mui/x-data-grid";
@@ -18,6 +18,7 @@ const columns: GridColDef<ConsumptionRow>[] = [
   numCol("maintenance", "Maintenance"),
   numCol("capital", "Capital"),
   numCol("general", "General"),
+  numCol("others", "Others"),
   numCol("total", "Total", 130),
 ];
 
@@ -44,7 +45,7 @@ function Content() {
       }
       columns={columns}
       getRowId={(r) => r.id}
-      sortField="department"
+      // No initial sort — keeps the backend's Grand Total row last.
       exportName="consumption-is03"
     />
   );
