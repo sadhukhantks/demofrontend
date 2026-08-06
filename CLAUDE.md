@@ -2,9 +2,7 @@
 
 ## Project Overview
 
-VoWERP3 UI is a **multi-tenant ERP frontend** built with **Next.js 15**, **TypeScript**, and **React 19**. It provides a modern, type-safe interface for complex ERP operations including procurement, inventory, sales, and jute/yarn management.
-
-**Tech Stack:** Next.js 15 (App Router) | TypeScript (strict) | React 19 | Tailwind CSS 4.1 + MUI 7.3 | Zod 4.2 | React Hook Form 7.69 | Vitest + Storybook | pnpm
+VoWERP3 UI is a **multi-tenant ERP frontend** for procurement, inventory, sales, and jute/yarn management.
 
 **Current Repo:** `vowerp3ui` | **Backend:** `vowerp3be` (FastAPI/Python, sibling repo at `../vowerp3be`)
 
@@ -33,27 +31,9 @@ Everything discoverable from one place. Paths are repo-relative; the backend rep
 | `docs/yarn-quality/` | Yarn-quality feature docs (historical) |
 | `.github/WORKSPACE-INSTRUCTIONS.md` | Active vs legacy repos |
 
-### Agents (`.claude/agents/`)
+### Agents & Skills (`.claude/agents/`, `.claude/skills/`)
 
-| Agent | Role |
-|-------|------|
-| `transaction-page.md` | Scaffold transaction pages with approval workflows |
-| `master-page.md` | Scaffold master CRUD pages (list + dialog) |
-| `index-page.md` | Scaffold list/index pages |
-| `api-service.md` | Scaffold service layer + route constants + mappers |
-| `component.md` | Create shared UI components |
-| `dashboard-widget.md` | Create dashboard widgets |
-| `reviewer.md` | Review code against project standards |
-| `module-masters.md`, `module-procurement.md`, `module-sales.md`, `module-jute-purchase.md`, `module-jute-production.md`, `module-inventory.md`, `module-hrms.md`, `module-accounting.md`, `module-bom-costing.md`, `module-ctrldesk.md`, `module-tenant-admin.md` | Module guides — which page does what, endpoints used, approval flows. Full bodies live HERE; `../vowerp3be/.claude/agents/` has pointer copies |
-
-### Skills (`.claude/skills/` — canonical bodies in `../vowerp3be/.claude/skills/`)
-
-| Skill | Use for |
-|-------|---------|
-| `wire-api` | FE+BE endpoint wiring (most repeated process) |
-| `new-master` | New master table end-to-end (DDL → ORM → CRUD → page → menu) |
-| `add-approval-workflow` | Standard approval lifecycle endpoints + ApprovalActionsBar |
-| `add-menu`, `tenant-schema-check`, `run-migration` | Backend repo only — menu rows, schema drift vs dev3, migration execution |
+Both are auto-listed each session. Module-guide agent full bodies live HERE; `../vowerp3be/.claude/agents/` has pointer copies. Skill canonical bodies live in `../vowerp3be/.claude/skills/`.
 
 ### Key source files
 
@@ -66,22 +46,6 @@ Everything discoverable from one place. Paths are repo-relative; the backend rep
 | `src/components/dashboard/sidebarContext.tsx` | Portal sidebar context (companies, branches, menus, permissions) |
 | `src/utils/portalPermissions.ts` | Portal action helpers |
 | `src/styles/tokens.ts` | Theme tokens (never hardcode colors) |
-
-### Per-module entry points
-
-| Module | FE pages | FE service | BE source (`../vowerp3be/`) | Module agent |
-|--------|----------|------------|------------------------------|--------------|
-| Masters | `src/app/dashboardportal/masters/` | per-page constants | `src/masters/` | `module-masters` |
-| Procurement | `src/app/dashboardportal/procurement/` | `indentService`, `poService`, `inwardService`, `billPassService` | `src/procurement/` | `module-procurement` |
-| Sales | `src/app/dashboardportal/sales/` | sales services + `salesReportService` | `src/sales/` | `module-sales` |
-| Jute Purchase | `src/app/dashboardportal/jutePurchase/` | per-page constants + `juteReportService` | `src/juteProcurement/` | `module-jute-purchase` |
-| Jute Production + SQC | `src/app/dashboardportal/juteProduction/`, `juteSQC/` | per-page constants | `src/juteProduction/`, `src/juteSQC/` | `module-jute-production` |
-| Inventory | `src/app/dashboardportal/inventory/` | per-page constants | `src/inventory/` | `module-inventory` |
-| HRMS | `src/app/dashboardportal/hrms/`, `hrmsmasters/` | `hrmsService` | `src/hrms/` | `module-hrms` |
-| Accounting | `src/app/dashboardportal/accounting/` | `accountingService` | `src/accounting/` | `module-accounting` |
-| BOM Costing | `src/app/dashboardportal/BomCosting/` | per-page constants | `src/bomcosting/` | `module-bom-costing` |
-| Control Desk | `src/app/dashboardctrldesk/` | `apiRoutesconsole` | `src/common/ctrldskAdmin/` | `module-ctrldesk` |
-| Tenant Admin | `src/app/dashboardadmin/` | `apiRoutes`/`apiRoutesconsole` | `src/common/companyAdmin/`, `src/common/portal/` | `module-tenant-admin` |
 
 ---
 
@@ -101,7 +65,8 @@ flowchart TD
   them, run the `tenant-schema-check` skill and **ask the user** before syncing anything into dev3.
 - **Company & branch sidebar (CRITICAL for portal work):** every `dashboardportal` page must honor
   the company/branch selection from `SidebarContext` — the selected `co_id`/`branch_id` flow into
-  every API call and default the form headers. Never ignore the sidebar selection.
+  every API call and default the form headers. Never ignore the sidebar selection. Master pages
+  need at minimum `co_id`; transactional pages `co_id` + `branch_id`.
 - Full roles/users/permissions model: `docs/claude/roles-and-users.md`.
 
 ---
@@ -181,15 +146,6 @@ Portal permission check is in `src/middleware.ts`.
 | Managing portal users, roles, menus, approvals | `dashboardportal/` (uses `/admin/PortalData/`) | `/admin/PortalData/` |
 | Business operations (procurement, masters, inventory) | `dashboardportal/{module}/` | `/{moduleName}/` |
 
-### Key Frontend Files by Dashboard
-
-| Control Desk | Tenant Admin | Portal |
-|-------------|-------------|--------|
-| `src/app/dashboardctrldesk/layout.tsx` | `src/app/dashboardadmin/layout.tsx` | `src/app/dashboardportal/layout.tsx` |
-| `src/components/dashboard/sidebarConsole.tsx` | `src/components/dashboard/sidebarCompanyConsole.tsx` | `src/components/dashboard/sidebar.tsx` |
-| `src/hooks/use-org-ctrldesk.tsx` | `src/hooks/use-org-console_menu.tsx` | `src/components/dashboard/sidebarContext.tsx` |
-| -- | -- | `src/utils/portalPermissions.ts` |
-
 > For login flow details and auth flows, see `docs/claude/api-patterns.md`.
 
 ---
@@ -200,19 +156,12 @@ Portal permission check is in `src/middleware.ts`.
 - **NEVER use `any`** -- use `unknown` with type guards
 - Always define interfaces for component props
 - Use type inference where possible
-- Path alias `@/*` maps to `./src/*`
 - Avoid circular dependencies -- use single type definition files per module
-- Strict mode is enabled (`strict`, `noImplicitAny`, `strictNullChecks`)
 
 ### Zod Validation
 - **Zod is REQUIRED for ALL forms and API inputs**
 - Define schema -> infer type with `z.infer<>` -> use with `zodResolver` in React Hook Form
 - Single source of truth for types and validation
-
-### Company & Branch Scope (Portal)
-- Every `dashboardportal` page must honor the company/branch selection from `SidebarContext`
-- Pass the selected `co_id`/`branch_id` on every API call; default form headers from them
-- Master pages: at minimum `co_id`; transactional pages: `co_id` + `branch_id`
 
 ### Component Organization
 - **Shared components:** `src/components/ui/` or `src/components/{feature}/` -- require JSDoc, prop interfaces
@@ -262,15 +211,7 @@ Portal permission check is in `src/middleware.ts`.
 
 ## Transaction Pages (Approval Workflows)
 
-For documents like Indent, PO, GRN, Invoice -- follow the standardized architecture:
-
-- **Folder structure:** `{transaction}/page.tsx` + `create{Transaction}/page.tsx` with `_components/`, `hooks/`, `types/`, `utils/`
-- **Types:** ALL in one file per module (prevent circular deps)
-- **Constants:** Status IDs, frozen empty arrays (`Object.freeze()`)
-- **Factories:** `createBlankLine()`, `buildDefaultFormValues()`
-- **Hooks:** Form state, line items (with cascade resets), select options (memoized), schemas, approval
-- **Key patterns:** Deferred loading (`useDeferredOptionCache`), cascade resets, trailing blank rows, mode-aware rendering
-- **Approval bar:** `src/components/ui/transaction/ApprovalActionsBar.tsx`
+For documents like Indent, PO, GRN, Invoice -- follow the standardized architecture.
 
 > For complete patterns, hook examples, and step-by-step guide, see `docs/claude/transaction-patterns.md`.
 
@@ -281,14 +222,9 @@ For documents like Indent, PO, GRN, Invoice -- follow the standardized architect
 ### DO
 1. Validate with Zod -- all forms and API inputs
 2. Strict TypeScript -- no `any`, use proper types
-3. Memoize expensive computations -- `useMemo`, `useCallback`
-4. Pure presentational components -- based on props only
-5. Comment complex logic
-6. Mode-aware rendering -- check `mode !== "view"` before enabling edits
-7. Immutable defaults -- `Object.freeze()` on empty arrays/objects
-8. Separate concerns -- types, constants, factories in own files
-9. Test critical paths
-10. Remove `console.log` before commit
+3. Mode-aware rendering -- check `mode !== "view"` before enabling edits
+4. Immutable defaults -- `Object.freeze()` on empty arrays/objects
+5. Separate concerns -- types, constants, factories in own files
 
 ### DON'T
 1. Never hardcode colors -- use theme tokens
@@ -302,12 +238,6 @@ For documents like Indent, PO, GRN, Invoice -- follow the standardized architect
 9. Never hardcode status IDs -- use constants
 10. Never skip tests for complex logic
 
-### Naming Conventions
-- **Components:** `PascalCase.tsx` (e.g., `ApprovalActionsBar.tsx`)
-- **Hooks:** `camelCase.ts` with `use` prefix (e.g., `useIndentFormState.ts`)
-- **Utilities/Services:** `camelCase.ts` (e.g., `indentService.ts`)
-- **Files:** `.tsx` for JSX, `.ts` for logic
-
 ### React Hook Declaration Order
 Block-scoped `useMemo`/`useCallback` are NOT hoisted. Always declare dependencies before dependents.
 
@@ -317,32 +247,11 @@ Block-scoped `useMemo`/`useCallback` are NOT hoisted. Always declare dependencie
 
 ## Development Commands
 
-```bash
-pnpm dev               # Dev server (port 3000) with Turbopack
-pnpm build             # Production build
-pnpm lint              # Lint code
-pnpm test              # Run tests
-npx tsc --noEmit       # TypeScript check
-pnpm storybook         # Storybook (port 6006)
-```
+Standard `pnpm` scripts -- see `package.json`.
 
 > For testing examples and Storybook usage, see `docs/claude/testing-guide.md`.
 
 ---
-
-## Reference Files
-
-| File | Content |
-|------|---------|
-| `docs/claude/TEAM.md` | Agent team roster, skills table, team norms |
-| `docs/claude/roles-and-users.md` | Users/roles/permissions across the three dashboards |
-| `docs/claude/modules/{module}/` | Per-module page catalogs, backend maps, approval flows |
-| `docs/claude/transaction-patterns.md` | Transaction page architecture, hooks, approval workflow, MuiForm schema, step-by-step guide |
-| `docs/claude/code-examples.md` | TypeScript, Zod, component, styling examples + common pitfalls with code |
-| `docs/claude/api-patterns.md` | API client, service layer, auth flows, route definitions |
-| `docs/claude/testing-guide.md` | Vitest setup, test examples, Storybook, JSDoc standards |
-| `AGENTS_GUIDE.md` | Comprehensive developer guide (26KB) |
-| `instructions.md` | ApprovalActionsBar contract (status IDs, button visibility) |
 
 ## Common Examples in Codebase
 - **List Pages:** `src/app/dashboardportal/masters/itemMaster/page.tsx`
@@ -361,10 +270,3 @@ module guides (`docs/claude/modules/` + the `module-*` agents) and the actual so
 PRIMARY reference — consult the graph only as a quick cross-check, and verify every hit against the
 backend router source before relying on it. Regenerate (when fixed) from the backend repo with
 `python tools/bridge_extractor.py` / `tools/index_extractor_fe.py` / `tools/index_extractor_be.py`.
-
----
-
-## Version Info
-- Next.js: 15 | React: 19 | TypeScript: 5.x (strict) | Node: 18+ | pnpm
-
-**Last Updated:** 2026-06-12
