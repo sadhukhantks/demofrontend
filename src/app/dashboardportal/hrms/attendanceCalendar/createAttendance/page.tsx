@@ -96,6 +96,13 @@ function SearchSelect({
       }
       isOptionEqualToValue={(o, v) => o.value === v.value}
       onChange={(_, v) => onChange(v ? v.value : "")}
+      // MUI keys options by label by default; duplicate master descriptions
+      // (e.g. two sub-depts named the same) collide. Key by the id instead.
+      renderOption={({ key: _key, ...props }, o) => (
+        <li key={o.value} {...props}>
+          {o.label}
+        </li>
+      )}
       renderInput={(params) => (
         <TextField {...params} label={label} required={required} />
       )}
