@@ -162,8 +162,10 @@ export default function CreateDailyRateEntryPage({
           grid: { xs: 12, sm: 6 },
         },
         {
+          // The rate applies from this date until a later approval supersedes
+          // it — the Cash Hands process picks the newest rate <= the work date.
           name: "app_date",
-          label: "Date",
+          label: "Effective From",
           type: "date",
           required: true,
           grid: { xs: 12, sm: 6 },
