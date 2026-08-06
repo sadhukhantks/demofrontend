@@ -160,8 +160,10 @@ function Content() {
     });
   }, [rows, summary, selectedCompany?.co_name, branch?.branch_name, dateFrom, dateTo]);
 
-  const pdfHref = useMemo(() => {
-    if (coId == null || branchId == null) return "";
+  // null (not "") until a company/branch is known — an empty href would render
+  // an anchor pointing at the current page.
+  const pdfHref = useMemo<string | null>(() => {
+    if (coId == null || branchId == null) return null;
     return cashHandsPdfUrl({
       coId,
       branchId: branchId,
@@ -248,9 +250,9 @@ function Content() {
           <Button
             variant="outlined"
             disabled={rows.length === 0 || !pdfHref}
-            href={pdfHref}
-            target="_blank"
-            rel="noopener"
+            onClick={() => {
+              if (pdfHref) window.open(pdfHref, "_blank", "noopener");
+            }}
             sx={{ textTransform: "none" }}
           >
             Print PDF
