@@ -52,6 +52,7 @@ function Content() {
   );
 }
 
+
 export default function ConsumptionIs02Page() {
   return (
     <Suspense
