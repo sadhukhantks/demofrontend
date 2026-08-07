@@ -722,6 +722,15 @@ const apiRoutesPortalMasters = {
     DAILY_RATE_EDIT: `${API_URL}/hrmsMasters/daily_rate_edit`,
     DAILY_RATE_DELETE: `${API_URL}/hrmsMasters/daily_rate_delete`,
 
+    // Canteen Details (canteen_details)
+    CANTEEN_SETUP: `${API_URL}/hrms/canteen_setup`,
+    CANTEEN_TABLE: `${API_URL}/hrms/get_canteen_table`,
+    CANTEEN_BY_ID: `${API_URL}/hrms/get_canteen_by_id`,
+    CANTEEN_CREATE: `${API_URL}/hrms/canteen_create`,
+    CANTEEN_EDIT: `${API_URL}/hrms/canteen_edit`,
+    CANTEEN_APPROVE: `${API_URL}/hrms/canteen_approve`,
+    CANTEEN_DELETE: `${API_URL}/hrms/canteen_delete`,
+
     DESIGNATION_TABLE: `${API_URL}/hrmsMasters/get_designation_table`,
     DESIGNATION_BY_ID: `${API_URL}/hrmsMasters/get_designation_by_id`,
     DESIGNATION_CREATE_SETUP: `${API_URL}/hrmsMasters/designation_create_setup`,
