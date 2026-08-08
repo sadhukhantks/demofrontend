@@ -222,7 +222,14 @@ function CreateAttendanceContent() {
   const handleSave = useCallback(async () => {
     const parsed = attendanceFormSchema.safeParse(values);
     if (!parsed.success) {
-      showSnack(parsed.error.issues[0]?.message ?? "Validation failed", "error");
+      // Name the field: Zod's own type errors ("expected string, received
+      // number") say nothing about WHICH input is wrong.
+      const issue = parsed.error.issues[0];
+      const field = issue?.path.join(".");
+      showSnack(
+        issue ? `${field ? `${field}: ` : ""}${issue.message}` : "Validation failed",
+        "error",
+      );
       return;
     }
     if (leaveBlocked) {
@@ -376,12 +383,14 @@ function CreateAttendanceContent() {
             InputLabelProps={{ shrink: true }}
             required
           />
+          {/* Mark, source and spell identify which attendance this row IS, so
+              they are fixed once created — the edit endpoint ignores them too. */}
           <SearchSelect
             label="Attendance Mark"
             value={values.attendance_mark}
             options={ATTENDANCE_MARK_OPTIONS}
             onChange={(v) => updateField("attendance_mark", v)}
-            disabled={disabled}
+            disabled={disabled || mode === "edit"}
             required
           />
           <SearchSelect
@@ -389,7 +398,7 @@ function CreateAttendanceContent() {
             value={values.attendance_source}
             options={ATTENDANCE_SOURCE_OPTIONS}
             onChange={(v) => updateField("attendance_source", v)}
-            disabled={disabled}
+            disabled={disabled || mode === "edit"}
             required
           />
         </Box>
@@ -434,7 +443,7 @@ function CreateAttendanceContent() {
             value={values.spell_id ? String(values.spell_id) : ""}
             options={spellOpts}
             onChange={(v) => applySpell(Number(v) || 0)}
-            disabled={disabled}
+            disabled={disabled || mode === "edit"}
             required
           />
           <TextField

@@ -831,6 +831,64 @@ export const fetchMachinesByDesignation = async (
   );
 };
 
+// ─── Attendance Open / Close ───────────────────────────────────────
+
+/** One (branch, date, spell) slice — the key the update is scoped by. */
+export interface AttendanceSliceParams {
+  branch_id: string | number;
+  attendance_date: string;
+  spell_id: string | number;
+  /** Widens the match to legacy rows that never got a spell_id. */
+  spell_name?: string;
+}
+
+export interface AttendanceOpenCloseRow {
+  /** NULL when every row of the spell group predates spell_id and the name
+   *  was too ambiguous to resolve — such a spell can be viewed, not toggled. */
+  spell_id: number | null;
+  spell_name: string;
+  dept_id: number | null;
+  dept_name: string;
+  attendance_date: string;
+  status: "Open" | "Close";
+  open_count: number;
+  total_count: number;
+}
+
+/**
+ * Every (spell, department) with attendance on a branch + date, with its
+ * Open/Close state. Deliberately not spell-scoped: the page's Spell and
+ * Department dropdowns are both derived from this, so they only ever offer
+ * what the day's attendance actually contains.
+ */
+export const fetchAttendanceOpenCloseStatus = async (params: {
+  branch_id: string | number;
+  attendance_date: string;
+}) => {
+  const qs = new URLSearchParams({
+    branch_id: String(params.branch_id),
+    attendance_date: params.attendance_date,
+  });
+  return fetchWithCookie<{ data: AttendanceOpenCloseRow[] }>(
+    `${apiRoutesPortalMasters.ATTENDANCE_OPEN_CLOSE_STATUS}?${qs.toString()}`,
+    "GET",
+  );
+};
+
+/** Open (3→1) or close (1→3) the slice for one department. Password-gated. */
+export const submitAttendanceOpenClose = async (
+  body: AttendanceSliceParams & {
+    worked_department_id: string | number;
+    action: "open" | "close";
+    password: string;
+  },
+) =>
+  fetchWithCookie<{ message: string; updated: number }>(
+    apiRoutesPortalMasters.ATTENDANCE_OPEN_CLOSE,
+    "POST",
+    body,
+  );
+
 // ─── Attendance Checklist (flat register report) ───────────────────
 
 export interface AttendanceRegisterParams {
