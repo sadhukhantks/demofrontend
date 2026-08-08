@@ -264,7 +264,8 @@ export default function DrcrNoteCreatePage() {
 				description: `${result?.note_no || "DRCR Note"} created successfully`,
 				variant: "default",
 			});
-			router.push(`/dashboardportal/procurement/drcrNote/view?id=${encodeURIComponent(String(result?.drcr_note_id))}`);
+			// mode=edit so the just-created Draft note shows its Open/Approve actions
+			router.push(`/dashboardportal/procurement/drcrNote/view?mode=edit&id=${encodeURIComponent(String(result?.drcr_note_id))}`);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Failed to create DRCR Note";
 			toast({ title: "Error", description: message, variant: "destructive" });
