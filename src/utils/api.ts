@@ -911,6 +911,8 @@ const apiRoutesPortalMasters = {
     ATTENDANCE_CREATE_SETUP: `${API_URL}/hrms/attendance_create_setup`,
     ATTENDANCE_LEAVE_STATUS: `${API_URL}/hrms/attendance_leave_status`,
     ATTENDANCE_MACHINES: `${API_URL}/hrms/attendance_machines_by_designation`,
+    ATTENDANCE_OPEN_CLOSE_STATUS: `${API_URL}/hrms/attendance_open_close_status`,
+    ATTENDANCE_OPEN_CLOSE: `${API_URL}/hrms/attendance_open_close`,
     // Attendance register report (checklist page) — served by the Flask mobileapp
     // mounted at the backend root (no /hrms prefix).
     // vowerp3be/src/mobileapp/src/attendance/attendance.py

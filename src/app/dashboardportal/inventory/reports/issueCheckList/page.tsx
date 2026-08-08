@@ -14,6 +14,8 @@ import {
 /**
  * Stores Issue Check List — one row per issue line with quantity, value
  * (receipt-lot rate), SR no, cost center, expense type, machine and status.
+ * Every status is listed (draft, rejected, cancelled included) — only deleted
+ * issues (active = 0) are left out.
  * Mirrors the legacy Data-Portal "Issue Checklist" store report.
  */
 const columns: GridColDef<IssueItemwiseReportRow>[] = [
