@@ -36,7 +36,10 @@ import type { PlanningDocUI } from "./createProductionPlanning/types/productionP
 const CREATE_ROUTE = "/dashboardportal/juteProduction/productionPlanning/createProductionPlanning";
 
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  // Local date, not UTC — toISOString() would report yesterday before 05:30 IST
+  // and break the from/to range against the local firstOfMonthISO below.
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function firstOfMonthISO(): string {

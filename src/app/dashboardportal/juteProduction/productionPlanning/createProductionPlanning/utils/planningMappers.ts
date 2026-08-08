@@ -275,6 +275,9 @@ const yarnLineSchema = z.object({
   frames_b: nonNeg,
   frames_c: nonNeg,
   order_mt: nonNeg.nullable(),
+  // Backstop for jute_prod_planning_yarn.days_needed DECIMAL(8,2) — an
+  // out-of-range value would fail the whole save under MySQL strict mode.
+  days_needed: z.number().min(0, "Must be ≥ 0").max(999999.99, "Days needed is out of range").nullable(),
 });
 
 const deptLineSchema = z.object({

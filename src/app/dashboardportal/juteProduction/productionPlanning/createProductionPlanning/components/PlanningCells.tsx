@@ -22,16 +22,28 @@ export type NumCellProps = {
 
 /** Small right-aligned numeric input for grid cells. */
 export function NumCell({ value, onChange, disabled, width = 74, manual = false, helper }: NumCellProps) {
+  // Draft holds the raw text while the user is typing. A controlled
+  // type="number" input bound directly to the parsed number destroys
+  // in-progress entries ("82." sanitizes to "", which would commit 0 and
+  // rewrite the DOM), so we only push parseable values up and never let a
+  // parent re-render clobber the edit buffer mid-keystroke.
+  const [draft, setDraft] = React.useState<string | null>(null);
+  const display = draft ?? (Number.isFinite(value) ? String(value) : "0");
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", alignItems: "stretch" }}>
       <TextField
         type="number"
         size="small"
-        value={Number.isFinite(value) ? value : 0}
+        value={display}
         onChange={(e) => {
-          const parsed = Number(e.target.value);
-          onChange(Number.isFinite(parsed) ? parsed : 0);
+          const raw = e.target.value;
+          setDraft(raw);
+          if (raw === "") return; // sanitized intermediate state ("82.") — keep last committed value
+          const parsed = Number(raw);
+          if (Number.isFinite(parsed) && parsed !== value) onChange(parsed);
         }}
+        onBlur={() => setDraft(null)}
         disabled={disabled}
         inputProps={{
           step: "any",

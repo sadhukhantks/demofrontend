@@ -253,9 +253,12 @@ export function recalcYarnLine(line: YarnLineUI, loomTotals: LoomTotals): YarnLi
     const framesRequired = applyAuto(line.frames_required, round2(safeDiv(reqDay.value, kgPerFrame.value)));
     const framesTotal = yarnFramesAllocated(withRate);
     const orderKg = (line.order_mt ?? 0) * 1000;
+    // ÷0 → 0 like every other ratio here: with zero allocated frames the
+    // Math.max(…, EPSILON) form exploded into astronomic day counts that
+    // overflow days_needed DECIMAL(8,2) on save.
     const daysNeeded = applyAuto(
       line.days_needed,
-      round2(safeDiv(safeDiv(orderKg, kgPerFrame.value), Math.max(framesTotal, EPSILON)))
+      round2(safeDiv(safeDiv(orderKg, kgPerFrame.value), framesTotal))
     );
     return {
       ...withRate,

@@ -269,6 +269,21 @@ describe("recalcYarnLine", () => {
     expect(out.frames_required.value).toBe(0);
   });
 
+  it("SALE lines with zero allocated frames keep days_needed at 0 (no epsilon blow-up)", () => {
+    const out = recalcYarnLine(
+      yarnLine({
+        line_kind: "SALE",
+        section: "SALE",
+        kg_per_frame_100: 412,
+        eff_pct: 100,
+        order_mt: 15,
+      }),
+      computeLoomTotals([])
+    );
+    expect(out.days_needed.value).toBe(0);
+    expect(out.req_kg_day.value).toBe(0);
+  });
+
   it("SALE lines: commitment = frames × kg_per_frame; days_needed from order_mt", () => {
     const out = recalcYarnLine(
       yarnLine({

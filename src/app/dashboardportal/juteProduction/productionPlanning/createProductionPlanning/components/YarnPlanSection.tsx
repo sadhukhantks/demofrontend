@@ -74,7 +74,10 @@ export default function YarnPlanSection({
       isOptionEqualToValue={(o, v) => o.item_id === v.item_id}
       value={yarnOptions.find((o) => o.item_id === line.yarn_item_id) ?? null}
       onChange={(_e, value) => onYarnChange(line.uid, value?.item_id ?? null, value?.item_name ?? line.yarn_desc)}
-      disabled={disabled}
+      // Derived warp/weft rows get their yarn identity from Section 1's
+      // warp/weft pickers — editing it here would be undone by the next
+      // recalc (the derive step re-keys the row), so lock it like Section.
+      disabled={disabled || (line.line_kind === "CLOTH" && line.warp_weft != null)}
       sx={{ width: 150 }}
       renderInput={(params) => <TextField {...params} variant="outlined" size="small" />}
     />

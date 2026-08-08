@@ -62,6 +62,8 @@ const PCT_PARAMS = new Set(["warp_pct", "weft_pct", "waste_pct"]);
 export function paramSchema(param: string) {
   if (YARN_SELECT_PARAMS.has(param)) return z.number().int().positive();
   if (PCT_PARAMS.has(param)) return z.number().min(0).max(100);
-  if (param === "std_eff") return z.number().min(0).max(300);
+  // Must match the plan editor's eff_pct bound (loomLineSchema/yarnLineSchema
+  // cap at 100) — a norm above 100 would block saving every plan that inherits it.
+  if (param === "std_eff") return z.number().min(0).max(100);
   return z.number().min(0); // kg_per_loom_100 / kg_per_frame_100 / kg_per_machine
 }

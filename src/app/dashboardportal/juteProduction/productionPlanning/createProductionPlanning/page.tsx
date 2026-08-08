@@ -39,7 +39,10 @@ import type { PlanningMode } from "./types/productionPlanningTypes";
 const LIST_ROUTE = "/dashboardportal/juteProduction/productionPlanning";
 
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  // Local date, not UTC — toISOString() would default plan_date to yesterday
+  // before 05:30 IST and collide with the previous day's plan.
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function PageLoading() {
@@ -140,6 +143,18 @@ function CreateProductionPlanningInner() {
 
   // ── Calc orchestration ──────────────────────────────────────────────────
   const calc = usePlanningCalc({ doc, setDoc, resolveNorm, resolveYarnRate, resolveYarnDesc });
+
+  // Once a document exists, doc.branch_id is the single source of truth for
+  // branch. The header form's Branch select patches the doc; this effect
+  // mirrors it into pageBranchId so setup (norms, machine counts) always
+  // resolves for the document's branch — including edit/view loads and later
+  // "Working Branch" changes (the default-doc effect runs only once).
+  const docBranchId = doc?.branch_id ?? null;
+  React.useEffect(() => {
+    if (!doc) return;
+    const target: number | "" = docBranchId == null ? "" : docBranchId;
+    setPageBranchId((prev) => (prev === target ? prev : target));
+  }, [doc, docBranchId]);
 
   // ── Save / copy / print ─────────────────────────────────────────────────
   const [updateNorms, setUpdateNorms] = React.useState(false);
@@ -279,7 +294,13 @@ function CreateProductionPlanningInner() {
           size="small"
           label="Working Branch"
           value={pageBranchId}
-          onChange={(e) => setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))}
+          onChange={(e) => {
+            const v = e.target.value === "" ? "" : Number(e.target.value);
+            setPageBranchId(v);
+            // Keep the document in step — pageBranchId alone never flows back
+            // into an already-created doc (the default-doc effect runs once).
+            if (doc) calc.patchHeader({ branch_id: v === "" ? null : v });
+          }}
           sx={{ maxWidth: 260 }}
         >
           {branchOptions.map((b) => (
