@@ -1110,6 +1110,13 @@ const apiRoutesPortalMasters = {
     STOPPAGE_ENTRIES_BY_DATE: `${API_URL}/stoppageProd/entries_by_date`,
     STOPPAGE_ENTRY_EDIT: `${API_URL}/stoppageProd/entry_edit`,
     STOPPAGE_ENTRY_DELETE: `${API_URL}/stoppageProd/entry_delete`,
+    // Jute Waste Entry (router prefix /api/juteWasteProd) — JUTE_WASTE_ENTRY_EDIT/DELETE are
+    // base paths; caller appends /${id}?co_id=...
+    JUTE_WASTE_ENTRY_CREATE_SETUP: `${API_URL}/juteWasteProd/entry_create_setup`,
+    JUTE_WASTE_ENTRY_CREATE: `${API_URL}/juteWasteProd/entry_create`,
+    JUTE_WASTE_ENTRIES_BY_DATE: `${API_URL}/juteWasteProd/entries_by_date`,
+    JUTE_WASTE_ENTRY_EDIT: `${API_URL}/juteWasteProd/entry_edit`,
+    JUTE_WASTE_ENTRY_DELETE: `${API_URL}/juteWasteProd/entry_delete`,
     // Beaming Quality Master (router prefix /api/beamingMasters) — BM_QUALITY_EDIT/DELETE/DETAIL are
     // base paths; caller appends /${id}?co_id=...
     BM_QUALITY_CREATE_SETUP: `${API_URL}/beamingMasters/bm_quality_create_setup`,

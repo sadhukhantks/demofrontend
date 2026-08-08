@@ -141,8 +141,29 @@ queries in `src/juteProduction/waste_query.py`. Five endpoints, mirroring `stopp
 | GET | `/entry_create_setup` | Dropdown options: spells, departments, machines, waste types |
 | POST | `/entry_create` | Insert one waste row |
 | GET | `/entries_by_date` | All active rows for `(co_id, branch_id, tran_date)` |
-| PUT | `/entry_edit` | Update one row by `waste_entry_id` |
-| DELETE | `/entry_delete` | Soft delete (`active = 0`) by `waste_entry_id` |
+| PUT | `/entry_edit/{waste_entry_id}` | Update one row (requires `?co_id=`) |
+| DELETE | `/entry_delete/{waste_entry_id}` | Soft delete `active = 0` (requires `?co_id=`) |
+
+### 6.1 Company scoping on the by-id path (security-relevant)
+
+`/entry_edit` and `/entry_delete` **require `co_id` as a query param** and locate the row by
+`(waste_entry_id, co_id)`, never by primary key alone. A tenant DB holds every company's rows,
+so a PK-only lookup would let a user scoped to company A mutate company B's row by guessing an
+id. A row belonging to another company returns **404**, not 403 — it must not be distinguishable
+from a row that does not exist. The `co_id` predicate is on **both** the guard SELECT and the
+UPDATE itself, so the check cannot be lost if the two drift apart.
+
+> Note: `stoppage_entry.py` — the precedent this feature is modelled on — locates rows by PK
+> alone and has the same gap. It was left unchanged here (wider blast radius, separate
+> decision) but is worth a `tenant-auditor` pass. This feature deliberately diverges from the
+> precedent on this point.
+
+**Editable fields:** `spell_id`, `machine_id`, `waste_type_code`, `waste_qty`, `remarks`.
+`dept_id` and `tran_date` are **immutable** — delete and re-add to move a row to another
+department or date, which keeps the branch derivation clean. A machine change is re-validated
+against the row's **existing** `dept_id`, so the §10 guard cannot be sidestepped via edit.
+On edit, a `null` field means "leave unchanged"; there is currently **no way to clear** an
+already-set `machine_id` (delete + re-add instead).
 
 `/entry_create_setup` takes `co_id` (required) and `branch_id` (optional) and returns:
 
@@ -172,7 +193,12 @@ POST/PUT/DELETE → `db.rollback()` then raise / 500. All handlers are plain `de
 
 ## 8. Frontend route constants
 
-Added to `apiRoutes` in `src/utils/api.ts`:
+Added to **`apiRoutesPortalMasters`** in `src/utils/api.ts` — the object that already holds the
+`STOPPAGE_*` block and every other jute-production route, despite the name. (An earlier draft of
+this spec said `apiRoutes`; that was wrong — corrected against the source.)
+
+`JUTE_WASTE_ENTRY_EDIT` / `JUTE_WASTE_ENTRY_DELETE` are **base paths**: the caller appends
+`/{waste_entry_id}?co_id=…` per §6.1.
 
 ```
 JUTE_WASTE_ENTRY_CREATE_SETUP: `${API_URL}/juteWasteProd/entry_create_setup`
