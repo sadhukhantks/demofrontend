@@ -41,8 +41,8 @@ export const ATTENDANCE_MARK_OPTIONS: Array<{ value: string; label: string }> = 
 ];
 
 export const ATTENDANCE_SOURCE_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "Manual", label: "Manual" },
-  { value: "Face", label: "Face" },
+  { value: "M", label: "Manual" },
+  { value: "F", label: "Face" },
 ];
 
 export const ATTENDANCE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [

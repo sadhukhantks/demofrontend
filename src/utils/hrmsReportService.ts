@@ -353,3 +353,258 @@ export function fetchCashAttendance(p: RangeParams): Promise<CashAttendanceRow[]
     "cash attendance",
   );
 }
+
+/** Row from GET /hrmsReports/employee-headcount — the finest summary grain.
+ * The department/category/designation summary pages aggregate these rows. */
+export interface EmployeeHeadcountRow {
+  id: number;
+  department: string | null;
+  sub_department: string | null;
+  designation: string | null;
+  category: string | null;
+  emp_count: number;
+}
+
+/** Active-employee headcount by dept/sub-dept/designation/category. */
+export async function fetchEmployeeHeadcount(p: {
+  coId: number;
+  branchId?: number | null;
+}): Promise<EmployeeHeadcountRow[]> {
+  const qs = new URLSearchParams();
+  qs.set("co_id", String(p.coId));
+  if (p.branchId != null) qs.set("branch_id", String(p.branchId));
+  const url = `${apiRoutesPortalMasters.EMPLOYEE_HEADCOUNT_REPORT}?${qs.toString()}`;
+  const result = await fetchWithCookie<{ data: EmployeeHeadcountRow[] }>(url);
+  if (result.error || !result.data) {
+    throw new Error(result.error ?? "Failed to fetch employee headcount");
+  }
+  return result.data.data;
+}
+
+/** Aggregated headcount row produced by {@link aggregateHeadcount}. */
+export interface HeadcountSummaryRow {
+  id: string;
+  department: string;
+  sub_department: string;
+  designation: string;
+  category: string;
+  emp_count: number;
+}
+
+/**
+ * Aggregate headcount rows by the given keys and append a Total row —
+ * shared by the department/category/designation summary report pages.
+ */
+export function aggregateHeadcount(
+  rows: EmployeeHeadcountRow[],
+  keys: (keyof Omit<EmployeeHeadcountRow, "id" | "emp_count">)[],
+): HeadcountSummaryRow[] {
+  const map = new Map<string, HeadcountSummaryRow>();
+  let total = 0;
+  for (const r of rows) {
+    const key = keys.map((k) => r[k] ?? "").join("|");
+    let agg = map.get(key);
+    if (!agg) {
+      agg = {
+        id: key,
+        department: keys.includes("department") ? (r.department ?? "") : "",
+        sub_department: keys.includes("sub_department")
+          ? (r.sub_department ?? "")
+          : "",
+        designation: keys.includes("designation") ? (r.designation ?? "") : "",
+        category: keys.includes("category") ? (r.category ?? "") : "",
+        emp_count: 0,
+      };
+      map.set(key, agg);
+    }
+    agg.emp_count += r.emp_count;
+    total += r.emp_count;
+  }
+  const out = [...map.values()];
+  const totalRow: HeadcountSummaryRow = {
+    id: "__total__",
+    department: "",
+    sub_department: "",
+    designation: "",
+    category: "",
+    emp_count: total,
+  };
+  totalRow[keys[0]] = "Total";
+  out.push(totalRow);
+  return out;
+}
+
+/** Row from GET /hrmsReports/spell-wise (long format — pivoted on the page). */
+export interface SpellWiseRow {
+  id: number;
+  department: string | null;
+  designation: string | null;
+  spell: string | null;
+  hands: number;
+}
+
+/** Spell-wise hands per department + designation (long format). */
+export function fetchSpellWise(p: RangeParams): Promise<SpellWiseRow[]> {
+  return fetchRangeReport(
+    apiRoutesPortalMasters.SPELL_WISE_REPORT,
+    p,
+    "spell-wise report",
+  );
+}
+
+/** Row from GET /hrmsReports/bank-statement. */
+export interface BankStatementRow {
+  id: number;
+  emp_code: string | null;
+  emp_name: string | null;
+  bank_name: string | null;
+  bank_acc_no: string | null;
+  ifsc_code: string | null;
+  from_date: string | null;
+  to_date: string | null;
+  net_pay: number;
+}
+
+/** Employee bank statement: net pay + bank details per pay period in range. */
+export function fetchBankStatement(p: RangeParams): Promise<BankStatementRow[]> {
+  return fetchRangeReport(
+    apiRoutesPortalMasters.BANK_STATEMENT_REPORT,
+    p,
+    "bank statement",
+  );
+}
+
+/** Row from GET /hrmsReports/hands-complement — hands split by shift and by
+ * worker category, per date + master department + designation. Second sheet of
+ * the Attendance Check List export. */
+export interface HandsComplementRow {
+  id: number;
+  attendance_date: string | null;
+  department: string | null;
+  designation: string | null;
+  shift_a: number;
+  shift_b: number;
+  shift_c: number;
+  shift_total: number;
+  permanent: number;
+  budli: number;
+  retired: number;
+  new_budli: number;
+  contract: number;
+  outsider: number;
+  apprentice: number;
+  total_hands: number;
+}
+
+/** Hands Complement summary over a date range. */
+export function fetchHandsComplement(
+  p: RangeParams,
+): Promise<HandsComplementRow[]> {
+  return fetchRangeReport(
+    apiRoutesPortalMasters.HANDS_COMPLEMENT_REPORT,
+    p,
+    "hands complement",
+  );
+}
+
+/** A processed cash payment row (daily_cash_outsider_payment + names). */
+export interface CashHandsRow {
+  id: number;
+  eb_id: number | null;
+  eb_no: string | null;
+  worker_name: string | null;
+  pay_date: string | null;
+  shift: string | null;
+  dept_code: string | null;
+  department: string | null;
+  occupation: string | null;
+  working_hours: number;
+  rate: number;
+  amount: number;
+}
+
+/** Department x shift totals per pay date. */
+export interface CashHandsSummaryRow {
+  id: number;
+  pay_date: string | null;
+  dept_code: string | null;
+  department: string | null;
+  shift: string | null;
+  hours: number;
+  amount: number;
+}
+
+/** Outcome of a Cash Hands process run. */
+export interface CashHandsProcessResult {
+  message: string;
+  deleted: number;
+  inserted: number;
+  total_hours: number;
+  total_amount: number;
+  /** Rows whose worker had no approved rate for that date/shift (priced 0). */
+  rows_without_rate: number;
+}
+
+/** Processed cash payment rows for the period. */
+export function fetchCashHands(p: RangeParams): Promise<CashHandsRow[]> {
+  return fetchRangeReport(
+    apiRoutesPortalMasters.CASH_HANDS_REPORT,
+    p,
+    "cash hands report",
+  );
+}
+
+/** Department/shift totals for the period. */
+export function fetchCashHandsSummary(
+  p: RangeParams,
+): Promise<CashHandsSummaryRow[]> {
+  return fetchRangeReport(
+    apiRoutesPortalMasters.CASH_HANDS_SUMMARY_REPORT,
+    p,
+    "cash hands summary",
+  );
+}
+
+/**
+ * Process (or re-process) a period into daily_cash_outsider_payment. Rows
+ * previously processed for the same scope are deleted first, so running this
+ * twice leaves one set of payment rows, not two.
+ */
+export async function processCashHands(p: {
+  coId: number;
+  branchId?: number | null;
+  dateFrom: string;
+  dateTo: string;
+}): Promise<CashHandsProcessResult> {
+  const result = await fetchWithCookie<CashHandsProcessResult>(
+    apiRoutesPortalMasters.CASH_HANDS_PROCESS,
+    "POST",
+    {
+      co_id: p.coId,
+      branch_id: p.branchId ?? null,
+      date_from: p.dateFrom,
+      date_to: p.dateTo,
+    },
+  );
+  if (result.error || !result.data) {
+    throw new Error(result.error ?? "Failed to process cash hands");
+  }
+  return result.data;
+}
+
+/** Download URL for the Cash Hands PDF (streamed by the backend). */
+export function cashHandsPdfUrl(p: {
+  coId: number;
+  branchId?: number | null;
+  dateFrom: string;
+  dateTo: string;
+  companyName?: string | null;
+}): string {
+  const qs = new URLSearchParams();
+  qs.set("co_id", String(p.coId));
+  qs.set("date_from", p.dateFrom);
+  qs.set("date_to", p.dateTo);
+  if (p.branchId != null) qs.set("branch_id", String(p.branchId));
+  if (p.companyName) qs.set("company_name", p.companyName);
+  return `${apiRoutesPortalMasters.CASH_HANDS_PDF}?${qs.toString()}`;
+}

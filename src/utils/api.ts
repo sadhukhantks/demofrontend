@@ -572,6 +572,14 @@ const apiRoutesPortalMasters = {
     OVERSTAY_REPORT: `${API_URL}/hrmsReports/overstay`,
     OCCUPATION_DEVIATION_REPORT: `${API_URL}/hrmsReports/occupation-deviation`,
     CASH_ATTENDANCE_REPORT: `${API_URL}/hrmsReports/cash-attendance`,
+    EMPLOYEE_HEADCOUNT_REPORT: `${API_URL}/hrmsReports/employee-headcount`,
+    SPELL_WISE_REPORT: `${API_URL}/hrmsReports/spell-wise`,
+    BANK_STATEMENT_REPORT: `${API_URL}/hrmsReports/bank-statement`,
+    HANDS_COMPLEMENT_REPORT: `${API_URL}/hrmsReports/hands-complement`,
+    CASH_HANDS_PROCESS: `${API_URL}/hrmsReports/cash-hands-process`,
+    CASH_HANDS_REPORT: `${API_URL}/hrmsReports/cash-hands`,
+    CASH_HANDS_SUMMARY_REPORT: `${API_URL}/hrmsReports/cash-hands-summary`,
+    CASH_HANDS_PDF: `${API_URL}/hrmsReports/cash-hands-pdf`,
 
     // Sales Quotation endpoints
     QUOTATION_TABLE: `${API_URL}/salesQuotation/get_quotation_table`,
@@ -706,6 +714,23 @@ const apiRoutesPortalMasters = {
     HRMS_PAY_ROLL_DOWNLOAD_TEMPLATE: `${API_URL}/hrms/pay_roll_download_template`,
 
     // Designation Master endpoints
+    // Cash / Daily Rate Entry (outsider_rate_approve)
+    DAILY_RATE_SETUP: `${API_URL}/hrmsMasters/daily_rate_setup`,
+    DAILY_RATE_TABLE: `${API_URL}/hrmsMasters/get_daily_rate_table`,
+    DAILY_RATE_BY_ID: `${API_URL}/hrmsMasters/get_daily_rate_by_id`,
+    DAILY_RATE_CREATE: `${API_URL}/hrmsMasters/daily_rate_create`,
+    DAILY_RATE_EDIT: `${API_URL}/hrmsMasters/daily_rate_edit`,
+    DAILY_RATE_DELETE: `${API_URL}/hrmsMasters/daily_rate_delete`,
+
+    // Canteen Details (canteen_details)
+    CANTEEN_SETUP: `${API_URL}/hrms/canteen_setup`,
+    CANTEEN_TABLE: `${API_URL}/hrms/get_canteen_table`,
+    CANTEEN_BY_ID: `${API_URL}/hrms/get_canteen_by_id`,
+    CANTEEN_CREATE: `${API_URL}/hrms/canteen_create`,
+    CANTEEN_EDIT: `${API_URL}/hrms/canteen_edit`,
+    CANTEEN_APPROVE: `${API_URL}/hrms/canteen_approve`,
+    CANTEEN_DELETE: `${API_URL}/hrms/canteen_delete`,
+
     DESIGNATION_TABLE: `${API_URL}/hrmsMasters/get_designation_table`,
     DESIGNATION_BY_ID: `${API_URL}/hrmsMasters/get_designation_by_id`,
     DESIGNATION_CREATE_SETUP: `${API_URL}/hrmsMasters/designation_create_setup`,
@@ -886,6 +911,8 @@ const apiRoutesPortalMasters = {
     ATTENDANCE_CREATE_SETUP: `${API_URL}/hrms/attendance_create_setup`,
     ATTENDANCE_LEAVE_STATUS: `${API_URL}/hrms/attendance_leave_status`,
     ATTENDANCE_MACHINES: `${API_URL}/hrms/attendance_machines_by_designation`,
+    ATTENDANCE_OPEN_CLOSE_STATUS: `${API_URL}/hrms/attendance_open_close_status`,
+    ATTENDANCE_OPEN_CLOSE: `${API_URL}/hrms/attendance_open_close`,
     // Attendance register report (checklist page) — served by the Flask mobileapp
     // mounted at the backend root (no /hrms prefix).
     // vowerp3be/src/mobileapp/src/attendance/attendance.py

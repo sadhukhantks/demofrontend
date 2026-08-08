@@ -7,6 +7,7 @@ import { Snackbar, Alert, Chip, TextField, MenuItem, Stack } from "@mui/material
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchAttendanceList } from "@/utils/hrmsService";
+import { lastDaysRange } from "@/components/reports/reportDates";
 import {
   AttendanceListRow,
   STATUS_COLOR,
@@ -25,6 +26,11 @@ const formatDDMMYYYY = (value: unknown): string => {
   const yyyy = d.getFullYear();
   return `${dd}-${mm}-${yyyy}`;
 };
+
+/** A date input emits a value per keystroke of the year — "2026" arrives as
+ *  0002, 0020, 0202, 2026. Only query once the year is plausible. */
+const usableDate = (value: string) =>
+  value && Number(value.slice(0, 4)) >= 1900 ? value : undefined;
 
 export default function AttendanceCalendarPage() {
   const router = useRouter();
@@ -47,8 +53,10 @@ export default function AttendanceCalendarPage() {
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [branchId, setBranchId] = useState<string>("");
-  const [fromDate, setFromDate] = useState<string>("");
-  const [toDate, setToDate] = useState<string>("");
+  // Default to the last 7 days — the branch holds years of attendance, so an
+  // unfiltered list is neither useful nor cheap.
+  const [fromDate, setFromDate] = useState<string>(() => lastDaysRange(7).from);
+  const [toDate, setToDate] = useState<string>(() => lastDaysRange(7).to);
   const [ebNo, setEbNo] = useState<string>("");
   const [attendanceType, setAttendanceType] = useState<string>("");
   const [statusId, setStatusId] = useState<string>("");
@@ -73,8 +81,8 @@ export default function AttendanceCalendarPage() {
         page: paginationModel.page + 1,
         page_size: paginationModel.pageSize,
         search: searchQuery || undefined,
-        from_date: fromDate || undefined,
-        to_date: toDate || undefined,
+        from_date: usableDate(fromDate),
+        to_date: usableDate(toDate),
         eb_no: ebNo || undefined,
         attendance_type: attendanceType || undefined,
         status_id: statusId || undefined,

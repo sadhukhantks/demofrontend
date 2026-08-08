@@ -28,13 +28,22 @@ import MuiForm, {
   type Schema,
 } from "@/components/ui/muiform";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import BackToReports from "@/components/reports/BackToReports";
 import { useSelectedCompanyCoId } from "@/hooks/use-selected-company-coid";
 import {
   fetchAttendanceCreateSetup,
   fetchAttendanceRegister,
   fetchDesignationsBySubDept,
 } from "@/utils/hrmsService";
-import { ATT_TYPE_LABELS, checklistFilterSchema, csvFilename, mapReportRows, rowsToCsv } from "./utils/checklistUtils";
+import { usePathname } from "next/navigation";
+import { currentMonthRange } from "@/components/reports/reportDates";
+import { resolveReportMenuId } from "@/utils/reportMenuService";
+import {
+  fetchHandsComplement,
+  type HandsComplementRow,
+} from "@/utils/hrmsReportService";
+import { exportChecklistWorkbook } from "./utils/checklistExcel";
+import { ATT_TYPE_LABELS, checklistFilterSchema, excelFilename, mapReportRows } from "./utils/checklistUtils";
 import type {
   AttendanceReportResponse,
   AttendanceSetupResponse,
@@ -65,6 +74,8 @@ const ATT_TYPE_OPTIONS: Option[] = Object.entries(ATT_TYPE_LABELS).map(
 function AttendanceChecklistContent() {
   const { selectedBranches, selectedCompany } = useSidebarContext();
   const formRef = useRef<MuiFormHandle>(null);
+  // Resolves this page's menu_id for the "Report No" line in the export header.
+  const pathname = usePathname();
 
   // Branch is pre-seeded from the branch selected in the left sidebar.
   const sidebarBranchId =
@@ -73,13 +84,18 @@ function AttendanceChecklistContent() {
   // Seed WITHOUT the sidebar branch so the first client render matches the
   // server-rendered HTML (sidebar context hydrates from localStorage after
   // mount). The post-mount effect below pushes the resolved branch in.
-  const [filters, setFilters] = useState<ChecklistFilterValues>(INITIAL_FILTERS);
+  // Dates default to the current month (1st → last), like the report pages.
+  const [filters, setFilters] = useState<ChecklistFilterValues>(() => {
+    const { from, to } = currentMonthRange();
+    return { ...INITIAL_FILTERS, from_date: from, to_date: to };
+  });
   const prevBranchRef = useRef<string>(sidebarBranchId);
   const prevDeptRef = useRef<string>("");
 
   const [gridRows, setGridRows] = useState<ChecklistGridRow[]>([]);
   const [showGrid, setShowGrid] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [exporting, setExporting] = useState(false);
   // The range actually searched — used for the result header (and later the
   // CSV filename), so it never drifts from the loaded rows when the form edits.
   const [searchedRange, setSearchedRange] = useState<{ from: string; to: string }>({
@@ -286,55 +302,105 @@ function AttendanceChecklistContent() {
     }
   }, [filters, notify]);
 
-  const handleExportCsv = useCallback(() => {
-    if (!gridRows.length) return;
-    // "﻿" = UTF-8 BOM so Excel opens accented names correctly.
-    const blob = new Blob(["﻿" + rowsToCsv(gridRows)], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = csvFilename(searchedRange.from, searchedRange.to);
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [gridRows, searchedRange]);
-
+  // Column set mirrors the legacy report 657 (S.No … Remarks).
   const gridColumns = useMemo<GridColDef[]>(
     () => [
-      { field: "date", headerName: "Date", width: 110 },
+      { field: "sno", headerName: "S.No", width: 70 },
+      { field: "date", headerName: "Attendance Date", width: 130 },
       { field: "spell", headerName: "Spell", width: 90 },
-      { field: "ebNo", headerName: "EB No", width: 100 },
+      { field: "ebNo", headerName: "EB_No", width: 100 },
       { field: "name", headerName: "Name", flex: 1, minWidth: 180 },
       { field: "department", headerName: "Department", width: 150 },
-      { field: "designation", headerName: "Designation", width: 150 },
+      { field: "designation", headerName: "Designation", width: 160 },
+      { field: "attType", headerName: "Att_Type", width: 100 },
       {
         field: "source",
-        headerName: "Source",
-        width: 110,
+        headerName: "Attendance Source",
+        width: 150,
         renderCell: (params) =>
           params.value ? (
             <Chip
               size="small"
               variant="outlined"
               label={String(params.value)}
-              color={params.value === "Face" ? "success" : "default"}
+              color={params.value === "F" ? "success" : "default"}
             />
           ) : null,
       },
-      { field: "attType", headerName: "Type", width: 100 },
       {
         field: "workingHours",
         headerName: "Working Hours",
         width: 130,
         type: "number",
       },
+      { field: "machineNos", headerName: "MC Nos", width: 130 },
+      { field: "remarks", headerName: "Remarks", flex: 1, minWidth: 140 },
     ],
     [],
   );
 
+  // Same styled .xlsx the report pages produce (blue header band, borders,
+  // company/branch/period block on top) — see components/reports/exportExcel.
+  // Declared after gridColumns: block-scoped consts are not hoisted.
+  const handleExportExcel = useCallback(async () => {
+    if (!gridRows.length) return;
+    setExporting(true);
+    try {
+      const branchName = branchOptions.find(
+        (o) => String(o.value) === filters.branch_id,
+      )?.label;
+      // Sheet 2 is summary data the grid never loads, so fetch it on export.
+      // A failure here must not cost the user the detail sheet.
+      let handsRows: HandsComplementRow[] = [];
+      if (coId != null) {
+        try {
+          handsRows = await fetchHandsComplement({
+            coId: Number(coId),
+            branchId: Number(filters.branch_id) || null,
+            dateFrom: searchedRange.from,
+            dateTo: searchedRange.to,
+          });
+        } catch {
+          notify(
+            "Hands Complement data could not be loaded — exporting the check list only",
+            "error",
+          );
+        }
+      }
+      await exportChecklistWorkbook(
+        gridColumns as GridColDef<ChecklistGridRow>[],
+        gridRows,
+        handsRows,
+        excelFilename(searchedRange.from, searchedRange.to),
+        {
+          companyName: selectedCompany?.co_name,
+          branchName,
+          reportName: "Attendance Check List",
+          reportNo: await resolveReportMenuId(pathname),
+          reportFor: `${searchedRange.from} To ${searchedRange.to}`,
+        },
+      );
+    } finally {
+      setExporting(false);
+    }
+  }, [
+    gridRows,
+    gridColumns,
+    searchedRange,
+    branchOptions,
+    filters.branch_id,
+    selectedCompany?.co_name,
+    pathname,
+    coId,
+    notify,
+  ]);
+
   return (
     <>
+      {/* This page sits outside hrmsreports/, so it has no hub layout to
+          supply the back link — render it here. */}
+      <BackToReports hub="/dashboardportal/hrms/hrmsreports" />
+
       <Box className="flex min-h-screen flex-col gap-6 bg-gray-50 p-8 print:hidden">
         <Box className="flex flex-col gap-1">
           <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
@@ -374,10 +440,12 @@ function AttendanceChecklistContent() {
               <Box className="flex gap-2">
                 <Button
                   variant="outline"
-                  onClick={handleExportCsv}
-                  disabled={!gridRows.length}
+                  onClick={() => {
+                    void handleExportExcel();
+                  }}
+                  disabled={!gridRows.length || exporting}
                 >
-                  Export CSV
+                  {exporting ? "Exporting..." : "Export to Excel"}
                 </Button>
                 <Button
                   variant="outline"
@@ -426,15 +494,18 @@ function AttendanceChecklistContent() {
             <thead>
               <tr>
                 {[
-                  "Date",
+                  "S.No",
+                  "Attendance Date",
                   "Spell",
-                  "EB No",
+                  "EB_No",
                   "Name",
                   "Department",
                   "Designation",
-                  "Source",
-                  "Type",
+                  "Att_Type",
+                  "Attendance Source",
                   "Working Hours",
+                  "MC Nos",
+                  "Remarks",
                 ].map((h) => (
                   <th key={h} className="border border-gray-400 px-1 py-0.5 text-left">
                     {h}
@@ -445,17 +516,20 @@ function AttendanceChecklistContent() {
             <tbody>
               {gridRows.map((r) => (
                 <tr key={r.id}>
+                  <td className="border border-gray-400 px-1 py-0.5">{r.sno}</td>
                   <td className="border border-gray-400 px-1 py-0.5">{r.date}</td>
                   <td className="border border-gray-400 px-1 py-0.5">{r.spell}</td>
                   <td className="border border-gray-400 px-1 py-0.5">{r.ebNo}</td>
                   <td className="border border-gray-400 px-1 py-0.5">{r.name}</td>
                   <td className="border border-gray-400 px-1 py-0.5">{r.department}</td>
                   <td className="border border-gray-400 px-1 py-0.5">{r.designation}</td>
-                  <td className="border border-gray-400 px-1 py-0.5">{r.source}</td>
                   <td className="border border-gray-400 px-1 py-0.5">{r.attType}</td>
+                  <td className="border border-gray-400 px-1 py-0.5">{r.source}</td>
                   <td className="border border-gray-400 px-1 py-0.5 text-right">
                     {r.workingHours}
                   </td>
+                  <td className="border border-gray-400 px-1 py-0.5">{r.machineNos}</td>
+                  <td className="border border-gray-400 px-1 py-0.5">{r.remarks}</td>
                 </tr>
               ))}
             </tbody>
