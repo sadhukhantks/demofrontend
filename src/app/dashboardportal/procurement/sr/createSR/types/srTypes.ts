@@ -125,6 +125,7 @@ export type SRLineItem = {
 	rejected_qty: number;
 	po_rate: number;
 	accepted_rate: number;
+	invoice_rate: number | null;
 	amount: number;
 	discount_mode: number | null;
 	discount_value: number | null;
@@ -226,6 +227,7 @@ export type SRLineItemRaw = {
 	po_rate?: number;
 	rate?: number;
 	accepted_rate?: number;
+	invoice_rate?: number | null;
 	amount?: number;
 	discount_mode?: number | null;
 	discount_value?: number | null;
