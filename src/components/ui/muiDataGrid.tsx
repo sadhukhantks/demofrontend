@@ -6,6 +6,7 @@ import {
   GridFilterModel,
   GridSortModel,
   GridRowClassNameParams,
+  DataGridProps,
 } from '@mui/x-data-grid';
 import { Box } from '@mui/material';
 import React, { useState, useEffect, useMemo } from 'react';
@@ -46,6 +47,8 @@ interface MuiDataGridProps {
   // Optional per-row class hook (e.g. to style a pinned grand-total row).
   // Return "row-grand-total" to apply the built-in bold/highlight styling.
   getRowClassName?: (params: GridRowClassNameParams) => string;
+  /** Grid text overrides, e.g. a page-specific `noRowsLabel`. */
+  localeText?: DataGridProps['localeText'];
 }
 
 const MuiDataGrid: React.FC<MuiDataGridProps> = ({
@@ -74,6 +77,7 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
   disableDensitySelector = false,
   disableExport = false,
   getRowClassName,
+  localeText,
 }) => {
   // Ensure component is mounted before rendering DataGrid to avoid
   // "Can't perform a React state update on a component that hasn't mounted yet"
@@ -151,6 +155,7 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
         disableColumnSelector={disableColumnSelector}
         disableDensitySelector={disableDensitySelector}
         getRowClassName={getRowClassName}
+        localeText={localeText}
         sx={{
           ...wrappingGridSx,
           '& .MuiDataGrid-columnHeader': {

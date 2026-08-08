@@ -207,6 +207,29 @@ export function useAttendanceForm(params: {
     };
   }, [id, mode, defaultBranchId, loadDesignations]);
 
+  // Entry/exit are required to save, but stored records can carry NULLs — the
+  // mobile app writes an entry punch with no exit, and bio rows sometimes have
+  // neither. On edit the spell is locked, so the user cannot re-pick it to
+  // trigger applySpell's auto-fill; seed the blanks from the spell's own
+  // start/end as soon as its options land. Only blanks are touched, so a real
+  // recorded time is never overwritten.
+  useEffect(() => {
+    if (mode === "create" || !values.spell_id) return;
+    if (values.entry_time && values.exit_time) return;
+    const opt = spellOptions.find((s) => s.spell_id === values.spell_id);
+    if (!opt) return;
+    const entry = values.entry_time || opt.starting_time || "";
+    const exit = values.exit_time || opt.end_time || "";
+    if (entry === values.entry_time && exit === values.exit_time) return;
+    setValues((prev) => ({ ...prev, entry_time: entry, exit_time: exit }));
+  }, [
+    mode,
+    values.spell_id,
+    values.entry_time,
+    values.exit_time,
+    spellOptions,
+  ]);
+
   const markWorkerInvalid = useCallback(() => {
     setWorkerName("");
     setWorkerInvalid(true);
