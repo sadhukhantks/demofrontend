@@ -15,5 +15,8 @@
       "Bash(git add:*)",
       "Bash(git push:*)"
     ]
+  },
+  "enabledPlugins": {
+    "everything-claude-code@everything-claude-code": false
   }
 }
