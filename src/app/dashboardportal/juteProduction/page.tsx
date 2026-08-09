@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Box, Card, CardActionArea, CardContent, Typography } from "@mui/material";
-import { Factory, BarChart3, Boxes, Clock, Scale, Gauge, Ruler, Disc3, Container, RotateCw, Timer, Columns3 } from "lucide-react";
+import { Factory, BarChart3, Boxes, Clock, Scale, Gauge, Ruler, Disc3, Container, RotateCw, Timer, Columns3, CalendarRange, SlidersHorizontal } from "lucide-react";
 
 type Tile = {
 	href: string;
@@ -84,6 +84,18 @@ const TILES: Tile[] = [
 		title: "Trolly Master",
 		subtitle: "Trolly & basket tare weights",
 		icon: <Container size={32} className="text-blue-600" />,
+	},
+	{
+		href: "/dashboardportal/juteProduction/productionPlanning",
+		title: "Production Planning",
+		subtitle: "Daily loom plan, yarn requirement & dept-wise machine breakup",
+		icon: <CalendarRange size={32} className="text-blue-600" />,
+	},
+	{
+		href: "/dashboardportal/juteProduction/masters/planningNorms",
+		title: "Planning Norms",
+		subtitle: "Std rates, waste % & efficiency norms for planning",
+		icon: <SlidersHorizontal size={32} className="text-blue-600" />,
 	},
 ];
 

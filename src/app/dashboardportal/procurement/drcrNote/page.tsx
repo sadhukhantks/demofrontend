@@ -346,6 +346,7 @@ export default function DrcrNoteIndexPage() {
 				placeholder: "Search by note number, inward, or supplier",
 				debounceDelayMs: 1000,
 			}}
+			createAction={{ onClick: () => router.push("/dashboardportal/procurement/drcrNote/create"), label: "New Note" }}
 			onEdit={handleEdit}
 			onView={handleView}
 		>

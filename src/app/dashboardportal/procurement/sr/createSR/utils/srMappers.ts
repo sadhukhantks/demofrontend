@@ -155,6 +155,7 @@ export const mapSRLineItem = (
 		rejected_qty: raw.rejected_qty ?? 0,
 		po_rate: raw.po_rate ?? raw.rate ?? 0,
 		accepted_rate: acceptedRate,
+		invoice_rate: raw.invoice_rate ?? null,
 		amount,
 		discount_mode: discountMode,
 		discount_value: discountValue,

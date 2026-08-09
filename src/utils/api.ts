@@ -495,6 +495,7 @@ const apiRoutesPortalMasters = {
     DRCR_NOTE_APPROVE: `${API_URL}/drcrNote/approve_drcr_note`,
     DRCR_NOTE_REJECT: `${API_URL}/drcrNote/reject_drcr_note`,
     DRCR_NOTE_GET_INWARD_FOR_CREATE: `${API_URL}/drcrNote/get_inward_for_drcr_note`,
+    DRCR_NOTE_ELIGIBLE_INWARDS: `${API_URL}/drcrNote/get_eligible_inwards`,
 
     // Bill Pass endpoints
     BILL_PASS_LIST: `${API_URL}/billPass/get_bill_pass_list`,
@@ -1189,6 +1190,18 @@ const apiRoutesPortalMasters = {
     WEAVING_TARGET_MAP_DELETE: `${API_URL}/weavingTargetMap/target_map_delete`,
     WEAVING_TARGET_MAP_GRID: `${API_URL}/weavingTargetMap/target_map_grid`,
     WEAVING_TARGET_MAP_BULK_SAVE: `${API_URL}/weavingTargetMap/target_map_bulk_save`,
+    // Jute Production — Production Planning (router prefix /api/juteProdPlanning) —
+    // JUTE_PROD_PLANNING_BY_ID is a base path; caller appends /${planning_id}?co_id=...
+    JUTE_PROD_PLANNING_TABLE: `${API_URL}/juteProdPlanning/planning_table`,
+    JUTE_PROD_PLANNING_SETUP: `${API_URL}/juteProdPlanning/planning_setup`,
+    JUTE_PROD_PLANNING_BY_ID: `${API_URL}/juteProdPlanning/planning_by_id`,
+    JUTE_PROD_PLANNING_LATEST: `${API_URL}/juteProdPlanning/planning_latest`,
+    JUTE_PROD_PLANNING_SAVE: `${API_URL}/juteProdPlanning/planning_save`,
+    JUTE_PROD_PLANNING_DELETE: `${API_URL}/juteProdPlanning/planning_delete`,
+    JUTE_PROD_PLANNING_NORMS_GRID: `${API_URL}/juteProdPlanning/norms_grid`,
+    JUTE_PROD_PLANNING_NORMS_LIST: `${API_URL}/juteProdPlanning/norms_list`,
+    JUTE_PROD_PLANNING_NORMS_BULK_SAVE: `${API_URL}/juteProdPlanning/norms_bulk_save`,
+    JUTE_PROD_PLANNING_NORMS_DELETE: `${API_URL}/juteProdPlanning/norms_delete`,
     // Weaving Production Entry (router prefix /api/weavingProd) — WEAVING_ENTRY_EDIT/DELETE are
     // base paths; caller appends /${id}?co_id=...
     WEAVING_ENTRY_CREATE_SETUP: `${API_URL}/weavingProd/entry_create_setup`,

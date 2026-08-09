@@ -80,6 +80,7 @@ export const useSRApproval = ({
 			const lineItemsPayload = lineItems.map((item) => ({
 				inward_dtl_id: item.inward_dtl_id,
 				accepted_rate: item.accepted_rate,
+				invoice_rate: item.invoice_rate ?? null,
 				amount: item.amount,
 				discount_mode: item.discount_mode,
 				discount_value: item.discount_value,
