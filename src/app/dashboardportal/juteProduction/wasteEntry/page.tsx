@@ -17,7 +17,7 @@ import { useWasteEntriesByDate } from "./hooks/useWasteEntriesByDate";
 import { useWasteMutations } from "./hooks/useWasteMutations";
 import WasteEntryForm from "./_components/WasteEntryForm";
 import DailyWasteGrid from "./_components/DailyWasteGrid";
-import { sumWasteQty, roundQty, todayISO, totalsByWasteType } from "./utils/wasteCalc";
+import { sumWasteQty, roundQty, todayISO, totalsByWasteItem } from "./utils/wasteCalc";
 import { buildCreatePayload, buildEditPayload, type WasteEntryFormValues } from "./utils/wasteSchema";
 import type { WasteEntryRow } from "./types/wasteTypes";
 
@@ -81,7 +81,7 @@ export default function WasteEntryPage() {
 
 	// Footer aggregates for the day grid (SPEC §3.1) — declared before the JSX
 	// that consumes them; block-scoped consts are not hoisted.
-	const totals = React.useMemo(() => totalsByWasteType(entries), [entries]);
+	const totals = React.useMemo(() => totalsByWasteItem(entries), [entries]);
 	const grandTotal = React.useMemo(() => roundQty(sumWasteQty(entries)), [entries]);
 
 	const onEdit = React.useCallback((row: WasteEntryRow) => {

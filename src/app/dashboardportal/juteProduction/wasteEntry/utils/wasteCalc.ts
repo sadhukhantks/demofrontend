@@ -4,12 +4,7 @@
 // so the per-waste-type footer totals shown under the day grid (SPEC §3.1) are
 // computed here from the rows already loaded for the selected date.
 
-import {
-	WASTE_TYPE_CODES,
-	wasteTypeLabel,
-	type WasteEntryRow,
-	type WasteTypeTotal,
-} from "../types/wasteTypes";
+import type { WasteEntryRow, WasteItemTotal } from "../types/wasteTypes";
 
 /** Column width of `waste_qty` — DECIMAL(10,3), so 99999.999 is the ceiling (SPEC §2). */
 export const MAX_WASTE_QTY = 99999.999;
@@ -63,29 +58,32 @@ export function roundQty(value: number): number {
 }
 
 /**
- * Footer totals for the day grid: waste_qty summed per waste type (SPEC §3.1).
- * Ordered by the canonical enum order, with any unknown/legacy code appended
- * last so nothing silently disappears from the total.
+ * Footer totals for the day grid: waste_qty summed per waste item (SPEC §3.1).
+ * There is no canonical order any more (waste types are item-master rows), so
+ * the chips are sorted by label. A row whose item was deactivated has a null
+ * `item_name` and falls back to its id rather than vanishing from the total.
  */
-export function totalsByWasteType(rows: ReadonlyArray<WasteEntryRow>): WasteTypeTotal[] {
-	const sums = new Map<string, number>();
+export function totalsByWasteItem(rows: ReadonlyArray<WasteEntryRow>): WasteItemTotal[] {
+	const sums = new Map<number, WasteItemTotal>();
 	rows.forEach((row) => {
 		const n = Number(row.waste_qty);
 		if (!Number.isFinite(n)) return;
-		sums.set(row.waste_type_code, (sums.get(row.waste_type_code) ?? 0) + n);
+		const existing = sums.get(row.item_id);
+		if (existing) {
+			existing.total += n;
+			return;
+		}
+		// First row wins the label — all rows for an item_id carry the same name.
+		sums.set(row.item_id, {
+			item_id: row.item_id,
+			label: row.item_name ?? String(row.item_id),
+			total: n,
+		});
 	});
 
-	const ordered: WasteTypeTotal[] = [];
-	WASTE_TYPE_CODES.forEach((code) => {
-		const total = sums.get(code);
-		if (total == null) return;
-		ordered.push({ code, label: wasteTypeLabel(code), total: roundQty(total) });
-		sums.delete(code);
-	});
-	sums.forEach((total, code) => {
-		ordered.push({ code, label: wasteTypeLabel(code), total: roundQty(total) });
-	});
-	return ordered;
+	return [...sums.values()]
+		.map((t) => ({ ...t, total: roundQty(t.total) }))
+		.sort((a, b) => a.label.localeCompare(b.label));
 }
 
 /** Display formatting for quantities — always 3 decimals, matching the column. */

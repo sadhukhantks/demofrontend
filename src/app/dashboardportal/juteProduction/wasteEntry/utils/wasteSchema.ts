@@ -7,11 +7,7 @@
 // form type honest and avoids NaN churn while the user is mid-keystroke.
 
 import { z } from "zod";
-import {
-	WASTE_TYPE_CODES,
-	type WasteEntryCreatePayload,
-	type WasteEntryEditPayload,
-} from "../types/wasteTypes";
+import type { WasteEntryCreatePayload, WasteEntryEditPayload } from "../types/wasteTypes";
 import { MAX_WASTE_QTY, WASTE_QTY_SCALE, decimalPlaces, isFutureISODate } from "./wasteCalc";
 
 export const wasteEntrySchema = z.object({
@@ -29,8 +25,9 @@ export const wasteEntrySchema = z.object({
 	dept_id: z.string().min(1, "Department is required"),
 	// SPEC §3.1 — machine is OPTIONAL; "" means department-level waste.
 	machine_id: z.string(),
-	// SPEC §9 — fixed enum, no master table.
-	waste_type_code: z.enum(WASTE_TYPE_CODES, { error: "Waste type is required" }),
+	// SPEC §9 — waste type is an item (item-type 3, "jute wastage"); the dropdown
+	// holds the item_id as a string like every other select in this form.
+	item_id: z.string().min(1, "Waste type is required"),
 	// SPEC §2 — waste_qty > 0 and <= 99999.999, DECIMAL(10,3).
 	waste_qty: z
 		.string()
@@ -59,10 +56,7 @@ export function buildDefaultFormValues(tranDate: string): WasteEntryFormValues {
 		spell_id: "",
 		dept_id: "",
 		machine_id: "",
-		// Cast is confined to this factory: the enum has no legal "unselected"
-		// member, but the form must start with nothing chosen. Validation rejects
-		// the empty value before it can ever reach a payload.
-		waste_type_code: "" as WasteEntryFormValues["waste_type_code"],
+		item_id: "",
 		waste_qty: "",
 		remarks: "",
 	};
@@ -81,7 +75,7 @@ export function buildCreatePayload(
 		spell_id: Number(values.spell_id),
 		dept_id: Number(values.dept_id),
 		machine_id: values.machine_id === "" ? null : Number(values.machine_id),
-		waste_type_code: values.waste_type_code,
+		item_id: Number(values.item_id),
 		waste_qty: Number(values.waste_qty),
 		remarks: values.remarks.trim() === "" ? null : values.remarks.trim(),
 	};
@@ -96,7 +90,7 @@ export function buildEditPayload(values: WasteEntryFormValues): WasteEntryEditPa
 	return {
 		spell_id: Number(values.spell_id),
 		machine_id: values.machine_id === "" ? null : Number(values.machine_id),
-		waste_type_code: values.waste_type_code,
+		item_id: Number(values.item_id),
 		waste_qty: Number(values.waste_qty),
 		remarks: values.remarks.trim() === "" ? null : values.remarks.trim(),
 	};

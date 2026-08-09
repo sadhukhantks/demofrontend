@@ -1,49 +1,11 @@
-// Types + fixed enum for the Jute Waste Entry page (SPEC §3, §6, §9).
+// Types for the Jute Waste Entry page (SPEC §3, §6, §9).
 //
 // Single type-definition file for the module — nothing here imports from the
 // page, hooks, or components, so no circular dependencies can form.
-
-/**
- * Fixed, app-enforced waste types (SPEC §9). There is deliberately NO
- * waste-type master table; the stored value is the lowercase `code`, and the
- * dropdown binds value-to-code (never value-to-label) so the persisted
- * `waste_type_code` is guaranteed to be one of these strings.
- */
-export const WASTE_TYPE_CODES = [
-	"caddis",
-	"hard_waste",
-	"soft_waste",
-	"sweeping",
-	"yarn_waste",
-	"cloth_waste",
-	"other",
-] as const;
-
-export type WasteTypeCode = (typeof WASTE_TYPE_CODES)[number];
-
-/** Display labels for the FE dropdown and grid (visible text only — SPEC §9). */
-export const WASTE_TYPE_LABELS: Record<WasteTypeCode, string> = {
-	caddis: "Caddis / Dust",
-	hard_waste: "Hard Waste",
-	soft_waste: "Soft Waste",
-	sweeping: "Sweepings",
-	yarn_waste: "Yarn Waste",
-	cloth_waste: "Cloth Waste",
-	other: "Other",
-};
-
-/** Runtime narrowing for values arriving from the API (never trust the wire). */
-export function isWasteTypeCode(value: unknown): value is WasteTypeCode {
-	return (
-		typeof value === "string" && (WASTE_TYPE_CODES as readonly string[]).includes(value)
-	);
-}
-
-/** Label lookup that degrades gracefully for unknown/legacy codes. */
-export function wasteTypeLabel(value: unknown): string {
-	if (isWasteTypeCode(value)) return WASTE_TYPE_LABELS[value];
-	return value == null ? "" : String(value);
-}
+//
+// SPEC §9: waste type is no longer a fixed app enum — it is an ITEM of
+// item-type 3 ("jute wastage"), so the options come from the item master and
+// the stored value is `item_id`.
 
 // ---------------------------------------------------------------------------
 // GET /entry_create_setup payload (SPEC §6)
@@ -68,16 +30,18 @@ export type WasteMachineOption = {
 	dept_id: number;
 };
 
-export type WasteTypeOption = {
-	code: string;
-	label: string;
+/** A waste type — an item of item-type 3 ("jute wastage") from the item master. */
+export type WasteItemOption = {
+	item_id: number;
+	item_name: string;
+	item_code: string;
 };
 
 export type WasteSetup = {
 	spells: WasteSpellOption[];
 	departments: WasteDeptOption[];
 	machines: WasteMachineOption[];
-	waste_types: WasteTypeOption[];
+	waste_items: WasteItemOption[];
 };
 
 // ---------------------------------------------------------------------------
@@ -94,7 +58,10 @@ export type WasteEntryRow = {
 	dept_desc: string | null;
 	machine_id: number | null;
 	machine_name: string | null;
-	waste_type_code: string;
+	item_id: number;
+	/** Left-joined from the item master — null if the item was deactivated. */
+	item_name: string | null;
+	item_code: string | null;
 	waste_qty: number;
 	remarks: string | null;
 };
@@ -111,7 +78,8 @@ export type WasteEntryCreatePayload = {
 	dept_id: number;
 	/** null = department-level waste, no machine attribution (SPEC §3.1). */
 	machine_id: number | null;
-	waste_type_code: WasteTypeCode;
+	/** Waste type — item master id (item-type 3, "jute wastage"). */
+	item_id: number;
 	waste_qty: number;
 	remarks: string | null;
 };
@@ -131,14 +99,15 @@ export type WasteEntryCreatePayload = {
 export type WasteEntryEditPayload = {
 	spell_id: number;
 	machine_id: number | null;
-	waste_type_code: WasteTypeCode;
+	/** Waste type — item master id (item-type 3, "jute wastage"). */
+	item_id: number;
 	waste_qty: number;
 	remarks: string | null;
 };
 
-/** One row of the grid footer: total waste_qty for a single waste type. */
-export type WasteTypeTotal = {
-	code: string;
+/** One row of the grid footer: total waste_qty for a single waste item. */
+export type WasteItemTotal = {
+	item_id: number;
 	label: string;
 	total: number;
 };

@@ -2,12 +2,12 @@
 
 import * as React from "react";
 import { Box, Chip, Divider, Typography } from "@mui/material";
-import type { WasteTypeTotal } from "../types/wasteTypes";
+import type { WasteItemTotal } from "../types/wasteTypes";
 import { formatQty } from "../utils/wasteCalc";
 
 export interface WasteTotalsFooterProps {
-	/** Per-waste-type subtotals for the rows currently in the grid. */
-	totals: WasteTypeTotal[];
+	/** Per-waste-item subtotals for the rows currently in the grid. */
+	totals: WasteItemTotal[];
 	/** Sum of every row's waste_qty for the selected date. */
 	grandTotal: number;
 }
@@ -37,7 +37,7 @@ export default function WasteTotalsFooter({ totals, grandTotal }: WasteTotalsFoo
 			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, alignItems: "center" }}>
 				{totals.map((t) => (
 					<Chip
-						key={t.code}
+						key={t.item_id}
 						size="small"
 						variant="outlined"
 						color="primary"

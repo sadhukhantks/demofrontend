@@ -4,8 +4,7 @@ import * as React from "react";
 import { Box, IconButton, Tooltip } from "@mui/material";
 import { Pencil as EditIcon, Trash2 as Trash2Icon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
-import type { WasteEntryRow, WasteTypeTotal } from "../types/wasteTypes";
-import { wasteTypeLabel } from "../types/wasteTypes";
+import type { WasteEntryRow, WasteItemTotal } from "../types/wasteTypes";
 import { formatQty } from "../utils/wasteCalc";
 import WasteTotalsFooter from "./WasteTotalsFooter";
 
@@ -13,8 +12,8 @@ export interface DailyWasteGridProps {
 	/** Active waste rows for the selected date. */
 	rows: WasteEntryRow[];
 	loading: boolean;
-	/** Per-waste-type subtotals rendered beneath the grid. */
-	totals: WasteTypeTotal[];
+	/** Per-waste-item subtotals rendered beneath the grid. */
+	totals: WasteItemTotal[];
 	grandTotal: number;
 	/** Lift a row into the entry form for editing. */
 	onEdit: (row: WasteEntryRow) => void;
@@ -99,10 +98,12 @@ export default function DailyWasteGrid({
 				valueGetter: (value) => value ?? "— Dept level —",
 			},
 			{
-				field: "waste_type_code",
+				field: "item_name",
 				headerName: "Waste Type",
 				width: 150,
-				valueFormatter: (value) => wasteTypeLabel(value),
+				// item_name is left-joined — a deactivated item comes back null, so
+				// show the id rather than an empty cell that reads like missing data.
+				valueGetter: (value, row) => value ?? String(row.item_id),
 			},
 			{
 				field: "waste_qty",

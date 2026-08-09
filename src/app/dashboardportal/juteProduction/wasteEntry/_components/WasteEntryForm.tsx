@@ -5,14 +5,7 @@ import { Alert, Box, Button, MenuItem, TextField, Typography } from "@mui/materi
 import { Save as SaveIcon, X as CancelIcon } from "lucide-react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-	WASTE_TYPE_CODES,
-	WASTE_TYPE_LABELS,
-	isWasteTypeCode,
-	type WasteEntryRow,
-	type WasteSetup,
-	type WasteTypeCode,
-} from "../types/wasteTypes";
+import type { WasteEntryRow, WasteSetup } from "../types/wasteTypes";
 import {
 	buildDefaultFormValues,
 	wasteEntrySchema,
@@ -85,20 +78,6 @@ export default function WasteEntryForm({
 		[selectedDeptId, setup.machines]
 	);
 
-	// Waste types come from the API when present, otherwise fall back to the
-	// bundled enum so the page still works before the backend ships (SPEC §9).
-	const wasteTypeOptions = React.useMemo(() => {
-		if (setup.waste_types.length > 0) {
-			return setup.waste_types.map((t) => ({
-				code: t.code,
-				// Prefer the bundled label for known codes; fall back to whatever
-				// the API sent so an unrecognised code still renders readably.
-				label: isWasteTypeCode(t.code) ? WASTE_TYPE_LABELS[t.code] : t.label,
-			}));
-		}
-		return WASTE_TYPE_CODES.map((code) => ({ code, label: WASTE_TYPE_LABELS[code] }));
-	}, [setup.waste_types]);
-
 	// SPEC §6.1: on edit a null field means "leave unchanged", NOT "clear", so an
 	// already-attributed machine cannot be un-set through the edit endpoint —
 	// picking the blank option would silently no-op. Offer it only when it is
@@ -118,7 +97,7 @@ export default function WasteEntryForm({
 			spell_id: String(editingEntry.spell_id),
 			dept_id: String(editingEntry.dept_id),
 			machine_id: editingEntry.machine_id == null ? "" : String(editingEntry.machine_id),
-			waste_type_code: editingEntry.waste_type_code as WasteTypeCode,
+			item_id: String(editingEntry.item_id),
 			waste_qty: String(editingEntry.waste_qty),
 			remarks: editingEntry.remarks ?? "",
 		});
@@ -264,7 +243,7 @@ export default function WasteEntryForm({
 				/>
 
 				<Controller
-					name="waste_type_code"
+					name="item_id"
 					control={control}
 					render={({ field }) => (
 						<TextField
@@ -273,12 +252,12 @@ export default function WasteEntryForm({
 							label="Waste Type"
 							size="small"
 							fullWidth
-							error={!!errors.waste_type_code}
-							helperText={errors.waste_type_code?.message}
+							error={!!errors.item_id}
+							helperText={errors.item_id?.message}
 						>
-							{wasteTypeOptions.map((t) => (
-								<MenuItem key={t.code} value={t.code}>
-									{t.label}
+							{setup.waste_items.map((i) => (
+								<MenuItem key={i.item_id} value={String(i.item_id)}>
+									{i.item_name}
 								</MenuItem>
 							))}
 						</TextField>
