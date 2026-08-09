@@ -495,6 +495,7 @@ const apiRoutesPortalMasters = {
     DRCR_NOTE_APPROVE: `${API_URL}/drcrNote/approve_drcr_note`,
     DRCR_NOTE_REJECT: `${API_URL}/drcrNote/reject_drcr_note`,
     DRCR_NOTE_GET_INWARD_FOR_CREATE: `${API_URL}/drcrNote/get_inward_for_drcr_note`,
+    DRCR_NOTE_ELIGIBLE_INWARDS: `${API_URL}/drcrNote/get_eligible_inwards`,
 
     // Bill Pass endpoints
     BILL_PASS_LIST: `${API_URL}/billPass/get_bill_pass_list`,

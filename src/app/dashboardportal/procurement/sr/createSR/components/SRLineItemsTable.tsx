@@ -29,7 +29,7 @@ const formatCurrency = (value?: number): string => {
  * Editable number cell component for rate editing.
  */
 type EditableNumberCellProps = {
-	initialValue: number;
+	initialValue: number | null;
 	disabled: boolean;
 	onCommit: (value: number) => void;
 };
@@ -39,10 +39,10 @@ const EditableNumberCell: React.FC<EditableNumberCellProps> = ({
 	disabled,
 	onCommit,
 }) => {
-	const [localValue, setLocalValue] = React.useState<string>(String(initialValue));
+	const [localValue, setLocalValue] = React.useState<string>(String(initialValue ?? ""));
 
 	React.useEffect(() => {
-		setLocalValue(String(initialValue));
+		setLocalValue(String(initialValue ?? ""));
 	}, [initialValue]);
 
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -198,6 +198,19 @@ export const useSRLineItemColumns = ({
 					<Typography variant="body2" color="text.secondary" noWrap sx={{ textAlign: "right", width: "100%" }}>
 						{formatCurrency(item.po_rate)}
 					</Typography>
+				),
+			},
+			{
+				id: "invoice_rate",
+				header: "Invoice Rate",
+				width: "0.7fr",
+				minWidth: "110px",
+				renderCell: ({ item }) => (
+					<EditableNumberCell
+						initialValue={item.invoice_rate}
+						disabled={!canEdit}
+						onCommit={(val) => onLineItemChange(item.id, "invoice_rate", val)}
+					/>
 				),
 			},
 			{
