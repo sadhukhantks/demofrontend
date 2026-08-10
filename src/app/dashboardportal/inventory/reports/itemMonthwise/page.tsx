@@ -1,5 +1,5 @@
 "use client";
-import React, { Suspense, useCallback, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -45,6 +45,15 @@ function ItemMonthwiseContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Branch + dates come from the localStorage-backed sidebar context, so the
+  // server renders an empty toolbar and the client a filled one. Holding the
+  // filters back until mount keeps the first client render matching the SSR
+  // HTML (same gate as ReportPanel).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const runReport = useCallback(async () => {
     if (coId == null) return;
     setLoading(true);
@@ -87,6 +96,7 @@ function ItemMonthwiseContent() {
         Item Month-wise
       </Typography>
 
+      {mounted && (
       <Paper elevation={1} sx={{ mb: 2, p: 2 }}>
         <Box
           sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}
@@ -153,6 +163,7 @@ function ItemMonthwiseContent() {
           </Button>
         </Box>
       </Paper>
+      )}
 
       <ReportGrid
         rows={rows}
