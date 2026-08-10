@@ -23,6 +23,9 @@ export const wasteEntrySchema = z.object({
 	spell_id: z.string().min(1, "Spell is required"),
 	// SPEC §2 — dept_id is stored and required (waste is a departmental measure).
 	dept_id: z.string().min(1, "Department is required"),
+	// Wastage area is REQUIRED and must belong to the selected department — the
+	// dropdown is cascaded off dept_id, the server re-checks it.
+	wastage_area_id: z.string().min(1, "Wastage area is required"),
 	// SPEC §3.1 — machine is OPTIONAL; "" means department-level waste.
 	machine_id: z.string(),
 	// SPEC §9 — waste type is an item (item-type 3, "jute wastage"); the dropdown
@@ -55,6 +58,7 @@ export function buildDefaultFormValues(tranDate: string): WasteEntryFormValues {
 		tran_date: tranDate,
 		spell_id: "",
 		dept_id: "",
+		wastage_area_id: "",
 		machine_id: "",
 		item_id: "",
 		waste_qty: "",
@@ -74,6 +78,7 @@ export function buildCreatePayload(
 		tran_date: values.tran_date,
 		spell_id: Number(values.spell_id),
 		dept_id: Number(values.dept_id),
+		wastage_area_id: Number(values.wastage_area_id),
 		machine_id: values.machine_id === "" ? null : Number(values.machine_id),
 		item_id: Number(values.item_id),
 		waste_qty: Number(values.waste_qty),
@@ -89,6 +94,7 @@ export function buildCreatePayload(
 export function buildEditPayload(values: WasteEntryFormValues): WasteEntryEditPayload {
 	return {
 		spell_id: Number(values.spell_id),
+		wastage_area_id: Number(values.wastage_area_id),
 		machine_id: values.machine_id === "" ? null : Number(values.machine_id),
 		item_id: Number(values.item_id),
 		waste_qty: Number(values.waste_qty),

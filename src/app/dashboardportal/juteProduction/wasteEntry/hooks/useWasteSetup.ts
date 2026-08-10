@@ -6,11 +6,12 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WasteSetup } from "../types/wasteTypes";
 
 /**
- * GET /juteWasteProd/entry_create_setup — spells, departments, machines and
- * waste types for the selected company + branch (SPEC §6).
+ * GET /juteWasteProd/entry_create_setup — spells, departments, wastage areas,
+ * machines and waste types for the selected company + branch (SPEC §6).
  *
- * Machines come back for the WHOLE branch carrying their `dept_id`, so the
- * Department → Machine cascade is resolved client-side with no second round trip.
+ * Wastage areas and machines come back for the WHOLE branch carrying their
+ * `dept_id`, so both Department → cascades are resolved client-side with no
+ * second round trip.
  */
 export function useWasteSetup(coId: string | null | undefined, branchId: number | null) {
 	const [setup, setSetup] = React.useState<WasteSetup | null>(null);

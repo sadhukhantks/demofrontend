@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, Button, MenuItem, TextField, Typography } from "@mui/material";
+import { Alert, Autocomplete, Box, Button, TextField, Typography } from "@mui/material";
 import { Save as SaveIcon, X as CancelIcon } from "lucide-react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,6 +12,78 @@ import {
 	type WasteEntryFormValues,
 } from "../utils/wasteSchema";
 import { MAX_WASTE_QTY, WASTE_QTY_SCALE } from "../utils/wasteCalc";
+
+/** An option row reduced to what a picker needs: a numeric id and its label. */
+type PickerOption = { id: number; label: string };
+
+/**
+ * A searchable (type-to-filter) replacement for `TextField select`, bound to a
+ * React Hook Form field that holds the id as a STRING like every other select
+ * on this page.
+ *
+ * `allowClear = false` swallows the Autocomplete clear button instead of hiding
+ * it: the edit endpoint reads null as "leave unchanged", so clearing an
+ * already-attributed machine would silently no-op rather than un-set it.
+ *
+ * `renderOption` sets an explicit key because tenants do carry duplicate
+ * display names (dev3 has two 'SPREADER 2' machines) — without it React keys
+ * collide on the label.
+ */
+function PickerField({
+	value,
+	onChange,
+	onBlur,
+	options,
+	label,
+	disabled,
+	required,
+	error,
+	helperText,
+	allowClear = true,
+}: {
+	value: string;
+	onChange: (next: string) => void;
+	onBlur?: () => void;
+	options: PickerOption[];
+	label: string;
+	disabled?: boolean;
+	required?: boolean;
+	error?: boolean;
+	helperText?: React.ReactNode;
+	allowClear?: boolean;
+}) {
+	const selected = options.find((o) => String(o.id) === value) ?? null;
+	return (
+		<Autocomplete
+			options={options}
+			value={selected}
+			onChange={(_, next) => {
+				if (!next && !allowClear) return;
+				onChange(next ? String(next.id) : "");
+			}}
+			onBlur={onBlur}
+			disabled={disabled}
+			getOptionLabel={(o) => o.label}
+			isOptionEqualToValue={(opt, val) => opt.id === val.id}
+			renderOption={(props, o) => (
+				<li {...props} key={o.id}>
+					{o.label}
+				</li>
+			)}
+			size="small"
+			fullWidth
+			renderInput={(params) => (
+				<TextField
+					{...params}
+					label={label}
+					required={required}
+					error={error}
+					helperText={helperText}
+				/>
+			)}
+		/>
+	);
+}
 
 export interface WasteEntryFormProps {
 	/** Dropdown data from GET /entry_create_setup. */
@@ -66,16 +138,48 @@ export default function WasteEntryForm({
 		mode: "onTouched",
 	});
 
-	// Department drives the machine list (SPEC §3.1) — declared before the
-	// memo that consumes it, since block-scoped consts are not hoisted.
+	// Department drives BOTH the wastage-area and the machine list (SPEC §3.1) —
+	// declared before the memos that consume it, since block-scoped consts are
+	// not hoisted.
 	const selectedDeptId = useWatch({ control, name: "dept_id" });
 
-	const machinesForDept = React.useMemo(
+	const areasForDept = React.useMemo<PickerOption[]>(
 		() =>
 			selectedDeptId === ""
 				? []
-				: setup.machines.filter((m) => m.dept_id === Number(selectedDeptId)),
+				: setup.wastage_areas
+						.filter((a) => a.dept_id === Number(selectedDeptId))
+						.map((a) => ({ id: a.wastage_area_id, label: a.area_name })),
+		[selectedDeptId, setup.wastage_areas]
+	);
+
+	const machinesForDept = React.useMemo<PickerOption[]>(
+		() =>
+			selectedDeptId === ""
+				? []
+				: setup.machines
+						.filter((m) => m.dept_id === Number(selectedDeptId))
+						.map((m) => ({ id: m.machine_id, label: m.machine_name })),
 		[selectedDeptId, setup.machines]
+	);
+
+	const spellOptions = React.useMemo<PickerOption[]>(
+		() =>
+			setup.spells.map((s) => ({
+				id: s.spell_id,
+				label: s.spell_code ? `${s.spell_code} — ${s.spell_name}` : s.spell_name,
+			})),
+		[setup.spells]
+	);
+
+	const deptOptions = React.useMemo<PickerOption[]>(
+		() => setup.departments.map((d) => ({ id: d.dept_id, label: d.dept_desc })),
+		[setup.departments]
+	);
+
+	const itemOptions = React.useMemo<PickerOption[]>(
+		() => setup.waste_items.map((i) => ({ id: i.item_id, label: i.item_name })),
+		[setup.waste_items]
 	);
 
 	// SPEC §6.1: on edit a null field means "leave unchanged", NOT "clear", so an
@@ -96,6 +200,10 @@ export default function WasteEntryForm({
 			tran_date: editingEntry.tran_date,
 			spell_id: String(editingEntry.spell_id),
 			dept_id: String(editingEntry.dept_id),
+			// Rows booked before the wastage-area master existed come back null —
+			// the field lands empty and the operator must pick one to save.
+			wastage_area_id:
+				editingEntry.wastage_area_id == null ? "" : String(editingEntry.wastage_area_id),
 			machine_id: editingEntry.machine_id == null ? "" : String(editingEntry.machine_id),
 			item_id: String(editingEntry.item_id),
 			waste_qty: String(editingEntry.waste_qty),
@@ -162,21 +270,16 @@ export default function WasteEntryForm({
 					name="spell_id"
 					control={control}
 					render={({ field }) => (
-						<TextField
-							{...field}
-							select
+						<PickerField
+							value={field.value}
+							onChange={field.onChange}
+							onBlur={field.onBlur}
+							options={spellOptions}
 							label="Spell"
-							size="small"
-							fullWidth
+							required
 							error={!!errors.spell_id}
 							helperText={errors.spell_id?.message}
-						>
-							{setup.spells.map((s) => (
-								<MenuItem key={s.spell_id} value={String(s.spell_id)}>
-									{s.spell_code ? `${s.spell_code} — ${s.spell_name}` : s.spell_name}
-								</MenuItem>
-							))}
-						</TextField>
+						/>
 					)}
 				/>
 
@@ -184,28 +287,46 @@ export default function WasteEntryForm({
 					name="dept_id"
 					control={control}
 					render={({ field }) => (
-						<TextField
-							{...field}
-							select
-							label="Department"
-							size="small"
-							fullWidth
-							disabled={editing}
-							onChange={(event) => {
-								field.onChange(event);
-								// Cascade reset (SPEC §3.1): a machine from the old
+						<PickerField
+							value={field.value}
+							onChange={(next) => {
+								field.onChange(next);
+								// Cascade reset (SPEC §3.1): an area or machine from the old
 								// department can never be valid for the new one.
+								setValue("wastage_area_id", "", { shouldValidate: false });
 								setValue("machine_id", "", { shouldValidate: false });
 							}}
+							onBlur={field.onBlur}
+							options={deptOptions}
+							label="Department"
+							required
+							disabled={editing}
 							error={!!errors.dept_id}
 							helperText={errors.dept_id?.message}
-						>
-							{setup.departments.map((d) => (
-								<MenuItem key={d.dept_id} value={String(d.dept_id)}>
-									{d.dept_desc}
-								</MenuItem>
-							))}
-						</TextField>
+						/>
+					)}
+				/>
+
+				<Controller
+					name="wastage_area_id"
+					control={control}
+					render={({ field }) => (
+						<PickerField
+							value={field.value}
+							onChange={field.onChange}
+							onBlur={field.onBlur}
+							options={areasForDept}
+							label="Wastage Area"
+							required
+							disabled={selectedDeptId === ""}
+							error={!!errors.wastage_area_id}
+							helperText={
+								errors.wastage_area_id?.message ??
+								(selectedDeptId !== "" && areasForDept.length === 0
+									? "No areas defined for this department — add them in Wastage Area Master"
+									: undefined)
+							}
+						/>
 					)}
 				/>
 
@@ -213,13 +334,14 @@ export default function WasteEntryForm({
 					name="machine_id"
 					control={control}
 					render={({ field }) => (
-						<TextField
-							{...field}
-							select
+						<PickerField
+							value={field.value}
+							onChange={field.onChange}
+							onBlur={field.onBlur}
+							options={machinesForDept}
 							label="Machine"
-							size="small"
-							fullWidth
 							disabled={selectedDeptId === ""}
+							allowClear={allowBlankMachine}
 							error={!!errors.machine_id}
 							helperText={
 								errors.machine_id?.message ??
@@ -227,18 +349,7 @@ export default function WasteEntryForm({
 									? "Optional — blank books waste to the department"
 									: "Cannot be cleared on edit — delete and re-add for department level")
 							}
-						>
-							{allowBlankMachine ? (
-								<MenuItem value="">
-									<em>Department level (no machine)</em>
-								</MenuItem>
-							) : null}
-							{machinesForDept.map((m) => (
-								<MenuItem key={m.machine_id} value={String(m.machine_id)}>
-									{m.machine_name}
-								</MenuItem>
-							))}
-						</TextField>
+						/>
 					)}
 				/>
 
@@ -246,21 +357,16 @@ export default function WasteEntryForm({
 					name="item_id"
 					control={control}
 					render={({ field }) => (
-						<TextField
-							{...field}
-							select
+						<PickerField
+							value={field.value}
+							onChange={field.onChange}
+							onBlur={field.onBlur}
+							options={itemOptions}
 							label="Waste Type"
-							size="small"
-							fullWidth
+							required
 							error={!!errors.item_id}
 							helperText={errors.item_id?.message}
-						>
-							{setup.waste_items.map((i) => (
-								<MenuItem key={i.item_id} value={String(i.item_id)}>
-									{i.item_name}
-								</MenuItem>
-							))}
-						</TextField>
+						/>
 					)}
 				/>
 

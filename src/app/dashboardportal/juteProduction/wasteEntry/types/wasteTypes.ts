@@ -30,6 +30,14 @@ export type WasteMachineOption = {
 	dept_id: number;
 };
 
+/** A waste-collection area from wastage_area_mst — always owned by one department. */
+export type WasteAreaOption = {
+	wastage_area_id: number;
+	area_name: string;
+	dept_id: number;
+	branch_id: number;
+};
+
 /** A waste type — an item of item-type 3 ("jute wastage") from the item master. */
 export type WasteItemOption = {
 	item_id: number;
@@ -40,6 +48,7 @@ export type WasteItemOption = {
 export type WasteSetup = {
 	spells: WasteSpellOption[];
 	departments: WasteDeptOption[];
+	wastage_areas: WasteAreaOption[];
 	machines: WasteMachineOption[];
 	waste_items: WasteItemOption[];
 };
@@ -55,7 +64,11 @@ export type WasteEntryRow = {
 	spell_code: string | null;
 	spell_name: string | null;
 	dept_id: number;
-	dept_desc: string | null;
+	/** The read query aliases dept_mst.dept_desc to `dept_name` — match it exactly. */
+	dept_name: string | null;
+	wastage_area_id: number | null;
+	/** Left-joined — null on rows booked before the wastage-area master existed. */
+	area_name: string | null;
 	machine_id: number | null;
 	machine_name: string | null;
 	item_id: number;
@@ -76,6 +89,8 @@ export type WasteEntryCreatePayload = {
 	tran_date: string;
 	spell_id: number;
 	dept_id: number;
+	/** Required — must be an active area of `dept_id` (wastage_area_mst). */
+	wastage_area_id: number;
 	/** null = department-level waste, no machine attribution (SPEC §3.1). */
 	machine_id: number | null;
 	/** Waste type — item master id (item-type 3, "jute wastage"). */
@@ -98,6 +113,8 @@ export type WasteEntryCreatePayload = {
  */
 export type WasteEntryEditPayload = {
 	spell_id: number;
+	/** Required — the server rejects an edit that would leave the row without an area. */
+	wastage_area_id: number;
 	machine_id: number | null;
 	/** Waste type — item master id (item-type 3, "jute wastage"). */
 	item_id: number;

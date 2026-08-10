@@ -3,9 +3,9 @@
 import * as React from "react";
 import {
 	Alert,
+	Autocomplete,
 	Box,
 	CircularProgress,
-	MenuItem,
 	Snackbar,
 	TextField,
 	Typography,
@@ -179,20 +179,21 @@ export default function WasteEntryPage() {
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
-				<TextField
-					select
-					size="small"
-					label="Branch"
-					value={pageBranchId}
-					onChange={(e) => setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))}
-					sx={{ mb: 2, minWidth: 240 }}
-				>
-					{branchOptions.map((b) => (
-						<MenuItem key={b.branch_id} value={Number(b.branch_id)}>
+				<Autocomplete
+					options={branchOptions}
+					getOptionLabel={(b) => b.branch_name ?? ""}
+					value={branchOptions.find((b) => Number(b.branch_id) === branchId) ?? null}
+					onChange={(_, next) => setPageBranchId(next ? Number(next.branch_id) : "")}
+					isOptionEqualToValue={(opt, val) => Number(opt.branch_id) === Number(val.branch_id)}
+					renderOption={(props, b) => (
+						<li {...props} key={b.branch_id}>
 							{b.branch_name}
-						</MenuItem>
-					))}
-				</TextField>
+						</li>
+					)}
+					size="small"
+					sx={{ mb: 2, minWidth: 240, maxWidth: 320 }}
+					renderInput={(params) => <TextField {...params} label="Branch" />}
+				/>
 			) : selectedBranchName ? (
 				<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 					Branch: {selectedBranchName}

@@ -84,10 +84,20 @@ export default function DailyWasteGrid({
 				valueGetter: (_value, row) => row.spell_code ?? row.spell_name ?? "",
 			},
 			{
-				field: "dept_desc",
+				// The read query aliases dept_mst.dept_desc to `dept_name` — the field
+				// name has to match it or the column renders empty.
+				field: "dept_name",
 				headerName: "Department",
 				width: 160,
 				valueGetter: (value) => value ?? "",
+			},
+			{
+				field: "area_name",
+				headerName: "Wastage Area",
+				width: 160,
+				// Null on rows booked before the area master existed — say so rather
+				// than showing an empty cell that reads like a load failure.
+				valueGetter: (value) => value ?? "— Not set —",
 			},
 			{
 				field: "machine_name",
