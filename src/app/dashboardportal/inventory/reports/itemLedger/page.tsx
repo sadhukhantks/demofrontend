@@ -88,6 +88,15 @@ function ItemLedgerContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Branch + dates come from the localStorage-backed sidebar context, so the
+  // server renders an empty toolbar and the client a filled one. Holding the
+  // filters back until mount keeps the first client render matching the SSR
+  // HTML (same gate as ReportPanel).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Debounced item search.
   useEffect(() => {
     if (coId == null) return;
@@ -199,6 +208,7 @@ function ItemLedgerContent() {
         Item Ledger
       </Typography>
 
+      {mounted && (
       <Paper elevation={1} sx={{ mb: 2, p: 2 }}>
         <Box
           sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}
@@ -297,6 +307,7 @@ function ItemLedgerContent() {
           </Button>
         </Box>
       </Paper>
+      )}
 
       {selectedItem == null ? (
         <Box sx={{ p: 4, textAlign: "center" }}>
