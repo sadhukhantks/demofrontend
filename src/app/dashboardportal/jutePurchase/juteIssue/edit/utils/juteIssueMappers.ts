@@ -23,7 +23,10 @@ export const mapApiLineItemsToEditable = (
   return items.map((item) => ({
     id: generateLineId(),
     jute_issue_id: item.jute_issue_id,
+    stock_key: buildStockKey(item.source, item.jute_mr_li_id, item.waste_entry_id),
+    source: item.source ?? "MR",
     jute_mr_li_id: String(item.jute_mr_li_id || ""),
+    waste_entry_id: String(item.waste_entry_id || ""),
     yarn_type_id: String(item.yarn_type_id || ""),
     item_grp_id: String(item.item_grp_id || ""),
     item_id: String(item.item_id || ""),
@@ -36,6 +39,8 @@ export const mapApiLineItemsToEditable = (
     jute_gate_entry_no: item.jute_gate_entry_no,
     branch_mr_no: item.branch_mr_no,
     mr_num: item.mr_num,
+    dept_name: item.dept_name,
+    area_name: item.area_name,
     item_name: item.item_name,
     jute_group_name: item.jute_group_name,
     balqty: undefined, // Will be populated from stock
@@ -44,11 +49,40 @@ export const mapApiLineItemsToEditable = (
 };
 
 /**
+ * Rebuild the stock key for a saved line.
+ *
+ * The stock picker gets `stock_key` straight from the API, but a saved issue
+ * line only carries its link column — so the key is reconstructed here using
+ * the same format the backend emits. Keep the two in step: this string is what
+ * nets a draft line against the balance it is drawing on.
+ */
+export const buildStockKey = (
+  source: JuteIssueLineItem["source"],
+  juteMrLiId: number | null | undefined,
+  wasteEntryId: number | null | undefined
+): string => {
+  if (source === "WASTE" || wasteEntryId) return `W-${wasteEntryId ?? ""}`;
+  return `MR-${juteMrLiId ?? ""}`;
+};
+
+/**
+ * Describe where a stock row came from, for the picker's provenance column.
+ * Waste has no gate entry or MR number — its department and collection area
+ * are the equivalent identifiers.
+ */
+export const describeStockOrigin = (stock: StockOutstandingItem): string => {
+  if (stock.source === "WASTE") {
+    return [stock.dept_name, stock.area_name].filter(Boolean).join(" / ") || "Waste";
+  }
+  return `GE ${stock.jute_gate_entry_no ?? "-"}`;
+};
+
+/**
  * Map stock outstanding item to option for dropdown.
  */
 export const mapStockToOption = (stock: StockOutstandingItem): Option => ({
-  label: `GE ${stock.jute_gate_entry_no ?? "-"} - ${stock.item_name || "Unknown"} (Bal: ${stock.balqty?.toFixed(2) ?? 0} / ${stock.balweight?.toFixed(2) ?? 0} kg)`,
-  value: String(stock.jute_mr_li_id),
+  label: `${describeStockOrigin(stock)} - ${stock.item_name || "Unknown"} (Bal: ${stock.balqty?.toFixed(2) ?? 0} / ${stock.balweight?.toFixed(2) ?? 0} kg)`,
+  value: stock.stock_key,
 });
 
 /**
@@ -92,7 +126,10 @@ export const createLineFromStock = (
   return {
     id: generateLineId(),
     jute_issue_id: undefined,
-    jute_mr_li_id: String(stock.jute_mr_li_id),
+    stock_key: stock.stock_key,
+    source: stock.source,
+    jute_mr_li_id: String(stock.jute_mr_li_id ?? ""),
+    waste_entry_id: String(stock.waste_entry_id ?? ""),
     yarn_type_id: yarnTypeId,
     item_grp_id: String(stock.item_grp_id || ""),
     item_id: String(stock.item_id || ""),
@@ -104,6 +141,8 @@ export const createLineFromStock = (
     branch_mr_no: stock.branch_mr_no,
     mr_num: stock.mr_num,
     jute_gate_entry_no: stock.jute_gate_entry_no,
+    dept_name: stock.dept_name,
+    area_name: stock.area_name,
     item_name: stock.item_name,
     jute_group_name: stock.jute_group_name,
     balqty: stock.balqty,
@@ -113,6 +152,9 @@ export const createLineFromStock = (
 
 /**
  * Map editable line item to API create payload.
+ *
+ * Exactly one of jute_mr_li_id / waste_entry_id is sent — the backend rejects
+ * zero or both, since a line has to draw on one identifiable stock row.
  */
 export const mapEditableToCreatePayload = (
   line: EditableLineItem,
@@ -121,7 +163,8 @@ export const mapEditableToCreatePayload = (
 ) => ({
   branch_id: branchId,
   issue_date: issueDate,
-  jute_mr_li_id: Number(line.jute_mr_li_id),
+  jute_mr_li_id: line.source === "WASTE" ? null : Number(line.jute_mr_li_id),
+  waste_entry_id: line.source === "WASTE" ? Number(line.waste_entry_id) : null,
   yarn_type_id: Number(line.yarn_type_id),
   item_id: Number(line.item_id),
   quantity: Number(line.quantity) || 0,
