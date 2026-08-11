@@ -27,7 +27,10 @@ export const resetLineIdSeed = (): void => {
 export const createBlankLine = (): EditableLineItem => ({
   id: generateLineId(),
   jute_issue_id: undefined,
+  stock_key: "",
+  source: "MR",
   jute_mr_li_id: "",
+  waste_entry_id: "",
   yarn_type_id: "",
   item_grp_id: "",
   item_id: "",
@@ -39,6 +42,8 @@ export const createBlankLine = (): EditableLineItem => ({
   branch_mr_no: undefined,
   mr_num: undefined,
   jute_gate_entry_no: undefined,
+  dept_name: undefined,
+  area_name: undefined,
   item_name: undefined,
   jute_group_name: undefined,
   balqty: undefined,
@@ -58,7 +63,7 @@ export const buildDefaultFormValues = (): Record<string, unknown> => ({
  */
 export const lineHasAnyData = (line: EditableLineItem): boolean =>
   Boolean(
-    line.jute_mr_li_id ||
+    line.stock_key ||
     line.yarn_type_id ||
     line.item_id ||
     line.quantity ||
@@ -67,12 +72,15 @@ export const lineHasAnyData = (line: EditableLineItem): boolean =>
 
 /**
  * Check if a line item is complete (has all required fields).
+ *
+ * Gated on stock_key rather than jute_mr_li_id: a waste line legitimately has
+ * no MR line, so the old check would have called every waste line incomplete.
  */
 export const lineIsComplete = (line: EditableLineItem): boolean => {
   const qty = Number(line.quantity);
   const weight = Number(line.weight);
   return Boolean(
-    line.jute_mr_li_id &&
+    line.stock_key &&
     line.yarn_type_id &&
     Number.isFinite(qty) &&
     qty > 0 &&

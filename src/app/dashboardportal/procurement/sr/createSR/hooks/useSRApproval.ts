@@ -75,6 +75,22 @@ export const useSRApproval = ({
 			return;
 		}
 
+		// Place of supply decides CGST/SGST vs IGST. Without the supplier's state a
+		// taxable SR would save with zero tax (and every DR/CR note built on it too),
+		// so stop here rather than let the server reject the whole payload.
+		const hasTaxableLine = lineItems.some((item) => Number(item.tax_percentage) > 0);
+		if (hasTaxableLine && !header?.supplier_branch_id) {
+			toast({
+				title: "Supplier state required for GST",
+				description:
+					(header?.supplier_branch_options?.length ?? 0) > 0
+						? "Pick the supplier's state in the 'Supplier State (GST)' dropdown in the header, then save."
+						: "This supplier has no branch with a State. Add one under Masters → Party Master, reopen this SR, then save.",
+				variant: "destructive",
+			});
+			return;
+		}
+
 		setSaving(true);
 		try {
 			const lineItemsPayload = lineItems.map((item) => ({
