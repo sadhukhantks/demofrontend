@@ -203,10 +203,16 @@ export const usePOLineItemColumns = ({
               {item.rowError && (
                 <p className="text-xs text-red-600 leading-tight">{item.rowError}</p>
               )}
+              {/* Open-indent lines are capped by the branch min/max position, not by the
+                  indent qty — show the breakdown so the ceiling is self-explanatory. */}
+              {!item.rowError && item.qtyHint && (
+                <p className="text-[11px] text-slate-500 leading-tight">{item.qtyHint}</p>
+              )}
             </div>
           );
         },
-        getTooltip: ({ item }) => (item.quantity ? `Quantity: ${item.quantity}` : undefined),
+        getTooltip: ({ item }) =>
+          item.qtyHint ?? (item.quantity ? `Quantity: ${item.quantity}` : undefined),
       },
       {
         id: "uom",
