@@ -55,6 +55,7 @@ import {
   mapBranchesToOptions,
   mapStockToOption,
   mapEditableToCreatePayload,
+  describeStockOrigin,
   buildLabelMap,
   createLabelResolver,
 } from "./utils/juteIssueMappers";
@@ -202,15 +203,18 @@ function JuteIssueEditPage() {
     return filtered;
   }, [allStockItems, filterItemId, filterItemName]);
 
-  // Calculate how much of each stock has already been entered in draft items
-  const draftQuantityByMrLiId = React.useMemo(() => {
+  // Calculate how much of each stock has already been entered in draft items.
+  // Keyed on stock_key, NOT jute_mr_li_id: waste lines have no MR line, so
+  // keying on it would collapse every waste draft into one bucket and net them
+  // against each other's balances.
+  const draftQuantityByStockKey = React.useMemo(() => {
     const draftItems = lineItems.filter(
       (l) => l.status_id === JUTE_ISSUE_STATUS_IDS.DRAFT || (l.status_id === undefined && !l.jute_issue_id)
     );
-    
+
     const map = new Map<string, number>();
     draftItems.forEach((item) => {
-      const key = String(item.jute_mr_li_id);
+      const key = item.stock_key;
       const currentQty = map.get(key) || 0;
       const qty = Number(item.quantity) || 0;
       map.set(key, currentQty + qty);
@@ -221,23 +225,23 @@ function JuteIssueEditPage() {
   // Get adjusted balqty for display (API balqty - already entered in drafts)
   const getAdjustedBalQty = React.useCallback(
     (stock: StockOutstandingItem): number => {
-      const draftQty = draftQuantityByMrLiId.get(String(stock.jute_mr_li_id)) || 0;
+      const draftQty = draftQuantityByStockKey.get(stock.stock_key) || 0;
       const adjusted = stock.balqty - draftQty;
       return Math.max(0, adjusted); // Don't show negative values
     },
-    [draftQuantityByMrLiId]
+    [draftQuantityByStockKey]
   );
 
   // Get adjusted weight for display
   const getAdjustedBalWeight = React.useCallback(
     (stock: StockOutstandingItem): number => {
-      const draftQty = draftQuantityByMrLiId.get(String(stock.jute_mr_li_id)) || 0;
+      const draftQty = draftQuantityByStockKey.get(stock.stock_key) || 0;
       if (stock.actual_qty === 0) return stock.balweight;
       const wtPerUnit = stock.actual_weight / stock.actual_qty;
       const adjusted = stock.balweight - draftQty * wtPerUnit;
       return Math.max(0, adjusted); // Don't show negative values
     },
-    [draftQuantityByMrLiId]
+    [draftQuantityByStockKey]
   );
 
   // Auto-calculate weight based on quantity * wt_per_unit
@@ -447,7 +451,7 @@ function JuteIssueEditPage() {
   };
 
   const handleConfirmStockSelection = () => {
-    const stock = stockItems.find((s) => String(s.jute_mr_li_id) === selectedStockId);
+    const stock = stockItems.find((s) => s.stock_key === selectedStockId);
     if (stock) {
       setSelectedStock(stock);
       setNewYarnTypeId("");
@@ -841,8 +845,9 @@ function JuteIssueEditPage() {
                   </TableCell>
                 )}
                 <TableCell>Status</TableCell>
+                <TableCell>Source</TableCell>
                 <TableCell>Yarn Type</TableCell>
-                <TableCell>Gate Entry No</TableCell>
+                <TableCell>Gate Entry / Dept</TableCell>
                 <TableCell>Unit</TableCell>
                 <TableCell>Jute Type</TableCell>
                 <TableCell>Item</TableCell>
@@ -880,8 +885,20 @@ function JuteIssueEditPage() {
                         color={getStatusColor(lineStatusId)}
                       />
                     </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={line.source === "WASTE" ? "Waste" : "MR"}
+                        size="small"
+                        color={line.source === "WASTE" ? "secondary" : "default"}
+                        variant={line.source === "WASTE" ? "filled" : "outlined"}
+                      />
+                    </TableCell>
                     <TableCell>{getYarnTypeLabel(line.yarn_type_id)}</TableCell>
-                    <TableCell>{line.jute_gate_entry_no ?? "-"}</TableCell>
+                    <TableCell>
+                      {line.source === "WASTE"
+                        ? line.dept_name || "-"
+                        : line.jute_gate_entry_no ?? "-"}
+                    </TableCell>
                     <TableCell>{line.unit_conversion}</TableCell>
                     <TableCell>{line.jute_group_name || getJuteItemLabel(line.item_grp_id)}</TableCell>
                     <TableCell>{line.item_name || "-"}</TableCell>
@@ -1040,12 +1057,13 @@ function JuteIssueEditPage() {
                   <TableHead>
                     <TableRow>
                       <TableCell padding="checkbox" />
+                      <TableCell>Source</TableCell>
                       <TableCell>Gate Entry No</TableCell>
                       <TableCell>MR No</TableCell>
                       <TableCell>Jute Type</TableCell>
                       <TableCell>Item</TableCell>
                       <TableCell>Unit</TableCell>
-                      <TableCell>Warehouse</TableCell>
+                      <TableCell>Warehouse / Area</TableCell>
                       <TableCell align="right">Bal Qty</TableCell>
                       <TableCell align="right">Bal Weight (kg)</TableCell>
                       <TableCell align="right">Rate/Qtl</TableCell>
@@ -1054,29 +1072,46 @@ function JuteIssueEditPage() {
                   <TableBody>
                     {stockItems.map((stock) => (
                       <TableRow
-                        key={stock.jute_mr_li_id}
+                        key={stock.stock_key}
                         hover
-                        onClick={() => handleStockRadioChange(String(stock.jute_mr_li_id))}
+                        onClick={() => handleStockRadioChange(stock.stock_key)}
                         onDoubleClick={() => {
-                          handleStockRadioChange(String(stock.jute_mr_li_id));
+                          handleStockRadioChange(stock.stock_key);
                           setTimeout(() => handleConfirmStockSelection(), 50);
                         }}
                         sx={{ cursor: "pointer" }}
-                        selected={selectedStockId === String(stock.jute_mr_li_id)}
+                        selected={selectedStockId === stock.stock_key}
                       >
                         <TableCell padding="checkbox">
                           <Radio
-                            checked={selectedStockId === String(stock.jute_mr_li_id)}
-                            value={String(stock.jute_mr_li_id)}
+                            checked={selectedStockId === stock.stock_key}
+                            value={stock.stock_key}
                             size="small"
                           />
                         </TableCell>
-                        <TableCell>{stock.jute_gate_entry_no || "-"}</TableCell>
-                        <TableCell>{stock.mr_num ?? stock.branch_mr_no}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={stock.source === "WASTE" ? "Waste" : "MR"}
+                            size="small"
+                            color={stock.source === "WASTE" ? "secondary" : "default"}
+                            variant={stock.source === "WASTE" ? "filled" : "outlined"}
+                          />
+                        </TableCell>
+                        {/* Waste has no gate entry or MR number — its department stands in */}
+                        <TableCell>
+                          {stock.source === "WASTE"
+                            ? stock.dept_name || "-"
+                            : stock.jute_gate_entry_no || "-"}
+                        </TableCell>
+                        <TableCell>{stock.mr_num ?? stock.branch_mr_no ?? "-"}</TableCell>
                         <TableCell>{stock.jute_group_name || "-"}</TableCell>
                         <TableCell>{stock.item_name || "-"}</TableCell>
                         <TableCell>{stock.unit_conversion}</TableCell>
-                        <TableCell>{stock.warehouse_name || "-"}</TableCell>
+                        <TableCell>
+                          {stock.source === "WASTE"
+                            ? stock.area_name || "-"
+                            : stock.warehouse_name || "-"}
+                        </TableCell>
                         <TableCell align="right">
                           <Box>
                             <Typography variant="body2" fontWeight={600}>
@@ -1136,14 +1171,29 @@ function JuteIssueEditPage() {
                   Selected Stock
                 </Typography>
                 <Typography>
-                  MR {selectedStock.mr_num ?? selectedStock.branch_mr_no} / GE {selectedStock.jute_gate_entry_no ?? "-"} - {selectedStock.jute_group_name || "Unknown"} ({selectedStock.item_name || "N/A"})
+                  {selectedStock.source === "WASTE"
+                    ? `Waste #${selectedStock.waste_entry_id} / ${describeStockOrigin(selectedStock)} - ${selectedStock.jute_group_name || "Unknown"} (${selectedStock.item_name || "N/A"})`
+                    : `MR ${selectedStock.mr_num ?? selectedStock.branch_mr_no} / GE ${selectedStock.jute_gate_entry_no ?? "-"} - ${selectedStock.jute_group_name || "Unknown"} (${selectedStock.item_name || "N/A"})`}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Available: {selectedStock ? getAdjustedBalQty(selectedStock).toFixed(2) : "0"} unit({selectedStock?.unit_conversion}) | Rate: ₹{selectedStock?.actual_rate?.toFixed(2)}/qtl
                 </Typography>
-                <Typography variant="body2" color="primary">
-                  Wt/Unit: {wtPerUnit.toFixed(2)} kg
-                </Typography>
+                {selectedStock.source === "WASTE" ? (
+                  // Waste is kg-only, so wt/unit is always 1 and telling the
+                  // operator so adds nothing. A zero rate does matter: it means
+                  // no Waste Rate is on file for this item and the line will
+                  // save at zero value.
+                  selectedStock.actual_rate ? null : (
+                    <Typography variant="body2" color="warning.main">
+                      No waste rate on file for this item — this line will be issued at ₹0.
+                      Add one in Waste Rate Master to value it.
+                    </Typography>
+                  )
+                ) : (
+                  <Typography variant="body2" color="primary">
+                    Wt/Unit: {wtPerUnit.toFixed(2)} kg
+                  </Typography>
+                )}
               </Box>
             )}
 
@@ -1163,7 +1213,11 @@ function JuteIssueEditPage() {
             <Box display="flex" gap={2}>
               <TextField
                 id="jute-issue-quantity"
-                label="Quantity (Bale/Drum)"
+                label={
+                  selectedStock?.source === "WASTE"
+                    ? "Quantity (kg)"
+                    : "Quantity (Bale/Drum)"
+                }
                 type="number"
                 value={newQuantity}
                 onChange={(e) => setNewQuantity(e.target.value)}

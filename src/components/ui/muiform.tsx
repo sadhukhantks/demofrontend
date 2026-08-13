@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Box, Button, Chip, Checkbox, FormControl, FormControlLabel, FormHelperText, TextField, Typography } from "@mui/material";
-import Autocomplete from "@mui/material/Autocomplete";
+import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
 // Using Box-based layout to keep typings simple across MUI versions
 
 export type MuiFormMode = "create" | "view" | "edit";
@@ -17,6 +17,16 @@ export type Option = {
 	label: string;
 	value: string | number;
 };
+
+// MUI's Autocomplete renders a DOM node per matching option, so an unfiltered
+// employee/party list (a few thousand rows) freezes the popup on open. Cap how
+// many are rendered at once — typing narrows the list, and any option is still
+// reachable through the search.
+const OPTION_RENDER_LIMIT = 100;
+const limitedFilterOptions = createFilterOptions<Option>({
+	limit: OPTION_RENDER_LIMIT,
+	stringify: (opt: Option) => opt?.label ?? String(opt?.value ?? ""),
+});
 
 export type FieldType =
 	| "text"
@@ -380,6 +390,7 @@ export const MuiForm = React.forwardRef(function MuiForm(
 					// single-select rendered as Autocomplete for autofill/filtering
 					<Autocomplete<Option, false, boolean, false>
 						options={(field.options ?? []) as Option[]}
+						filterOptions={limitedFilterOptions}
 						getOptionLabel={(opt: Option) => opt?.label ?? String(opt?.value ?? "")}
 						getOptionKey={(opt: Option) => String(opt?.value ?? "")}
 						isOptionEqualToValue={(o: Option, v: Option) => String(o.value) === String(v.value)}
@@ -405,6 +416,7 @@ export const MuiForm = React.forwardRef(function MuiForm(
 						sx={{ width: '100%' }}
 						multiple
 						options={(field.options ?? []) as Option[]}
+						filterOptions={limitedFilterOptions}
 						getOptionLabel={(opt: Option) => opt?.label ?? String(opt?.value ?? "")}
 						getOptionKey={(opt: Option) => String(opt?.value ?? "")}
 						isOptionEqualToValue={(o: Option, v: Option) => String(o.value) === String(v.value)}

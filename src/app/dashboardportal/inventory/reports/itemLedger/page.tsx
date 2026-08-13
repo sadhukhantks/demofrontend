@@ -24,22 +24,45 @@ import {
 
 type LedgerGridRow = {
   id: string | number;
-  txn_date: string | null;
+  item_code: string;
+  item_name: string;
+  uom: string;
   txn_type: string;
+  txn_date: string;
   ref_no: string | null;
-  in_qty: number | null;
-  out_qty: number | null;
+  opening_qty: number;
+  opening_val: number;
+  in_qty: number;
+  in_val: number;
+  out_qty: number;
+  out_val: number;
   balance: number;
+  balance_val: number;
 };
 
 const columns: GridColDef<LedgerGridRow>[] = [
-  { field: "txn_date", headerName: "Date", width: 120 },
-  { field: "txn_type", headerName: "Type", width: 140 },
-  { field: "ref_no", headerName: "Ref No", flex: 1, minWidth: 140 },
-  numCol("in_qty", "In Qty"),
-  numCol("out_qty", "Out Qty"),
-  numCol("balance", "Balance", 140),
+  { field: "item_code", headerName: "Item Code", width: 110 },
+  { field: "item_name", headerName: "Item Description", flex: 1, minWidth: 160 },
+  { field: "uom", headerName: "Unit", width: 70 },
+  { field: "txn_type", headerName: "Transaction Type", width: 100 },
+  { field: "txn_date", headerName: "Transaction Date", width: 120 },
+  { field: "ref_no", headerName: "Doc No", minWidth: 160 },
+  numCol("opening_qty", "Opening Qty"),
+  numCol("opening_val", "Opening Value"),
+  numCol("in_qty", "Received Qty"),
+  numCol("in_val", "Received Value"),
+  numCol("out_qty", "Issue Qty"),
+  numCol("out_val", "Issue Value"),
+  numCol("balance", "Closing Qty", 130),
+  numCol("balance_val", "Closing Value", 130),
 ];
+
+/** ISO (YYYY-MM-DD) → legacy Data-Portal DD-MM-YYYY. */
+const dmy = (d: string | null | undefined): string =>
+  d ? d.slice(0, 10).split("-").reverse().join("-") : "";
+
+// ponytail: legacy Data-Portal single-letter transaction codes
+const TYPE_CODE: Record<string, string> = { Receipt: "R", Issue: "I" };
 
 function ItemLedgerContent() {
   const { branches, coId, companyName, initialBranchId, dateParam } =
@@ -58,11 +81,21 @@ function ItemLedgerContent() {
   const [selectedItem, setSelectedItem] = useState<ItemOption | null>(null);
 
   const [openingQty, setOpeningQty] = useState(0);
+  const [openingVal, setOpeningVal] = useState(0);
   const [rows, setRows] = useState<
     Awaited<ReturnType<typeof fetchItemLedgerReport>>["rows"]
   >([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Branch + dates come from the localStorage-backed sidebar context, so the
+  // server renders an empty toolbar and the client a filled one. Holding the
+  // filters back until mount keeps the first client render matching the SSR
+  // HTML (same gate as ReportPanel).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Debounced item search.
   useEffect(() => {
@@ -91,31 +124,78 @@ function ItemLedgerContent() {
         branchId,
       });
       setOpeningQty(res.openingQty);
+      setOpeningVal(res.openingVal);
       setRows(res.rows);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load report");
       setRows([]);
       setOpeningQty(0);
+      setOpeningVal(0);
     } finally {
       setLoading(false);
     }
   }, [coId, selectedItem, dateFrom, dateTo, branchId]);
 
-  const gridRows: LedgerGridRow[] = useMemo(
-    () => [
+  const gridRows: LedgerGridRow[] = useMemo(() => {
+    const itemCode = selectedItem?.full_item_code ?? "";
+    const itemName = selectedItem?.item_name ?? "";
+    const uom = selectedItem?.uom_name ?? "";
+    const txns: LedgerGridRow[] = rows.map((r, i) => ({
+      id: i,
+      item_code: itemCode,
+      item_name: itemName,
+      uom,
+      txn_type: TYPE_CODE[r.txn_type] ?? r.txn_type,
+      txn_date: dmy(r.txn_date),
+      ref_no: r.ref_no,
+      opening_qty: 0,
+      opening_val: 0,
+      in_qty: r.in_qty,
+      in_val: r.in_val,
+      out_qty: r.out_qty,
+      out_val: r.out_val,
+      balance: r.balance,
+      balance_val: r.balance_val,
+    }));
+    const last = txns[txns.length - 1];
+    return [
       {
         id: "opening",
-        txn_date: dateFrom,
-        txn_type: "Opening Balance",
-        ref_no: "",
-        in_qty: null,
-        out_qty: null,
+        item_code: itemCode,
+        item_name: itemName,
+        uom,
+        txn_type: "O",
+        txn_date: dmy(dateFrom),
+        ref_no: "(0)",
+        opening_qty: openingQty,
+        opening_val: openingVal,
+        in_qty: 0,
+        in_val: 0,
+        out_qty: 0,
+        out_val: 0,
         balance: openingQty,
+        balance_val: openingVal,
       },
-      ...rows.map((r, i) => ({ id: i, ...r })),
-    ],
-    [rows, openingQty, dateFrom],
-  );
+      ...txns,
+      {
+        id: "closing",
+        item_code: "",
+        item_name: "",
+        uom: "",
+        txn_type: "",
+        txn_date: dmy(dateTo),
+        ref_no: "Closing",
+        opening_qty: 0,
+        opening_val: 0,
+        in_qty: txns.reduce((s, r) => s + r.in_qty, 0),
+        in_val: txns.reduce((s, r) => s + r.in_val, 0),
+        out_qty: txns.reduce((s, r) => s + r.out_qty, 0),
+        out_val: txns.reduce((s, r) => s + r.out_val, 0),
+        balance: last?.balance ?? openingQty,
+        balance_val: last?.balance_val ?? openingVal,
+      },
+    ];
+  }, [rows, openingQty, openingVal, dateFrom, dateTo, selectedItem]);
 
   const branch = branches.find((b) => b.branch_id === branchId) ?? null;
 
@@ -128,6 +208,7 @@ function ItemLedgerContent() {
         Item Ledger
       </Typography>
 
+      {mounted && (
       <Paper elevation={1} sx={{ mb: 2, p: 2 }}>
         <Box
           sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}
@@ -226,6 +307,7 @@ function ItemLedgerContent() {
           </Button>
         </Box>
       </Paper>
+      )}
 
       {selectedItem == null ? (
         <Box sx={{ p: 4, textAlign: "center" }}>

@@ -96,6 +96,13 @@ function SearchSelect({
       }
       isOptionEqualToValue={(o, v) => o.value === v.value}
       onChange={(_, v) => onChange(v ? v.value : "")}
+      // MUI keys options by label by default; duplicate master descriptions
+      // (e.g. two sub-depts named the same) collide. Key by the id instead.
+      renderOption={({ key: _key, ...props }, o) => (
+        <li key={o.value} {...props}>
+          {o.label}
+        </li>
+      )}
       renderInput={(params) => (
         <TextField {...params} label={label} required={required} />
       )}
@@ -215,7 +222,14 @@ function CreateAttendanceContent() {
   const handleSave = useCallback(async () => {
     const parsed = attendanceFormSchema.safeParse(values);
     if (!parsed.success) {
-      showSnack(parsed.error.issues[0]?.message ?? "Validation failed", "error");
+      // Name the field: Zod's own type errors ("expected string, received
+      // number") say nothing about WHICH input is wrong.
+      const issue = parsed.error.issues[0];
+      const field = issue?.path.join(".");
+      showSnack(
+        issue ? `${field ? `${field}: ` : ""}${issue.message}` : "Validation failed",
+        "error",
+      );
       return;
     }
     if (leaveBlocked) {
@@ -369,12 +383,15 @@ function CreateAttendanceContent() {
             InputLabelProps={{ shrink: true }}
             required
           />
+          {/* Mark and source identify which attendance this row IS and how it
+              was captured, so they are fixed once created — the edit endpoint
+              ignores them too. (The spell below stays editable.) */}
           <SearchSelect
             label="Attendance Mark"
             value={values.attendance_mark}
             options={ATTENDANCE_MARK_OPTIONS}
             onChange={(v) => updateField("attendance_mark", v)}
-            disabled={disabled}
+            disabled={disabled || mode === "edit"}
             required
           />
           <SearchSelect
@@ -382,7 +399,7 @@ function CreateAttendanceContent() {
             value={values.attendance_source}
             options={ATTENDANCE_SOURCE_OPTIONS}
             onChange={(v) => updateField("attendance_source", v)}
-            disabled={disabled}
+            disabled={disabled || mode === "edit"}
             required
           />
         </Box>

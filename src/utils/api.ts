@@ -234,13 +234,6 @@ const apiRoutesPortalMasters = {
     COSTFACTOR_EDIT_SETUP: `${API_URL}/costFactorMaster/cost_factor_edit_setup`,
     COSTFACTOR_EDIT: `${API_URL}/costFactorMaster/cost_factor_edit`,
 
-    JUTE_QUALITY_TABLE: `${API_URL}/juteQualityMaster/get_jute_quality_table`,
-    JUTE_QUALITY_BY_ID: `${API_URL}/juteQualityMaster/get_jute_quality_by_id`,
-    JUTE_QUALITY_CREATE_SETUP: `${API_URL}/juteQualityMaster/jute_quality_create_setup`,
-    JUTE_QUALITY_EDIT_SETUP: `${API_URL}/juteQualityMaster/jute_quality_edit_setup`,
-    JUTE_QUALITY_CREATE: `${API_URL}/juteQualityMaster/jute_quality_create`,
-    JUTE_QUALITY_EDIT: `${API_URL}/juteQualityMaster/jute_quality_edit`,
-
     // Jute Supplier Master endpoints (global - not company-specific)
     JUTE_SUPPLIER_TABLE: `${API_URL}/juteSupplierMaster/get_jute_supplier_table`,
     JUTE_SUPPLIER_BY_ID: `${API_URL}/juteSupplierMaster/get_jute_supplier_by_id`,
@@ -255,14 +248,6 @@ const apiRoutesPortalMasters = {
     JUTE_SUPPLIER_MAP_AVAILABLE_PARTIES: `${API_URL}/juteSupplierMap/get_available_parties_for_supplier`,
     JUTE_SUPPLIER_MAP_CREATE: `${API_URL}/juteSupplierMap/jute_supplier_map_create`,
     JUTE_SUPPLIER_MAP_DELETE: `${API_URL}/juteSupplierMap/jute_supplier_map_delete`,
-
-    // Jute Agent Map endpoints (agent branch to party branch mappings)
-    JUTE_AGENT_MAP_TABLE: `${API_URL}/juteAgentMap/get_jute_agent_map_table`,
-    JUTE_AGENT_MAP_BY_ID: `${API_URL}/juteAgentMap/get_jute_agent_map_by_id`,
-    JUTE_AGENT_MAP_CREATE_SETUP: `${API_URL}/juteAgentMap/jute_agent_map_create_setup`,
-    JUTE_AGENT_MAP_PARTY_BRANCHES: `${API_URL}/juteAgentMap/get_party_branches_for_agent`,
-    JUTE_AGENT_MAP_CREATE: `${API_URL}/juteAgentMap/jute_agent_map_create`,
-    JUTE_AGENT_MAP_DELETE: `${API_URL}/juteAgentMap/jute_agent_map_delete`,
 
     // Yarn Type Master endpoints
     YARN_TYPE_TABLE: `${API_URL}/yarnTypeMaster/get_yarn_type_table`,
@@ -495,6 +480,7 @@ const apiRoutesPortalMasters = {
     DRCR_NOTE_APPROVE: `${API_URL}/drcrNote/approve_drcr_note`,
     DRCR_NOTE_REJECT: `${API_URL}/drcrNote/reject_drcr_note`,
     DRCR_NOTE_GET_INWARD_FOR_CREATE: `${API_URL}/drcrNote/get_inward_for_drcr_note`,
+    DRCR_NOTE_ELIGIBLE_INWARDS: `${API_URL}/drcrNote/get_eligible_inwards`,
 
     // Bill Pass endpoints
     BILL_PASS_LIST: `${API_URL}/billPass/get_bill_pass_list`,
@@ -572,6 +558,14 @@ const apiRoutesPortalMasters = {
     OVERSTAY_REPORT: `${API_URL}/hrmsReports/overstay`,
     OCCUPATION_DEVIATION_REPORT: `${API_URL}/hrmsReports/occupation-deviation`,
     CASH_ATTENDANCE_REPORT: `${API_URL}/hrmsReports/cash-attendance`,
+    EMPLOYEE_HEADCOUNT_REPORT: `${API_URL}/hrmsReports/employee-headcount`,
+    SPELL_WISE_REPORT: `${API_URL}/hrmsReports/spell-wise`,
+    BANK_STATEMENT_REPORT: `${API_URL}/hrmsReports/bank-statement`,
+    HANDS_COMPLEMENT_REPORT: `${API_URL}/hrmsReports/hands-complement`,
+    CASH_HANDS_PROCESS: `${API_URL}/hrmsReports/cash-hands-process`,
+    CASH_HANDS_REPORT: `${API_URL}/hrmsReports/cash-hands`,
+    CASH_HANDS_SUMMARY_REPORT: `${API_URL}/hrmsReports/cash-hands-summary`,
+    CASH_HANDS_PDF: `${API_URL}/hrmsReports/cash-hands-pdf`,
 
     // Sales Quotation endpoints
     QUOTATION_TABLE: `${API_URL}/salesQuotation/get_quotation_table`,
@@ -706,6 +700,23 @@ const apiRoutesPortalMasters = {
     HRMS_PAY_ROLL_DOWNLOAD_TEMPLATE: `${API_URL}/hrms/pay_roll_download_template`,
 
     // Designation Master endpoints
+    // Cash / Daily Rate Entry (outsider_rate_approve)
+    DAILY_RATE_SETUP: `${API_URL}/hrmsMasters/daily_rate_setup`,
+    DAILY_RATE_TABLE: `${API_URL}/hrmsMasters/get_daily_rate_table`,
+    DAILY_RATE_BY_ID: `${API_URL}/hrmsMasters/get_daily_rate_by_id`,
+    DAILY_RATE_CREATE: `${API_URL}/hrmsMasters/daily_rate_create`,
+    DAILY_RATE_EDIT: `${API_URL}/hrmsMasters/daily_rate_edit`,
+    DAILY_RATE_DELETE: `${API_URL}/hrmsMasters/daily_rate_delete`,
+
+    // Canteen Details (canteen_details)
+    CANTEEN_SETUP: `${API_URL}/hrms/canteen_setup`,
+    CANTEEN_TABLE: `${API_URL}/hrms/get_canteen_table`,
+    CANTEEN_BY_ID: `${API_URL}/hrms/get_canteen_by_id`,
+    CANTEEN_CREATE: `${API_URL}/hrms/canteen_create`,
+    CANTEEN_EDIT: `${API_URL}/hrms/canteen_edit`,
+    CANTEEN_APPROVE: `${API_URL}/hrms/canteen_approve`,
+    CANTEEN_DELETE: `${API_URL}/hrms/canteen_delete`,
+
     DESIGNATION_TABLE: `${API_URL}/hrmsMasters/get_designation_table`,
     DESIGNATION_BY_ID: `${API_URL}/hrmsMasters/get_designation_by_id`,
     DESIGNATION_CREATE_SETUP: `${API_URL}/hrmsMasters/designation_create_setup`,
@@ -886,6 +897,8 @@ const apiRoutesPortalMasters = {
     ATTENDANCE_CREATE_SETUP: `${API_URL}/hrms/attendance_create_setup`,
     ATTENDANCE_LEAVE_STATUS: `${API_URL}/hrms/attendance_leave_status`,
     ATTENDANCE_MACHINES: `${API_URL}/hrms/attendance_machines_by_designation`,
+    ATTENDANCE_OPEN_CLOSE_STATUS: `${API_URL}/hrms/attendance_open_close_status`,
+    ATTENDANCE_OPEN_CLOSE: `${API_URL}/hrms/attendance_open_close`,
     // Attendance register report (checklist page) — served by the Flask mobileapp
     // mounted at the backend root (no /hrms prefix).
     // vowerp3be/src/mobileapp/src/attendance/attendance.py
@@ -1083,6 +1096,24 @@ const apiRoutesPortalMasters = {
     STOPPAGE_ENTRIES_BY_DATE: `${API_URL}/stoppageProd/entries_by_date`,
     STOPPAGE_ENTRY_EDIT: `${API_URL}/stoppageProd/entry_edit`,
     STOPPAGE_ENTRY_DELETE: `${API_URL}/stoppageProd/entry_delete`,
+    // Jute Waste Entry (router prefix /api/juteWasteProd) — JUTE_WASTE_ENTRY_EDIT/DELETE are
+    // base paths; caller appends /${id}?co_id=...
+    JUTE_WASTE_ENTRY_CREATE_SETUP: `${API_URL}/juteWasteProd/entry_create_setup`,
+    JUTE_WASTE_ENTRY_CREATE: `${API_URL}/juteWasteProd/entry_create`,
+    JUTE_WASTE_ENTRIES_BY_DATE: `${API_URL}/juteWasteProd/entries_by_date`,
+    JUTE_WASTE_ENTRY_EDIT: `${API_URL}/juteWasteProd/entry_edit`,
+    JUTE_WASTE_ENTRY_DELETE: `${API_URL}/juteWasteProd/entry_delete`,
+    // Wastage Area master — same router; WASTAGE_AREA_EDIT is a base path, caller
+    // appends /${id}?co_id=...
+    WASTAGE_AREA_LIST: `${API_URL}/juteWasteProd/area_list`,
+    WASTAGE_AREA_CREATE: `${API_URL}/juteWasteProd/area_create`,
+    WASTAGE_AREA_EDIT: `${API_URL}/juteWasteProd/area_edit`,
+    // Waste Rate master — same router; prices a WASTE line on the Jute Issue page
+    // (waste has no purchase rate). WASTE_RATE_EDIT is a base path, caller appends
+    // /${id}?co_id=...
+    WASTE_RATE_LIST: `${API_URL}/juteWasteProd/rate_list`,
+    WASTE_RATE_CREATE: `${API_URL}/juteWasteProd/rate_create`,
+    WASTE_RATE_EDIT: `${API_URL}/juteWasteProd/rate_edit`,
     // Beaming Quality Master (router prefix /api/beamingMasters) — BM_QUALITY_EDIT/DELETE/DETAIL are
     // base paths; caller appends /${id}?co_id=...
     BM_QUALITY_CREATE_SETUP: `${API_URL}/beamingMasters/bm_quality_create_setup`,
@@ -1155,6 +1186,18 @@ const apiRoutesPortalMasters = {
     WEAVING_TARGET_MAP_DELETE: `${API_URL}/weavingTargetMap/target_map_delete`,
     WEAVING_TARGET_MAP_GRID: `${API_URL}/weavingTargetMap/target_map_grid`,
     WEAVING_TARGET_MAP_BULK_SAVE: `${API_URL}/weavingTargetMap/target_map_bulk_save`,
+    // Jute Production — Production Planning (router prefix /api/juteProdPlanning) —
+    // JUTE_PROD_PLANNING_BY_ID is a base path; caller appends /${planning_id}?co_id=...
+    JUTE_PROD_PLANNING_TABLE: `${API_URL}/juteProdPlanning/planning_table`,
+    JUTE_PROD_PLANNING_SETUP: `${API_URL}/juteProdPlanning/planning_setup`,
+    JUTE_PROD_PLANNING_BY_ID: `${API_URL}/juteProdPlanning/planning_by_id`,
+    JUTE_PROD_PLANNING_LATEST: `${API_URL}/juteProdPlanning/planning_latest`,
+    JUTE_PROD_PLANNING_SAVE: `${API_URL}/juteProdPlanning/planning_save`,
+    JUTE_PROD_PLANNING_DELETE: `${API_URL}/juteProdPlanning/planning_delete`,
+    JUTE_PROD_PLANNING_NORMS_GRID: `${API_URL}/juteProdPlanning/norms_grid`,
+    JUTE_PROD_PLANNING_NORMS_LIST: `${API_URL}/juteProdPlanning/norms_list`,
+    JUTE_PROD_PLANNING_NORMS_BULK_SAVE: `${API_URL}/juteProdPlanning/norms_bulk_save`,
+    JUTE_PROD_PLANNING_NORMS_DELETE: `${API_URL}/juteProdPlanning/norms_delete`,
     // Weaving Production Entry (router prefix /api/weavingProd) — WEAVING_ENTRY_EDIT/DELETE are
     // base paths; caller appends /${id}?co_id=...
     WEAVING_ENTRY_CREATE_SETUP: `${API_URL}/weavingProd/entry_create_setup`,

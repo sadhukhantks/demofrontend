@@ -4,13 +4,17 @@ import * as React from "react";
 import {
 	Alert,
 	Box,
+	Button,
 	CircularProgress,
+	FormControlLabel,
 	MenuItem,
+	Switch,
 	Tab,
 	Tabs,
 	TextField,
 	Typography,
 } from "@mui/material";
+import { useRouter } from "next/navigation";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { useSpinningSetup } from "./hooks/useSpinningSetup";
@@ -23,10 +27,21 @@ import SpinningProcessBar from "./_components/SpinningProcessBar";
 import type { DoffEntryRow } from "./types/spinningTypes";
 import { todayISO } from "./utils/spinningCalc";
 
+// ponytail: sessionStorage flag instead of a ?query param — useSearchParams()
+// would force a Suspense boundary on this client page for a one-shot banner.
+const SWITCH_FLAG = "juteProdPageSwitch";
+
 export default function SpinningPage() {
+	const router = useRouter();
 	const [mounted, setMounted] = React.useState(false);
+	// Set by the Winding page when the user jumped here from it.
+	const [switchedHere, setSwitchedHere] = React.useState(false);
 	React.useEffect(() => {
 		setMounted(true);
+		if (sessionStorage.getItem(SWITCH_FLAG) === "spinning") {
+			sessionStorage.removeItem(SWITCH_FLAG);
+			setSwitchedHere(true);
+		}
 	}, []);
 
 	const { coId } = useSelectedCompanyCoId();
@@ -63,6 +78,8 @@ export default function SpinningPage() {
 	// Selected spell_id from setup.spells (branch-correct — spell codes repeat
 	// per branch); every payload sends spell_id, never the code string.
 	const [spellId, setSpellId] = React.useState<number | "">("");
+	// Weighing-scale feed for Doff Entry. Off = the operator types Gross Weight.
+	const [autoWeight, setAutoWeight] = React.useState(true);
 
 	const [editingEntry, setEditingEntry] = React.useState<DoffEntryRow | null>(null);
 	// Bumped after a Process so the planning grid + lock status re-fetch the frozen log.
@@ -111,12 +128,40 @@ export default function SpinningPage() {
 
 	return (
 		<Box sx={{ p: { xs: 1.5, md: 3 } }}>
-			<Typography variant="h5" sx={{ fontWeight: 600 }}>
-				Spinning Production
-			</Typography>
-			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-				Doff entry, frame→quality mapping and planning grid.
-			</Typography>
+			<Box
+				sx={{
+					display: "flex",
+					alignItems: "flex-start",
+					justifyContent: "space-between",
+					gap: 2,
+					flexWrap: "wrap",
+				}}
+			>
+				<Box>
+					<Typography variant="h5" sx={{ fontWeight: 600 }}>
+						Spinning Production
+					</Typography>
+					<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+						Doff entry, frame→quality mapping and planning grid.
+					</Typography>
+				</Box>
+				<Button
+					size="small"
+					variant="outlined"
+					onClick={() => {
+						sessionStorage.setItem(SWITCH_FLAG, "winding");
+						router.push("/dashboardportal/juteProduction/winding");
+					}}
+				>
+					Go to Winding Production
+				</Button>
+			</Box>
+
+			{switchedHere ? (
+				<Alert severity="warning" sx={{ mb: 2 }} onClose={() => setSwitchedHere(false)}>
+					Came from Winding Production — double-check the Date and Spell before entering.
+				</Alert>
+			) : null}
 
 			{sidebarBranchIds.length > 1 ? (
 				<TextField
@@ -205,6 +250,18 @@ export default function SpinningPage() {
 										))}
 									</TextField>
 								) : null}
+								{tab === 0 ? (
+									<FormControlLabel
+										control={
+											<Switch
+												size="small"
+												checked={autoWeight}
+												onChange={(e) => setAutoWeight(e.target.checked)}
+											/>
+										}
+										label={`Auto Weight: ${autoWeight ? "Yes" : "No"}`}
+									/>
+								) : null}
 							</Box>
 
 							{/* One process/staleness bar, visible on all three tabs (spec 5.6). */}
@@ -225,6 +282,7 @@ export default function SpinningPage() {
 										setup={setup}
 										date={tranDate}
 										spellId={spellId === "" ? null : spellId}
+										autoWeight={autoWeight}
 										editingEntry={editingEntry}
 										onSaved={() => {
 											setEditingEntry(null);

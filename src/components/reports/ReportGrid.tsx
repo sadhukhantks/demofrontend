@@ -28,7 +28,45 @@ interface ReportGridProps<T extends GridValidRowModel> {
   height?: number;
   sortField?: string;
   sortDir?: "asc" | "desc";
+  /** Marks summary rows to render bold. Defaults to detecting cells whose text
+   * is "Total" / "Grand Total" / "Opening Balance" / "Closing". */
+  isTotalRow?: (row: T) => boolean;
+  /** Row drill-down. Never fired for total rows — they have no detail behind
+   * them. When set, data rows get a pointer cursor to advertise it. */
+  onRowDoubleClick?: (row: T) => void;
 }
+
+const TOTAL_ROW_RE = /^(grand\s+total|total|opening\s+balance|closing)$/i;
+
+/** Shared summary-row detection — also used by the Excel export so grid and
+ * sheet highlight the same rows. */
+export function isReportTotalRow(row: GridValidRowModel): boolean {
+  return Object.values(row).some(
+    (v) => typeof v === "string" && TOTAL_ROW_RE.test(v.trim()),
+  );
+}
+
+/** Summary rows come in levels on grouped reports (IS01: a Total per cost
+ * centre, per department, then the Grand Total). The level is read off the
+ * leading column: filled = the outer group's total, blank = an inner subtotal.
+ * Shared with the Excel export so sheet and grid shade the same way. */
+export function reportTotalLevel(
+  row: GridValidRowModel,
+  leadField: string,
+): "grand" | "group" | "sub" | null {
+  if (!isReportTotalRow(row)) return null;
+  const lead = row[leadField];
+  if (typeof lead === "string" && /^grand\s+total$/i.test(lead.trim())) {
+    return "grand";
+  }
+  return lead ? "group" : "sub";
+}
+
+const TOTAL_ROW_CLASS = {
+  grand: "report-total-row",
+  group: "report-total-row report-group-total-row",
+  sub: "report-subtotal-row",
+} as const;
 
 /**
  * Shared presentational grid shell for the jute report pages — loading overlay,
@@ -45,6 +83,8 @@ export default function ReportGrid<T extends GridValidRowModel>({
   height = 600,
   sortField,
   sortDir = "asc",
+  isTotalRow = isReportTotalRow,
+  onRowDoubleClick,
 }: ReportGridProps<T>) {
   // Same content-width + hover-tooltip treatment the list grids get. While no branch
   // is selected the previous branch's rows may still be held, so don't size from them.
@@ -103,8 +143,34 @@ export default function ReportGrid<T extends GridValidRowModel>({
               : {}),
           }}
           disableRowSelectionOnClick
+          onRowDoubleClick={
+            onRowDoubleClick
+              ? (params) => {
+                  if (!isTotalRow(params.row as T)) {
+                    onRowDoubleClick(params.row as T);
+                  }
+                }
+              : undefined
+          }
+          getRowClassName={(params) => {
+            if (!isTotalRow(params.row)) return "";
+            const level =
+              reportTotalLevel(params.row, String(columns[0]?.field ?? "")) ??
+              "grand";
+            return TOTAL_ROW_CLASS[level];
+          }}
           sx={{
             ...wrappingGridSx,
+            border: "1px solid",
+            borderColor: "divider",
+            ...(onRowDoubleClick
+              ? {
+                  "& .MuiDataGrid-row:not(.report-total-row):not(.report-subtotal-row)":
+                    {
+                      cursor: "pointer",
+                    },
+                }
+              : {}),
             "& .MuiDataGrid-columnHeader": {
               backgroundColor: "#3ea6da",
               color: "white",
@@ -112,7 +178,47 @@ export default function ReportGrid<T extends GridValidRowModel>({
             },
             "& .MuiDataGrid-columnHeaderTitle": {
               ...wrappingGridSx["& .MuiDataGrid-columnHeaderTitle"],
-              fontWeight: "bold",
+              fontWeight: 700,
+            },
+            "& .MuiDataGrid-columnHeader:not(:last-of-type)": {
+              borderRight: "1px solid rgba(255,255,255,0.4)",
+            },
+            "& .MuiDataGrid-cell": {
+              borderRight: "1px solid",
+              borderRightColor: "divider",
+              whiteSpace: "normal",
+              wordBreak: "break-word",
+              display: "flex",
+              alignItems: "center",
+              py: 0.5,
+            },
+            "& .MuiDataGrid-cell:last-of-type": { borderRight: "none" },
+            "& .MuiDataGrid-cell--textRight": { justifyContent: "flex-end" },
+            "& .report-total-row, & .report-total-row:hover, & .report-total-row.Mui-hovered":
+              {
+                backgroundColor: "#3ea6da",
+                color: "white",
+              },
+            "& .report-total-row .MuiDataGrid-cell": {
+              fontWeight: 700,
+              borderRightColor: "rgba(255,255,255,0.4)",
+            },
+            // Group total (e.g. IS01 department) — one shade off the Grand
+            // Total so the two read as different levels.
+            "& .report-group-total-row, & .report-group-total-row:hover, & .report-group-total-row.Mui-hovered":
+              {
+                backgroundColor: "#6fbde3",
+                color: "white",
+              },
+            // Inner subtotal (e.g. IS01 cost centre) — lightest of the three.
+            "& .report-subtotal-row, & .report-subtotal-row:hover, & .report-subtotal-row.Mui-hovered":
+              {
+                backgroundColor: "#d7ecf8",
+                color: "#0C3C60",
+              },
+            "& .report-subtotal-row .MuiDataGrid-cell": {
+              fontWeight: 700,
+              borderRightColor: "rgba(12,60,96,0.2)",
             },
           }}
         />

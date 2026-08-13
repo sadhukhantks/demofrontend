@@ -1,8 +1,7 @@
 "use client";
 import React from "react";
-import { Box, Button } from "@mui/material";
-import { ArrowLeft } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import BackToReports from "@/components/reports/BackToReports";
 
 const HUB = "/dashboardportal/hrms/hrmsreports";
 
@@ -15,27 +14,12 @@ export default function HrmsReportsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
   const isHub = (pathname ?? "").replace(/\/$/, "") === HUB;
 
   return (
     <>
-      {!isHub && (
-        <Box sx={{ px: 3, pt: 2 }}>
-          <Button
-            variant="text"
-            startIcon={<ArrowLeft size={18} />}
-            onClick={() => {
-              if (window.history.length > 1) router.back();
-              else router.push(HUB);
-            }}
-            sx={{ textTransform: "none", color: "#0C3C60" }}
-          >
-            Back to Reports
-          </Button>
-        </Box>
-      )}
+      {!isHub && <BackToReports hub={HUB} />}
       {children}
     </>
   );

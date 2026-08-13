@@ -106,10 +106,23 @@ export type EditableLineItem = {
 	validationLogic?: 1 | 2 | 3;
 	/** When true the quantity cell is auto-set from item master and locked (Logic 2 / Open indent) */
 	isQuantityLocked?: boolean;
-	/** Available outstanding qty from linked indent lines; enforced live for indent-based POs */
+	/**
+	 * Max enterable qty for an indent-sourced line; enforced live.
+	 * Regular/BOM indent → the line's outstanding indent qty.
+	 * Open indent        → the branch min/max ceiling (view max_po_qty).
+	 * undefined → no enforceable ceiling (min/max not configured).
+	 */
 	availableIndentQty?: number;
 	/** Minimum order quantity step from item master — entered qty must be a multiple of this */
 	minOrderQty?: number;
+	/** Explains the availableIndentQty ceiling when the user exceeds it. */
+	qtyCapReason?: string;
+	/** "Stock: x · Min: y · Max: z · Can order: n" — shown beside the qty cell. */
+	qtyHint?: string;
+	/** True when this line came from an Open indent and the min/max ceiling applies. */
+	isOpenIndentLine?: boolean;
+	/** Source indent type as stored ('Regular' | 'Open' | 'BOM'); case varies by tenant. */
+	indentType?: string;
 };
 
 /**

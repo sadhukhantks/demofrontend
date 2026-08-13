@@ -31,7 +31,8 @@ export interface ReportFilters {
 
 interface ExtraSelect {
   label: string;
-  options: { value: string; label: string }[];
+  /** Omit for a free-text box instead of a dropdown (e.g. Item Code). */
+  options?: { value: string; label: string }[];
 }
 
 interface ReportPanelProps<TRow extends GridValidRowModel> {
@@ -55,6 +56,8 @@ interface ReportPanelProps<TRow extends GridValidRowModel> {
   sortField?: string;
   sortDir?: "asc" | "desc";
   exportName: string;
+  /** Optional row drill-down (see ReportGrid); not fired for total rows. */
+  onRowDoubleClick?: (row: TRow) => void;
 }
 
 /**
@@ -81,6 +84,7 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
   sortField,
   sortDir,
   exportName,
+  onRowDoubleClick,
 }: ReportPanelProps<TRow>) {
   // Draft filters — bound to the inputs.
   const [branchId, setBranchId] = useState<number | null>(initialBranchId);
@@ -90,6 +94,15 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
 
   const pathname = usePathname();
   const { selectedCompany } = useSidebarContext();
+
+  // The branch list and selection come from the localStorage-backed sidebar
+  // context, so the server renders an empty branch and the client renders the
+  // saved one. Holding the filters back until mount keeps the first client
+  // render identical to the server HTML (same gate as MuiDataGrid).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [rows, setRows] = useState<TRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -158,120 +171,140 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
         {title}
       </Typography>
 
-      <Paper elevation={1} sx={{ mb: 2, p: 2 }}>
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 2,
-            flexWrap: "wrap",
-          }}
-        >
-          <Autocomplete
-            options={branches}
-            getOptionLabel={(option) => option.branch_name}
-            isOptionEqualToValue={(option, value) =>
-              option.branch_id === value.branch_id
-            }
-            value={branch}
-            onChange={(_, newValue) => setBranchId(newValue?.branch_id ?? null)}
-            renderInput={(params) => (
-              <TextField {...params} label="Branch" size="small" />
-            )}
-            sx={{ minWidth: 240 }}
-          />
-
-          {dates === "range" && (
-            <>
-              <TextField
-                type="date"
-                label={fromLabel}
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                size="small"
-                slotProps={{ inputLabel: { shrink: true } }}
-                sx={{ width: 170 }}
+      {mounted && (
+        <>
+          <Paper elevation={1} sx={{ mb: 2, p: 2 }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 2,
+                flexWrap: "wrap",
+              }}
+            >
+              <Autocomplete
+                options={branches}
+                getOptionLabel={(option) => option.branch_name}
+                isOptionEqualToValue={(option, value) =>
+                  option.branch_id === value.branch_id
+                }
+                value={branch}
+                onChange={(_, newValue) =>
+                  setBranchId(newValue?.branch_id ?? null)
+                }
+                renderInput={(params) => (
+                  <TextField {...params} label="Branch" size="small" />
+                )}
+                sx={{ minWidth: 240 }}
               />
-              <TextField
-                type="date"
-                label={toLabel}
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                size="small"
-                slotProps={{ inputLabel: { shrink: true } }}
-                sx={{ width: 170 }}
-              />
-            </>
-          )}
 
-          {dates === "single" && (
-            <TextField
-              type="date"
-              label={singleLabel}
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              size="small"
-              slotProps={{ inputLabel: { shrink: true } }}
-              sx={{ width: 180 }}
-            />
-          )}
+              {dates === "range" && (
+                <>
+                  <TextField
+                    type="date"
+                    label={fromLabel}
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    size="small"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    sx={{ width: 170 }}
+                  />
+                  <TextField
+                    type="date"
+                    label={toLabel}
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    size="small"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    sx={{ width: 170 }}
+                  />
+                </>
+              )}
 
-          {extra && (
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel id="report-extra-label">{extra.label}</InputLabel>
-              <Select
-                labelId="report-extra-label"
-                label={extra.label}
-                value={extraValue}
-                onChange={(e) => setExtraValue(e.target.value)}
+              {dates === "single" && (
+                <TextField
+                  type="date"
+                  label={singleLabel}
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  size="small"
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  sx={{ width: 180 }}
+                />
+              )}
+
+              {extra && !extra.options && (
+                <TextField
+                  label={extra.label}
+                  value={extraValue}
+                  onChange={(e) => setExtraValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void runFetch();
+                  }}
+                  size="small"
+                  sx={{ width: 170 }}
+                />
+              )}
+
+              {extra?.options && (
+                <FormControl size="small" sx={{ minWidth: 150 }}>
+                  <InputLabel id="report-extra-label">{extra.label}</InputLabel>
+                  <Select
+                    labelId="report-extra-label"
+                    label={extra.label}
+                    value={extraValue}
+                    onChange={(e) => setExtraValue(e.target.value)}
+                  >
+                    {extra.options.map((o) => (
+                      <MenuItem key={o.value} value={o.value}>
+                        {o.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+
+              <Button
+                variant="contained"
+                disabled={branchId == null || loading}
+                onClick={() => {
+                  void runFetch();
+                }}
+                sx={{
+                  backgroundColor: "#0C3C60",
+                  "&:hover": { backgroundColor: "#092d47" },
+                  textTransform: "none",
+                }}
               >
-                {extra.options.map((o) => (
-                  <MenuItem key={o.value} value={o.value}>
-                    {o.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
+                Submit
+              </Button>
 
-          <Button
-            variant="contained"
-            disabled={branchId == null || loading}
-            onClick={() => {
-              void runFetch();
-            }}
-            sx={{
-              backgroundColor: "#0C3C60",
-              "&:hover": { backgroundColor: "#092d47" },
-              textTransform: "none",
-            }}
-          >
-            Submit
-          </Button>
+              <Button
+                variant="outlined"
+                disabled={rows.length === 0}
+                onClick={() => {
+                  void handleExport();
+                }}
+                sx={{ textTransform: "none" }}
+              >
+                Export to Excel
+              </Button>
+            </Box>
+          </Paper>
 
-          <Button
-            variant="outlined"
-            disabled={rows.length === 0}
-            onClick={() => {
-              void handleExport();
-            }}
-            sx={{ textTransform: "none" }}
-          >
-            Export to Excel
-          </Button>
-        </Box>
-      </Paper>
-
-      <ReportGrid
-        rows={rows}
-        columns={columns}
-        getRowId={getRowId}
-        loading={loading}
-        error={error}
-        branchId={branchId}
-        sortField={sortField}
-        sortDir={sortDir}
-      />
+          <ReportGrid
+            rows={rows}
+            columns={columns}
+            getRowId={getRowId}
+            loading={loading}
+            error={error}
+            branchId={branchId}
+            sortField={sortField}
+            sortDir={sortDir}
+            onRowDoubleClick={onRowDoubleClick}
+          />
+        </>
+      )}
     </Box>
   );
 }

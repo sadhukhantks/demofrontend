@@ -3,6 +3,7 @@
 import * as React from "react";
 import {
 	Alert,
+	Autocomplete,
 	Box,
 	Button,
 	CircularProgress,
@@ -11,7 +12,6 @@ import {
 	DialogContent,
 	DialogContentText,
 	DialogTitle,
-	MenuItem,
 	Snackbar,
 	Table,
 	TableBody,
@@ -100,6 +100,17 @@ export default function WeavingEntryGrid({ coId, branchId, date, spellId, map, r
 	React.useEffect(() => {
 		setEdits({});
 	}, [date, spellId]);
+
+	// Default the Line filter to the first line once rows arrive — rendering every loom at
+	// once (400+ rows of inputs) is what made the tab slow, so there is no "All lines" option.
+	React.useEffect(() => {
+		setLineFilter((cur) => {
+			if (cur !== "") return cur;
+			const first = [...mapRows].sort(byLineThenCode)[0];
+			if (!first) return "";
+			return first.line_no != null ? String(first.line_no) : "none";
+		});
+	}, [mapRows]);
 
 	// Seed cuts/close_jugar from any saved entry WITHOUT clobbering in-progress typing:
 	// mapRows arrive in two phases (saved mapping, then the lazy ~5s carry-forward merge),
@@ -295,17 +306,21 @@ export default function WeavingEntryGrid({ coId, branchId, date, spellId, map, r
 	const error = mapError || entriesError;
 
 	// Unique shed lines for the filter dropdown ("none" bucket for unassigned looms).
-	const lineOptions = Array.from(
-		new Set(mapRows.map((r) => r.line_no).filter((l): l is number => l != null))
-	).sort((a, b) => a - b);
-	const hasNoLine = mapRows.some((r) => r.line_no == null);
+	const lineOptions = [
+		...Array.from(new Set(mapRows.map((r) => r.line_no).filter((l): l is number => l != null)))
+			.sort((a, b) => a - b)
+			.map(String),
+		...(mapRows.some((r) => r.line_no == null) ? ["none"] : []),
+	];
 
 	const q = query.trim().toLowerCase();
 	const visibleRows = [...mapRows].sort(byLineThenCode).filter((r) => {
-		if (lineFilter !== "") {
-			if (lineFilter === "none" ? r.line_no != null : r.line_no !== Number(lineFilter)) return false;
+		// A search spans ALL lines (there is no "All lines" option any more); otherwise
+		// show only the selected line — "" means not defaulted yet, render nothing.
+		if (q === "") {
+			if (lineFilter === "") return false;
+			return lineFilter === "none" ? r.line_no == null : r.line_no === Number(lineFilter);
 		}
-		if (q === "") return true;
 		return (
 			String(r.mech_posting_code ?? "").toLowerCase().includes(q) ||
 			(r.mech_code ?? "").toLowerCase().includes(q) ||
@@ -334,22 +349,17 @@ export default function WeavingEntryGrid({ coId, branchId, date, spellId, map, r
 					onChange={(e) => setQuery(e.target.value)}
 					sx={{ minWidth: 200 }}
 				/>
-				<TextField
-					select
+				<Autocomplete
 					size="small"
-					label="Line"
-					value={lineFilter}
-					onChange={(e) => setLineFilter(e.target.value)}
-					sx={{ minWidth: 120 }}
-				>
-					<MenuItem value="">All lines</MenuItem>
-					{lineOptions.map((l) => (
-						<MenuItem key={l} value={String(l)}>
-							Line {l}
-						</MenuItem>
-					))}
-					{hasNoLine ? <MenuItem value="none">No line</MenuItem> : null}
-				</TextField>
+					options={lineOptions}
+					value={lineFilter === "" ? null : lineFilter}
+					onChange={(_e, v) => {
+						if (v) setLineFilter(v); // ignore clear — a blank filter shows nothing
+					}}
+					getOptionLabel={(o) => (o === "none" ? "No line" : `Line ${o}`)}
+					sx={{ minWidth: 140 }}
+					renderInput={(params) => <TextField {...params} label="Line" />}
+				/>
 				<Button
 					variant="outlined"
 					size="small"

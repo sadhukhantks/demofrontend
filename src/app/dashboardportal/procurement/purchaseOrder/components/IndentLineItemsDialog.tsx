@@ -32,8 +32,22 @@ export type IndentLineItem = {
   qty: number;
   /** Outstanding (unfulfilled) qty for this indent line — from vw_proc_indent_outstanding */
   outstanding_qty?: number;
-  /** Minimum order quantity step from item master */
+  /** Minimum order quantity step (reorder lot) from item_minmax_mst */
   min_order_qty?: number;
+  // --- Branch min/max + stock position, from vw_item_balance_qty_by_branch_new.
+  // Drives the Open-indent ceiling (spec §5 L112 / §10.5). All null when the item
+  // has no item_minmax_mst row for the branch — see has_minmax.
+  /** False when no item_minmax_mst row exists for this item+branch (view returns no row). */
+  has_minmax?: boolean | number | null;
+  maxqty?: number | null;
+  minqty?: number | null;
+  /** Current branch stock (view cur_stock). */
+  branch_stock?: number | null;
+  /** Total outstanding PO qty for this item+branch (view bal_tot_po_qty). */
+  outstanding_po_qty?: number | null;
+  /** Precomputed ceiling; sentinels -1 = no minmax, -2 = open PO outstanding. */
+  max_po_qty?: number | null;
+  min_po_qty?: number | null;
   uom_id: number;
   uom_name: string;
   item_make_id?: number;

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { Suspense } from "react";
 import { Box, CircularProgress } from "@mui/material";
 import { GridColDef } from "@mui/x-data-grid";
@@ -12,12 +12,14 @@ import {
 } from "@/utils/inventoryReportService";
 
 const columns: GridColDef<ConsumptionRow>[] = [
+  { field: "item_group_code", headerName: "Group Code", width: 120 },
   { field: "item_group", headerName: "Item Group", flex: 1, minWidth: 200 },
   numCol("production", "Production"),
   numCol("overhauling", "Overhauling"),
   numCol("maintenance", "Maintenance"),
   numCol("capital", "Capital"),
   numCol("general", "General"),
+  numCol("others", "Others"),
   numCol("total", "Total", 130),
 ];
 
@@ -44,7 +46,7 @@ function Content() {
       }
       columns={columns}
       getRowId={(r) => r.id}
-      sortField="item_group"
+      // No initial sort — keeps the backend's Grand Total row last.
       exportName="consumption-is06"
     />
   );

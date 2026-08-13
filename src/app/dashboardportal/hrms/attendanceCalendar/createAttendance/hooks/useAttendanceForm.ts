@@ -37,7 +37,7 @@ const blankValues: AttendanceFormValues = {
   eb_id: 0,
   attendance_date: "",
   attendance_mark: "P",
-  attendance_source: "Manual",
+  attendance_source: "M",
   attendance_type: "R",
   spell: "",
   spell_id: 0,
@@ -175,7 +175,7 @@ export function useAttendanceForm(params: {
           eb_id: h.eb_id,
           attendance_date: h.attendance_date ?? "",
           attendance_mark: h.attendance_mark ?? "P",
-          attendance_source: h.attendance_source ?? "Manual",
+          attendance_source: h.attendance_source ?? "M",
           attendance_type: h.attendance_type ?? "R",
           spell: h.spell ?? "",
           spell_id: h.spell_id ?? 0,
@@ -206,6 +206,28 @@ export function useAttendanceForm(params: {
       cancelled = true;
     };
   }, [id, mode, defaultBranchId, loadDesignations]);
+
+  // Entry/exit are required to save, but stored records can carry NULLs — the
+  // mobile app writes an entry punch with no exit, and bio rows sometimes have
+  // neither. Seed the blanks from the stored spell's own start/end as soon as
+  // its options land, so an edit is savable without re-picking the spell. Only
+  // blanks are touched, so a real recorded time is never overwritten.
+  useEffect(() => {
+    if (mode === "create" || !values.spell_id) return;
+    if (values.entry_time && values.exit_time) return;
+    const opt = spellOptions.find((s) => s.spell_id === values.spell_id);
+    if (!opt) return;
+    const entry = values.entry_time || opt.starting_time || "";
+    const exit = values.exit_time || opt.end_time || "";
+    if (entry === values.entry_time && exit === values.exit_time) return;
+    setValues((prev) => ({ ...prev, entry_time: entry, exit_time: exit }));
+  }, [
+    mode,
+    values.spell_id,
+    values.entry_time,
+    values.exit_time,
+    spellOptions,
+  ]);
 
   const markWorkerInvalid = useCallback(() => {
     setWorkerName("");

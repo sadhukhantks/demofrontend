@@ -14,6 +14,13 @@ export function currentMonthRange(): { from: string; to: string } {
   return { from: iso(new Date(y, m, 1)), to: iso(new Date(y, m + 1, 0)) };
 }
 
+/** The last `days` days ending today (inclusive), as YYYY-MM-DD. */
+export function lastDaysRange(days: number): { from: string; to: string } {
+  const from = new Date();
+  from.setDate(from.getDate() - (days - 1));
+  return { from: iso(from), to: iso(new Date()) };
+}
+
 /** Today as YYYY-MM-DD. */
 export function todayIso(): string {
   return iso(new Date());

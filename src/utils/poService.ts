@@ -5,6 +5,8 @@ export type POLine = {
   id: string;
   indentNo?: string;
   indentDtlId?: string;
+  /** Source indent type — 'Regular' | 'Open' | 'BOM' (case varies by tenant). */
+  indentType?: string;
   department?: string;
   itemGroup?: string;
   item?: string;
