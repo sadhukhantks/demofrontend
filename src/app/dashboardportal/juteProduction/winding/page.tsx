@@ -4,6 +4,7 @@ import * as React from "react";
 import {
 	Alert,
 	Box,
+	Button,
 	CircularProgress,
 	MenuItem,
 	Tab,
@@ -11,6 +12,7 @@ import {
 	TextField,
 	Typography,
 } from "@mui/material";
+import { useRouter } from "next/navigation";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { useWindingDoffSetup } from "./hooks/useWindingDoffSetup";
@@ -23,10 +25,21 @@ import QualityGrid from "./_components/QualityGrid";
 import WinderWiseGrid from "./_components/WinderWiseGrid";
 import { todayISO } from "../spinning/utils/spinningCalc";
 
+// ponytail: sessionStorage flag instead of a ?query param — useSearchParams()
+// would force a Suspense boundary on this client page for a one-shot banner.
+const SWITCH_FLAG = "juteProdPageSwitch";
+
 export default function WindingPage() {
+	const router = useRouter();
 	const [mounted, setMounted] = React.useState(false);
+	// Set by the Spinning page when the user jumped here from it.
+	const [switchedHere, setSwitchedHere] = React.useState(false);
 	React.useEffect(() => {
 		setMounted(true);
+		if (sessionStorage.getItem(SWITCH_FLAG) === "winding") {
+			sessionStorage.removeItem(SWITCH_FLAG);
+			setSwitchedHere(true);
+		}
 	}, []);
 
 	const { coId } = useSelectedCompanyCoId();
@@ -101,12 +114,40 @@ export default function WindingPage() {
 
 	return (
 		<Box sx={{ p: { xs: 1.5, md: 3 } }}>
-			<Typography variant="h5" sx={{ fontWeight: 600 }}>
-				Winding Production
-			</Typography>
-			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-				Doff entry, spindle jugar (open/close) and daily quality assignment.
-			</Typography>
+			<Box
+				sx={{
+					display: "flex",
+					alignItems: "flex-start",
+					justifyContent: "space-between",
+					gap: 2,
+					flexWrap: "wrap",
+				}}
+			>
+				<Box>
+					<Typography variant="h5" sx={{ fontWeight: 600 }}>
+						Winding Production
+					</Typography>
+					<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+						Doff entry, spindle jugar (open/close) and daily quality assignment.
+					</Typography>
+				</Box>
+				<Button
+					size="small"
+					variant="outlined"
+					onClick={() => {
+						sessionStorage.setItem(SWITCH_FLAG, "spinning");
+						router.push("/dashboardportal/juteProduction/spinning");
+					}}
+				>
+					Go to Spinning Production
+				</Button>
+			</Box>
+
+			{switchedHere ? (
+				<Alert severity="warning" sx={{ mb: 2 }} onClose={() => setSwitchedHere(false)}>
+					Came from Spinning Production — double-check the Date and Spell before entering.
+				</Alert>
+			) : null}
 
 			{sidebarBranchIds.length > 1 ? (
 				<TextField
