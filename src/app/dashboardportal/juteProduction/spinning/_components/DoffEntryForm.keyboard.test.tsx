@@ -49,6 +49,7 @@ function renderForm() {
 			setup={setup}
 			date="2026-08-01"
 			spellId={1}
+			autoWeight={false}
 			editingEntry={null}
 			onSaved={() => {}}
 			onCancelEdit={() => {}}
