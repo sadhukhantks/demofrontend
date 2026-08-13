@@ -214,6 +214,9 @@ export default function DoffEntryForm({
 			machine_id: Number(machineId),
 			trolly_id: Number(trollyId),
 			gross_weight: Number(grossWeight),
+			// Provenance of the gross reading — server stamps weight_type
+			// 'Auto' (scale) vs 'SPG1' (typed).
+			auto_weight: autoWeight,
 		};
 		if (chosenItemId != null && chosenItemId !== mappedItemId) {
 			body.item_id = chosenItemId;
