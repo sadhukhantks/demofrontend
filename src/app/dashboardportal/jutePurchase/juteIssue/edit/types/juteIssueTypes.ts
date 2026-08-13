@@ -12,17 +12,39 @@ export type Option = {
 };
 
 /**
- * Stock item from vw_jute_stock_outstanding view.
- * Represents available MR stock for issue.
+ * Which stock source a row came from.
+ *
+ * "MR"    — purchased jute, one row per MR line (vw_jute_stock_outstanding).
+ * "WASTE" — process waste booked on the Waste Entry page, one row per booking
+ *           (vw_jute_waste_stock_outstanding). Waste is kg-only and is priced
+ *           from the Waste Rate master, not from a purchase.
+ */
+export type StockSource = "MR" | "WASTE";
+
+/**
+ * A row of available jute stock, from either source.
+ *
+ * The backend concatenates both sources into one list, so the MR-only fields
+ * (gate entry, MR number, warehouse, jute_mr_li_id) are null on a waste row and
+ * the waste-only fields (waste_entry_id, dept_name, area_name) are null on an
+ * MR row. Always key rows on `stock_key` — jute_mr_li_id is NOT unique across
+ * the merged list because it is null for every waste row.
  */
 export type StockOutstandingItem = {
-  jute_mr_li_id: number;
-  jute_gate_entry_no?: number;
-  warehouse_name?: string;
+  /** Unique across BOTH sources: "MR-<jute_mr_li_id>" or "W-<waste_entry_id>". */
+  stock_key: string;
+  source: StockSource;
+  jute_mr_li_id: number | null;
+  waste_entry_id: number | null;
+  /** Waste only — the department and collection area the waste came from. */
+  dept_name?: string | null;
+  area_name?: string | null;
+  jute_gate_entry_no?: number | null;
+  warehouse_name?: string | null;
   branch_id: number;
-  branch_mr_no: number;
-  mr_num?: string;
-  jute_mr_id: number;
+  branch_mr_no: number | null;
+  mr_num?: string | null;
+  jute_mr_id: number | null;
   item_grp_id: number;
   jute_group_name: string;
   item_id: number;
@@ -30,6 +52,7 @@ export type StockOutstandingItem = {
   actual_qty: number;
   actual_weight: number;
   actual_rate: number;
+  /** "KG" for every waste row; the MR's own unit (BALE / LOOSE / DRUM) otherwise. */
   unit_conversion: string;
   balqty: number;
   balweight: number;
@@ -45,11 +68,17 @@ export type JuteIssueLineItem = {
   issue_date: string;
   status_id: number;
   status: string;
-  jute_mr_li_id: number;
-  jute_mr_id: number;
-  jute_gate_entry_no?: number;
-  branch_mr_no: number;
-  mr_num?: string;
+  source: StockSource;
+  jute_mr_li_id: number | null;
+  waste_entry_id: number | null;
+  /** Waste only — provenance of the originating Waste Entry booking. */
+  dept_name?: string | null;
+  area_name?: string | null;
+  waste_date?: string | null;
+  jute_mr_id: number | null;
+  jute_gate_entry_no?: number | null;
+  branch_mr_no: number | null;
+  mr_num?: string | null;
   item_grp_id?: number;
   jute_group_name?: string;
   item_id: number;
@@ -71,7 +100,16 @@ export type JuteIssueLineItem = {
 export type EditableLineItem = {
   id: string; // UI-only row ID
   jute_issue_id?: number; // Backend ID (null for new)
+  /**
+   * Which stock row this line draws on — "MR-<id>" or "W-<id>". This, not
+   * jute_mr_li_id, is what draft quantities are netted against, because a
+   * waste line has no MR line and every waste row would otherwise collide on
+   * the same empty key.
+   */
+  stock_key: string;
+  source: StockSource;
   jute_mr_li_id: string;
+  waste_entry_id: string;
   yarn_type_id: string;
   item_grp_id: string;
   item_id: string;
@@ -82,9 +120,11 @@ export type EditableLineItem = {
   issue_value: number;
   status_id?: number; // Item-level status for approval workflow
   // Display fields (from stock outstanding)
-  jute_gate_entry_no?: number;
-  branch_mr_no?: number;
-  mr_num?: string;
+  jute_gate_entry_no?: number | null;
+  branch_mr_no?: number | null;
+  mr_num?: string | null;
+  dept_name?: string | null;
+  area_name?: string | null;
   item_name?: string;
   jute_group_name?: string;
   balqty?: number;

@@ -9,6 +9,12 @@ import type { EditableLineItem, ItemGroupCacheEntry, ItemGroupRecord } from "../
 import { createBlankLine, generateLineId } from "../utils/poFactories";
 import { calculateLineAmount as calculateLineAmountUtil, calculateLineTax } from "../utils/poCalculations";
 import { isPercentageDiscountMode, isAmountDiscountMode, DISCOUNT_MODE } from "../utils/poConstants";
+import {
+	buildCapHint,
+	computeIndentLineCap,
+	isOpenIndentType,
+	resolveEditLineBounds,
+} from "../utils/poValidations";
 
 export const lineHasAnyData = (line: EditableLineItem) =>
 	Boolean(line.itemGroup || line.item || line.itemMake || line.quantity || line.rate || line.uom || line.remarks);
@@ -79,6 +85,8 @@ export const usePOLineItems = ({
 		poDtlId: line.id ? String(line.id) : undefined,
 		indentDtlId: line.indentDtlId,
 		indentNo: line.indentNo,
+		indentType: line.indentType,
+		isOpenIndentLine: isOpenIndentType(line.indentType),
 		itemGroup: line.itemGroup ? String(line.itemGroup) : "",
 		item: line.item ?? "",
 		itemCode: line.itemCode,
@@ -256,10 +264,19 @@ export const usePOLineItems = ({
 							const moq = updated.minOrderQty && updated.minOrderQty > 0 ? updated.minOrderQty : null;
 							const isValidMultiple = moq === null || Math.abs(Math.round(qty / moq) - qty / moq) < 0.0001;
 							if (updated.indentDtlId && updated.availableIndentQty != null) {
-								// Indent-based line: qty must not exceed available outstanding
-								if (qty > updated.availableIndentQty) {
-									updated.rowError = `Cannot exceed outstanding indent qty (${updated.availableIndentQty})`;
-								} else if (!isValidMultiple) {
+								// Indent-based line. Ceiling is the outstanding indent qty for
+								// Regular/BOM, or the branch min/max ceiling for Open.
+								const cap = updated.availableIndentQty;
+								// A reorder lot bigger than the ceiling can never be satisfied
+								// (cap 180 with a 210 lot leaves no valid qty but 0), so don't
+								// demand a multiple the cap itself forbids. minPoQty is already
+								// cleared upstream when it exceeds the cap.
+								const moqEnforceable = moq !== null && moq <= cap;
+								if (qty > cap) {
+									updated.rowError = updated.qtyCapReason ?? `Cannot exceed outstanding indent qty (${cap})`;
+								} else if (updated.minPoQty != null && qty < updated.minPoQty) {
+									updated.rowError = `Qty below min PO qty (${updated.minPoQty})`;
+								} else if (moqEnforceable && !isValidMultiple) {
 									updated.rowError = `Qty must be a multiple of min order qty (${moq})`;
 								} else {
 									updated.rowError = undefined;
@@ -437,8 +454,10 @@ export const usePOLineItems = ({
 				});
 
 				const newLines = newItems.map((item) => {
-					// Prefer outstanding qty (unfulfilled) over original indent qty
-					const availableQty = item.outstanding_qty != null ? item.outstanding_qty : (item.qty ?? 0);
+					// Ceiling is per line, not per PO header — one PO may club lines from
+					// several indents of differing types. Open lines carry no committed
+					// indent qty, so their ceiling comes from the branch min/max position.
+					const capInfo = computeIndentLineCap(item);
 					return {
 						id: generateLineId(),
 						indentDtlId: String(item.indent_dtl_id),
@@ -447,18 +466,23 @@ export const usePOLineItems = ({
 						item: String(item.item_id),
 						itemCode: item.full_item_code || item.item_code,
 						itemMake: item.item_make_id ? String(item.item_make_id) : "",
-						quantity: String(availableQty),
+						quantity: String(capInfo.prefill),
 						rate: "",
 						uom: String(item.uom_id),
 						discountValue: "",
 						remarks: item.remarks || "",
 						taxPercentage: item.tax_percentage,
 						hsnCode: itemGroupCache[String(item.item_grp_id)]?.itemHsnById[String(item.item_id)] ?? "",
-						/** Max enterable qty for indent-based row = outstanding */
-						availableIndentQty: availableQty,
-						/** Qty is always editable for indent items (inc. open indent); validation enforces the cap and MOQ multiples */
+						availableIndentQty: capInfo.cap ?? undefined,
+						/** Qty stays editable for indent items (inc. open indent); the cap and MOQ multiples are enforced live */
 						isQuantityLocked: false,
 						minOrderQty: item.min_order_qty ?? undefined,
+						qtyCapReason: capInfo.reason || undefined,
+						qtyHint: capInfo.hint ?? undefined,
+						isOpenIndentLine: capInfo.isOpen,
+						rowWarning: capInfo.warning,
+						minPoQty: capInfo.minPoQty,
+						maxPoQty: capInfo.cap ?? undefined,
 					};
 				});
 
@@ -547,13 +571,16 @@ export const usePOLineItems = ({
 				if (!line.item) return;
 
 				if (line.indentDtlId) {
-					// Indent-based line: cap available qty to the committed qty in the PO
+					// Indent-based line. Regular/BOM keep the committed-qty cap. Open lines
+					// are governed by the branch min/max ceiling instead — the indent itself
+					// carries no committed qty — so their real ceiling arrives with the
+					// validation response below.
 					const currentQty = Number(line.quantity) || 0;
+					const isOpenLine = isOpenIndentType(line.indentType);
 					setLineItems((prev) =>
 						prev.map((l) => (l.id === line.id ? { ...l, availableIndentQty: currentQty } : l)),
 					);
 
-					// Fire validation API to retrieve minOrderQty (non-blocking)
 					if (resolvedCoId && resolvedBranchId && resolvedExpenseTypeId) {
 						void (async () => {
 							try {
@@ -563,13 +590,31 @@ export const usePOLineItems = ({
 									itemId: line.item!,
 									poType: resolvedPoType,
 									expenseTypeId: resolvedExpenseTypeId,
-									poId,
+									poId, // excludes this PO's own qty from the outstanding figure
 								});
 								if (!result) return;
 								setLineItems((prev) =>
-									prev.map((l) =>
-										l.id === line.id ? { ...l, minOrderQty: result.min_order_qty ?? undefined } : l,
-									),
+									prev.map((l) => {
+										if (l.id !== line.id) return l;
+										const bounds = resolveEditLineBounds(result, currentQty, isOpenLine);
+										return {
+											...l,
+											minOrderQty: result.min_order_qty ?? undefined,
+											availableIndentQty: bounds.cap,
+											minPoQty: bounds.minPoQty,
+											maxPoQty: bounds.cap,
+											qtyCapReason: bounds.reason,
+											rowWarning: bounds.warning ?? l.rowWarning,
+											qtyHint:
+												buildCapHint(
+													result.branch_stock ?? 0,
+													result.minqty,
+													result.maxqty,
+													result.min_order_qty,
+													bounds.cap ?? null,
+												) ?? undefined,
+										};
+									}),
 								);
 							} catch {
 								// Silently ignore — do not block editing
