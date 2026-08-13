@@ -383,8 +383,9 @@ function CreateAttendanceContent() {
             InputLabelProps={{ shrink: true }}
             required
           />
-          {/* Mark, source and spell identify which attendance this row IS, so
-              they are fixed once created — the edit endpoint ignores them too. */}
+          {/* Mark and source identify which attendance this row IS and how it
+              was captured, so they are fixed once created — the edit endpoint
+              ignores them too. (The spell below stays editable.) */}
           <SearchSelect
             label="Attendance Mark"
             value={values.attendance_mark}
@@ -443,7 +444,7 @@ function CreateAttendanceContent() {
             value={values.spell_id ? String(values.spell_id) : ""}
             options={spellOpts}
             onChange={(v) => applySpell(Number(v) || 0)}
-            disabled={disabled || mode === "edit"}
+            disabled={disabled}
             required
           />
           <TextField

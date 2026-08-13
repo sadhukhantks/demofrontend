@@ -209,10 +209,9 @@ export function useAttendanceForm(params: {
 
   // Entry/exit are required to save, but stored records can carry NULLs — the
   // mobile app writes an entry punch with no exit, and bio rows sometimes have
-  // neither. On edit the spell is locked, so the user cannot re-pick it to
-  // trigger applySpell's auto-fill; seed the blanks from the spell's own
-  // start/end as soon as its options land. Only blanks are touched, so a real
-  // recorded time is never overwritten.
+  // neither. Seed the blanks from the stored spell's own start/end as soon as
+  // its options land, so an edit is savable without re-picking the spell. Only
+  // blanks are touched, so a real recorded time is never overwritten.
   useEffect(() => {
     if (mode === "create" || !values.spell_id) return;
     if (values.entry_time && values.exit_time) return;
