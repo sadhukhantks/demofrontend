@@ -5,7 +5,9 @@ import {
 	Alert,
 	Box,
 	CircularProgress,
+	FormControlLabel,
 	MenuItem,
+	Switch,
 	Tab,
 	Tabs,
 	TextField,
@@ -63,6 +65,8 @@ export default function SpinningPage() {
 	// Selected spell_id from setup.spells (branch-correct — spell codes repeat
 	// per branch); every payload sends spell_id, never the code string.
 	const [spellId, setSpellId] = React.useState<number | "">("");
+	// Weighing-scale feed for Doff Entry. Off = the operator types Gross Weight.
+	const [autoWeight, setAutoWeight] = React.useState(true);
 
 	const [editingEntry, setEditingEntry] = React.useState<DoffEntryRow | null>(null);
 	// Bumped after a Process so the planning grid + lock status re-fetch the frozen log.
@@ -205,6 +209,18 @@ export default function SpinningPage() {
 										))}
 									</TextField>
 								) : null}
+								{tab === 0 ? (
+									<FormControlLabel
+										control={
+											<Switch
+												size="small"
+												checked={autoWeight}
+												onChange={(e) => setAutoWeight(e.target.checked)}
+											/>
+										}
+										label={`Auto Weight: ${autoWeight ? "Yes" : "No"}`}
+									/>
+								) : null}
 							</Box>
 
 							{/* One process/staleness bar, visible on all three tabs (spec 5.6). */}
@@ -225,6 +241,7 @@ export default function SpinningPage() {
 										setup={setup}
 										date={tranDate}
 										spellId={spellId === "" ? null : spellId}
+										autoWeight={autoWeight}
 										editingEntry={editingEntry}
 										onSaved={() => {
 											setEditingEntry(null);

@@ -17,6 +17,7 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 import type { DoffEntryRow, SpinningSetup } from "../types/spinningTypes";
 import { computeNet, computeTare } from "../utils/spinningCalc";
 import { useDoffMachinePrevState } from "../hooks/useDoffMachinePrevState";
+import { useScaleWeight } from "../hooks/useScaleWeight";
 
 type Props = {
 	coId: string;
@@ -24,6 +25,8 @@ type Props = {
 	setup: SpinningSetup;
 	date: string;
 	spellId: number | null;
+	/** Poll the weighing scale and drive Gross Weight from it. */
+	autoWeight: boolean;
 	editingEntry: DoffEntryRow | null;
 	onSaved: () => void;
 	onCancelEdit: () => void;
@@ -62,6 +65,7 @@ export default function DoffEntryForm({
 	setup,
 	date,
 	spellId,
+	autoWeight,
 	editingEntry,
 	onSaved,
 	onCancelEdit,
@@ -109,6 +113,13 @@ export default function DoffEntryForm({
 			setError(null);
 		}
 	}, [editingEntry]);
+
+	// Live scale feed. Only while creating — an edit is a correction of an
+	// already-weighed trolly, the scale must not overwrite it.
+	const { weight: scaleWeight, online: scaleOnline } = useScaleWeight(!editing && autoWeight);
+	React.useEffect(() => {
+		if (scaleWeight != null) setGrossWeight(String(scaleWeight));
+	}, [scaleWeight]);
 
 	const { state: prevState, loading: prevLoading } = useDoffMachinePrevState(
 		coId,
@@ -358,6 +369,17 @@ export default function DoffEntryForm({
 					onChange={(e) => setGrossWeight(e.target.value)}
 					size="small"
 					fullWidth
+					// Auto mode owns the field — the scale is the only writer. That
+					// also drops it out of the Enter-advance chain (readonly inputs
+					// are skipped), so Enter on Yarn saves straight away.
+					InputProps={{ readOnly: autoWeight && !editing }}
+					helperText={
+						editing || !autoWeight
+							? ""
+							: scaleOnline
+								? "Live from scale"
+								: "Scale offline — turn Auto Weight off to type"
+					}
 				/>
 				<TextField
 					label="Bobbin Wt"
