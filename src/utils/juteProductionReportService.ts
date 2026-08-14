@@ -92,7 +92,7 @@ export interface DprWeavingQualityRow {
 
 export interface DprWeavingSection {
   qualities: DprWeavingQualityRow[];
-  shift_totals: Record<string, number>;
+  shift_totals: Record<"A" | "B" | "C", number>;
   total: {
     production_mt: number;
     loom_runs: number;
@@ -182,7 +182,9 @@ export interface DprKpi {
   winding_kg: number | null;
   total_hands: number;
   hands_per_mt: number;
-  jute_closing_mt: number | null;
+  /** Raw closing stock in the tenant's stored weight unit (kg on some
+   * tenants, quintal on others) — deliberately NOT converted to MT. */
+  jute_closing_weight: number | null;
   jute_days_stock: number | null;
 }
 

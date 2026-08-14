@@ -24,6 +24,7 @@ import {
   Button,
   Chip,
   CircularProgress,
+  GlobalStyles,
   Stack,
   TextField,
   Typography,
@@ -49,13 +50,19 @@ import {
   type KpiState,
 } from "./_components/DprPieces";
 
+// Status thresholds for the KPI strip.
+const UTIL_GOOD_PCT = 80;
+const UTIL_WARN_PCT = 50;
+const JUTE_COVER_GOOD_DAYS = 30;
+const JUTE_COVER_WARN_DAYS = 10;
+
 function utilState(pct: number): KpiState {
-  return pct >= 80 ? "good" : pct >= 50 ? "warn" : "bad";
+  return pct >= UTIL_GOOD_PCT ? "good" : pct >= UTIL_WARN_PCT ? "warn" : "bad";
 }
 
 function daysStockState(days: number | null): KpiState {
   if (days === null) return undefined;
-  return days >= 30 ? "good" : days >= 10 ? "warn" : "bad";
+  return days >= JUTE_COVER_GOOD_DAYS ? "good" : days >= JUTE_COVER_WARN_DAYS ? "warn" : "bad";
 }
 
 function Content() {
@@ -66,6 +73,8 @@ function Content() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fetchedOnce = useRef(false);
+  const branchSeeded = useRef(false);
+  const lastCoId = useRef<number | null>(null);
 
   const runFetch = useCallback(
     async (bId: number | null, d: string) => {
@@ -89,10 +98,27 @@ function Content() {
     [coId],
   );
 
-  // Seed the branch once the sidebar context resolves, then fetch once.
+  // Seed the branch ONCE when the sidebar context resolves — after that the
+  // user may clear the field to run the company-wide (branch-less) report.
   useEffect(() => {
-    if (branchId == null && initialBranchId != null) setBranchId(initialBranchId);
-  }, [initialBranchId, branchId]);
+    if (!branchSeeded.current && initialBranchId != null) {
+      branchSeeded.current = true;
+      setBranchId(initialBranchId);
+    }
+  }, [initialBranchId]);
+
+  // Sidebar company switch: the loaded report and the selected branch belong
+  // to the old company — drop both so nothing renders (or prints) mislabeled.
+  useEffect(() => {
+    if (coId == null) return;
+    if (lastCoId.current != null && lastCoId.current !== coId) {
+      setData(null);
+      setBranchId(null);
+      branchSeeded.current = false;
+      fetchedOnce.current = false;
+    }
+    lastCoId.current = coId;
+  }, [coId]);
 
   useEffect(() => {
     if (!fetchedOnce.current && coId != null && (branchId ?? initialBranchId) != null) {
@@ -109,13 +135,30 @@ function Content() {
 
   return (
     <Box sx={{ p: 2 }}>
-      {/* Controls — hidden on print */}
+      {/* On print, show ONLY the report content: the portal shell (sidebar,
+          hub back-button) and this page's controls all sit outside
+          .dpr-print-root and get visibility-hidden. */}
+      <GlobalStyles
+        styles={{
+          "@media print": {
+            "body *": { visibility: "hidden" },
+            ".dpr-print-root, .dpr-print-root *": { visibility: "visible" },
+            ".dpr-print-root": {
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+            },
+          },
+        }}
+      />
+      {/* Controls — hidden on print (displayPrint beats Tailwind print:hidden
+          on MUI components, whose emotion display:flex can win the cascade) */}
       <Stack
         direction={{ xs: "column", md: "row" }}
         spacing={1.5}
         alignItems={{ md: "center" }}
-        className="print:hidden"
-        sx={{ mb: 2 }}
+        sx={{ mb: 2, displayPrint: "none" }}
       >
         <Typography variant="h6" sx={{ fontWeight: 700, flexGrow: 1 }}>
           Daily Production Report
@@ -155,18 +198,6 @@ function Content() {
         </Button>
       </Stack>
 
-      {/* Print letterhead */}
-      {data ? (
-        <Box className="hidden print:block" sx={{ mb: 1, textAlign: "center" }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-            {companyName ?? ""} — Daily Production Report
-          </Typography>
-          <Typography variant="caption">
-            {selectedBranch?.branch_name ?? ""} · {data.report_date} (MTD from {data.date_from})
-          </Typography>
-        </Box>
-      ) : null}
-
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
@@ -179,7 +210,17 @@ function Content() {
       ) : null}
 
       {!loading && data ? (
-        <Stack spacing={2}>
+        <Box className="dpr-print-root">
+          {/* Print letterhead */}
+          <Box sx={{ display: "none", displayPrint: "block", mb: 1, textAlign: "center" }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              {companyName ?? ""} — Daily Production Report
+            </Typography>
+            <Typography variant="caption">
+              {selectedBranch?.branch_name ?? ""} · {data.report_date} (MTD from {data.date_from})
+            </Typography>
+          </Box>
+          <Stack spacing={2}>
           {/* KPI strip */}
           <Stack direction="row" spacing={1.5} useFlexGap flexWrap="wrap">
             <KpiCard
@@ -207,6 +248,7 @@ function Content() {
             <KpiCard
               label="Winding (kg)"
               value={fmt(data.kpi.winding_kg, 0)}
+              sub={data.kpi.winding_kg === null ? "select a branch" : undefined}
             />
             <KpiCard
               label="Hands / MT"
@@ -214,8 +256,8 @@ function Content() {
               sub={`${fmt(data.kpi.total_hands, 0)} hands`}
             />
             <KpiCard
-              label="Jute Stock (MT)"
-              value={fmt(data.kpi.jute_closing_mt, 1)}
+              label="Jute Closing Stock"
+              value={fmt(data.kpi.jute_closing_weight, 0)}
               sub={
                 data.kpi.jute_days_stock !== null
                   ? `${fmt(data.kpi.jute_days_stock, 1)} days cover`
@@ -459,7 +501,7 @@ function Content() {
                     <NumTd value={r.std_count} />
                     <NumTd value={r.obs_count} />
                     <NumTd value={r.corr_count} />
-                    <NumTd value={r.hy_lt_pct} tone="pos-bad" />
+                    <NumTd value={r.hy_lt_pct} tone="nonzero-bad" />
                     <VerdictChip remark={r.remark} />
                     <NumTd value={r.day_tests} digits={0} />
                     <NumTd value={r.mtd_corr_count} />
@@ -605,7 +647,8 @@ function Content() {
               </Stack>
             </SectionCard>
           ) : null}
-        </Stack>
+          </Stack>
+        </Box>
       ) : null}
 
       {!loading && !data && !error ? (

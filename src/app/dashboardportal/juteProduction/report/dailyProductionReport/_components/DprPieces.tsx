@@ -104,6 +104,10 @@ export function DprTable({ head, children }: DprTableProps) {
             py: 0.5,
           },
           "& td": { py: 0.4, whiteSpace: "nowrap" },
+          // Print cannot scroll: let wide tables wrap instead of clipping.
+          "@media print": {
+            "& td, & th": { whiteSpace: "normal" },
+          },
         }}
       >
         <TableHead>{head}</TableHead>
@@ -116,8 +120,9 @@ export function DprTable({ head, children }: DprTableProps) {
 export interface NumTdProps {
   value: number | null | undefined;
   digits?: number;
-  /** Tint the text by sign/threshold; value text itself carries the signal. */
-  tone?: "pos-bad" | "neg-bad" | undefined;
+  /** Tint the text by sign/threshold; value text itself carries the signal.
+   * "nonzero-bad" is for deviation metrics where BOTH signs are off-standard. */
+  tone?: "pos-bad" | "neg-bad" | "nonzero-bad" | undefined;
   bold?: boolean;
 }
 
@@ -125,7 +130,8 @@ export interface NumTdProps {
 export function NumTd({ value, digits = 2, tone, bold }: NumTdProps) {
   let color: string | undefined;
   if (tone && value !== null && value !== undefined && value !== 0) {
-    const isBad = tone === "pos-bad" ? value > 0 : value < 0;
+    const isBad =
+      tone === "nonzero-bad" ? true : tone === "pos-bad" ? value > 0 : value < 0;
     color = isBad ? "error.main" : "success.main";
   }
   return (
