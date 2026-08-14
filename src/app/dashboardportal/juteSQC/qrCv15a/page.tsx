@@ -10,7 +10,8 @@ import { useQrCv15aByDate } from "./hooks/useQrCv15aByDate";
 import QrCv15aForm from "./_components/QrCv15aForm";
 import QrCv15aGrid from "./_components/QrCv15aGrid";
 import SqcPrintButton from "../_shared/SqcPrintButton";
-import type { SqcPrintReport, PrintColumn } from "../_shared/printReport";
+import { readingCells, readingColumns } from "../_shared/printReport";
+import type { SqcPrintReport, PrintColumn, PrintSection } from "../_shared/printReport";
 import type { QrCv15aGroup } from "./types/qrCv15aTypes";
 
 // Mirror the on-screen grid columns (summary, not the per-reading expand panel).
@@ -104,20 +105,45 @@ export default function QrCv15aSqcPage() {
 			cv_pct: printFmt(g.stats?.cv_pct),
 			qr_at_min: printFmt(g.stats?.qr_at_min),
 		}));
+
+		const sections: PrintSection[] = [
+			{
+				kind: "table",
+				columns: QR_CV_15A_PRINT_COLUMNS,
+				rows,
+				emptyText: "No groups recorded for this day.",
+			},
+		];
+
+		// The 12 breaking-strength readings are too wide for the summary table,
+		// so they get their own section beneath it (3 dp, as on screen).
+		const readingCount = Math.max(0, ...groups.map((g) => g.readings?.length ?? 0));
+		if (readingCount > 0) {
+			sections.push({
+				kind: "table",
+				title: "Recorded Readings",
+				columns: [
+					{ key: "quality", label: "QUALITY" },
+					{ key: "drawing", label: "3RD DRAWING" },
+					{ key: "spinning", label: "SPINNING FRAME" },
+					...readingColumns("r", "R", readingCount),
+				],
+				rows: groups.map((g) => ({
+					quality: printQualityLabel(g),
+					drawing: printDrawingLabel(g),
+					spinning: printSpinningLabel(g),
+					...readingCells("r", (g.readings ?? []).map((r) => r.reading_val), readingCount, 3),
+				})),
+			});
+		}
+
 		return {
 			reportTitle: "Yarn QR% & CV% (15A) SQC",
 			reportCode: "R-08-15A",
 			companyName: selectedCompany?.co_name,
 			branchName: selectedBranchName,
 			reportDate: entryDate,
-			sections: [
-				{
-					kind: "table",
-					columns: QR_CV_15A_PRINT_COLUMNS,
-					rows,
-					emptyText: "No groups recorded for this day.",
-				},
-			],
+			sections,
 		};
 	}, [groups, selectedCompany, selectedBranchName, entryDate]);
 

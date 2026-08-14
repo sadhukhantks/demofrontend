@@ -10,7 +10,9 @@ import { useInterCardByDate } from "./hooks/useInterCardByDate";
 import InterCardForm from "./_components/InterCardForm";
 import InterCardGrid from "./_components/InterCardGrid";
 import SqcPrintButton from "../_shared/SqcPrintButton";
+import { readingCells, readingColumns as readingCols } from "../_shared/printReport";
 import type { SqcPrintReport, PrintColumn } from "../_shared/printReport";
+import { CARD_SLIVER_READINGS } from "./types/interCardTypes";
 import type { CardSection } from "./types/interCardTypes";
 
 // Single-stage page; one tab for the multi-machine card-sliver SWT sheet.
@@ -107,6 +109,9 @@ export default function InterCardSqcPage() {
 			{ key: "spell", label: "Spell" },
 			{ key: "batch", label: "Batch" },
 			{ key: "std_mr_pct", label: "Std MR%", align: "right" },
+			// The raw cuts the operator recorded, ahead of the derived calc_* values.
+			...readingCols("wt", "Wt", CARD_SLIVER_READINGS),
+			...readingCols("mr", "MR%", CARD_SLIVER_READINGS),
 			{ key: "calc_wt", label: "Obs Wt", align: "right" },
 			{ key: "calc_mr_pct", label: "MR%", align: "right" },
 			{ key: "calc_corr_wt", label: "Corr Wt", align: "right" },
@@ -125,6 +130,8 @@ export default function InterCardSqcPage() {
 			spell: r.spell_code ?? r.spell_name ?? (r.spell_id != null ? `Spell #${r.spell_id}` : "—"),
 			batch: r.batch_plan_name ?? (r.batch_plan_id != null ? `Batch #${r.batch_plan_id}` : "—"),
 			std_mr_pct: num(r.std_mr_pct, 2),
+			...readingCells("wt", r.weights, CARD_SLIVER_READINGS, 2),
+			...readingCells("mr", r.mr_pcts, CARD_SLIVER_READINGS, 2),
 			calc_wt: num(r.calc_wt, 2),
 			calc_mr_pct: num(r.calc_mr_pct, 2),
 			calc_corr_wt: num(r.calc_corr_wt, 2),

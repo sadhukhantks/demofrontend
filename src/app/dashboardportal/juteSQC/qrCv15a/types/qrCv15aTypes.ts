@@ -31,6 +31,14 @@ export type QrCv15aStats = {
 	n: number;
 };
 
+// One stored b/s cell as returned by qr_cv_15a_by_date / qr_cv_15a_setup. The
+// backend emits reading ROWS ({reading_no, reading_val}), never bare numbers —
+// same convention as SqcQrCvReading in the spinning types.
+export type QrCv15aReading = {
+	reading_no: number | null;
+	reading_val: number | null;
+};
+
 export type QrCv15aGroup = {
 	qr_cv_15a_id?: number;
 	entry_date: string;
@@ -45,7 +53,7 @@ export type QrCv15aGroup = {
 	item_name?: string | null;
 	observed_count?: number | null; // operator-entered header field
 	mr_pct?: number | null;         // operator-entered header field
-	readings: (number | null)[];    // flat, length READING_COUNT
+	readings: QrCv15aReading[];     // flat, length READING_COUNT; reading_val may be null
 	stats?: QrCv15aStats | null;
 };
 

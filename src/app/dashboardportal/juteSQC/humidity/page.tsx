@@ -103,7 +103,9 @@ export default function HumiditySqcPage() {
 					});
 				});
 				footerRows.push({
-					round: `${label} — Avg`,
+					// prepared_by is a PER-ROUND field, so it rides the round's Avg row —
+					// same place HumidityGrid shows it ("by {prepared_by}").
+					round: `${label} — Avg${round.prepared_by ? ` (by ${round.prepared_by})` : ""}`,
 					spot: "",
 					time: "",
 					temp: fmtPrint(round.avg_temp),

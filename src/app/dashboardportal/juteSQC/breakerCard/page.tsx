@@ -10,7 +10,9 @@ import { useBreakerCardByDate } from "./hooks/useBreakerCardByDate";
 import BreakerCardForm from "./_components/BreakerCardForm";
 import BreakerCardGrid from "./_components/BreakerCardGrid";
 import SqcPrintButton from "../_shared/SqcPrintButton";
+import { readingCells, readingColumns as readingCols } from "../_shared/printReport";
 import type { SqcPrintReport, PrintColumn } from "../_shared/printReport";
+import { BREAKER_CARD_READINGS } from "./types/breakerCardTypes";
 import type {
 	BreakerCardGrandAverage,
 	BreakerCardReadingRow,
@@ -99,6 +101,9 @@ export default function BreakerCardSqcPage() {
 			{ key: "spell", label: "Spell" },
 			{ key: "batch", label: "Batch" },
 			{ key: "std_mr_pct", label: "Std MR%", align: "right" },
+			// The raw cuts the operator recorded, ahead of the derived calc_* values.
+			...readingCols("wt", "Wt", BREAKER_CARD_READINGS),
+			...readingCols("mr", "MR%", BREAKER_CARD_READINGS),
 			{ key: "calc_wt", label: "Obs Wt", align: "right" },
 			{ key: "calc_mr_pct", label: "MR%", align: "right" },
 			{ key: "calc_corr_wt", label: "Corr Wt", align: "right" },
@@ -113,6 +118,8 @@ export default function BreakerCardSqcPage() {
 			spell: spellLabel(r),
 			batch: batchLabel(r),
 			std_mr_pct: num(r.std_mr_pct, 2),
+			...readingCells("wt", r.weights, BREAKER_CARD_READINGS, 2),
+			...readingCells("mr", r.mr_pcts, BREAKER_CARD_READINGS, 2),
 			calc_wt: num(r.calc_wt, 2),
 			calc_mr_pct: num(r.calc_mr_pct, 2),
 			calc_corr_wt: num(r.calc_corr_wt, 2),

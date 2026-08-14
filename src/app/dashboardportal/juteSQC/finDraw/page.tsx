@@ -10,7 +10,9 @@ import { useFinDrawByDate } from "./hooks/useFinDrawByDate";
 import FinDrawForm from "./_components/FinDrawForm";
 import FinDrawGrid from "./_components/FinDrawGrid";
 import SqcPrintButton from "../_shared/SqcPrintButton";
+import { readingCells, readingColumns } from "../_shared/printReport";
 import type { SqcPrintReport, PrintColumn } from "../_shared/printReport";
+import { FIN_DRAW_READINGS } from "./types/finDrawTypes";
 import type {
 	FinDrawGrandAverage,
 	FinDrawReadingRow,
@@ -68,6 +70,9 @@ const READING_COLUMNS: PrintColumn[] = [
 	{ key: "batch", label: "Batch" },
 	{ key: "dlv", label: "DLV Nos" },
 	{ key: "std_mr_pct", label: "Std MR%", align: "right" },
+	// The raw cuts the operator recorded, ahead of the derived calc_* values.
+	...readingColumns("wt", "Wt", FIN_DRAW_READINGS),
+	...readingColumns("mr", "MR%", FIN_DRAW_READINGS),
 	{ key: "calc_wt", label: "Obs Wt", align: "right" },
 	{ key: "calc_mr_pct", label: "MR%", align: "right" },
 	{ key: "calc_corr_wt", label: "Corr Wt", align: "right" },
@@ -167,6 +172,8 @@ export default function FinDrawSqcPage() {
 			batch: batchLabel(r),
 			dlv: dlvLabel(r),
 			std_mr_pct: num(r.std_mr_pct),
+			...readingCells("wt", r.weights, FIN_DRAW_READINGS, 2),
+			...readingCells("mr", r.mr_pcts, FIN_DRAW_READINGS, 2),
 			calc_wt: num(r.calc_wt),
 			calc_mr_pct: num(r.calc_mr_pct),
 			calc_corr_wt: num(r.calc_corr_wt),

@@ -10,13 +10,14 @@ import { useYarnTpiByDate } from "./hooks/useYarnTpiByDate";
 import YarnTpiForm from "./_components/YarnTpiForm";
 import YarnTpiGrid from "./_components/YarnTpiGrid";
 import SqcPrintButton from "../_shared/SqcPrintButton";
-import type { SqcPrintReport, PrintColumn } from "../_shared/printReport";
+import { readingCells, readingColumns } from "../_shared/printReport";
+import type { SqcPrintReport, PrintColumn, PrintSection } from "../_shared/printReport";
 import type { YarnTpiGroup, YarnTpiStats } from "./types/yarnTpiTypes";
 
 // Mirror YarnTpiGrid.statsFor: prefer server stats, else client fallback.
 function statsForGroup(g: YarnTpiGroup): YarnTpiStats {
 	if (g.stats) return g.stats;
-	const p = computeTpiPreview(g.readings ?? []);
+	const p = computeTpiPreview((g.readings ?? []).map((r) => r.reading_val));
 	const stdTpi = g.std_tpi ?? null;
 	return {
 		...p,
@@ -30,11 +31,21 @@ function fmtNum(value: number | null | undefined, digits = 2): string {
 	return value != null ? Number(value).toFixed(digits) : "—";
 }
 
-// Columns mirror the on-screen grid (UI-only expand/actions columns omitted).
+function printQualityLabel(g: YarnTpiGroup): string {
+	return g.item_name ?? g.item_code ?? `Yarn #${g.item_id}`;
+}
+
+function printFrameLabel(g: YarnTpiGroup): string {
+	return g.mech_code ?? g.machine_name ?? (g.mc_id != null ? `MC #${g.mc_id}` : "—");
+}
+
+// Columns mirror the on-screen grid (UI-only expand/actions columns omitted),
+// plus TP — a raw operator-entered header field the grid does not show.
 const PRINT_COLUMNS: PrintColumn[] = [
 	{ key: "quality", label: "Quality" },
 	{ key: "spinning_frame", label: "Spinning Frame" },
 	{ key: "count_lbs", label: "Count (lbs)", align: "right" },
+	{ key: "tp_value", label: "TP", align: "right" },
 	{ key: "std_tpi", label: "Std.TPI", align: "right" },
 	{ key: "avg_tpi", label: "Avg TPI", align: "right" },
 	{ key: "tpi_diff", label: "Avg − Std", align: "right" },
@@ -95,10 +106,10 @@ export default function YarnTpiSqcPage() {
 		const rows = groups.map((g) => {
 			const s = statsForGroup(g);
 			return {
-				quality: g.item_name ?? g.item_code ?? `Yarn #${g.item_id}`,
-				spinning_frame:
-					g.mech_code ?? g.machine_name ?? (g.mc_id != null ? `MC #${g.mc_id}` : "—"),
+				quality: printQualityLabel(g),
+				spinning_frame: printFrameLabel(g),
 				count_lbs: fmtNum(g.count_lbs),
+				tp_value: fmtNum(g.tp_value),
 				std_tpi: fmtNum(s.std_tpi),
 				avg_tpi: fmtNum(s.avg_tpi),
 				tpi_diff: fmtNum(s.tpi_diff),
@@ -109,20 +120,43 @@ export default function YarnTpiSqcPage() {
 				prepared_by: g.prepared_by ?? "—",
 			};
 		});
+
+		const sections: PrintSection[] = [
+			{
+				kind: "table",
+				columns: PRINT_COLUMNS,
+				rows,
+				emptyText: "No Yarn TPI tests for the selected date.",
+			},
+		];
+
+		// The 20-cell TPI grid is too wide for the summary table, so the raw
+		// readings get their own section beneath it (2 dp, as on screen).
+		const readingCount = Math.max(0, ...groups.map((g) => g.readings?.length ?? 0));
+		if (readingCount > 0) {
+			sections.push({
+				kind: "table",
+				title: "Recorded Readings",
+				columns: [
+					{ key: "quality", label: "Quality" },
+					{ key: "spinning_frame", label: "Spinning Frame" },
+					...readingColumns("r", "#", readingCount),
+				],
+				rows: groups.map((g) => ({
+					quality: printQualityLabel(g),
+					spinning_frame: printFrameLabel(g),
+					...readingCells("r", (g.readings ?? []).map((r) => r.reading_val), readingCount, 2),
+				})),
+			});
+		}
+
 		return {
 			reportTitle: "Yarn TPI SQC",
 			reportCode: "R-08-TPI",
 			companyName: selectedCompany?.co_name,
 			branchName: selectedBranchName,
 			reportDate: entryDate,
-			sections: [
-				{
-					kind: "table",
-					columns: PRINT_COLUMNS,
-					rows,
-					emptyText: "No Yarn TPI tests for the selected date.",
-				},
-			],
+			sections,
 		};
 	}, [groups, selectedCompany, selectedBranchName, entryDate]);
 

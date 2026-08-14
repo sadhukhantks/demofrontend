@@ -10,7 +10,9 @@ import { useDrawheadByDate } from "./hooks/useDrawheadByDate";
 import DrawheadForm from "./_components/DrawheadForm";
 import DrawheadGrid from "./_components/DrawheadGrid";
 import SqcPrintButton from "../_shared/SqcPrintButton";
+import { readingCells, readingColumns as readingCols } from "../_shared/printReport";
 import type { SqcPrintReport, PrintColumn } from "../_shared/printReport";
+import { DRAW_SLIVER_READINGS } from "./types/drawheadTypes";
 import type {
 	DrawSection,
 	DrawheadReadingRow,
@@ -123,6 +125,9 @@ export default function DrawheadSqcPage() {
 			{ key: "spell", label: "Spell" },
 			{ key: "batch", label: "Batch" },
 			{ key: "std_mr_pct", label: "Std MR%", align: "right" },
+			// The raw cuts the operator recorded, ahead of the derived calc_* values.
+			...readingCols("wt", "Wt", DRAW_SLIVER_READINGS),
+			...readingCols("mr", "MR%", DRAW_SLIVER_READINGS),
 			{ key: "calc_wt", label: "Obs Wt", align: "right" },
 			{ key: "calc_mr_pct", label: "MR%", align: "right" },
 			{ key: "calc_corr_wt", label: "Corr Wt", align: "right" },
@@ -144,6 +149,8 @@ export default function DrawheadSqcPage() {
 			spell: printSpellLabel(r),
 			batch: printBatchLabel(r),
 			std_mr_pct: fmt(r.std_mr_pct),
+			...readingCells("wt", r.weights, DRAW_SLIVER_READINGS, 2),
+			...readingCells("mr", r.mr_pcts, DRAW_SLIVER_READINGS, 2),
 			calc_wt: fmt(r.calc_wt),
 			calc_mr_pct: fmt(r.calc_mr_pct),
 			calc_corr_wt: fmt(r.calc_corr_wt),
