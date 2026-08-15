@@ -203,7 +203,7 @@ export default function RollStockReportsPage() {
 								<Card variant="outlined" sx={{ minWidth: 160 }}>
 									<CardContent>
 										<Typography variant="caption" color="text.secondary">
-											Items
+											Qualities
 										</Typography>
 										<Typography variant="h6">{summary.data.totals.unique_items}</Typography>
 									</CardContent>

@@ -17,6 +17,12 @@ import { spellFromHour, todayISO, currentHour } from "../utils/shift";
 import { useBinState } from "../hooks/useBinState";
 import BinStateBanner from "./BinStateBanner";
 
+// Mirror the backend's Field(le=...) caps so a fat-fingered value disables Save
+// instead of coming back as "Request failed with status 422".
+const MAX_RATIO = 1000;
+const MAX_ROLLS = 100000;
+const MAX_TROLLEY_NO = 1000000;
+
 type Props = {
 	coId: string;
 	branchId: number;
@@ -88,12 +94,16 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 		!itemId ||
 		!noOfRolls ||
 		Number(noOfRolls) <= 0 ||
+		Number(noOfRolls) > MAX_ROLLS ||
+		Number(trolleyNo) > MAX_TROLLEY_NO ||
 		!wtPerRoll ||
 		(showSecond &&
 			(!item2Id ||
 				Number(item2Id) === Number(itemId) ||
 				Number(ratio1) < 1 ||
 				Number(ratio2) < 1 ||
+				Number(ratio1) > MAX_RATIO ||
+				Number(ratio2) > MAX_RATIO ||
 				!Number.isInteger(Number(ratio1)) ||
 				!Number.isInteger(Number(ratio2)))) ||
 		!windowAllowed;
@@ -231,7 +241,11 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 					select
 					label="Item (jute / jute waste)"
 					value={itemId}
-					onChange={(e) => setItemId(e.target.value === "" ? "" : Number(e.target.value))}
+					onChange={(e) => {
+						const next = e.target.value === "" ? "" : Number(e.target.value);
+						setItemId(next);
+						if (next !== "" && Number(item2Id) === Number(next)) setItem2Id("");
+					}}
 					size="small"
 					fullWidth
 					disabled={!!binState?.locked_item_id}
@@ -276,6 +290,7 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 							label="Ratio 1"
 							value={ratio1}
 							onChange={(e) => setRatio1(e.target.value)}
+							inputProps={{ min: 1, max: MAX_RATIO }}
 							size="small"
 							sx={{ width: 80 }}
 							disabled={!!binState?.locked_item_id}
@@ -285,6 +300,7 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 							label="Ratio 2"
 							value={ratio2}
 							onChange={(e) => setRatio2(e.target.value)}
+							inputProps={{ min: 1, max: MAX_RATIO }}
 							size="small"
 							sx={{ width: 80 }}
 							disabled={!!binState?.locked_item_id}
@@ -292,6 +308,7 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 						{!binState?.locked_item_id ? (
 							<Button
 								size="small"
+								aria-label="Remove second quality"
 								onClick={() => {
 									setShowSecond(false);
 									setItem2Id("");
@@ -309,6 +326,7 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 					label="No. of Rolls"
 					value={noOfRolls}
 					onChange={(e) => setNoOfRolls(e.target.value)}
+					inputProps={{ min: 1, max: MAX_ROLLS }}
 					size="small"
 					fullWidth
 				/>
@@ -317,6 +335,7 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 					label="Trolley No"
 					value={trolleyNo}
 					onChange={(e) => setTrolleyNo(e.target.value)}
+					inputProps={{ min: 0, max: MAX_TROLLEY_NO }}
 					size="small"
 					fullWidth
 				/>
