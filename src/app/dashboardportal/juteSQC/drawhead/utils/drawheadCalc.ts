@@ -4,10 +4,10 @@
 // math for live per-row display so the inspector sees the corrected sliver weight,
 // CV% and band pass/fail before saving the whole sheet.
 //
-// DELTA vs the Inter Card clone: the linkage is a BATCH, which has no single std,
+// DELTA vs the Inter Card clone: the linkage is a YARN GROUP, which has no single std,
 // so the preview always uses DEFAULT_STD_MR_PCT (16, drawing) and no CV band.
 
-// Standard moisture regain % used for every batch row (a batch has no per-row std).
+// Standard moisture regain % used for every yarn group row (a yarn group has no per-row std).
 export const DEFAULT_STD_MR_PCT = 16;
 
 function round2(x: number): number {
@@ -75,7 +75,7 @@ export type DrawheadPreview = {
 // Empty/invalid readings are dropped pairwise (a weight without its MR%, or vice
 // versa, is ignored). Returns null when no usable reading pair exists yet.
 //
-// A batch has no single std, so the preview always uses std 16 with NO CV band
+// A yarn group has no single std, so the preview always uses std 16 with NO CV band
 // (withinBand is always null). Corr Wt follows the cached-value path:
 // avg-then-correct (avgWt corrected by avgMr), which matches the sheet exactly.
 // The CV% uses the per-cut corrected series' sample stdev over the corrected
@@ -123,7 +123,7 @@ export function computeRowPreview(
 		corrWt,
 		sdev,
 		cvPct: round2(cv * 100),
-		withinBand: null, // batch has no std → no CV band
+		withinBand: null, // yarn group has no std → no CV band
 		n: observed.length,
 	};
 }

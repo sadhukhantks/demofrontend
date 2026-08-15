@@ -48,8 +48,8 @@ const printMachineLabel = (r: DrawheadReadingRow): string => {
 	if (r.machine_name) return `${r.machine_name}${r.mech_code ? ` (${r.mech_code})` : ""}`;
 	return r.mc_id != null ? `MC #${r.mc_id}` : "—";
 };
-const printBatchLabel = (r: DrawheadReadingRow | DrawheadGrandAverage): string =>
-	r.batch_plan_name ?? (r.batch_plan_id != null ? `Batch #${r.batch_plan_id}` : "—");
+const printGroupLabel = (r: DrawheadReadingRow | DrawheadGrandAverage): string =>
+	r.item_grp_name ?? (r.item_grp_id != null ? `Group #${r.item_grp_id}` : "—");
 const printSpellLabel = (r: DrawheadReadingRow): string =>
 	r.spell_code ?? r.spell_name ?? (r.spell_id != null ? `Spell #${r.spell_id}` : "—");
 
@@ -91,7 +91,7 @@ export default function DrawheadSqcPage() {
 	);
 	const selectedBranchName = branchOptions.find((b) => Number(b.branch_id) === branchId)?.branch_name;
 
-	// R-08-08/09/10 Drawhead & Finisher Card: per (section, time band, machine, spell, batch) bench readings by date.
+	// R-08-08/09/10 Drawhead & Finisher Card: per (section, time band, machine, spell, yarn group) bench readings by date.
 	const [entryDate, setEntryDate] = React.useState<string>(todayISO());
 	const {
 		setup,
@@ -112,8 +112,8 @@ export default function DrawheadSqcPage() {
 
 	// Day-level print: one consolidated report for the selected date. spell and
 	// time_band are ordinary data columns (never a shift filter); the grid's
-	// section grouping is preserved by sorting readings by section then batch, and
-	// the server-computed per-section / per-batch averages are mirrored as their
+	// section grouping is preserved by sorting readings by section then yarn group, and
+	// the server-computed per-section / per-group averages are mirrored as their
 	// own summary tables (matching the on-screen average blocks).
 	const getReport = React.useCallback((): SqcPrintReport | null => {
 		if (rows.length === 0) return null;
@@ -123,7 +123,7 @@ export default function DrawheadSqcPage() {
 			{ key: "time_band", label: "Time Band" },
 			{ key: "machine", label: "Machine" },
 			{ key: "spell", label: "Spell" },
-			{ key: "batch", label: "Batch" },
+			{ key: "group", label: "Yarn Group" },
 			{ key: "std_mr_pct", label: "Std MR%", align: "right" },
 			// The raw cuts the operator recorded, ahead of the derived calc_* values.
 			...readingCols("wt", "Wt", DRAW_SLIVER_READINGS),
@@ -139,7 +139,7 @@ export default function DrawheadSqcPage() {
 		const sortedRows = [...rows].sort((a, b) => {
 			const sr = printSectionRank(a.section) - printSectionRank(b.section);
 			if (sr !== 0) return sr;
-			return printBatchLabel(a).localeCompare(printBatchLabel(b));
+			return printGroupLabel(a).localeCompare(printGroupLabel(b));
 		});
 
 		const readingRows = sortedRows.map((r) => ({
@@ -147,7 +147,7 @@ export default function DrawheadSqcPage() {
 			time_band: printTimeBandLabel(r.time_band),
 			machine: printMachineLabel(r),
 			spell: printSpellLabel(r),
-			batch: printBatchLabel(r),
+			group: printGroupLabel(r),
 			std_mr_pct: fmt(r.std_mr_pct),
 			...readingCells("wt", r.weights, DRAW_SLIVER_READINGS, 2),
 			...readingCells("mr", r.mr_pcts, DRAW_SLIVER_READINGS, 2),
@@ -182,7 +182,7 @@ export default function DrawheadSqcPage() {
 		}));
 
 		const grandAvgColumns: PrintColumn[] = [
-			{ key: "batch", label: "Batch" },
+			{ key: "group", label: "Yarn Group" },
 			{ key: "rows", label: "Rows", align: "right" },
 			{ key: "obs", label: "Obs", align: "right" },
 			{ key: "mr_pct", label: "MR%", align: "right" },
@@ -190,7 +190,7 @@ export default function DrawheadSqcPage() {
 			{ key: "cv_pct", label: "CV %", align: "right" },
 		];
 		const grandAvgRows = grandAverages.map((g) => ({
-			batch: printBatchLabel(g),
+			group: printGroupLabel(g),
 			rows: g.row_count ?? "—",
 			obs: fmt(g.grand_obs),
 			mr_pct: fmt(g.grand_mr_pct),
@@ -214,7 +214,7 @@ export default function DrawheadSqcPage() {
 				},
 				{
 					kind: "table",
-					title: "Grand Average by Batch",
+					title: "Grand Average by Yarn Group",
 					columns: grandAvgColumns,
 					rows: grandAvgRows,
 					emptyText: "No grand-average rows for this date.",
@@ -255,8 +255,8 @@ export default function DrawheadSqcPage() {
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 				Capture draw sliver weight (R-08-08/09/10) across the three drawing sub-sections — Drawhead
 				SWT, Drawhead SWP and Finisher Card — one sheet, many (section, time band, machine, spell,
-				batch) reading sets, each linked to a batch (jute batch plan), each corrected to the
-				quality&apos;s STD MR% 16 with per-section and per-batch grand averages.
+				yarn group) reading sets, each linked to a jute-yarn item group, each corrected to the
+				quality&apos;s STD MR% 16 with per-section and per-group grand averages.
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (

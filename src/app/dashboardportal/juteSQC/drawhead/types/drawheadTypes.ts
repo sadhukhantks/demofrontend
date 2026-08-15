@@ -1,16 +1,16 @@
 // Types for the Drawhead & Finisher Card SQC screen (R-08-08/09/10 Draw Sliver
 // Weight — drawing stage). Mirrors the backend /api/juteSQC draw-sliver-wt
 // endpoints. This is a MULTI-ROW report: one date sheet holds many (section,
-// time_band, machine, spell, batch) reading sets, each with exactly 4 cut weights
+// time_band, machine, spell, yarn group) reading sets, each with exactly 4 cut weights
 // + 4 MR%. The server recomputes and persists every calc_* value on save and is
 // AUTHORITATIVE; the FE only previews the math for live display. Per-section
-// AVERAGES and a per-batch GRAND-AVERAGE block are recomputed by the server at
+// AVERAGES and a per-group GRAND-AVERAGE block are recomputed by the server at
 // read time (NOT stored) and returned alongside the rows.
 //
 // STRUCTURAL DELTA vs the Inter Card clone: every row carries a drawing SECTION
 // (DRAWHEAD_SWT / DRAWHEAD_SWP / FINISHER_CARD) and an optional TIME-BAND
-// (MORNING / AFTERNOON). The quality linkage is a BATCH (jute_batch_plan), not a
-// single line quality. A batch has no single std, so std MR always falls back to
+// (MORNING / AFTERNOON). The quality linkage is a YARN GROUP (item_grp_mst, item_type 4), not a
+// single line quality. A yarn group has no single std, so std MR always falls back to
 // 16 (drawing default) and the CV band is unevaluated (cv_within_band null).
 //
 // Dates are 'YYYY-MM-DD' strings; the backend returns floats already.
@@ -50,25 +50,24 @@ export type DrawheadMachine = {
 	branch_id?: number | null;
 };
 
-// A batch (jute_batch_plan) — a named mix of raw-jute qualities created in Jute
-// Batch Plan. plan_name is the display label. A batch has no single std, so the
+// A jute-yarn item group (item_grp_mst, item_type_id 4).
+// item_grp_name is the display label. A yarn group has no single std, so the
 // preview always uses std 16 and no CV band.
-export type BatchOption = {
-	batch_plan_id: number;
-	plan_name: string;
+export type YarnGroupOption = {
+	item_grp_id: number;
+	item_grp_name: string;
 	branch_id?: number | null;
-	line_qty?: number;
 };
 
 // ─── Setup payload ────────────────────────────────────────────────────────────
 
-// GET get_draw_sliver_wt_setup -> {"data": {sections, time_bands, spells, machines, batches, entries}}.
+// GET get_draw_sliver_wt_setup -> {"data": {sections, time_bands, spells, machines, groups, entries}}.
 export type DrawheadSetup = {
 	sections: DrawSection[];
 	time_bands: TimeBand[];
 	machines: DrawheadMachine[];
 	spells: SqcSpell[];
-	batches: BatchOption[];
+	groups: YarnGroupOption[];
 	entries: DrawheadReadingRow[];
 };
 
@@ -90,8 +89,8 @@ export type DrawheadReadingRow = {
 	spell_id?: number | null;
 	spell_code?: string | null;
 	spell_name?: string | null;
-	batch_plan_id?: number | null;
-	batch_plan_name?: string | null;
+	item_grp_id?: number | null;
+	item_grp_name?: string | null;
 	// Legacy line-quality fields — still present on old rows, not used.
 	item_id?: number | null;
 	jute_quality?: string | null;
@@ -122,13 +121,13 @@ export type SectionAverage = {
 	avg_cv_pct?: number | null; // ratio (render ×100)
 };
 
-// ─── Per-batch GRAND-AVERAGE block ────────────────────────────────────────────
-// Recomputed at read by the server across that date's rows for the batch:
+// ─── per-group GRAND-AVERAGE block ────────────────────────────────────────────
+// Recomputed at read by the server across that date's rows for the yarn group:
 //   OBS  = mean(calc_wt), MR%  = mean(calc_mr_pct), CORR = mean(calc_corr_wt),
 //   CV%  = stdev(pooled corrected cuts) / mean(pooled corrected cuts) (ratio).
 export type DrawheadGrandAverage = {
-	batch_plan_id?: number | null;
-	batch_plan_name?: string | null;
+	item_grp_id?: number | null;
+	item_grp_name?: string | null;
 	row_count?: number | null;
 	grand_obs?: number | null;
 	grand_mr_pct?: number | null;
@@ -150,13 +149,13 @@ export type DrawheadByDateResponse = {
 
 // One input row in the create payload. Empty selects → null. weights / mr_pcts
 // are exactly-4 numeric arrays; the server recomputes all calc_* values per row
-// (std MR fixed at 16 for a batch, no CV band). time_band is optional.
+// (std MR fixed at 16 for a yarn group, no CV band). time_band is optional.
 export type DrawheadRow = {
 	section: DrawSection;
 	time_band: TimeBand | null;
 	mc_id: number | null;
 	spell_id: number | null;
-	batch_plan_id: number | null;
+	item_grp_id: number | null;
 	weights: number[];
 	mr_pcts: number[];
 };
@@ -179,7 +178,7 @@ export const drawheadRowSchema = z.object({
 	time_band: z.enum(TIME_BANDS).nullable(),
 	mc_id: z.number().int().positive().nullable(),
 	spell_id: z.number().int().positive().nullable(),
-	batch_plan_id: z.number({ error: "A batch must be selected" }).int().positive("A batch must be selected"),
+	item_grp_id: z.number({ error: "A yarn group must be selected" }).int().positive("A yarn group must be selected"),
 	weights: z
 		.array(z.number())
 		.refine((arr) => arr.length === DRAW_SLIVER_READINGS, `Enter all ${DRAW_SLIVER_READINGS} cut weights`)

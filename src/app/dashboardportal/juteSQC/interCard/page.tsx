@@ -51,7 +51,7 @@ export default function InterCardSqcPage() {
 	);
 	const selectedBranchName = branchOptions.find((b) => Number(b.branch_id) === branchId)?.branch_name;
 
-	// R-08-07A Inter Card & Tow Breaker: per (section, machine, spell, batch) bench readings by date.
+	// R-08-07A Inter Card & Tow Breaker: per (section, machine, spell, yarn group) bench readings by date.
 	const [entryDate, setEntryDate] = React.useState<string>(todayISO());
 	const {
 		setup,
@@ -71,9 +71,9 @@ export default function InterCardSqcPage() {
 	}, [refreshByDate]);
 
 	// Day-level Print (R-08-07A). Mirrors the on-screen grid: one consolidated
-	// readings table for the whole day (section/machine/spell/batch are ordinary
+	// readings table for the whole day (section/machine/spell/yarn group are ordinary
 	// columns — never a per-shift split) plus the server-computed section-average
-	// and per-batch grand-average summaries as their own tables.
+	// and per-group grand-average summaries as their own tables.
 	const getReport = React.useCallback((): SqcPrintReport | null => {
 		if (rows.length === 0) return null;
 
@@ -94,12 +94,12 @@ export default function InterCardSqcPage() {
 		const pct = (v: number | null | undefined): string =>
 			v != null ? `${(Number(v) * 100).toFixed(2)}%` : "";
 
-		// Reading rows — grouped/sorted by section then batch, same as the grid.
+		// Reading rows — grouped/sorted by section then yarn group, same as the grid.
 		const sortedRows = [...rows].sort((a, b) => {
 			const sr = sectionRank(a.section) - sectionRank(b.section);
 			if (sr !== 0) return sr;
-			const ba = a.batch_plan_name ?? (a.batch_plan_id != null ? `Batch #${a.batch_plan_id}` : "—");
-			const bb = b.batch_plan_name ?? (b.batch_plan_id != null ? `Batch #${b.batch_plan_id}` : "—");
+			const ba = a.item_grp_name ?? (a.item_grp_id != null ? `Group #${a.item_grp_id}` : "—");
+			const bb = b.item_grp_name ?? (b.item_grp_id != null ? `Group #${b.item_grp_id}` : "—");
 			return ba.localeCompare(bb);
 		});
 
@@ -107,7 +107,7 @@ export default function InterCardSqcPage() {
 			{ key: "section", label: "Section" },
 			{ key: "machine", label: "Machine" },
 			{ key: "spell", label: "Spell" },
-			{ key: "batch", label: "Batch" },
+			{ key: "group", label: "Yarn Group" },
 			{ key: "std_mr_pct", label: "Std MR%", align: "right" },
 			// The raw cuts the operator recorded, ahead of the derived calc_* values.
 			...readingCols("wt", "Wt", CARD_SLIVER_READINGS),
@@ -128,7 +128,7 @@ export default function InterCardSqcPage() {
 				? `MC #${r.mc_id}`
 				: "—",
 			spell: r.spell_code ?? r.spell_name ?? (r.spell_id != null ? `Spell #${r.spell_id}` : "—"),
-			batch: r.batch_plan_name ?? (r.batch_plan_id != null ? `Batch #${r.batch_plan_id}` : "—"),
+			group: r.item_grp_name ?? (r.item_grp_id != null ? `Group #${r.item_grp_id}` : "—"),
 			std_mr_pct: num(r.std_mr_pct, 2),
 			...readingCells("wt", r.weights, CARD_SLIVER_READINGS, 2),
 			...readingCells("mr", r.mr_pcts, CARD_SLIVER_READINGS, 2),
@@ -162,9 +162,9 @@ export default function InterCardSqcPage() {
 				avg_cv_pct: s.avg_cv_pct != null ? pct(s.avg_cv_pct) : "—",
 			}));
 
-		// Per-batch grand averages.
+		// per-group grand averages.
 		const grandAvgColumns: PrintColumn[] = [
-			{ key: "batch", label: "Batch" },
+			{ key: "group", label: "Yarn Group" },
 			{ key: "row_count", label: "Rows", align: "right" },
 			{ key: "grand_obs", label: "Obs", align: "right" },
 			{ key: "grand_mr_pct", label: "MR%", align: "right" },
@@ -172,7 +172,7 @@ export default function InterCardSqcPage() {
 			{ key: "grand_cv_pct", label: "CV %", align: "right" },
 		];
 		const grandAvgRows = grandAverages.map((g) => ({
-			batch: g.batch_plan_name ?? (g.batch_plan_id != null ? `Batch #${g.batch_plan_id}` : "—"),
+			group: g.item_grp_name ?? (g.item_grp_id != null ? `Group #${g.item_grp_id}` : "—"),
 			row_count: g.row_count ?? "—",
 			grand_obs: g.grand_obs != null ? num(g.grand_obs, 2) : "—",
 			grand_mr_pct: g.grand_mr_pct != null ? num(g.grand_mr_pct, 2) : "—",
@@ -202,7 +202,7 @@ export default function InterCardSqcPage() {
 				},
 				{
 					kind: "table",
-					title: "Grand Average by Batch",
+					title: "Grand Average by Yarn Group",
 					columns: grandAvgColumns,
 					rows: grandAvgRows,
 					emptyText: "No grand-average rows yet for this date.",
@@ -236,8 +236,8 @@ export default function InterCardSqcPage() {
 			</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 				Capture card sliver weight (R-08-07A) across the three carding sub-sections — Inter Card,
-				Tow Breaker and Hopper — one sheet, many (section, machine, spell, batch) reading sets, each linked to a batch (jute batch plan),
-				each corrected to the quality&apos;s STD MR% 20 with per-section and per-batch grand averages.
+				Tow Breaker and Hopper — one sheet, many (section, machine, spell, yarn group) reading sets, each linked to a jute-yarn item group,
+				each corrected to the quality&apos;s STD MR% 20 with per-section and per-group grand averages.
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (

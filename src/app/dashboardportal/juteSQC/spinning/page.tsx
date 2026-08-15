@@ -229,6 +229,7 @@ export default function SpinningSqcPage() {
 		if (qrCvGroups.length === 0) return null;
 		const columns: PrintColumn[] = [
 			{ key: "quality", label: "Quality" },
+			{ key: "spell", label: "Spell" },
 			{ key: "machine", label: "MC No." },
 			{ key: "obs", label: "Obs Count", align: "right" },
 			{ key: "mr", label: "MR %", align: "right" },
@@ -242,6 +243,7 @@ export default function SpinningSqcPage() {
 		// One label derivation, shared by the summary and the readings matrix.
 		const labels = (g: SqcQrCvGroup) => ({
 			quality: g.item_name ?? g.item_code ?? `Yarn #${g.item_id}`,
+			spell: g.spell_code ?? (g.spell_id != null ? `#${g.spell_id}` : "—"),
 			machine: g.mech_code ?? g.machine_name ?? (g.mc_id != null ? `MC #${g.mc_id}` : "—"),
 		});
 		const rows = qrCvGroups.map((g) => ({
@@ -287,6 +289,7 @@ export default function SpinningSqcPage() {
 				title: "Recorded Readings",
 				columns: [
 					{ key: "quality", label: "Quality" },
+					{ key: "spell", label: "Spell" },
 					{ key: "machine", label: "MC No." },
 					{ key: "spindle", label: "Spindle No." },
 					...readingCols("r", "R", maxReadings),

@@ -5,7 +5,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { DrawheadSetup } from "../types/drawheadTypes";
 
-// GET get_draw_sliver_wt_setup -> {"data": {sections, time_bands, machines, spells, batches, entries}}.
+// GET get_draw_sliver_wt_setup -> {"data": {sections, time_bands, machines, spells, groups, entries}}.
 // Cloned from useInterCardSetup (route + type swapped).
 export function useDrawheadSetup(
 	coId: string | null | undefined,

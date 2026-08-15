@@ -14,7 +14,7 @@ const EMPTY: InterCardByDateResponse = { rows: [], section_averages: [], grand_a
 
 // GET get_card_sliver_wt_by_date -> {"data": {rows, section_averages, grand_averages}}.
 // OBJECT envelope: read resp.data.rows, resp.data.section_averages AND
-// resp.data.grand_averages — the per-section averages and per-batch grand block
+// resp.data.grand_averages — the per-section averages and per-group grand block
 // are both recomputed at read. Cloned from useBreakerCardByDate (envelope + types
 // swapped, section_averages added).
 export function useInterCardByDate(

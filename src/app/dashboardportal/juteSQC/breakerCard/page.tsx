@@ -54,7 +54,7 @@ export default function BreakerCardSqcPage() {
 	);
 	const selectedBranchName = branchOptions.find((b) => Number(b.branch_id) === branchId)?.branch_name;
 
-	// R-08-05/06/07 Breaker Card: per (machine, spell, batch) bench readings by date.
+	// R-08-05/06/07 Breaker Card: per (machine, spell, yarn group) bench readings by date.
 	const [entryDate, setEntryDate] = React.useState<string>(todayISO());
 	const {
 		setup,
@@ -73,7 +73,7 @@ export default function BreakerCardSqcPage() {
 	}, [refreshByDate]);
 
 	// Day-level print (R-08-05/06/07). Mirrors the on-screen grid columns/labels
-	// and the per-batch grand-average block. Spell is an ordinary column — the
+	// and the per-group grand-average block. Spell is an ordinary column — the
 	// printout is ONE consolidated day report, never split by shift/spell.
 	const getReport = React.useCallback((): SqcPrintReport | null => {
 		if (rows.length === 0) return null;
@@ -86,8 +86,8 @@ export default function BreakerCardSqcPage() {
 				: "—";
 		const spellLabel = (r: BreakerCardReadingRow): string =>
 			r.spell_code ?? r.spell_name ?? (r.spell_id != null ? `Spell #${r.spell_id}` : "—");
-		const batchLabel = (r: BreakerCardReadingRow | BreakerCardGrandAverage): string =>
-			r.batch_plan_name ?? (r.batch_plan_id != null ? `Batch #${r.batch_plan_id}` : "—");
+		const groupLabel = (r: BreakerCardReadingRow | BreakerCardGrandAverage): string =>
+			r.item_grp_name ?? (r.item_grp_id != null ? `Group #${r.item_grp_id}` : "—");
 		const num = (v: number | null | undefined, digits: number): string =>
 			v != null ? Number(v).toFixed(digits) : "";
 		const pct = (v: number | null | undefined): string =>
@@ -99,7 +99,7 @@ export default function BreakerCardSqcPage() {
 			{ key: "entry_date", label: "Date" },
 			{ key: "machine", label: "Machine" },
 			{ key: "spell", label: "Spell" },
-			{ key: "batch", label: "Batch" },
+			{ key: "group", label: "Yarn Group" },
 			{ key: "std_mr_pct", label: "Std MR%", align: "right" },
 			// The raw cuts the operator recorded, ahead of the derived calc_* values.
 			...readingCols("wt", "Wt", BREAKER_CARD_READINGS),
@@ -116,7 +116,7 @@ export default function BreakerCardSqcPage() {
 			entry_date: r.entry_date,
 			machine: machineLabel(r),
 			spell: spellLabel(r),
-			batch: batchLabel(r),
+			group: groupLabel(r),
 			std_mr_pct: num(r.std_mr_pct, 2),
 			...readingCells("wt", r.weights, BREAKER_CARD_READINGS, 2),
 			...readingCells("mr", r.mr_pcts, BREAKER_CARD_READINGS, 2),
@@ -129,7 +129,7 @@ export default function BreakerCardSqcPage() {
 		}));
 
 		const grandColumns: PrintColumn[] = [
-			{ key: "batch", label: "Batch" },
+			{ key: "group", label: "Yarn Group" },
 			{ key: "row_count", label: "Rows", align: "right" },
 			{ key: "std_mr_pct", label: "Std MR%", align: "right" },
 			{ key: "grand_obs", label: "Obs", align: "right" },
@@ -139,7 +139,7 @@ export default function BreakerCardSqcPage() {
 		];
 
 		const grandRows = grandAverages.map((g) => ({
-			batch: batchLabel(g),
+			group: groupLabel(g),
 			row_count: g.row_count ?? "—",
 			std_mr_pct: num(g.std_mr_pct, 2),
 			grand_obs: num(g.grand_obs, 2),
@@ -163,7 +163,7 @@ export default function BreakerCardSqcPage() {
 				},
 				{
 					kind: "table",
-					title: "Grand Average by Batch",
+					title: "Grand Average by Yarn Group",
 					columns: grandColumns,
 					rows: grandRows,
 					emptyText: "No grand-average rows yet for this date.",
@@ -197,8 +197,8 @@ export default function BreakerCardSqcPage() {
 			</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 				Capture breaker-card coarse-side sliver weight (R-08-05/06/07) — one sheet, many (machine,
-				spell, batch) reading sets, each linked to a batch (jute batch plan) and corrected to the
-				breaker STD MR% 16 with a per-batch grand average.
+				spell, yarn group) reading sets, each linked to a jute-yarn item group and corrected to the
+				breaker STD MR% 16 with a per-group grand average.
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
