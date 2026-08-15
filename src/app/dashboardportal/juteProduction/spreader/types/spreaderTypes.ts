@@ -50,6 +50,10 @@ export type BinStateWindow = {
 export type BinState = {
 	active_grp: number | null;
 	locked_item_id: number | null;
+	locked_item_id_2: number | null;
+	locked_ratio_1: number | null;
+	locked_ratio_2: number | null;
+	locked_quality_label: string | null;
 	window: BinStateWindow;
 };
 
@@ -67,6 +71,11 @@ export type SpreaderEntryRow = {
 	mech_code: string;
 	item_id: number;
 	item_name: string;
+	item_id_2: number | null;
+	item_name_2: string | null;
+	ratio_1: number;
+	ratio_2: number | null;
+	quality_label: string;
 	no_of_rolls: number;
 	wt_per_roll: number;
 	produced_kg: number;
@@ -90,6 +99,11 @@ export type SpreaderIssueRow = {
 	bin_code: string | null;
 	item_id: number | null;
 	item_name: string | null;
+	item_id_2: number | null;
+	ratio_1: number | null;
+	ratio_2: number | null;
+	item_name_2: string | null;
+	quality_label: string | null;
 };
 
 export type AvailableWeight = {
@@ -107,6 +121,7 @@ export type IssueAvailableWeightsResponse = {
 		bin_code?: string;
 		item_name?: string;
 		first_entry_dt?: string;
+		quality_label?: string;
 	};
 };
 
@@ -116,6 +131,7 @@ export type IssueBinOption = {
 	entry_id_grp: number;
 	item_id: number;
 	item_name: string;
+	quality_label: string;
 	current_rolls: number;
 };
 
@@ -130,6 +146,11 @@ export type RollStockRow = {
 	entry_id_grp: number;
 	item_id: number;
 	item_name: string;
+	item_id_2: number | null;
+	item_name_2: string | null;
+	ratio_1: number;
+	ratio_2: number | null;
+	quality_label: string;
 	produced_rolls: number;
 	issued_rolls: number;
 	current_rolls: number;
@@ -144,8 +165,17 @@ export type RollStockRow = {
 
 export type QualitySummaryRow = {
 	item_id: number;
+	item_id_2: number | null;
+	ratio_1: number;
+	ratio_2: number | null;
 	item_name: string;
+	item_name_2: string | null;
+	quality_label: string;
 	closing_rolls: number;
 	closing_kg: number;
 	closing_mt: number;
+	comp1_item_id: number;
+	comp1_kg: number;
+	comp2_item_id: number | null;
+	comp2_kg: number;
 };

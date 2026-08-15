@@ -49,7 +49,7 @@ export default function BinStateBanner({ state, itemName, loading }: Props) {
 		>
 			<Box>
 				<Typography variant="body2" sx={{ fontWeight: 600 }}>
-					Open group locked to item: {itemName ?? `#${state.locked_item_id ?? "?"}`}
+					Open group locked to quality: {itemName ?? `#${state.locked_item_id ?? "?"}`}
 				</Typography>
 				{win ? (
 					<Typography variant="caption" component="div" sx={{ mt: 0.5 }}>
