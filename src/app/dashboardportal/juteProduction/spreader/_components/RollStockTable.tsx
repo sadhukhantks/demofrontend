@@ -131,7 +131,7 @@ export default function RollStockTable({ rows, summary, loading }: Props) {
 				</Typography>
 				<DataGrid
 					autoHeight
-					rows={filteredSummary.map((r) => ({ ...r, id: r.quality_label }))}
+					rows={filteredSummary.map((r) => ({ ...r, id: `${r.item_id}-${r.item_id_2 ?? 0}-${r.ratio_1}-${r.ratio_2 ?? 0}` }))}
 					columns={summaryColumns}
 					loading={loading}
 					density="comfortable"
