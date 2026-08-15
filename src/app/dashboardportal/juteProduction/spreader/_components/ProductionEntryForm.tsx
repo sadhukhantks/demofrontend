@@ -47,7 +47,7 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 		return setup.machines.find((m) => m.machine_id === Number(machineId))?.wt_per_roll ?? 0;
 	}, [machineId, setup.machines]);
 
-	const { state: binState, loading: stateLoading } = useBinState(
+	const { state: binState, loading: stateLoading, refresh: refreshBinState } = useBinState(
 		coId,
 		binId === "" ? null : Number(binId),
 		entryDate,
@@ -128,6 +128,10 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 			body
 		);
 		setSaving(false);
+		// Re-read the bin state on both paths: a success opens or extends a group, and a
+		// rejection means our view of the bin was stale — either way the banner and the
+		// quality lock must reflect what the server now holds.
+		refreshBinState();
 		if (err) {
 			setError(err);
 			return;
@@ -136,8 +140,8 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 		setNoOfRolls("");
 		setTrolleyNo("");
 		setRemarks("");
-		// The blend stays sticky across saves, like itemId: binState cannot have
-		// refreshed yet, so clearing it here would break the group we just opened.
+		// The blend stays sticky across saves — state is never cleared here, so the next
+		// entry keeps feeding the group we just opened.
 		onSaved();
 	};
 

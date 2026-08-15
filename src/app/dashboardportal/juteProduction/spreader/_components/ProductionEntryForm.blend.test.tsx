@@ -19,7 +19,7 @@ vi.mock("@/utils/apiClient2", () => ({
 
 let binState: BinState | null = null;
 vi.mock("../hooks/useBinState", () => ({
-	useBinState: () => ({ state: binState, loading: false, error: null }),
+	useBinState: () => ({ state: binState, loading: false, error: null, refresh: vi.fn() }),
 }));
 
 const item = (id: number, name: string) => ({
