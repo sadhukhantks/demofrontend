@@ -78,6 +78,11 @@ describe("ProductionEntryForm second quality", () => {
 		await waitFor(() => expect(fetchWithCookie).toHaveBeenCalled());
 		const body = fetchWithCookie.mock.calls[0][2] as Record<string, unknown>;
 		expect(body).toMatchObject({ item_id: 11, item_id_2: 22, ratio_1: 2, ratio_2: 1 });
+		// Sticky across saves: binState cannot have refreshed yet, so clearing the
+		// blend here would make the next entry into the same group fail on the BE.
+		expect(screen.getByRole("combobox", { name: "Second quality" })).toHaveTextContent("ATD5");
+		expect(screen.getByLabelText("Ratio 1")).toHaveValue(2);
+		expect(screen.getByLabelText("Ratio 2")).toHaveValue(1);
 	});
 
 	it("blocks saving on a fractional ratio", async () => {

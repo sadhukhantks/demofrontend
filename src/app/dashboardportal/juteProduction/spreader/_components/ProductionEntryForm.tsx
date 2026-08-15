@@ -136,12 +136,8 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 		setNoOfRolls("");
 		setTrolleyNo("");
 		setRemarks("");
-		if (!binState?.locked_item_id) {
-			setShowSecond(false);
-			setItem2Id("");
-			setRatio1("1");
-			setRatio2("1");
-		}
+		// The blend stays sticky across saves, like itemId: binState cannot have
+		// refreshed yet, so clearing it here would break the group we just opened.
 		onSaved();
 	};
 
