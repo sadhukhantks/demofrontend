@@ -13,31 +13,33 @@ type Props = {
 };
 
 export default function RollStockTable({ rows, summary, loading }: Props) {
-	const [selectedItems, setSelectedItems] = React.useState<number[]>([]);
-	const availableItems = React.useMemo(() => {
-		const seen = new Map<number, string>();
-		for (const r of rows) seen.set(r.item_id, r.item_name);
-		return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
-	}, [rows]);
+	const [selectedQualities, setSelectedQualities] = React.useState<string[]>([]);
+	const availableQualities = React.useMemo(
+		() => Array.from(new Map(rows.map((r) => [r.quality_label, r.quality_label])).keys()),
+		[rows]
+	);
 
 	const filtered = React.useMemo(
-		() => (selectedItems.length === 0 ? rows : rows.filter((r) => selectedItems.includes(r.item_id))),
-		[rows, selectedItems]
+		() =>
+			selectedQualities.length === 0
+				? rows
+				: rows.filter((r) => selectedQualities.includes(r.quality_label)),
+		[rows, selectedQualities]
 	);
 
 	const filteredSummary = React.useMemo(
 		() =>
-			selectedItems.length === 0
+			selectedQualities.length === 0
 				? summary
-				: summary.filter((s) => selectedItems.includes(s.item_id)),
-		[summary, selectedItems]
+				: summary.filter((s) => selectedQualities.includes(s.quality_label)),
+		[summary, selectedQualities]
 	);
 
 	const columns = React.useMemo<GridColDef<RollStockRow>[]>(
 		() => [
 			{ field: "bin_code", headerName: "Bin", width: 100 },
 			{ field: "entry_id_grp", headerName: "Group", width: 80 },
-			{ field: "item_name", headerName: "Item", width: 200 },
+			{ field: "quality_label", headerName: "Quality", width: 220 },
 			{ field: "current_rolls", headerName: "Rolls", width: 90, type: "number" },
 			{
 				field: "current_mt",
@@ -66,7 +68,7 @@ export default function RollStockTable({ rows, summary, loading }: Props) {
 
 	const summaryColumns = React.useMemo<GridColDef<QualitySummaryRow>[]>(
 		() => [
-			{ field: "item_name", headerName: "Item", flex: 1, minWidth: 200 },
+			{ field: "quality_label", headerName: "Quality", flex: 1, minWidth: 220 },
 			{ field: "closing_rolls", headerName: "Rolls", width: 100, type: "number" },
 			{
 				field: "closing_mt",
@@ -75,6 +77,8 @@ export default function RollStockTable({ rows, summary, loading }: Props) {
 				type: "number",
 				valueFormatter: (value) => (value != null ? Number(value).toFixed(3) : ""),
 			},
+			{ field: "comp1_kg", headerName: "Comp 1 (kg)", width: 110, type: "number" },
+			{ field: "comp2_kg", headerName: "Comp 2 (kg)", width: 110, type: "number" },
 		],
 		[]
 	);
@@ -82,30 +86,30 @@ export default function RollStockTable({ rows, summary, loading }: Props) {
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
 			<Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-				{availableItems.map((it) => {
-					const active = selectedItems.includes(it.id);
+				{availableQualities.map((label) => {
+					const active = selectedQualities.includes(label);
 					return (
 						<Chip
-							key={it.id}
-							label={it.name}
+							key={label}
+							label={label}
 							color={active ? "primary" : "default"}
 							variant={active ? "filled" : "outlined"}
 							onClick={() =>
-								setSelectedItems((prev) =>
-									prev.includes(it.id) ? prev.filter((x) => x !== it.id) : [...prev, it.id]
+								setSelectedQualities((prev) =>
+									prev.includes(label) ? prev.filter((x) => x !== label) : [...prev, label]
 								)
 							}
 							sx={{ minHeight: 32 }}
 						/>
 					);
 				})}
-				{selectedItems.length > 0 ? (
-					<Chip label="Clear filters" onDelete={() => setSelectedItems([])} onClick={() => setSelectedItems([])} />
+				{selectedQualities.length > 0 ? (
+					<Chip label="Clear filters" onDelete={() => setSelectedQualities([])} onClick={() => setSelectedQualities([])} />
 				) : null}
 			</Stack>
 			<Box sx={{ width: "100%" }}>
 				<Typography variant="subtitle2" sx={{ mb: 1 }}>
-					Current Roll Stock (Bin × Group × Item)
+					Current Roll Stock (Bin × Group × Quality)
 				</Typography>
 				<DataGrid
 					autoHeight
@@ -127,7 +131,7 @@ export default function RollStockTable({ rows, summary, loading }: Props) {
 				</Typography>
 				<DataGrid
 					autoHeight
-					rows={filteredSummary.map((r) => ({ ...r, id: r.item_id }))}
+					rows={filteredSummary.map((r) => ({ ...r, id: r.quality_label }))}
 					columns={summaryColumns}
 					loading={loading}
 					density="comfortable"

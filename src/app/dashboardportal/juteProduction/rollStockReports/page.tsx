@@ -52,7 +52,10 @@ export default function RollStockReportsPage() {
 	const availableItems = React.useMemo(() => {
 		if (!summary.data) return [] as Array<{ id: number; name: string }>;
 		const map = new Map<number, string>();
-		for (const r of summary.data.rows) map.set(r.item_id, r.item_name);
+		for (const r of summary.data.rows) {
+			map.set(r.item_id, r.item_name);
+			if (r.item_id_2 != null && r.item_name_2) map.set(r.item_id_2, r.item_name_2);
+		}
 		return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
 	}, [summary.data]);
 
@@ -213,7 +216,7 @@ export default function RollStockReportsPage() {
 							/>
 							<PivotTable
 								title="Quality-wise Production (Rolls)"
-								entityHeader="Item"
+								entityHeader="Quality"
 								rows={summary.data.quality_pivot}
 							/>
 						</>
