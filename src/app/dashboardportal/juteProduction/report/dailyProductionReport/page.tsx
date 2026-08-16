@@ -568,7 +568,7 @@ function Content() {
           {/* Hands */}
           <SectionCard
             title="Workers / Hands"
-            subtitle="Hands = worked hours ÷ 8 (A/B) or 7.5 (C); approved attendance only"
+            subtitle="Hands = worked hours ÷ 8 (8-hour shifts); approved attendance only"
           >
             <DprTable
               head={
