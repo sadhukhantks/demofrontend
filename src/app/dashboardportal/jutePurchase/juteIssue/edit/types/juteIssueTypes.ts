@@ -40,6 +40,10 @@ export type StockOutstandingItem = {
   dept_name?: string | null;
   area_name?: string | null;
   jute_gate_entry_no?: number | null;
+  /** Formatted gate entry number, e.g. "LCPL/JGE/25-26/00393" — MR rows only. */
+  gate_entry_num?: string | null;
+  jute_gate_entry_date?: string | null;
+  vehicle_no?: string | null;
   warehouse_name?: string | null;
   branch_id: number;
   branch_mr_no: number | null;

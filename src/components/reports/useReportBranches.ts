@@ -30,8 +30,9 @@ export function useReportBranches(): {
   );
 
   const urlBranch = searchParams.get("branch_id");
-  const initialBranchId = urlBranch
-    ? Number(urlBranch)
+  const parsedUrlBranch = urlBranch ? Number(urlBranch) : null;
+  const initialBranchId = Number.isFinite(parsedUrlBranch as number)
+    ? (parsedUrlBranch as number)
     : (selectedBranches[0] ?? null);
 
   return {

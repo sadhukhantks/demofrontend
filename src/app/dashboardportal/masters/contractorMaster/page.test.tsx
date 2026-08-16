@@ -41,6 +41,12 @@ vi.mock("@/components/ui/IndexWrapper", () => ({
 	),
 }));
 
+// The page reads the sidebar's branch filter; rendering it bare would throw
+// "useSidebarContext must be used within SidebarProvider".
+vi.mock("@/components/dashboard/sidebarContext", () => ({
+	useSidebarContext: () => ({ selectedBranches: [] }),
+}));
+
 // Mock the create dialog
 vi.mock("./CreateContractorPage", () => ({
 	default: ({ open }: { open: boolean }) =>

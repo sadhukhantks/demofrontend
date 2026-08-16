@@ -19,7 +19,7 @@ export default function MaturityReportTable({ rows, loading, error }: Props) {
 			{ field: "issue_spell", headerName: "Spell", width: 70 },
 			{ field: "entry_id_grp", headerName: "Group", width: 80 },
 			{ field: "bin_code", headerName: "Bin", width: 100 },
-			{ field: "item_name", headerName: "Item", width: 180 },
+			{ field: "quality_label", headerName: "Quality", width: 220 },
 			{ field: "wt_per_roll", headerName: "Wt/Roll", width: 90, type: "number" },
 			{ field: "issue_rolls", headerName: "Issue Rolls", width: 110, type: "number" },
 			{ field: "prod_entry_date", headerName: "Prod Date", width: 110 },

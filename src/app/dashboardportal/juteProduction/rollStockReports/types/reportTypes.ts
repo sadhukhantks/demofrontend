@@ -11,6 +11,11 @@ export type MaturityReportRow = {
 	bin_code: string | null;
 	item_id: number | null;
 	item_name: string | null;
+	item_id_2: number | null;
+	item_name_2: string | null;
+	ratio_1: number | null;
+	ratio_2: number | null;
+	quality_label: string;
 	prod_entry_date: string | null;
 	prod_entry_time: number | null;
 	prod_entry_dt: string | null;
@@ -20,7 +25,7 @@ export type MaturityReportRow = {
 };
 
 export type PivotRow = {
-	entity_id: number;
+	entity_id: number | string;
 	entity_name: string;
 	A1: number;
 	A2: number;
@@ -43,6 +48,11 @@ export type SpreaderProductionRow = {
 	mech_code: string;
 	item_id: number;
 	item_name: string;
+	item_id_2: number | null;
+	item_name_2: string | null;
+	ratio_1: number | null;
+	ratio_2: number | null;
+	quality_label: string;
 	no_of_rolls: number;
 	wt_per_roll: number;
 	weight_kg: number;

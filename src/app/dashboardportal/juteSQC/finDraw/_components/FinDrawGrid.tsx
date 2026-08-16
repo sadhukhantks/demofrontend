@@ -60,8 +60,8 @@ function machineLabel(r: FinDrawReadingRow): string {
 	return r.mc_id != null ? `MC #${r.mc_id}` : "—";
 }
 
-function batchLabel(r: FinDrawReadingRow | FinDrawGrandAverage): string {
-	return r.batch_plan_name ?? (r.batch_plan_id != null ? `Batch #${r.batch_plan_id}` : "—");
+function groupLabel(r: FinDrawReadingRow | FinDrawGrandAverage): string {
+	return r.item_grp_name ?? (r.item_grp_id != null ? `Group #${r.item_grp_id}` : "—");
 }
 
 function spellLabel(r: FinDrawReadingRow): string {
@@ -78,7 +78,7 @@ function dlvLabel(r: FinDrawReadingRow): string {
 /**
  * R-08-12/13/14 Finisher Drawing summary + readings grid.
  *
- * Renders the per-section AVERAGE block and the per-batch GRAND-AVERAGE block
+ * Renders the per-section AVERAGE block and the per-group GRAND-AVERAGE block
  * (both recomputed server-side at read, CV% tinted by the band) above a DataGrid
  * of saved reading rows — grouped/sorted by section — with a DLV column and a
  * per-row delete action. Server values are authoritative; this is a date-driven
@@ -154,10 +154,10 @@ export default function FinDrawGrid({
 				valueGetter: (_value, row) => spellLabel(row),
 			},
 			{
-				field: "batch_plan_name",
-				headerName: "Batch",
+				field: "item_grp_name",
+				headerName: "Yarn Group",
 				width: 170,
-				valueGetter: (_value, row) => batchLabel(row),
+				valueGetter: (_value, row) => groupLabel(row),
 			},
 			{
 				field: "dlv_nos",
@@ -219,12 +219,12 @@ export default function FinDrawGrid({
 		[handleDelete]
 	);
 
-	// Group/sort by section (fixed order), then by batch, for a clean grouped read.
+	// Group/sort by section (fixed order), then by yarn group, for a clean grouped read.
 	const gridRows = React.useMemo<GridRow[]>(() => {
 		const sorted = [...rows].sort((a, b) => {
 			const sr = sectionRank(a.section) - sectionRank(b.section);
 			if (sr !== 0) return sr;
-			return batchLabel(a).localeCompare(batchLabel(b));
+			return groupLabel(a).localeCompare(groupLabel(b));
 		});
 		return sorted.map((r, i) => ({ ...r, _gridId: `${r.fin_draw_sliver_wt_id}-${i}` }));
 	}, [rows]);
@@ -288,10 +288,10 @@ export default function FinDrawGrid({
 				)}
 			</Paper>
 
-			{/* Per-batch grand-average block (recomputed server-side at read) */}
+			{/* per-group grand-average block (recomputed server-side at read) */}
 			<Paper variant="outlined" sx={{ p: 2 }}>
 				<Typography variant="subtitle2" sx={{ mb: 1, color: "text.secondary" }}>
-					Grand Average by Batch
+					Grand Average by Yarn Group
 				</Typography>
 				{grandAverages.length === 0 ? (
 					<Typography variant="body2" color="text.secondary">
@@ -302,7 +302,7 @@ export default function FinDrawGrid({
 						<Table size="small">
 							<TableHead>
 								<TableRow>
-									<TableCell>BATCH</TableCell>
+									<TableCell>YARN GROUP</TableCell>
 									<TableCell align="right">ROWS</TableCell>
 									<TableCell align="right">OBS</TableCell>
 									<TableCell align="right">MR%</TableCell>
@@ -314,8 +314,8 @@ export default function FinDrawGrid({
 								{grandAverages.map((g, i) => {
 									const cvPass = g.cv_within_band;
 									return (
-										<TableRow key={`${g.batch_plan_id ?? "b"}-${i}`}>
-											<TableCell>{batchLabel(g)}</TableCell>
+										<TableRow key={`${g.item_grp_id ?? "b"}-${i}`}>
+											<TableCell>{groupLabel(g)}</TableCell>
 											<TableCell align="right">{g.row_count ?? "—"}</TableCell>
 											<TableCell align="right">
 												{g.grand_obs != null ? Number(g.grand_obs).toFixed(2) : "—"}

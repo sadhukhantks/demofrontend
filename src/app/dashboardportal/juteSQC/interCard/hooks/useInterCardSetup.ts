@@ -5,7 +5,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { InterCardSetup } from "../types/interCardTypes";
 
-// GET get_card_sliver_wt_setup -> {"data": {sections, machines, spells, batches, entries}}.
+// GET get_card_sliver_wt_setup -> {"data": {sections, machines, spells, groups, entries}}.
 // Cloned from useBreakerCardSetup (route + type swapped).
 export function useInterCardSetup(
 	coId: string | null | undefined,

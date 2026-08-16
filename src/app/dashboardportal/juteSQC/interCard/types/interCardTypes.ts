@@ -9,7 +9,7 @@
 //
 // STRUCTURAL DELTA vs the Breaker Card clone: every row carries a SECTION
 // (INTER_CARD / TOW_BREAKER / HOPPER) — there is NO card_side anywhere — and the
-// quality linkage is a BATCH (jute_batch_plan), not a single line quality. A batch
+// quality linkage is a YARN GROUP (item_grp_mst, item_type 4), not a single line quality. A yarn group
 // has no single std, so std MR always falls back to 20 and the CV band is
 // unevaluated (cv_within_band null).
 //
@@ -46,24 +46,23 @@ export type InterCardMachine = {
 	branch_id?: number | null;
 };
 
-// A batch (jute_batch_plan) — a named mix of raw-jute qualities created in Jute
-// Batch Plan. plan_name is the display label. A batch has no single std, so the
+// A jute-yarn item group (item_grp_mst, item_type_id 4).
+// item_grp_name is the display label. A yarn group has no single std, so the
 // preview always uses std 20 and no CV band.
-export type BatchOption = {
-	batch_plan_id: number;
-	plan_name: string;
+export type YarnGroupOption = {
+	item_grp_id: number;
+	item_grp_name: string;
 	branch_id?: number | null;
-	line_qty?: number;
 };
 
 // ─── Setup payload ───────────────────────────────────────────────────────────
 
-// GET get_card_sliver_wt_setup -> {"data": {sections, machines, spells, batches, entries}}.
+// GET get_card_sliver_wt_setup -> {"data": {sections, machines, spells, groups, entries}}.
 export type InterCardSetup = {
 	sections: CardSection[];
 	machines: InterCardMachine[];
 	spells: SqcSpell[];
-	batches: BatchOption[];
+	groups: YarnGroupOption[];
 	entries: InterCardReadingRow[];
 };
 
@@ -84,8 +83,8 @@ export type InterCardReadingRow = {
 	spell_id?: number | null;
 	spell_code?: string | null;
 	spell_name?: string | null;
-	batch_plan_id?: number | null;
-	batch_plan_name?: string | null;
+	item_grp_id?: number | null;
+	item_grp_name?: string | null;
 	// Legacy line-quality fields — still present on old rows, not used.
 	item_id?: number | null;
 	jute_quality?: string | null;
@@ -116,13 +115,13 @@ export type SectionAverage = {
 	avg_cv_pct?: number | null; // ratio (render ×100)
 };
 
-// ─── Per-batch GRAND-AVERAGE block ───────────────────────────────────────────
-// Recomputed at read by the server across that date's rows for the batch:
+// ─── per-group GRAND-AVERAGE block ───────────────────────────────────────────
+// Recomputed at read by the server across that date's rows for the yarn group:
 //   OBS  = mean(calc_wt), MR%  = mean(calc_mr_pct), CORR = mean(calc_corr_wt),
 //   CV%  = stdev(pooled corrected cuts) / mean(pooled corrected cuts) (ratio).
 export type InterCardGrandAverage = {
-	batch_plan_id?: number | null;
-	batch_plan_name?: string | null;
+	item_grp_id?: number | null;
+	item_grp_name?: string | null;
 	row_count?: number | null;
 	grand_obs?: number | null;
 	grand_mr_pct?: number | null;
@@ -144,12 +143,12 @@ export type InterCardByDateResponse = {
 
 // One input row in the create payload. Empty selects → null. weights / mr_pcts
 // are exactly-4 numeric arrays; the server recomputes all calc_* values per row
-// (std MR fixed at 20 for a batch, no CV band).
+// (std MR fixed at 20 for a yarn group, no CV band).
 export type InterCardRow = {
 	section: CardSection;
 	mc_id: number | null;
 	spell_id: number | null;
-	batch_plan_id: number | null;
+	item_grp_id: number | null;
 	weights: number[];
 	mr_pcts: number[];
 };
@@ -171,7 +170,7 @@ export const interCardRowSchema = z.object({
 	section: z.enum(CARD_SECTIONS),
 	mc_id: z.number().int().positive().nullable(),
 	spell_id: z.number().int().positive().nullable(),
-	batch_plan_id: z.number({ error: "A batch must be selected" }).int().positive("A batch must be selected"),
+	item_grp_id: z.number({ error: "A yarn group must be selected" }).int().positive("A yarn group must be selected"),
 	weights: z
 		.array(z.number())
 		.refine((arr) => arr.length === CARD_SLIVER_READINGS, `Enter all ${CARD_SLIVER_READINGS} cut weights`)

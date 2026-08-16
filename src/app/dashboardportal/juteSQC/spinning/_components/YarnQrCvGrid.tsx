@@ -176,6 +176,13 @@ export default function YarnQrCvGrid({ coId, groups, loading, onDeleted }: Props
 					row.item_name ?? row.item_code ?? `Yarn #${row.item_id}`,
 			},
 			{
+				field: "spell_code",
+				headerName: "SPELL",
+				width: 90,
+				valueGetter: (_value, row) =>
+					row.spell_code ?? (row.spell_id != null ? `#${row.spell_id}` : "—"),
+			},
+			{
 				field: "machine_name",
 				headerName: "MC No.",
 				width: 150,

@@ -91,6 +91,15 @@ const formatDate = (value?: string) => {
   return trimmed;
 };
 
+// Compact dd-mm-yy for the stock picker, where the row is already column-heavy.
+const formatDateShort = (value?: string | null) => {
+  if (!value) return "-";
+  const ymd = value.trim().match(/^([0-9]{4})-([0-9]{2})-([0-9]{2})/);
+  if (!ymd) return value.trim();
+  const [, year, month, day] = ymd;
+  return `${day}-${month}-${year.slice(2)}`;
+};
+
 export default function JuteIssueEditPageWrapper() {
   return (
     <Suspense
@@ -1009,7 +1018,7 @@ function JuteIssueEditPage() {
       </Box>
 
       {/* Stock Selection Dialog */}
-      <Dialog open={stockDialogOpen} onClose={handleCloseStockDialog} maxWidth="md" fullWidth>
+      <Dialog open={stockDialogOpen} onClose={handleCloseStockDialog} maxWidth="xl" fullWidth>
         <DialogTitle>Select Stock to Issue</DialogTitle>
         <DialogContent>
           <Box display="flex" flexDirection="column" gap={3} pt={2}>
@@ -1057,16 +1066,15 @@ function JuteIssueEditPage() {
                   <TableHead>
                     <TableRow>
                       <TableCell padding="checkbox" />
-                      <TableCell>Source</TableCell>
                       <TableCell>Gate Entry No</TableCell>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>GE Date</TableCell>
+                      <TableCell sx={{ width: 90 }}>Vehicle No</TableCell>
                       <TableCell>MR No</TableCell>
-                      <TableCell>Jute Type</TableCell>
                       <TableCell>Item</TableCell>
                       <TableCell>Unit</TableCell>
                       <TableCell>Warehouse / Area</TableCell>
                       <TableCell align="right">Bal Qty</TableCell>
                       <TableCell align="right">Bal Weight (kg)</TableCell>
-                      <TableCell align="right">Rate/Qtl</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -1089,22 +1097,20 @@ function JuteIssueEditPage() {
                             size="small"
                           />
                         </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={stock.source === "WASTE" ? "Waste" : "MR"}
-                            size="small"
-                            color={stock.source === "WASTE" ? "secondary" : "default"}
-                            variant={stock.source === "WASTE" ? "filled" : "outlined"}
-                          />
-                        </TableCell>
-                        {/* Waste has no gate entry or MR number — its department stands in */}
+                        {/* Waste has no gate entry, date, vehicle or MR number —
+                            its department stands in for the gate entry */}
                         <TableCell>
                           {stock.source === "WASTE"
                             ? stock.dept_name || "-"
-                            : stock.jute_gate_entry_no || "-"}
+                            : stock.gate_entry_num || stock.jute_gate_entry_no || "-"}
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: "nowrap" }}>
+                          {formatDateShort(stock.jute_gate_entry_date)}
+                        </TableCell>
+                        <TableCell sx={{ width: 90, fontSize: "0.75rem" }}>
+                          {stock.vehicle_no || "-"}
                         </TableCell>
                         <TableCell>{stock.mr_num ?? stock.branch_mr_no ?? "-"}</TableCell>
-                        <TableCell>{stock.jute_group_name || "-"}</TableCell>
                         <TableCell>{stock.item_name || "-"}</TableCell>
                         <TableCell>{stock.unit_conversion}</TableCell>
                         <TableCell>
@@ -1132,7 +1138,6 @@ function JuteIssueEditPage() {
                             </Typography>
                           </Box>
                         </TableCell>
-                        <TableCell align="right">{stock.actual_rate?.toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -1173,7 +1178,7 @@ function JuteIssueEditPage() {
                 <Typography>
                   {selectedStock.source === "WASTE"
                     ? `Waste #${selectedStock.waste_entry_id} / ${describeStockOrigin(selectedStock)} - ${selectedStock.jute_group_name || "Unknown"} (${selectedStock.item_name || "N/A"})`
-                    : `MR ${selectedStock.mr_num ?? selectedStock.branch_mr_no} / GE ${selectedStock.jute_gate_entry_no ?? "-"} - ${selectedStock.jute_group_name || "Unknown"} (${selectedStock.item_name || "N/A"})`}
+                    : `MR ${selectedStock.mr_num ?? selectedStock.branch_mr_no} / GE ${selectedStock.gate_entry_num ?? selectedStock.jute_gate_entry_no ?? "-"} - ${selectedStock.jute_group_name || "Unknown"} (${selectedStock.item_name || "N/A"})`}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Available: {selectedStock ? getAdjustedBalQty(selectedStock).toFixed(2) : "0"} unit({selectedStock?.unit_conversion}) | Rate: ₹{selectedStock?.actual_rate?.toFixed(2)}/qtl

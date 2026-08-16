@@ -35,6 +35,7 @@ function round2(x: number): number {
 }
 
 export default function YarnQrCvForm({ coId, branchId, entryDate, setup, onSaved }: Props) {
+	const [spellId, setSpellId] = React.useState<number | "">("");
 	const [machineId, setMachineId] = React.useState<number | "">("");
 	const [yarnItemId, setYarnItemId] = React.useState<number | "">("");
 	const [spindles, setSpindles] = React.useState<SpindleBlock[]>(emptySpindles);
@@ -42,10 +43,28 @@ export default function YarnQrCvForm({ coId, branchId, entryDate, setup, onSaved
 	const [error, setError] = React.useState<string | null>(null);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
-	// observed_count + MR% obtained come from the selected yarn's R-08-16 averages.
-	const selectedYarn: SqcYarnObs | undefined = setup.yarn_obs.find((y) => y.item_id === Number(yarnItemId));
-	const observedCount = selectedYarn?.observed_count ?? null;
-	const mrObtained = selectedYarn?.mr_pct ?? null;
+	// Yarn options = the yarns that have R-08-16 readings today (unique by item).
+	const yarnOptions = React.useMemo(() => {
+		const seen = new Map<number, SqcYarnObs>();
+		for (const o of setup.yarn_obs) if (!seen.has(o.item_id)) seen.set(o.item_id, o);
+		return Array.from(seen.values());
+	}, [setup.yarn_obs]);
+	const selectedYarn: SqcYarnObs | undefined = yarnOptions.find((y) => y.item_id === Number(yarnItemId));
+
+	// observed_count + MR% obtained come from the R-08-16 reading of the EXACT
+	// (spell, frame, yarn) selection — no date-level average.
+	const allKeysPicked = spellId !== "" && machineId !== "" && yarnItemId !== "";
+	const selectedObs: SqcYarnObs | undefined = allKeysPicked
+		? setup.yarn_obs.find(
+				(y) =>
+					y.spell_id === Number(spellId) &&
+					y.mc_id === Number(machineId) &&
+					y.item_id === Number(yarnItemId)
+			)
+		: undefined;
+	const observedCount = selectedObs?.observed_count ?? null;
+	const mrObtained = selectedObs?.mr_pct ?? null;
+	const noObsForKey = allKeysPicked && !selectedObs;
 
 	const noYarnObs = setup.yarn_obs.length === 0;
 
@@ -86,11 +105,15 @@ export default function YarnQrCvForm({ coId, branchId, entryDate, setup, onSaved
 
 	const clearReadings = () => setSpindles(emptySpindles());
 
-	// machine + yarn required; all 6 spindle_no must be filled.
+	// spell + machine + yarn required; all 6 spindle_no must be filled.
 	const allSpindleNosFilled = spindles.every((s) => s.spindle_no !== "");
-	const formInvalid = !machineId || !yarnItemId || !allSpindleNosFilled;
+	const formInvalid = !spellId || !machineId || !yarnItemId || !allSpindleNosFilled;
 
 	const handleSave = async () => {
+		if (!spellId) {
+			setError("Select a spell.");
+			return;
+		}
 		if (!yarnItemId) {
 			setError("Select a yarn.");
 			return;
@@ -106,6 +129,7 @@ export default function YarnQrCvForm({ coId, branchId, entryDate, setup, onSaved
 		setSaving(true);
 		setError(null);
 		const row: SqcQrCvSavePayloadRow = {
+			spell_id: Number(spellId),
 			mc_id: Number(machineId),
 			item_id: Number(yarnItemId),
 			spindles: spindles.map((s) => ({
@@ -153,14 +177,23 @@ export default function YarnQrCvForm({ coId, branchId, entryDate, setup, onSaved
 					gridTemplateColumns: {
 						xs: "1fr",
 						sm: "repeat(2, minmax(0, 1fr))",
-						md: "repeat(4, minmax(0, 1fr))",
+						md: "repeat(5, minmax(0, 1fr))",
 					},
 				}}
 			>
 				<Autocomplete
-					options={setup.yarn_obs}
+					options={setup.spells}
+					getOptionLabel={(s) => `${s.spell_name} (${s.spell_code})`}
+					value={setup.spells.find((s) => s.spell_id === spellId) ?? null}
+					onChange={(_, newVal) => setSpellId(newVal ? newVal.spell_id : "")}
+					size="small"
+					renderInput={(params) => <TextField {...params} label="Spell" />}
+					isOptionEqualToValue={(opt, val) => opt.spell_id === val.spell_id}
+				/>
+				<Autocomplete
+					options={yarnOptions}
 					getOptionLabel={(y) => `${y.item_name ?? ""} (${y.item_code ?? ""})`}
-					value={setup.yarn_obs.find((y) => y.item_id === yarnItemId) ?? null}
+					value={yarnOptions.find((y) => y.item_id === yarnItemId) ?? null}
 					onChange={(_, newVal) => setYarnItemId(newVal ? newVal.item_id : "")}
 					size="small"
 					renderInput={(params) => <TextField {...params} label="Yarn" />}
@@ -181,16 +214,24 @@ export default function YarnQrCvForm({ coId, branchId, entryDate, setup, onSaved
 					value={observedCount != null ? observedCount.toFixed(2) : ""}
 					size="small"
 					fullWidth
+					error={noObsForKey}
 					InputProps={{ readOnly: true }}
-					helperText="AVG of R-08-16 observed count"
+					helperText={
+						noObsForKey
+							? "No R-08-16 reading for this frame + spell + yarn"
+							: "R-08-16 count for this frame + spell"
+					}
 				/>
 				<TextField
 					label="MR % obtained"
 					value={mrObtained != null ? mrObtained.toFixed(2) : ""}
 					size="small"
 					fullWidth
+					error={noObsForKey}
 					InputProps={{ readOnly: true }}
-					helperText="AVG of R-08-16 MR%"
+					helperText={
+						noObsForKey ? "No R-08-16 reading for this key" : "R-08-16 MR% for this frame + spell"
+					}
 				/>
 			</Box>
 

@@ -17,6 +17,12 @@ import { spellFromHour, todayISO, currentHour } from "../utils/shift";
 import { useBinState } from "../hooks/useBinState";
 import BinStateBanner from "./BinStateBanner";
 
+// Mirror the backend's Field(le=...) caps so a fat-fingered value disables Save
+// instead of coming back as "Request failed with status 422".
+const MAX_RATIO = 1000;
+const MAX_ROLLS = 100000;
+const MAX_TROLLEY_NO = 1000000;
+
 type Props = {
 	coId: string;
 	branchId: number;
@@ -31,6 +37,10 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 	const [machineId, setMachineId] = React.useState<number | "">("");
 	const [binId, setBinId] = React.useState<number | "">("");
 	const [itemId, setItemId] = React.useState<number | "">("");
+	const [item2Id, setItem2Id] = React.useState<number | "">("");
+	const [ratio1, setRatio1] = React.useState<string>("1");
+	const [ratio2, setRatio2] = React.useState<string>("1");
+	const [showSecond, setShowSecond] = React.useState(false);
 	const [trolleyNo, setTrolleyNo] = React.useState<string>("");
 	const [noOfRolls, setNoOfRolls] = React.useState<string>("");
 	const [remarks, setRemarks] = React.useState<string>("");
@@ -43,7 +53,7 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 		return setup.machines.find((m) => m.machine_id === Number(machineId))?.wt_per_roll ?? 0;
 	}, [machineId, setup.machines]);
 
-	const { state: binState, loading: stateLoading } = useBinState(
+	const { state: binState, loading: stateLoading, refresh: refreshBinState } = useBinState(
 		coId,
 		binId === "" ? null : Number(binId),
 		entryDate,
@@ -52,15 +62,25 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 
 	const lockedItemName = React.useMemo(() => {
 		if (!binState?.locked_item_id) return null;
+		if (binState.locked_quality_label) return binState.locked_quality_label;
 		return setup.items.find((i) => i.item_id === binState.locked_item_id)?.item_name ?? null;
 	}, [binState, setup.items]);
 
-	// If bin has an open group locked to an item, force item_id to that value.
+	// If bin has an open group, force the full blend to the locked values.
 	React.useEffect(() => {
 		if (binState?.locked_item_id) {
 			setItemId(binState.locked_item_id);
+			if (binState.locked_item_id_2) {
+				setShowSecond(true);
+				setItem2Id(binState.locked_item_id_2);
+				setRatio1(String(binState.locked_ratio_1 ?? 1));
+				setRatio2(String(binState.locked_ratio_2 ?? 1));
+			} else {
+				setShowSecond(false);
+				setItem2Id("");
+			}
 		}
-	}, [binState?.locked_item_id]);
+	}, [binState?.locked_item_id, binState?.locked_item_id_2, binState?.locked_ratio_1, binState?.locked_ratio_2]);
 
 	// Update spell automatically when entry_time changes (unless user has overridden it manually).
 	React.useEffect(() => {
@@ -74,7 +94,18 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 		!itemId ||
 		!noOfRolls ||
 		Number(noOfRolls) <= 0 ||
+		Number(noOfRolls) > MAX_ROLLS ||
+		Number(trolleyNo) > MAX_TROLLEY_NO ||
 		!wtPerRoll ||
+		(showSecond &&
+			(!item2Id ||
+				Number(item2Id) === Number(itemId) ||
+				Number(ratio1) < 1 ||
+				Number(ratio2) < 1 ||
+				Number(ratio1) > MAX_RATIO ||
+				Number(ratio2) > MAX_RATIO ||
+				!Number.isInteger(Number(ratio1)) ||
+				!Number.isInteger(Number(ratio2)))) ||
 		!windowAllowed;
 
 	const handleSubmit = async () => {
@@ -92,6 +123,9 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 			spell,
 			machine_id: Number(machineId),
 			item_id: Number(itemId),
+			item_id_2: showSecond && item2Id ? Number(item2Id) : null,
+			ratio_1: showSecond ? Number(ratio1) : 1,
+			ratio_2: showSecond && item2Id ? Number(ratio2) : null,
 			bin_id: Number(binId),
 			trolley_no: trolleyNo ? Number(trolleyNo) : null,
 			no_of_rolls: Number(noOfRolls),
@@ -104,6 +138,10 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 			body
 		);
 		setSaving(false);
+		// Re-read the bin state on both paths: a success opens or extends a group, and a
+		// rejection means our view of the bin was stale — either way the banner and the
+		// quality lock must reflect what the server now holds.
+		refreshBinState();
 		if (err) {
 			setError(err);
 			return;
@@ -112,6 +150,8 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 		setNoOfRolls("");
 		setTrolleyNo("");
 		setRemarks("");
+		// The blend stays sticky across saves — state is never cleared here, so the next
+		// entry keeps feeding the group we just opened.
 		onSaved();
 	};
 
@@ -201,7 +241,11 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 					select
 					label="Item (jute / jute waste)"
 					value={itemId}
-					onChange={(e) => setItemId(e.target.value === "" ? "" : Number(e.target.value))}
+					onChange={(e) => {
+						const next = e.target.value === "" ? "" : Number(e.target.value);
+						setItemId(next);
+						if (next !== "" && Number(item2Id) === Number(next)) setItem2Id("");
+					}}
 					size="small"
 					fullWidth
 					disabled={!!binState?.locked_item_id}
@@ -213,11 +257,76 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 						</MenuItem>
 					))}
 				</TextField>
+				{!showSecond ? (
+					<Button
+						size="small"
+						onClick={() => setShowSecond(true)}
+						disabled={!!binState?.locked_item_id}
+						sx={{ alignSelf: "center", justifySelf: "start" }}
+					>
+						+ Second quality
+					</Button>
+				) : (
+					<Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+						<TextField
+							select
+							label="Second quality"
+							value={item2Id}
+							onChange={(e) => setItem2Id(e.target.value === "" ? "" : Number(e.target.value))}
+							size="small"
+							sx={{ flex: 1 }}
+							disabled={!!binState?.locked_item_id}
+						>
+							{setup.items
+								.filter((it) => it.item_id !== Number(itemId))
+								.map((it) => (
+									<MenuItem key={it.item_id} value={it.item_id}>
+										{it.item_name}
+									</MenuItem>
+								))}
+						</TextField>
+						<TextField
+							type="number"
+							label="Ratio 1"
+							value={ratio1}
+							onChange={(e) => setRatio1(e.target.value)}
+							inputProps={{ min: 1, max: MAX_RATIO }}
+							size="small"
+							sx={{ width: 80 }}
+							disabled={!!binState?.locked_item_id}
+						/>
+						<TextField
+							type="number"
+							label="Ratio 2"
+							value={ratio2}
+							onChange={(e) => setRatio2(e.target.value)}
+							inputProps={{ min: 1, max: MAX_RATIO }}
+							size="small"
+							sx={{ width: 80 }}
+							disabled={!!binState?.locked_item_id}
+						/>
+						{!binState?.locked_item_id ? (
+							<Button
+								size="small"
+								aria-label="Remove second quality"
+								onClick={() => {
+									setShowSecond(false);
+									setItem2Id("");
+									setRatio1("1");
+									setRatio2("1");
+								}}
+							>
+								✕
+							</Button>
+						) : null}
+					</Box>
+				)}
 				<TextField
 					type="number"
 					label="No. of Rolls"
 					value={noOfRolls}
 					onChange={(e) => setNoOfRolls(e.target.value)}
+					inputProps={{ min: 1, max: MAX_ROLLS }}
 					size="small"
 					fullWidth
 				/>
@@ -226,6 +335,7 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 					label="Trolley No"
 					value={trolleyNo}
 					onChange={(e) => setTrolleyNo(e.target.value)}
+					inputProps={{ min: 0, max: MAX_TROLLEY_NO }}
 					size="small"
 					fullWidth
 				/>

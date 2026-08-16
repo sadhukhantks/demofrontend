@@ -154,6 +154,7 @@ export default function FabricFaultSqcPage() {
 						{ key: "weaving", label: "Date of weaving" },
 						{ key: "inspector", label: "Inspector" },
 						{ key: "piece_total", label: "Piece total", align: "right" as const },
+						{ key: "remarks", label: "Remarks" },
 					],
 					rows: pieces.map((p) => ({
 						loom: p.loom_name
@@ -164,6 +165,7 @@ export default function FabricFaultSqcPage() {
 						weaving: p.date_of_weaving ?? null,
 						inspector: p.inspector_name ?? null,
 						piece_total: p.piece_total ?? null,
+						remarks: p.remarks ?? null,
 					})),
 				},
 			],

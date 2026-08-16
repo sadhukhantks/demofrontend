@@ -5,7 +5,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { BreakerCardSetup } from "../types/breakerCardTypes";
 
-// GET get_breaker_card_swt_setup -> {"data": {machines, spells, batches, entries}}.
+// GET get_breaker_card_swt_setup -> {"data": {machines, spells, groups, entries}}.
 // Copied from the Spreader SQC useSqcRollWtSetup template (route + type swapped).
 export function useBreakerCardSetup(
 	coId: string | null | undefined,
