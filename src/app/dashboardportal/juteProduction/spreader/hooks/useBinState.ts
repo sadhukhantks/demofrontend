@@ -14,6 +14,9 @@ export function useBinState(
 	const [state, setState] = React.useState<BinState | null>(null);
 	const [loading, setLoading] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
+	const [version, setVersion] = React.useState(0);
+
+	const refresh = React.useCallback(() => setVersion((v) => v + 1), []);
 
 	React.useEffect(() => {
 		if (!coId || !binId || !entryDate || entryTime == null) {
@@ -43,7 +46,7 @@ export function useBinState(
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, binId, entryDate, entryTime]);
+	}, [coId, binId, entryDate, entryTime, version]);
 
-	return { state, loading, error };
+	return { state, loading, error, refresh };
 }

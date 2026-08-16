@@ -13,7 +13,7 @@ const EMPTY: BreakerCardByDateResponse = { rows: [], grand_averages: [] };
 
 // GET get_breaker_card_swt_by_date -> {"data": {rows, grand_averages}}.
 // OBJECT envelope (per R-08-04/03 review lessons): read BOTH resp.data.rows AND
-// resp.data.grand_averages — the per-batch grand block is recomputed at read.
+// resp.data.grand_averages — the per-group grand block is recomputed at read.
 // Copied from the Spreader SQC useSqcRollWtByDate template (envelope + types swapped).
 export function useBreakerCardByDate(
 	coId: string | null | undefined,

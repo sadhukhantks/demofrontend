@@ -69,9 +69,9 @@ function GroupDetail({ group }: { group: QrCv15aGroup }) {
 			<Table size="small">
 				<TableHead>
 					<TableRow>
-						{readings.map((_, i) => (
+						{readings.map((r, i) => (
 							<TableCell key={i} align="right">
-								R{i + 1}
+								R{r.reading_no ?? i + 1}
 							</TableCell>
 						))}
 					</TableRow>
@@ -80,7 +80,7 @@ function GroupDetail({ group }: { group: QrCv15aGroup }) {
 					<TableRow>
 						{readings.map((v, i) => (
 							<TableCell key={i} align="right">
-								{fmt(v, 3)}
+								{fmt(v.reading_val, 3)}
 							</TableCell>
 						))}
 					</TableRow>

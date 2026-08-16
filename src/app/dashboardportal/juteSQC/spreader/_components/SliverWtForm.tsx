@@ -176,23 +176,27 @@ export default function SliverWtForm({ coId, branchId, entryDate, setup, onSaved
 						</MenuItem>
 					))}
 				</TextField>
-				<TextField
-					select
-					label="Machine (MC No.)"
-					value={machineId}
-					onChange={(e) => setMachineId(e.target.value === "" ? "" : Number(e.target.value))}
+				<Autocomplete
+					options={setup.machines}
+					getOptionLabel={(opt) =>
+						opt.mech_code ? `${opt.machine_name} (${opt.mech_code})` : opt.machine_name
+					}
+					renderOption={(props, opt) => (
+						<li {...props} key={opt.machine_id}>
+							{opt.machine_name} ({opt.mech_code})
+						</li>
+					)}
+					value={
+						machineId === ""
+							? null
+							: (setup.machines.find((m) => m.machine_id === Number(machineId)) ?? null)
+					}
+					onChange={(_, newVal) => setMachineId(newVal ? newVal.machine_id : "")}
+					isOptionEqualToValue={(opt, val) => opt.machine_id === val.machine_id}
 					size="small"
 					fullWidth
-				>
-					<MenuItem value="">
-						<em>None</em>
-					</MenuItem>
-					{setup.machines.map((m) => (
-						<MenuItem key={m.machine_id} value={m.machine_id}>
-							{m.machine_name} ({m.mech_code})
-						</MenuItem>
-					))}
-				</TextField>
+					renderInput={(params) => <TextField {...params} label="Machine (MC No.)" />}
+				/>
 				<Autocomplete
 					options={setup.qualities}
 					getOptionLabel={(q) => `${q.item_name} (${q.item_code})`}

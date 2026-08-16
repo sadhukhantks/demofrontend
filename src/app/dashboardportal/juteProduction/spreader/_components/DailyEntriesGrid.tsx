@@ -57,7 +57,7 @@ export default function DailyEntriesGrid({ coId, rows, loading, onDeleted }: Pro
 			{ field: "entry_time", headerName: "Hr", width: 60 },
 			{ field: "spell", headerName: "Spell", width: 70 },
 			{ field: "machine_name", headerName: "Spreader", width: 140 },
-			{ field: "item_name", headerName: "Item", width: 180 },
+			{ field: "quality_label", headerName: "Quality", width: 220 },
 			{ field: "no_of_rolls", headerName: "Rolls", width: 80, type: "number" },
 			{ field: "wt_per_roll", headerName: "Wt/Roll", width: 90, type: "number" },
 			{

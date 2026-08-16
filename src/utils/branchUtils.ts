@@ -60,7 +60,11 @@ export function getBranchOptionsFromLocalStorage(): Option[] {
 }
 
 export function useBranchOptions(): Option[] {
-  const [opts, setOpts] = React.useState<Option[]>(() => getBranchOptionsFromLocalStorage());
+  // Starts EMPTY on purpose. Seeding from localStorage here would read [] during
+  // SSR and the real branches on the client's hydration render — the two markups
+  // then differ and React throws a hydration mismatch. The effect below fills it
+  // in immediately after mount, which is the only point both sides agree on.
+  const [opts, setOpts] = React.useState<Option[]>([]);
 
   React.useEffect(() => {
     const handleStorage = (ev: StorageEvent) => {

@@ -66,6 +66,49 @@ export type SqcPrintReport = {
 	sections: PrintSection[];
 };
 
+/**
+ * Build the column set for an array of recorded readings, keyed
+ * `${prefix}1..${prefix}count` and labelled `${label} 1..${label} count`.
+ *
+ * SQC sheets capture N raw observations per row (cut weights, MR%, TPI cells,
+ * …). Printouts must show those recorded values, not only the derived averages,
+ * so every reading-bearing report expands its array through this pair of
+ * helpers. Pass `count` from the report's fixed reading constant, or from
+ * `Math.max(...rows.map(r => r.arr?.length ?? 0))` for ragged arrays.
+ */
+export function readingColumns(
+	prefix: string,
+	label: string,
+	count: number,
+	align: PrintAlign = "right",
+): PrintColumn[] {
+	return Array.from({ length: count }, (_, i) => ({
+		key: `${prefix}${i + 1}`,
+		label: `${label} ${i + 1}`,
+		align,
+	}));
+}
+
+/**
+ * Spread recorded readings into `${prefix}1..${prefix}count` cells, formatted to
+ * `digits` decimals. Missing/non-numeric entries render blank (the table
+ * renderer turns those into an em-dash). Pairs with {@link readingColumns}.
+ */
+export function readingCells(
+	prefix: string,
+	values: Array<number | null | undefined> | null | undefined,
+	count: number,
+	digits = 2,
+): Record<string, PrintCell> {
+	const out: Record<string, PrintCell> = {};
+	for (let i = 0; i < count; i++) {
+		const v = values?.[i];
+		const n = Number(v);
+		out[`${prefix}${i + 1}`] = v === null || v === undefined || !Number.isFinite(n) ? "" : n.toFixed(digits);
+	}
+	return out;
+}
+
 /** Escape a value for safe HTML interpolation. */
 function esc(value: PrintCell): string {
 	if (value === null || value === undefined) return "";

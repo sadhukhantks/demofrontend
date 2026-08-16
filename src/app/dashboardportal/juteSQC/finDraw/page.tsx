@@ -10,7 +10,9 @@ import { useFinDrawByDate } from "./hooks/useFinDrawByDate";
 import FinDrawForm from "./_components/FinDrawForm";
 import FinDrawGrid from "./_components/FinDrawGrid";
 import SqcPrintButton from "../_shared/SqcPrintButton";
+import { readingCells, readingColumns } from "../_shared/printReport";
 import type { SqcPrintReport, PrintColumn } from "../_shared/printReport";
+import { FIN_DRAW_READINGS } from "./types/finDrawTypes";
 import type {
 	FinDrawGrandAverage,
 	FinDrawReadingRow,
@@ -40,8 +42,8 @@ function machineLabel(r: FinDrawReadingRow): string {
 	return r.mc_id != null ? `MC #${r.mc_id}` : "—";
 }
 
-function batchLabel(r: FinDrawReadingRow | FinDrawGrandAverage): string {
-	return r.batch_plan_name ?? (r.batch_plan_id != null ? `Batch #${r.batch_plan_id}` : "—");
+function groupLabel(r: FinDrawReadingRow | FinDrawGrandAverage): string {
+	return r.item_grp_name ?? (r.item_grp_id != null ? `Group #${r.item_grp_id}` : "—");
 }
 
 function spellLabel(r: FinDrawReadingRow): string {
@@ -65,9 +67,12 @@ const READING_COLUMNS: PrintColumn[] = [
 	{ key: "section", label: "Section" },
 	{ key: "machine", label: "Machine" },
 	{ key: "spell", label: "Spell" },
-	{ key: "batch", label: "Batch" },
+	{ key: "group", label: "Yarn Group" },
 	{ key: "dlv", label: "DLV Nos" },
 	{ key: "std_mr_pct", label: "Std MR%", align: "right" },
+	// The raw cuts the operator recorded, ahead of the derived calc_* values.
+	...readingColumns("wt", "Wt", FIN_DRAW_READINGS),
+	...readingColumns("mr", "MR%", FIN_DRAW_READINGS),
 	{ key: "calc_wt", label: "Obs Wt", align: "right" },
 	{ key: "calc_mr_pct", label: "MR%", align: "right" },
 	{ key: "calc_corr_wt", label: "Corr Wt", align: "right" },
@@ -87,7 +92,7 @@ const SECTION_AVG_COLUMNS: PrintColumn[] = [
 ];
 
 const GRAND_AVG_COLUMNS: PrintColumn[] = [
-	{ key: "batch", label: "Batch" },
+	{ key: "group", label: "Yarn Group" },
 	{ key: "row_count", label: "Rows", align: "right" },
 	{ key: "grand_obs", label: "Obs", align: "right" },
 	{ key: "grand_mr_pct", label: "MR%", align: "right" },
@@ -128,7 +133,7 @@ export default function FinDrawSqcPage() {
 	);
 	const selectedBranchName = branchOptions.find((b) => Number(b.branch_id) === branchId)?.branch_name;
 
-	// R-08-12/13/14 Finisher Drawing: per (section, machine, spell, batch) bench readings by date.
+	// R-08-12/13/14 Finisher Drawing: per (section, machine, spell, yarn group) bench readings by date.
 	const [entryDate, setEntryDate] = React.useState<string>(todayISO());
 	const {
 		setup,
@@ -148,7 +153,7 @@ export default function FinDrawSqcPage() {
 	}, [refreshByDate]);
 
 	// Day-level print: ONE consolidated report for the selected date. Spell is an
-	// ordinary data column; non-shift grouping (section, batch) is preserved as
+	// ordinary data column; non-shift grouping (section, yarn group) is preserved as
 	// sub-sections of the SAME day report. No new fetches — reuses loaded rows.
 	const getReport = React.useCallback((): SqcPrintReport | null => {
 		if (rows.length === 0) return null;
@@ -156,7 +161,7 @@ export default function FinDrawSqcPage() {
 		const sortedRows = [...rows].sort((a, b) => {
 			const sr = sectionRank(a.section) - sectionRank(b.section);
 			if (sr !== 0) return sr;
-			return batchLabel(a).localeCompare(batchLabel(b));
+			return groupLabel(a).localeCompare(groupLabel(b));
 		});
 
 		const readingRows = sortedRows.map((r: FinDrawReadingRow) => ({
@@ -164,9 +169,11 @@ export default function FinDrawSqcPage() {
 			section: sectionLabel(r.section),
 			machine: machineLabel(r),
 			spell: spellLabel(r),
-			batch: batchLabel(r),
+			group: groupLabel(r),
 			dlv: dlvLabel(r),
 			std_mr_pct: num(r.std_mr_pct),
+			...readingCells("wt", r.weights, FIN_DRAW_READINGS, 2),
+			...readingCells("mr", r.mr_pcts, FIN_DRAW_READINGS, 2),
 			calc_wt: num(r.calc_wt),
 			calc_mr_pct: num(r.calc_mr_pct),
 			calc_corr_wt: num(r.calc_corr_wt),
@@ -189,7 +196,7 @@ export default function FinDrawSqcPage() {
 		}));
 
 		const grandAvgRows = grandAverages.map((g: FinDrawGrandAverage) => ({
-			batch: batchLabel(g),
+			group: groupLabel(g),
 			row_count: g.row_count ?? "—",
 			grand_obs: num(g.grand_obs),
 			grand_mr_pct: num(g.grand_mr_pct),
@@ -219,7 +226,7 @@ export default function FinDrawSqcPage() {
 					? ([
 							{
 								kind: "table",
-								title: "Grand Average by Batch",
+								title: "Grand Average by Yarn Group",
 								columns: GRAND_AVG_COLUMNS,
 								rows: grandAvgRows,
 							},
@@ -255,8 +262,8 @@ export default function FinDrawSqcPage() {
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 				Capture finisher drawing sliver weight (R-08-12/13/14) across the three sub-sections —
 				Hessian, Sacking Warp (SWP) and Sacking Warp/Twine (SWT) — one sheet, many (section, machine,
-				spell, batch) reading sets, each with up to 4 per-cut delivery (DLV) numbers and linked to a
-				batch (jute batch plan), each corrected to STD MR% 16 with per-section and per-batch grand
+				spell, yarn group) reading sets, each with up to 4 per-cut delivery (DLV) numbers and linked to a
+				jute-yarn item group, each corrected to STD MR% 16 with per-section and per-group grand
 				averages.
 			</Typography>
 

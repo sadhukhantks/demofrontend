@@ -59,7 +59,7 @@ type DraftRow = {
 	section: CardSection;
 	mcId: number | "";
 	spellId: number | "";
-	batchId: number | "";
+	groupId: number | "";
 	weights: string[];
 	mrPcts: string[];
 };
@@ -72,7 +72,7 @@ const makeBlankRow = (): DraftRow => ({
 	section: DEFAULT_CARD_SECTION,
 	mcId: "",
 	spellId: "",
-	batchId: "",
+	groupId: "",
 	weights: blankReadings(),
 	mrPcts: blankReadings(),
 });
@@ -81,7 +81,7 @@ const makeBlankRow = (): DraftRow => ({
 // weight/MR cell is blank — i.e. the trailing add-row the user never touched. The
 // section defaults to INTER_CARD and is not by itself a sign the row is "filled".
 function isRowEmpty(r: DraftRow): boolean {
-	const noSelects = r.mcId === "" && r.spellId === "" && r.batchId === "";
+	const noSelects = r.mcId === "" && r.spellId === "" && r.groupId === "";
 	const noNumbers = r.weights.every((w) => w === "") && r.mrPcts.every((m) => m === "");
 	return noSelects && noNumbers;
 }
@@ -90,8 +90,8 @@ function isRowEmpty(r: DraftRow): boolean {
  * R-08-07A Inter Card & Tow Breaker (Card Sliver Weight) MULTI-ROW entry form.
  *
  * Renders a table where the inspector adds one row per (section, machine, spell,
- * batch) reading set — each with 4 cut weights + 4 MR%. Each row leads with a
- * Section dropdown (Inter Card / Tow Breaker / Hopper). A batch has no single std,
+ * yarn group) reading set — each with 4 cut weights + 4 MR%. Each row leads with a
+ * Section dropdown (Inter Card / Tow Breaker / Hopper). A yarn group has no single std,
  * so the live preview always uses std 20 with no CV band; per row a live Corr Wt
  * and CV% preview is shown. One submit POSTs the whole array as { rows: [...] };
  * blank rows are dropped and empty selects map to null. Server values are
@@ -110,12 +110,12 @@ export default function InterCardForm({ coId, branchId, entryDate, setup, onSave
 		[setup.sections]
 	);
 
-	// Look up a batch by batch_plan_id (for the selected-value display).
-	const batchById = React.useMemo(() => {
-		const m = new Map<number, (typeof setup.batches)[number]>();
-		for (const b of setup.batches) m.set(b.batch_plan_id, b);
+	// Look up a yarn group by item_grp_id (for the selected-value display).
+	const groupById = React.useMemo(() => {
+		const m = new Map<number, (typeof setup.groups)[number]>();
+		for (const b of setup.groups) m.set(b.item_grp_id, b);
 		return m;
-	}, [setup.batches]);
+	}, [setup.groups]);
 
 	const addRow = React.useCallback(() => {
 		setRows((prev) => [...prev, makeBlankRow()]);
@@ -168,7 +168,7 @@ export default function InterCardForm({ coId, branchId, entryDate, setup, onSave
 			section: r.section,
 			mc_id: r.mcId === "" ? null : Number(r.mcId),
 			spell_id: r.spellId === "" ? null : Number(r.spellId),
-			batch_plan_id: r.batchId === "" ? null : Number(r.batchId),
+			item_grp_id: r.groupId === "" ? null : Number(r.groupId),
 			weights: r.weights.map((w) => Number(w)),
 			mr_pcts: r.mrPcts.map((m) => Number(m)),
 		}));
@@ -218,7 +218,7 @@ export default function InterCardForm({ coId, branchId, entryDate, setup, onSave
 				}}
 			>
 				<Typography variant="subtitle2">
-					Reading rows — each row = one Section / Mc / Spell / Batch with {CARD_SLIVER_READINGS} cut
+					Reading rows — each row = one Section / Mc / Spell / Yarn Group with {CARD_SLIVER_READINGS} cut
 					weights (LB/5yds) + {CARD_SLIVER_READINGS} MR%
 				</Typography>
 				<Button
@@ -239,7 +239,7 @@ export default function InterCardForm({ coId, branchId, entryDate, setup, onSave
 							<TableCell sx={{ minWidth: 150 }}>Section</TableCell>
 							<TableCell sx={{ minWidth: 150 }}>Machine (Mc)</TableCell>
 							<TableCell sx={{ minWidth: 130 }}>Spell</TableCell>
-							<TableCell sx={{ minWidth: 200 }}>Batch</TableCell>
+							<TableCell sx={{ minWidth: 200 }}>Yarn Group</TableCell>
 							{Array.from({ length: CARD_SLIVER_READINGS }).map((_, i) => (
 								<TableCell key={`wt-h-${i}`} align="center" sx={{ minWidth: 92 }}>
 									Wt {i + 1}
@@ -261,7 +261,7 @@ export default function InterCardForm({ coId, branchId, entryDate, setup, onSave
 					</TableHead>
 					<TableBody>
 						{rows.map((r) => {
-							// A batch has no std → preview uses std 20, no CV band.
+							// A yarn group has no std → preview uses std 20, no CV band.
 							const preview = computeRowPreview(r.weights, r.mrPcts);
 							const cvPass = preview?.withinBand;
 							return (
@@ -284,26 +284,29 @@ export default function InterCardForm({ coId, branchId, entryDate, setup, onSave
 										</TextField>
 									</TableCell>
 									<TableCell>
-										<TextField
-											select
-											size="small"
-											value={r.mcId}
-											onChange={(e) =>
-												updateRow(r.key, {
-													mcId: e.target.value === "" ? "" : Number(e.target.value),
-												})
+										<Autocomplete
+											options={setup.machines}
+											getOptionLabel={(opt) =>
+												opt.mech_code ? `${opt.machine_name} (${opt.mech_code})` : opt.machine_name
 											}
+											renderOption={(props, opt) => (
+												<li {...props} key={opt.machine_id}>
+													{opt.machine_name} ({opt.mech_code})
+												</li>
+											)}
+											value={
+												r.mcId === ""
+													? null
+													: (setup.machines.find((m) => m.machine_id === Number(r.mcId)) ?? null)
+											}
+											onChange={(_, newVal) =>
+												updateRow(r.key, { mcId: newVal ? newVal.machine_id : "" })
+											}
+											isOptionEqualToValue={(opt, val) => opt.machine_id === val.machine_id}
+											size="small"
 											fullWidth
-										>
-											<MenuItem value="">
-												<em>None</em>
-											</MenuItem>
-											{setup.machines.map((m) => (
-												<MenuItem key={m.machine_id} value={m.machine_id}>
-													{m.machine_name} ({m.mech_code})
-												</MenuItem>
-											))}
-										</TextField>
+											renderInput={(params) => <TextField {...params} placeholder="Machine" />}
+										/>
 									</TableCell>
 									<TableCell>
 										<TextField
@@ -329,22 +332,22 @@ export default function InterCardForm({ coId, branchId, entryDate, setup, onSave
 									</TableCell>
 									<TableCell>
 										<Autocomplete
-											options={setup.batches}
-											getOptionLabel={(opt) => opt.plan_name}
+											options={setup.groups}
+											getOptionLabel={(opt) => opt.item_grp_name}
 											renderOption={(props, opt) => (
-												<li {...props} key={opt.batch_plan_id}>
-													{opt.plan_name}
+												<li {...props} key={opt.item_grp_id}>
+													{opt.item_grp_name}
 												</li>
 											)}
-											value={r.batchId === "" ? null : batchById.get(Number(r.batchId)) ?? null}
+											value={r.groupId === "" ? null : groupById.get(Number(r.groupId)) ?? null}
 											onChange={(_, newVal) =>
-												updateRow(r.key, { batchId: newVal ? newVal.batch_plan_id : "" })
+												updateRow(r.key, { groupId: newVal ? newVal.item_grp_id : "" })
 											}
 											size="small"
 											renderInput={(params) => (
-												<TextField {...params} placeholder="Batch" helperText="Std MR%: 20 (default)" />
+												<TextField {...params} placeholder="Yarn Group" helperText="Std MR%: 20 (default)" />
 											)}
-											isOptionEqualToValue={(opt, val) => opt.batch_plan_id === val.batch_plan_id}
+											isOptionEqualToValue={(opt, val) => opt.item_grp_id === val.item_grp_id}
 											sx={{ minWidth: 190 }}
 										/>
 									</TableCell>

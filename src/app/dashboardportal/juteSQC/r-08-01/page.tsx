@@ -27,6 +27,7 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import SqcPrintButton from "../_shared/SqcPrintButton";
+import { readingCells, readingColumns } from "../_shared/printReport";
 import type {
   SqcPrintReport,
   PrintColumn,
@@ -50,6 +51,9 @@ type MorrahWtRow = {
   inspector_name: string;
   jute_quality: string;
   department: string;
+  avg_mr_pct: number | null;
+  /** The operator's raw readings (grams), JSON-parsed server-side. */
+  weights?: number[] | null;
   calc_avg_weight: number;
   calc_cv_pct: number;
   count_lt: number;
@@ -519,11 +523,22 @@ export default function MorrahWeightQCPage() {
       { key: "inspector_name", label: "Inspector" },
       { key: "jute_quality", label: "Quality" },
       { key: "department", label: "Department" },
+      { key: "avg_mr_pct", label: "Avg MR%", align: "right" },
       { key: "calc_avg_weight", label: "Avg Wt (g)", align: "right" },
       { key: "calc_cv_pct", label: "CV%", align: "right" },
       { key: "count_ok", label: "OK", align: "right" },
       { key: "count_lt", label: "LT", align: "right" },
       { key: "count_hy", label: "HY", align: "right" },
+    ],
+    []
+  );
+
+  // The 10 readings are too many to bolt onto the stats table on A4 portrait,
+  // so they print as their own section keyed by trolley.
+  const readingsPrintColumns = useMemo<PrintColumn[]>(
+    () => [
+      { key: "trolley_no", label: "Trolley No" },
+      ...readingColumns("w", "W", SAMPLE_SIZE),
     ],
     []
   );
@@ -543,7 +558,7 @@ export default function MorrahWeightQCPage() {
 
     const sortedKeys = Array.from(groups.keys()).sort();
 
-    const sections: PrintTableSection[] = sortedKeys.map((key) => {
+    const sections: PrintTableSection[] = sortedKeys.flatMap((key) => {
       const dayRows = groups.get(key) ?? [];
 
       const bodyRows: Array<Record<string, PrintCell>> = dayRows.map((r) => ({
@@ -551,6 +566,7 @@ export default function MorrahWeightQCPage() {
         inspector_name: r.inspector_name,
         jute_quality: r.jute_quality,
         department: r.department,
+        avg_mr_pct: r.avg_mr_pct != null ? Number(r.avg_mr_pct).toFixed(2) : "-",
         calc_avg_weight: r.calc_avg_weight,
         calc_cv_pct: r.calc_cv_pct,
         count_ok: r.count_ok,
@@ -583,6 +599,7 @@ export default function MorrahWeightQCPage() {
         inspector_name: "",
         jute_quality: "",
         department: "",
+        avg_mr_pct: "",
         calc_avg_weight: avgWt,
         calc_cv_pct: avgCv,
         count_ok: totalOk,
@@ -591,14 +608,26 @@ export default function MorrahWeightQCPage() {
       };
 
       const dayLabel = dayRows[0]?.entry_date ?? key;
+      const suffix = sortedKeys.length > 1 ? ` — ${dayLabel}` : "";
 
-      return {
-        kind: "table",
-        title: sortedKeys.length > 1 ? `Date: ${dayLabel}` : undefined,
-        columns: printColumns,
-        rows: bodyRows,
-        footerRows: [footerRow],
-      };
+      return [
+        {
+          kind: "table",
+          title: sortedKeys.length > 1 ? `Date: ${dayLabel}` : undefined,
+          columns: printColumns,
+          rows: bodyRows,
+          footerRows: [footerRow],
+        },
+        {
+          kind: "table",
+          title: `Recorded Weights (g)${suffix}`,
+          columns: readingsPrintColumns,
+          rows: dayRows.map((r) => ({
+            trolley_no: r.trolley_no,
+            ...readingCells("w", r.weights, SAMPLE_SIZE, 0),
+          })),
+        },
+      ];
     });
 
     const reportDate = sortedKeys.length === 1 ? sortedKeys[0] : undefined;
@@ -616,7 +645,7 @@ export default function MorrahWeightQCPage() {
       ],
       sections,
     };
-  }, [rows, printColumns, selectedCompany, selectedBranchName]);
+  }, [rows, printColumns, readingsPrintColumns, selectedCompany, selectedBranchName]);
 
   // ─── Render ─────────────────────────────────────────────────────────────
 

@@ -5,7 +5,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { FinDrawSetup } from "../types/finDrawTypes";
 
-// GET get_fin_draw_sliver_wt_setup -> {"data": {sections, machines, spells, batches, entries}}.
+// GET get_fin_draw_sliver_wt_setup -> {"data": {sections, machines, spells, groups, entries}}.
 // Cloned from useInterCardSetup (route + type swapped).
 export function useFinDrawSetup(
 	coId: string | null | undefined,
