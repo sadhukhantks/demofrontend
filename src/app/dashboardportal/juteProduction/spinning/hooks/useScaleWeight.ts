@@ -7,8 +7,8 @@ import * as React from "react";
 // machine. The bridge must therefore send `Access-Control-Allow-Origin`.
 // ponytail: env-overridable URL + fixed 1s poll; per-branch config only if a
 // plant ever runs the bridge somewhere else.
-// const SCALE_URL = process.env.NEXT_PUBLIC_SCALE_URL ?? "http://localhost:5001/apigetweight";
-const SCALE_URL = process.env.NEXT_PUBLIC_SCALE_URL ?? "http://192.168.3.140:5001/api/getweight";
+ const SCALE_URL = process.env.NEXT_PUBLIC_SCALE_URL ?? "http://localhost:5001/api/getweight";
+//const SCALE_URL = process.env.NEXT_PUBLIC_SCALE_URL ?? "http://192.168.3.140:5001/api/getweight";
 
 const POLL_MS = 1000;
 
