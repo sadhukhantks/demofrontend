@@ -142,7 +142,7 @@ export interface DprJuteGroupRow {
 export interface DprJuteSection {
   groups: DprJuteGroupRow[];
   totals: Omit<DprJuteGroupRow, "item_group_name">;
-  days_stock: number;
+  days_stock: number | null; // null when nothing was issued MTD
 }
 
 export interface DprHandsShiftRow {
