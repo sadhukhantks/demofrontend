@@ -67,6 +67,13 @@ function daysStockState(days: number | null): KpiState {
 
 function Content() {
   const { branches, coId, companyName, initialBranchId, dateParam } = useReportBranches();
+  // Branch/date come from the localStorage-backed sidebar context, so the
+  // server HTML has an empty branch and the client the saved one — hold the
+  // controls until mount to avoid a hydration mismatch (same gate as ReportPanel).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [branchId, setBranchId] = useState<number | null>(initialBranchId);
   const [reportDate, setReportDate] = useState<string>(dateParam || yesterdayIso());
   const [data, setData] = useState<DailyProductionReport | null>(null);
@@ -154,6 +161,7 @@ function Content() {
       />
       {/* Controls — hidden on print (displayPrint beats Tailwind print:hidden
           on MUI components, whose emotion display:flex can win the cascade) */}
+      {mounted && (
       <Stack
         direction={{ xs: "column", md: "row" }}
         spacing={1.5}
@@ -197,6 +205,7 @@ function Content() {
           Print
         </Button>
       </Stack>
+      )}
 
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -261,7 +270,9 @@ function Content() {
               sub={
                 data.kpi.jute_days_stock !== null
                   ? `${fmt(data.kpi.jute_days_stock, 1)} days cover`
-                  : "select a branch"
+                  : data.jute
+                    ? "no MTD issue"
+                    : "select a branch"
               }
               state={daysStockState(data.kpi.jute_days_stock)}
             />
