@@ -5,7 +5,7 @@ import { Alert, Autocomplete, Box, Button, Divider, Snackbar, TextField, Typogra
 import { Save as SaveIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
-import { sampleStdDev } from "@/app/dashboardportal/juteProduction/spinning/utils/spinningCalc";
+import { populationStdDev } from "@/app/dashboardportal/juteProduction/spinning/utils/spinningCalc";
 import type { SqcQrCvSetup, SqcQrCvSavePayloadRow, SqcYarnObs } from "../types/sqcSpinningTypes";
 
 type Props = {
@@ -65,14 +65,15 @@ export default function YarnQrCvForm({ coId, branchId, entryDate, setup, onSaved
 	const avgBs = n > 0 ? numericReadings.reduce((acc, v) => acc + v, 0) / n : null;
 	const maxVal = n > 0 ? Math.max(...numericReadings) : null;
 	const minVal = n > 0 ? Math.min(...numericReadings) : null;
-	const stdDev = sampleStdDev(numericReadings);
+	// Population SD (÷n) — matches the lab Excel sheet SQRT(SUM((x-mean)^2)/n).
+	const stdDev = populationStdDev(numericReadings);
 	// QR% = (avg_bs / observed_count) × 100; null when observed_count is 0/null.
 	const qrPct =
 		avgBs != null && observedCount != null && observedCount !== 0
 			? (avgBs / observedCount) * 100
 			: null;
-	// CV% = (std_dev / QR%) × 100; null when QR% is 0/null.
-	const cvPct = stdDev != null && qrPct != null && qrPct !== 0 ? (stdDev / qrPct) * 100 : null;
+	// CV% = (std_dev / avg_bs) × 100 (lab Excel: SD ÷ MV × 100); null when avg is 0/null.
+	const cvPct = stdDev != null && avgBs != null && avgBs !== 0 ? (stdDev / avgBs) * 100 : null;
 
 	const setSpindleNo = (i: number, value: string) =>
 		setSpindles((prev) => prev.map((s, idx) => (idx === i ? { ...s, spindle_no: value } : s)));
@@ -88,7 +89,6 @@ export default function YarnQrCvForm({ coId, branchId, entryDate, setup, onSaved
 
 	// machine + yarn required; all 6 spindle_no must be filled.
 	const allSpindleNosFilled = spindles.every((s) => s.spindle_no !== "");
-	const formInvalid = !machineId || !yarnItemId || !allSpindleNosFilled;
 
 	const handleSave = async () => {
 		if (!yarnItemId) {
@@ -100,7 +100,12 @@ export default function YarnQrCvForm({ coId, branchId, entryDate, setup, onSaved
 			return;
 		}
 		if (!allSpindleNosFilled) {
-			setError("Enter all 6 spindle numbers.");
+			const missing = spindles.map((s, i) => (s.spindle_no === "" ? i + 1 : null)).filter(Boolean);
+			setError(`Enter the spindle position number for Spindle #${missing.join(", #")} (first box of each row).`);
+			return;
+		}
+		if (n === 0) {
+			setError("Enter at least one B/S reading.");
 			return;
 		}
 		setSaving(true);
@@ -278,7 +283,7 @@ export default function YarnQrCvForm({ coId, branchId, entryDate, setup, onSaved
 					size="small"
 					fullWidth
 					InputProps={{ readOnly: true }}
-					helperText="sample (n-1)"
+					helperText="population (÷n)"
 				/>
 				<TextField
 					label="QR %"
@@ -294,7 +299,7 @@ export default function YarnQrCvForm({ coId, branchId, entryDate, setup, onSaved
 					size="small"
 					fullWidth
 					InputProps={{ readOnly: true }}
-					helperText="std dev ÷ QR% × 100"
+					helperText="std dev ÷ avg B/S × 100"
 				/>
 			</Box>
 
@@ -322,7 +327,7 @@ export default function YarnQrCvForm({ coId, branchId, entryDate, setup, onSaved
 					variant="contained"
 					startIcon={<SaveIcon size={18} />}
 					onClick={handleSave}
-					disabled={formInvalid || saving}
+					disabled={saving}
 					sx={{ minHeight: 44, width: { xs: "100%", md: "auto" } }}
 				>
 					{saving ? "Saving…" : "Save"}
