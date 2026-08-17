@@ -125,7 +125,7 @@ export default function IssueEntryForm({ coId, branchId, setup, onSaved }: Props
 				>
 					{setup.bins_with_stock.map((b) => (
 						<MenuItem key={`${b.bin_id}-${b.entry_id_grp}`} value={`${b.bin_id}-${b.entry_id_grp}`}>
-							{b.bin_code} · {b.item_name} · {b.current_rolls} rolls (grp #{b.entry_id_grp})
+							{b.bin_code} · {b.quality_label} · {b.current_rolls} rolls (grp #{b.entry_id_grp})
 						</MenuItem>
 					))}
 				</TextField>
@@ -163,8 +163,8 @@ export default function IssueEntryForm({ coId, branchId, setup, onSaved }: Props
 					))}
 				</TextField>
 				<TextField
-					label="Item (auto)"
-					value={selectedBin?.item_name ?? ""}
+					label="Quality (auto)"
+					value={selectedBin?.quality_label ?? ""}
 					InputProps={{ readOnly: true }}
 					size="small"
 					fullWidth

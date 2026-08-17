@@ -48,7 +48,7 @@ function fmt(value: number | null | undefined, digits = 2): string {
 // optimistic render before a refresh lands).
 function statsFor(g: YarnTpiGroup): YarnTpiStats {
 	if (g.stats) return g.stats;
-	const p = computeTpiPreview(g.readings ?? []);
+	const p = computeTpiPreview((g.readings ?? []).map((r) => r.reading_val));
 	const stdTpi = g.std_tpi ?? null;
 	return {
 		...p,
@@ -58,7 +58,7 @@ function statsFor(g: YarnTpiGroup): YarnTpiStats {
 }
 
 function ReadingsDetail({ group }: { group: YarnTpiGroup }) {
-	const readings = (group.readings ?? []).filter((r) => r != null);
+	const readings = (group.readings ?? []).filter((r) => r.reading_val != null);
 	if (readings.length === 0) {
 		return (
 			<Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
@@ -71,9 +71,9 @@ function ReadingsDetail({ group }: { group: YarnTpiGroup }) {
 			<Table size="small">
 				<TableHead>
 					<TableRow>
-						{readings.map((_, i) => (
+						{readings.map((r, i) => (
 							<TableCell key={i} align="right">
-								#{i + 1}
+								#{r.reading_no ?? i + 1}
 							</TableCell>
 						))}
 					</TableRow>
@@ -82,7 +82,7 @@ function ReadingsDetail({ group }: { group: YarnTpiGroup }) {
 					<TableRow>
 						{readings.map((r, i) => (
 							<TableCell key={i} align="right">
-								{fmt(r as number, 2)}
+								{fmt(r.reading_val, 2)}
 							</TableCell>
 						))}
 					</TableRow>

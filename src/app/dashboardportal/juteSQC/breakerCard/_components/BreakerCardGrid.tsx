@@ -42,8 +42,8 @@ function machineLabel(r: BreakerCardReadingRow): string {
 	return r.mc_id != null ? `MC #${r.mc_id}` : "—";
 }
 
-function batchLabel(r: BreakerCardReadingRow | BreakerCardGrandAverage): string {
-	return r.batch_plan_name ?? (r.batch_plan_id != null ? `Batch #${r.batch_plan_id}` : "—");
+function groupLabel(r: BreakerCardReadingRow | BreakerCardGrandAverage): string {
+	return r.item_grp_name ?? (r.item_grp_id != null ? `Group #${r.item_grp_id}` : "—");
 }
 
 function spellLabel(r: BreakerCardReadingRow): string {
@@ -53,9 +53,9 @@ function spellLabel(r: BreakerCardReadingRow): string {
 /**
  * R-08-05/06/07 Breaker Card summary + readings grid.
  *
- * Renders the per-batch GRAND-AVERAGE block (OBS / MR% / CORR / CV% recomputed
+ * Renders the per-group GRAND-AVERAGE block (OBS / MR% / CORR / CV% recomputed
  * server-side at read) and a DataGrid of saved reading rows with a per-row delete
- * action. A batch has no single std, so the CV band is unevaluated. Server values
+ * action. A yarn group has no single std, so the CV band is unevaluated. Server values
  * are authoritative; this is a date-driven read of jute_sqc_breaker_card_swt.
  */
 export default function BreakerCardGrid({ coId, rows, grandAverages, loading, onDeleted }: Props) {
@@ -115,10 +115,10 @@ export default function BreakerCardGrid({ coId, rows, grandAverages, loading, on
 				valueGetter: (_value, row) => spellLabel(row),
 			},
 			{
-				field: "batch_plan_name",
-				headerName: "Batch",
+				field: "item_grp_name",
+				headerName: "Yarn Group",
 				width: 170,
-				valueGetter: (_value, row) => batchLabel(row),
+				valueGetter: (_value, row) => groupLabel(row),
 			},
 			{
 				field: "std_mr_pct",
@@ -180,10 +180,10 @@ export default function BreakerCardGrid({ coId, rows, grandAverages, loading, on
 
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-			{/* Per-batch grand-average block (recomputed server-side at read) */}
+			{/* per-group grand-average block (recomputed server-side at read) */}
 			<Paper variant="outlined" sx={{ p: 2 }}>
 				<Typography variant="subtitle2" sx={{ mb: 1, color: "text.secondary" }}>
-					Grand Average by Batch
+					Grand Average by Yarn Group
 				</Typography>
 				{grandAverages.length === 0 ? (
 					<Typography variant="body2" color="text.secondary">
@@ -194,7 +194,7 @@ export default function BreakerCardGrid({ coId, rows, grandAverages, loading, on
 						<Table size="small">
 							<TableHead>
 								<TableRow>
-									<TableCell>BATCH</TableCell>
+									<TableCell>YARN GROUP</TableCell>
 									<TableCell align="right">ROWS</TableCell>
 									<TableCell align="right">STD MR%</TableCell>
 									<TableCell align="right">OBS</TableCell>
@@ -207,8 +207,8 @@ export default function BreakerCardGrid({ coId, rows, grandAverages, loading, on
 								{grandAverages.map((g, i) => {
 									const cvPass = g.cv_within_band;
 									return (
-										<TableRow key={`${g.batch_plan_id ?? "b"}-${i}`}>
-											<TableCell>{batchLabel(g)}</TableCell>
+										<TableRow key={`${g.item_grp_id ?? "b"}-${i}`}>
+											<TableCell>{groupLabel(g)}</TableCell>
 											<TableCell align="right">{g.row_count ?? "—"}</TableCell>
 											<TableCell align="right">
 												{g.std_mr_pct != null ? Number(g.std_mr_pct).toFixed(2) : "—"}

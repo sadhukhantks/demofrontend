@@ -16,7 +16,10 @@ import { useSqcQrCvByDate } from "./hooks/useSqcQrCvByDate";
 // the same table the spinning planning grid reads (value_role='actual').
 import TargetMapEditor from "../../juteProduction/masters/spngTargetMap/_components/TargetMapEditor";
 import SqcPrintButton from "../_shared/SqcPrintButton";
-import type { SqcPrintReport, PrintColumn } from "../_shared/printReport";
+import type { SqcPrintReport, PrintColumn, PrintCell, PrintSection } from "../_shared/printReport";
+// Aliased: getCountReport declares its own local `readingColumns` array.
+import { readingCells, readingColumns as readingCols } from "../_shared/printReport";
+import type { SqcQrCvGroup } from "./types/sqcSpinningTypes";
 import CountForm from "./_components/CountForm";
 import CountGrid from "./_components/CountGrid";
 import RhmrForm from "./_components/RhmrForm";
@@ -226,6 +229,7 @@ export default function SpinningSqcPage() {
 		if (qrCvGroups.length === 0) return null;
 		const columns: PrintColumn[] = [
 			{ key: "quality", label: "Quality" },
+			{ key: "spell", label: "Spell" },
 			{ key: "machine", label: "MC No." },
 			{ key: "obs", label: "Obs Count", align: "right" },
 			{ key: "mr", label: "MR %", align: "right" },
@@ -236,9 +240,14 @@ export default function SpinningSqcPage() {
 			{ key: "qr_pct", label: "QR %", align: "right" },
 			{ key: "cv_pct", label: "CV %", align: "right" },
 		];
-		const rows = qrCvGroups.map((g) => ({
+		// One label derivation, shared by the summary and the readings matrix.
+		const labels = (g: SqcQrCvGroup) => ({
 			quality: g.item_name ?? g.item_code ?? `Yarn #${g.item_id}`,
+			spell: g.spell_code ?? (g.spell_id != null ? `#${g.spell_id}` : "—"),
 			machine: g.mech_code ?? g.machine_name ?? (g.mc_id != null ? `MC #${g.mc_id}` : "—"),
+		});
+		const rows = qrCvGroups.map((g) => ({
+			...labels(g),
 			obs: fmt(g.observed_count),
 			mr: fmt(g.mr_pct),
 			max: fmt(g.stats?.max),
@@ -248,13 +257,54 @@ export default function SpinningSqcPage() {
 			qr_pct: fmt(g.stats?.qr_pct),
 			cv_pct: fmt(g.stats?.cv_pct),
 		}));
+
+		// Recorded readings matrix — one row per (group, spindle), mirroring
+		// YarnQrCvGrid's on-screen "Spindle No. | R1..R5" panel (3 dp). reading_no is
+		// 1-BASED (the backend inserts `idx + 1`), so R{n} lives at index n-1.
+		const maxReadings = Math.max(
+			0,
+			...qrCvGroups.flatMap((g) => (g.readings ?? []).map((r) => r.reading_no))
+		);
+		const readingRows: Array<Record<string, PrintCell>> = [];
+		for (const g of qrCvGroups) {
+			const bySpindle = new Map<number, Array<number | null>>();
+			for (const r of g.readings ?? []) {
+				const vals = bySpindle.get(r.spindle_no) ?? [];
+				vals[r.reading_no - 1] = r.reading_val;
+				bySpindle.set(r.spindle_no, vals);
+			}
+			for (const spindle of [...bySpindle.keys()].sort((a, b) => a - b)) {
+				readingRows.push({
+					...labels(g),
+					spindle,
+					...readingCells("r", bySpindle.get(spindle), maxReadings, 3),
+				});
+			}
+		}
+
+		const sections: PrintSection[] = [{ kind: "table", title: "QR % / CV % Summary", columns, rows }];
+		if (readingRows.length > 0) {
+			sections.push({
+				kind: "table",
+				title: "Recorded Readings",
+				columns: [
+					{ key: "quality", label: "Quality" },
+					{ key: "spell", label: "Spell" },
+					{ key: "machine", label: "MC No." },
+					{ key: "spindle", label: "Spindle No." },
+					...readingCols("r", "R", maxReadings),
+				],
+				rows: readingRows,
+			});
+		}
+
 		return {
 			reportTitle: "Spinning SQC — Yarn QR % & CV %",
 			reportCode: "R-08-15",
 			companyName,
 			branchName: selectedBranchName,
 			reportDate: qrCvDate,
-			sections: [{ kind: "table", columns, rows }],
+			sections,
 		};
 	}, [qrCvGroups, qrCvDate, companyName, selectedBranchName, fmt]);
 

@@ -971,6 +971,8 @@ const apiRoutesPortalMasters = {
     // Winding reports (router prefix /api/juteProductionReports)
     WINDING_SPELL_REPORT: `${API_URL}/juteProductionReports/winding_spell_report`,
     WINDING_QUALITY_WISE_REPORT: `${API_URL}/juteProductionReports/winding_quality_wise`,
+    // Daily Production Report (whole-mill one-pager)
+    JUTE_PROD_DPR: `${API_URL}/juteProductionReports/daily_production_report`,
     // Spinning standards master (router prefix /api/spngTargetMap) — *_EDIT/*_DELETE are base paths; caller appends /${id}
     SPNG_TARGET_MAP_SETUP: `${API_URL}/spngTargetMap/target_map_setup`,
     SPNG_TARGET_MAP_LIST: `${API_URL}/spngTargetMap/target_map_list`,

@@ -5,6 +5,7 @@ import { Alert, Box, CircularProgress, MenuItem, Tab, Tabs, TextField, Typograph
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayISO } from "./utils/spreaderCalc";
+import { ROLL_WT_READINGS } from "./types/sqcSpreaderTypes";
 import { useSqcRollWtSetup } from "./hooks/useSqcRollWtSetup";
 import { useSqcRollWtByDate } from "./hooks/useSqcRollWtByDate";
 import { useSqcSliverWtSetup } from "./hooks/useSqcSliverWtSetup";
@@ -14,6 +15,7 @@ import RollWtGrid from "./_components/RollWtGrid";
 import SliverWtForm from "./_components/SliverWtForm";
 import SliverWtGrid from "./_components/SliverWtGrid";
 import SqcPrintButton from "../_shared/SqcPrintButton";
+import { readingCells, readingColumns } from "../_shared/printReport";
 import type { SqcPrintReport, PrintColumn } from "../_shared/printReport";
 
 // Two Spreader SQC reports share this page as tabs.
@@ -93,6 +95,17 @@ export default function SpreaderSqcPage() {
 			{ key: "cv_pct", label: "CV %", align: "right" },
 			{ key: "heavy_light", label: "Heavy / Light", align: "center" },
 		];
+		// Row identity labels — shared by the summary and the raw-readings section.
+		const identity = (r: (typeof rollWtReadings)[number]) => ({
+			spell: r.spell_code ?? r.spell_name ?? (r.spell_id != null ? `Spell #${r.spell_id}` : "—"),
+			machine: r.machine_name
+				? `${r.machine_name}${r.mech_code ? ` (${r.mech_code})` : ""}`
+				: r.mc_id != null
+				? `MC #${r.mc_id}`
+				: "—",
+			quality: r.item_name ?? r.item_code ?? (r.item_id != null ? `Quality #${r.item_id}` : "—"),
+			feeder: r.feeder_name ?? "—",
+		});
 		const rows = rollWtReadings.map((r) => {
 			const mcId = r.machine_id ?? r.mc_id ?? null;
 			const std = mcId != null ? rollWtStdMap.get(mcId) ?? null : null;
@@ -106,14 +119,7 @@ export default function SpreaderSqcPage() {
 					: "—"
 				: "—";
 			return {
-				spell: r.spell_code ?? r.spell_name ?? (r.spell_id != null ? `Spell #${r.spell_id}` : "—"),
-				machine: r.machine_name
-					? `${r.machine_name}${r.mech_code ? ` (${r.mech_code})` : ""}`
-					: r.mc_id != null
-					? `MC #${r.mc_id}`
-					: "—",
-				quality: r.item_name ?? r.item_code ?? (r.item_id != null ? `Quality #${r.item_id}` : "—"),
-				feeder: r.feeder_name ?? "—",
+				...identity(r),
 				std_mr_pct: r.std_mr_pct != null ? r.std_mr_pct.toFixed(2) : "—",
 				std: std != null ? std.toFixed(2) : "—",
 				avg_obs: r.calc_avg_obs != null ? r.calc_avg_obs.toFixed(2) : "—",
@@ -124,13 +130,30 @@ export default function SpreaderSqcPage() {
 				heavy_light: heavyLight,
 			};
 		});
+		// Second section: the raw readings the operator keyed (10 wt + 10 MR%).
+		const rawColumns: PrintColumn[] = [
+			{ key: "spell", label: "Spell" },
+			{ key: "machine", label: "Machine" },
+			{ key: "quality", label: "Quality" },
+			{ key: "feeder", label: "Feeder" },
+			...readingColumns("wt", "Wt", ROLL_WT_READINGS),
+			...readingColumns("mr", "MR%", ROLL_WT_READINGS),
+		];
+		const rawRows = rollWtReadings.map((r) => ({
+			...identity(r),
+			...readingCells("wt", r.roll_weights, ROLL_WT_READINGS),
+			...readingCells("mr", r.mr_pcts, ROLL_WT_READINGS),
+		}));
 		return {
 			reportTitle: "Spreader SQC — Roll Weight",
 			reportCode: "R-08-04",
 			companyName: selectedCompany?.co_name,
 			branchName: selectedBranchName,
 			reportDate: rollWtDate,
-			sections: [{ kind: "table", columns, rows }],
+			sections: [
+				{ kind: "table", columns, rows },
+				{ kind: "table", title: "Recorded Readings — Roll Weights & MR%", columns: rawColumns, rows: rawRows },
+			],
 		};
 	}, [rollWtReadings, rollWtStdMap, selectedCompany, selectedBranchName, rollWtDate]);
 
@@ -168,7 +191,8 @@ export default function SpreaderSqcPage() {
 			{ key: "stdev", label: "StDev", align: "right" },
 			{ key: "cv_pct", label: "CV %", align: "right" },
 		];
-		const rows = sliverWtReadings.map((r) => ({
+		// Row identity labels — shared by the summary and the raw-readings section.
+		const identity = (r: (typeof sliverWtReadings)[number]) => ({
 			spell: r.spell_code ?? r.spell_name ?? (r.spell_id != null ? `Spell #${r.spell_id}` : "—"),
 			machine: r.machine_name
 				? `${r.machine_name}${r.mech_code ? ` (${r.mech_code})` : ""}`
@@ -177,6 +201,9 @@ export default function SpreaderSqcPage() {
 				: "—",
 			quality: r.item_name ?? r.item_code ?? (r.item_id != null ? `Quality #${r.item_id}` : "—"),
 			category: r.category && r.category.trim() !== "" ? r.category : "—",
+		});
+		const rows = sliverWtReadings.map((r) => ({
+			...identity(r),
 			std_mr_pct: r.std_mr_pct != null ? r.std_mr_pct.toFixed(2) : "—",
 			avg_obs: r.calc_avg_obs != null ? r.calc_avg_obs.toFixed(2) : "—",
 			avg_corr: r.calc_avg_corr != null ? r.calc_avg_corr.toFixed(2) : "—",
@@ -184,13 +211,40 @@ export default function SpreaderSqcPage() {
 			stdev: r.calc_stdev != null ? r.calc_stdev.toFixed(4) : "—",
 			cv_pct: r.calc_cv_pct != null ? `${(r.calc_cv_pct * 100).toFixed(2)}%` : "—",
 		}));
+		// Second section: the raw readings the operator keyed. Ragged arrays (1–12),
+		// so the column count is the widest row; skip the section when none exist.
+		const sections: SqcPrintReport["sections"] = [{ kind: "table", columns, rows }];
+		const n = Math.max(0, ...sliverWtReadings.map((r) => r.observed_weights?.length ?? 0));
+		if (n > 0) {
+			sections.push({
+				kind: "table",
+				title: "Recorded Readings — Sliver Weights & MR%",
+				columns: [
+					{ key: "spell", label: "Spell" },
+					{ key: "machine", label: "Machine" },
+					{ key: "quality", label: "Quality" },
+					{ key: "category", label: "Category" },
+					{ key: "sample_length_yds", label: "Sample (yds)", align: "right" },
+					{ key: "weight_basis", label: "Basis" },
+					...readingColumns("wt", "Wt", n),
+					...readingColumns("mr", "MR%", n),
+				],
+				rows: sliverWtReadings.map((r) => ({
+					...identity(r),
+					sample_length_yds: r.sample_length_yds ?? "—",
+					weight_basis: r.weight_basis && r.weight_basis.trim() !== "" ? r.weight_basis : "—",
+					...readingCells("wt", r.observed_weights, n),
+					...readingCells("mr", r.mr_pcts, n),
+				})),
+			});
+		}
 		return {
 			reportTitle: "Spreader SQC — Sliver Weight",
 			reportCode: "R-08-03",
 			companyName: selectedCompany?.co_name,
 			branchName: selectedBranchName,
 			reportDate: sliverWtDate,
-			sections: [{ kind: "table", columns, rows }],
+			sections,
 		};
 	}, [sliverWtReadings, selectedCompany, selectedBranchName, sliverWtDate]);
 

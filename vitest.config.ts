@@ -4,6 +4,10 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
+// Vitest 4 moved the browser providers into their own packages — `provider: 'playwright'`
+// as a bare string no longer resolves, and the storybook project then fails to
+// initialize, which aborts EVERY project (including unit) before a test runs.
+import { playwright } from '@vitest/browser-playwright';
 
 const dirname =
   typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
@@ -42,8 +46,7 @@ export default defineConfig({
           browser: {
             enabled: true,
             headless: true,
-            // @ts-expect-error - vitest browser types are in flux
-            provider: 'playwright',
+            provider: playwright(),
             instances: [{ browser: 'chromium' }]
           },
           setupFiles: ['.storybook/vitest.setup.ts'],
