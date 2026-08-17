@@ -708,6 +708,28 @@ const apiRoutesPortalMasters = {
     DAILY_RATE_EDIT: `${API_URL}/hrmsMasters/daily_rate_edit`,
     DAILY_RATE_DELETE: `${API_URL}/hrmsMasters/daily_rate_delete`,
 
+    // Holiday Master (holiday_master)
+    HOLIDAY_TABLE: `${API_URL}/hrmsMasters/get_holiday_table`,
+    HOLIDAY_BY_ID: `${API_URL}/hrmsMasters/get_holiday_by_id`,
+    HOLIDAY_CREATE: `${API_URL}/hrmsMasters/holiday_create`,
+    HOLIDAY_EDIT: `${API_URL}/hrmsMasters/holiday_edit`,
+    // Approving is what processes the holiday into hrms_holiday_transactions.
+    HOLIDAY_APPROVE: `${API_URL}/hrmsMasters/holiday_approve`,
+    HOLIDAY_REJECT: `${API_URL}/hrmsMasters/holiday_reject`,
+    // Legacy "Holiday Data" batch (holget=1): every holiday in a date range
+    // for the selected branch.
+    HOLIDAY_PROCESS_RANGE: `${API_URL}/hrmsMasters/holiday_process_range`,
+
+    // Holiday & Attendance Incentive Eligibility (tbl_holiday_att_inc_eligibility)
+    HOL_INC_ELIG_SETUP: `${API_URL}/hrmsMasters/hol_inc_elig_setup`,
+    HOL_INC_ELIG_TABLE: `${API_URL}/hrmsMasters/get_hol_inc_elig_table`,
+    HOL_INC_ELIG_BY_ID: `${API_URL}/hrmsMasters/get_hol_inc_elig_by_id`,
+    HOL_INC_ELIG_CREATE: `${API_URL}/hrmsMasters/hol_inc_elig_create`,
+    HOL_INC_ELIG_EDIT: `${API_URL}/hrmsMasters/hol_inc_elig_edit`,
+    HOL_INC_ELIG_DELETE: `${API_URL}/hrmsMasters/hol_inc_elig_delete`,
+    HOL_INC_ELIG_APPROVE: `${API_URL}/hrmsMasters/hol_inc_elig_approve`,
+    HOL_INC_ELIG_REJECT: `${API_URL}/hrmsMasters/hol_inc_elig_reject`,
+
     // Canteen Details (canteen_details)
     CANTEEN_SETUP: `${API_URL}/hrms/canteen_setup`,
     CANTEEN_TABLE: `${API_URL}/hrms/get_canteen_table`,
