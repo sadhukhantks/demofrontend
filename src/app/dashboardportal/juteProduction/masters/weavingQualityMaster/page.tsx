@@ -102,6 +102,14 @@ const EMPTY_FORM: FormState = {
 	tpi: "",
 };
 
+// Numeric fields the backend rejects as null/<=0 (NOT NULL columns + Field(gt=0)).
+const REQUIRED_NUMERIC: ReadonlyArray<[keyof FormState, string]> = [
+	["ends", "Ends"],
+	["finished_length", "Finished Length"],
+	["ozs_yds", "Ozs/Yds"],
+	["no_of_jugar_per_cut", "No. of Jugar per Cut"],
+];
+
 const itemLabel = (i: Pick<SetupItem, "item_code" | "item_name">): string =>
 	`${i.item_code} — ${i.item_name}`;
 
@@ -211,8 +219,12 @@ export default function WeavingQualityMasterPage() {
 			return;
 		}
 		const jugarNum = Number(form.no_of_jugar_per_cut);
-		if (!(jugarNum > 0)) {
-			setError("No. of Jugar per Cut must be greater than 0.");
+		// ends / finished_length / ozs_yds are NOT NULL + gt=0 on the backend model.
+		const missing = REQUIRED_NUMERIC.filter(([key]) => !(Number(form[key]) > 0)).map(
+			([, label]) => label
+		);
+		if (missing.length) {
+			setError(`${missing.join(", ")} must be greater than 0.`);
 			return;
 		}
 
@@ -350,9 +362,10 @@ export default function WeavingQualityMasterPage() {
 		);
 	}
 
-	const jugarNum = Number(form.no_of_jugar_per_cut);
 	const saveDisabled =
-		!form.item_id || !form.weaving_quality_code.trim() || !(jugarNum > 0);
+		!form.item_id ||
+		!form.weaving_quality_code.trim() ||
+		REQUIRED_NUMERIC.some(([key]) => !(Number(form[key]) > 0));
 
 	return (
 		<Box sx={{ p: { xs: 1.5, md: 3 } }}>
@@ -441,7 +454,8 @@ export default function WeavingQualityMasterPage() {
 								value={form.ends}
 								onChange={(e) => setForm({ ...form, ends: e.target.value })}
 								size="small"
-								inputProps={{ step: 1, min: 0 }}
+								required
+								inputProps={{ step: 1, min: 1 }}
 							/>
 							<TextField
 								type="number"
@@ -449,7 +463,19 @@ export default function WeavingQualityMasterPage() {
 								value={form.finished_length}
 								onChange={(e) => setForm({ ...form, finished_length: e.target.value })}
 								size="small"
+								required
 								inputProps={{ step: 0.001, min: 0 }}
+								helperText="Yds per cut"
+							/>
+							<TextField
+								type="number"
+								label="Ozs/Yds"
+								value={form.ozs_yds}
+								onChange={(e) => setForm({ ...form, ozs_yds: e.target.value })}
+								size="small"
+								required
+								inputProps={{ step: 0.001, min: 0 }}
+								helperText="Actual oz/yd — drives production kg"
 							/>
 							<TextField
 								type="number"
