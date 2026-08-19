@@ -92,7 +92,7 @@ export function sampleStdDev(nums: number[]): number | null {
 
 // Frame-wise production rollup — one row per (frame, yarn quality) with every
 // doff net of the spell listed ("34 + 45 + 30"), summed and averaged.
-// Display-only; mirrors winding's groupWinderWise.
+// Display-only; winding's equivalent rollup reads the server reconciliation.
 export type FrameWiseRow = {
 	id: string;
 	frame: string;
