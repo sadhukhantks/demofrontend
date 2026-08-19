@@ -24,6 +24,11 @@ import type {
 	BreakerCardGrandAverage,
 	BreakerCardReadingRow,
 } from "../types/breakerCardTypes";
+import { gmsToLbs } from "../utils/breakerCardCalc";
+
+// Server calc_* weights are in the entered unit (grams); render them in lbs/100yds.
+const lbs = (value: unknown, digits = 2): string =>
+	value != null ? gmsToLbs(Number(value)).toFixed(digits) : "";
 
 type Props = {
 	coId: string;
@@ -105,7 +110,7 @@ export default function BreakerCardGrid({ coId, rows, grandAverages, loading, on
 			{
 				field: "machine_name",
 				headerName: "Machine",
-				width: 170,
+				width: 230,
 				valueGetter: (_value, row) => machineLabel(row),
 			},
 			{
@@ -129,10 +134,10 @@ export default function BreakerCardGrid({ coId, rows, grandAverages, loading, on
 			},
 			{
 				field: "calc_wt",
-				headerName: "Obs Wt",
-				width: 100,
+				headerName: "Obs Wt (lbs)",
+				width: 110,
 				type: "number",
-				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
+				valueFormatter: (value) => lbs(value),
 			},
 			{
 				field: "calc_mr_pct",
@@ -143,17 +148,17 @@ export default function BreakerCardGrid({ coId, rows, grandAverages, loading, on
 			},
 			{
 				field: "calc_corr_wt",
-				headerName: "Corr Wt",
-				width: 100,
+				headerName: "Corr Wt (lbs)",
+				width: 110,
 				type: "number",
-				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
+				valueFormatter: (value) => lbs(value),
 			},
 			{
 				field: "calc_sdev",
-				headerName: "StDev",
+				headerName: "StDev (lbs)",
 				width: 100,
 				type: "number",
-				valueFormatter: (value) => (value != null ? Number(value).toFixed(4) : ""),
+				valueFormatter: (value) => lbs(value, 4),
 			},
 			{
 				field: "calc_cv_pct",
@@ -197,9 +202,9 @@ export default function BreakerCardGrid({ coId, rows, grandAverages, loading, on
 									<TableCell>YARN GROUP</TableCell>
 									<TableCell align="right">ROWS</TableCell>
 									<TableCell align="right">STD MR%</TableCell>
-									<TableCell align="right">OBS</TableCell>
+									<TableCell align="right">OBS (LBS)</TableCell>
 									<TableCell align="right">MR%</TableCell>
-									<TableCell align="right">CORR</TableCell>
+									<TableCell align="right">CORR (LBS)</TableCell>
 									<TableCell align="right">CV %</TableCell>
 								</TableRow>
 							</TableHead>
@@ -213,14 +218,12 @@ export default function BreakerCardGrid({ coId, rows, grandAverages, loading, on
 											<TableCell align="right">
 												{g.std_mr_pct != null ? Number(g.std_mr_pct).toFixed(2) : "—"}
 											</TableCell>
-											<TableCell align="right">
-												{g.grand_obs != null ? Number(g.grand_obs).toFixed(2) : "—"}
-											</TableCell>
+											<TableCell align="right">{g.grand_obs != null ? lbs(g.grand_obs) : "—"}</TableCell>
 											<TableCell align="right">
 												{g.grand_mr_pct != null ? Number(g.grand_mr_pct).toFixed(2) : "—"}
 											</TableCell>
 											<TableCell align="right">
-												{g.grand_corr_wt != null ? Number(g.grand_corr_wt).toFixed(2) : "—"}
+												{g.grand_corr_wt != null ? lbs(g.grand_corr_wt) : "—"}
 											</TableCell>
 											<TableCell
 												align="right"
