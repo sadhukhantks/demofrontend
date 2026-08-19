@@ -167,6 +167,11 @@ function Content() {
     branches.find((b) => b.branch_id === branchId) ?? null;
 
   const chainBroken = data != null && !data.chain.ok;
+  // No count exists before the 1st of the month — mtd_opening came back 0.0
+  // (never disclosed as such), so should_be_closing_mt silently omits the
+  // whole opening balance. Same chain-break treatment as the day column,
+  // keyed off month_opening_date instead of chain.ok.
+  const mtdOpeningUnknown = data != null && data.chain.month_opening_date == null;
   const day = data?.production.day;
   const mtd = data?.production.mtd;
 
@@ -263,15 +268,17 @@ function Content() {
               <Typography variant="body2">
                 <strong>Report Date:</strong> {data.report_date}
               </Typography>
-              <Typography variant="body2">
-                <strong>Month Opening:</strong> {data.date_from}
+              <Typography variant="body2" sx={mtdOpeningUnknown ? { color: "text.disabled" } : undefined}>
+                <strong>Month Opening:</strong>{" "}
+                {mtdOpeningUnknown ? "no count before month start" : data.chain.month_opening_date}
               </Typography>
               <Typography variant="body2" sx={chainBroken ? { color: "text.disabled" } : undefined}>
                 <strong>Today Difference %:</strong>{" "}
                 {chainBroken ? "not comparable" : pctDisplay(day.difference_pct)}
               </Typography>
-              <Typography variant="body2">
-                <strong>To-Date Difference %:</strong> {pctDisplay(mtd.difference_pct)}
+              <Typography variant="body2" sx={mtdOpeningUnknown ? { color: "text.disabled" } : undefined}>
+                <strong>To-Date Difference %:</strong>{" "}
+                {mtdOpeningUnknown ? "not comparable" : pctDisplay(mtd.difference_pct)}
               </Typography>
             </Stack>
 
@@ -281,6 +288,14 @@ function Content() {
                 {data.chain.prev_entry_date
                   ? `Opening stock is taken from ${data.chain.prev_entry_date}, not the previous day. Counts are missing in between.`
                   : "No earlier stock count exists — opening stock could not be verified."}
+              </Alert>
+            ) : null}
+
+            {/* Month-to-date opening warning */}
+            {mtdOpeningUnknown ? (
+              <Alert severity="warning">
+                No stock count exists before the start of the month, so the month-to-date
+                opening balance is unknown and the To-Date figures below are not comparable.
               </Alert>
             ) : null}
 
@@ -308,7 +323,7 @@ function Content() {
                   <Tr>
                     <Td>Metric</Td>
                     <Td align="right">Today{chainBroken ? " (not comparable)" : ""}</Td>
-                    <Td align="right">To-Date (MTD)</Td>
+                    <Td align="right">To-Date (MTD){mtdOpeningUnknown ? " (not comparable)" : ""}</Td>
                   </Tr>
                 }
               >
@@ -325,7 +340,16 @@ function Content() {
                     ) : (
                       <NumTd value={day[r.key]} digits={3} />
                     )}
-                    <NumTd value={mtd[r.key]} digits={3} />
+                    {mtdOpeningUnknown ? (
+                      <Td
+                        align="right"
+                        sx={{ color: "text.disabled", textDecoration: "line-through" }}
+                      >
+                        {fmt(mtd[r.key], 3)}
+                      </Td>
+                    ) : (
+                      <NumTd value={mtd[r.key]} digits={3} />
+                    )}
                   </Tr>
                 ))}
                 <Tr sx={totalRowSx()}>
@@ -340,13 +364,29 @@ function Content() {
                   ) : (
                     <NumTd value={day.difference_mt} digits={3} tone="nonzero-bad" bold />
                   )}
-                  <NumTd value={mtd.difference_mt} digits={3} tone="nonzero-bad" bold />
+                  {mtdOpeningUnknown ? (
+                    <Td
+                      align="right"
+                      sx={{ color: "text.disabled", fontStyle: "italic", fontWeight: 700 }}
+                    >
+                      — not comparable
+                    </Td>
+                  ) : (
+                    <NumTd value={mtd.difference_mt} digits={3} tone="nonzero-bad" bold />
+                  )}
                 </Tr>
               </DprTable>
               {chainBroken ? (
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
                   Today&apos;s opening stock was carried from an older count (see warning above),
                   so the Today column is struck through — it is not a real day-over-day variance.
+                </Typography>
+              ) : null}
+              {mtdOpeningUnknown ? (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+                  No count exists before the start of the month (see warning above), so the
+                  month-to-date opening balance is unknown and the To-Date column is struck
+                  through — it is not a real month-to-date variance.
                 </Typography>
               ) : null}
             </SectionCard>

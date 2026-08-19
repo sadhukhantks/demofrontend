@@ -955,7 +955,6 @@ const apiRoutesPortalMasters = {
     WINDING_STOCK_ROW_EDIT: `${API_URL}/windingStock/row_edit`,
     WINDING_STOCK_ROW_DELETE: `${API_URL}/windingStock/row_delete`,
     WINDING_STOCK_COPY_PREVIOUS_DAY: `${API_URL}/windingStock/copy_previous_day`,
-    WINDING_STOCK_LOCK_STATE: `${API_URL}/windingStock/lock_state`,
     WINDING_STOCK_LOCK: `${API_URL}/windingStock/lock`,
     WINDING_STOCK_UNLOCK: `${API_URL}/windingStock/unlock`,
     // Winding reports (router prefix /api/juteProductionReports)

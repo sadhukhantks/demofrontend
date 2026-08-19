@@ -3,12 +3,16 @@ import type {
   WindingStockCreatePayload,
   WindingStockEditPayload,
 } from "@/utils/windingStockService";
+import { todayISO } from "./stockCalc";
 
 export const MAX_SAMPLES = 1_000_000;
 export const MAX_WT = 2000;
 
 function isFutureISODate(value: string): boolean {
-  return value > new Date().toISOString().slice(0, 10);
+  // Local-date compare (todayISO), not new Date().toISOString() — that reads
+  // the UTC date, which is still "yesterday" in IST before 05:30, failing the
+  // form's own default tran_date against its own validation.
+  return value > todayISO();
 }
 
 export const windingStockSchema = z.object({
