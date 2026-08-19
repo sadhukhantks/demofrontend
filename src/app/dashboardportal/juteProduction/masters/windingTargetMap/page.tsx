@@ -117,7 +117,10 @@ export default function WindingTargetMapPage() {
 				)}
 			</Box>
 
-			<Box hidden={tabIndex !== 1}>
+			{/* Mounted only while selected, unlike the entry grid above: a DataGrid inside a
+			    hidden (display:none) panel measures 0px and MUI warns. Nothing is lost by
+			    unmounting — this list is read-only and refetches on mount. */}
+			{tabIndex === 1 && (
 				<TargetMapList
 					coId={coId}
 					branchId={singleBranchId}
@@ -125,7 +128,7 @@ export default function WindingTargetMapPage() {
 					effectiveDate={effectiveDate}
 					reloadKey={savedTick}
 				/>
-			</Box>
+			)}
 		</Box>
 	);
 }
