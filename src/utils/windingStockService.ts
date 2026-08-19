@@ -133,17 +133,19 @@ export async function createWindingStockRow(payload: WindingStockCreatePayload) 
   return { ok: !res.error, error: res.error, id: res.data?.data?.winding_stock_id ?? null };
 }
 
-export async function editWindingStockRow(
-  id: number,
-  coId: number,
-  payload: WindingStockEditPayload,
-) {
+export async function editWindingStockRow(params: {
+  id: number;
+  coId: number;
+  payload: WindingStockEditPayload;
+}) {
+  const { id, coId, payload } = params;
   const url = `${apiRoutesPortalMasters.WINDING_STOCK_ROW_EDIT}/${id}?co_id=${coId}`;
   const res = await fetchWithCookie(url, "PUT", payload);
   return { ok: !res.error, error: res.error, id };
 }
 
-export async function deleteWindingStockRow(id: number, coId: number) {
+export async function deleteWindingStockRow(params: { id: number; coId: number }) {
+  const { id, coId } = params;
   const url = `${apiRoutesPortalMasters.WINDING_STOCK_ROW_DELETE}/${id}?co_id=${coId}`;
   const res = await fetchWithCookie(url, "DELETE");
   return { ok: !res.error, error: res.error, id };
@@ -167,13 +169,17 @@ export async function copyPreviousDay(payload: {
   };
 }
 
-export async function setWindingStockLock(
-  payload: { co_id: number; branch_id: number; tran_date: string },
-  locked: boolean,
-) {
+export async function setWindingStockLock(params: {
+  coId: number;
+  branchId: number;
+  tranDate: string;
+  locked: boolean;
+}) {
+  const { coId, branchId, tranDate, locked } = params;
   const url = locked
     ? apiRoutesPortalMasters.WINDING_STOCK_LOCK
     : apiRoutesPortalMasters.WINDING_STOCK_UNLOCK;
-  const res = await fetchWithCookie<{ data: { locked: boolean } }>(url, "POST", payload);
+  const body = { co_id: coId, branch_id: branchId, tran_date: tranDate };
+  const res = await fetchWithCookie<{ data: { locked: boolean } }>(url, "POST", body);
   return { ok: !res.error, error: res.error, locked: res.data?.data?.locked ?? locked };
 }
