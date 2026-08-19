@@ -291,6 +291,13 @@ function Content() {
               </Alert>
             ) : null}
 
+            {/* Weaving rows with no resolvable quality warning */}
+            {data.warnings.weaving_unresolved_day > 0 || data.warnings.weaving_unresolved_mtd > 0 ? (
+              <Alert severity="warning">
+                {`${data.warnings.weaving_unresolved_day} weaving row(s) today and ${data.warnings.weaving_unresolved_mtd} this month have no resolvable weaving quality — that production is excluded from Weaving Production (MT), so the difference below is overstated.`}
+              </Alert>
+            ) : null}
+
             {/* Production details */}
             <SectionCard
               title="Production Reconciliation"

@@ -270,7 +270,14 @@ export interface WindingWeavingDifference {
     prev_entry_date: string | null;
     month_opening_date: string | null;
   };
-  warnings: { purchase_unknown_uoms: string[] };
+  warnings: {
+    purchase_unknown_uoms: string[];
+    /** Weaving rows (cuts > 0) whose quality did not resolve to an active
+     * weaving quality — excluded from weaving production, so should-be
+     * closing stock reads high by however much they'd have subtracted. */
+    weaving_unresolved_day: number;
+    weaving_unresolved_mtd: number;
+  };
   note: string;
 }
 
