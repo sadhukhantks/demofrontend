@@ -172,3 +172,24 @@ export type WindingQualitySetup = {
 	workers: WindingWorkerOption[];
 	machines: WindingMachineOption[];
 };
+
+// One reconciled row of WINDING_SPELL_REPORT (data.rows) — the server-side
+// reconciliation per (tran_date, spell_id, eb_id):
+//   production_kg = sum_production - opening_jugar + closing_jugar
+// (backend winding_rules.reconcile_production / get_winding_reconciliation_query).
+export type WindingSpellReportRow = {
+	tran_date: string | null;
+	spell_id: number | null;
+	spell_code: string | null;
+	shift: string | null;
+	eb_id: number | null;
+	emp_code: string | null;
+	worker_name: string | null;
+	item_id: number | null;
+	item_code: string | null;
+	item_name: string | null;
+	sum_production: number;
+	opening_jugar: number;
+	closing_jugar: number;
+	production_kg: number;
+};

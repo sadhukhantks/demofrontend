@@ -3,7 +3,7 @@
 // all values on save and is authoritative — these helpers are display-only so
 // the operator sees the net before pressing Save.
 
-import type { WindingDoffRow } from "../types/windingTypes";
+import type { WindingSpellReportRow } from "../types/windingTypes";
 
 // Net-weight gate (kg): 1 <= net <= 500 (constants.py WINDING_NET_MIN /
 // WINDING_NET_MAX). One weighing = one person = one row, so there is no split
@@ -45,38 +45,42 @@ export function validateWindingNet(net: number): boolean {
 	return WINDING_NET_MIN <= net && net <= WINDING_NET_MAX;
 }
 
-// Winder-wise production rollup — one row per (winder, yarn quality) with every
-// doff net of the day listed ("34 + 45 + 30") and summed. Display-only.
+// Winder-wise production rollup — one row per (winder, yarn quality) for the
+// selected spell, straight off the server reconciliation rows
+// (WINDING_SPELL_REPORT). production_kg already carries the jugar adjustment
+// (doff sum - opening + closing); re-summing the raw doff nets here is what
+// made the jugar drop out of Production / Total (TKT-000087), so this helper
+// deliberately only filters, labels and sorts — it never recomputes weights.
 export type WinderWiseRow = {
 	id: string;
 	winder: string;
 	item_code: string;
-	weights: string;
-	total: number;
+	sum_production: number;
+	opening_jugar: number;
+	closing_jugar: number;
+	production_kg: number;
 };
 
-export function groupWinderWise(rows: WindingDoffRow[]): WinderWiseRow[] {
-	const map = new Map<string, { winder: string; item_code: string; nets: number[] }>();
-	for (const r of rows) {
-		const key = `${r.eb_id ?? "-"}|${r.item_id ?? "-"}`;
-		let g = map.get(key);
-		if (!g) {
-			g = {
-				winder: [r.emp_code, r.worker_name].filter(Boolean).join(" - ") || "—",
-				item_code: r.item_code ?? "—",
-				nets: [],
-			};
-			map.set(key, g);
-		}
-		g.nets.push(round3(Number(r.production_qty) || 0));
-	}
-	return [...map.entries()]
-		.map(([id, g]) => ({
-			id,
-			winder: g.winder,
-			item_code: g.item_code,
-			weights: g.nets.join(" + "),
-			total: round3(g.nets.reduce((a, b) => a + b, 0)),
+export function winderWiseRows(
+	rows: WindingSpellReportRow[],
+	spellId: number | null,
+): WinderWiseRow[] {
+	return rows
+		.filter((r) => spellId == null || Number(r.spell_id) === spellId)
+		.map((r) => ({
+			id: `${r.spell_id ?? "-"}|${r.eb_id ?? "-"}|${r.item_id ?? "-"}`,
+			winder: [r.emp_code, r.worker_name].filter(Boolean).join(" - ") || "—",
+			item_code: r.item_code ?? "—",
+			sum_production: round3(Number(r.sum_production) || 0),
+			opening_jugar: round3(Number(r.opening_jugar) || 0),
+			closing_jugar: round3(Number(r.closing_jugar) || 0),
+			production_kg: round3(Number(r.production_kg) || 0),
 		}))
 		.sort((a, b) => a.winder.localeCompare(b.winder) || a.item_code.localeCompare(b.item_code));
+}
+
+// Day/spell total shown above the grid — the sum of the reconciled kg, not of
+// the doff nets.
+export function winderWiseTotal(rows: WinderWiseRow[]): number {
+	return round3(rows.reduce((a, r) => a + r.production_kg, 0));
 }
