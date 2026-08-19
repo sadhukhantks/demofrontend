@@ -225,3 +225,69 @@ export async function fetchDailyProductionReport(params: {
   }
   return result.data.data;
 }
+
+export interface WwdReconciliation {
+  opening_mt: number;
+  winding_mt: number;
+  weaving_mt: number;
+  purchase_mt: number;
+  sale_mt: number;
+  should_be_closing_mt: number;
+  actual_closing_mt: number;
+  difference_mt: number;
+  /** null when winding production is zero — a percentage of nothing. */
+  difference_pct: number | null;
+  jute_issue_mt: number;
+}
+
+export interface WwdStockRow {
+  bucket: string;
+  item_code: string | null;
+  item_name: string | null;
+  quality_name: string | null;
+  yarn_count: number | null;
+  package_label: string;
+  area_name: string | null;
+  no_of_samples: number;
+  wt_per_sample: number;
+  prvs_stock_mt: number;
+  stock_mt: number;
+}
+
+export interface WindingWeavingDifference {
+  report_date: string;
+  date_from: string;
+  stock: Record<string, { rows: WwdStockRow[]; subtotal_mt: number } | number> & {
+    grand_total_mt: number;
+  };
+  production: { day: WwdReconciliation; mtd: WwdReconciliation };
+  cloth_split: {
+    day: Record<string, number>;
+    mtd: Record<string, number>;
+  };
+  chain: {
+    ok: boolean;
+    prev_entry_date: string | null;
+    month_opening_date: string | null;
+  };
+  warnings: { purchase_unknown_uoms: string[] };
+  note: string;
+}
+
+/** Counted winding stock reconciled against book stock, day and month-to-date. */
+export async function fetchWindingWeavingDifference(params: {
+  coId: number;
+  branchId: number;
+  reportDate: string;
+}): Promise<WindingWeavingDifference> {
+  const qs = new URLSearchParams();
+  qs.set("co_id", String(params.coId));
+  qs.set("branch_id", String(params.branchId));
+  qs.set("report_date", params.reportDate);
+  const url = `${apiRoutesPortalMasters.WINDING_WEAVING_DIFFERENCE}?${qs.toString()}`;
+  const res = await fetchWithCookie<{ data: WindingWeavingDifference }>(url);
+  if (res.error || !res.data) {
+    throw new Error(res.error ?? "Failed to fetch the winding & weaving difference report");
+  }
+  return res.data.data;
+}
