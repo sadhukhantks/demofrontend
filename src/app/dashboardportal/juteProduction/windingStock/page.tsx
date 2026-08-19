@@ -11,6 +11,7 @@ import {
 	TextField,
 	Typography,
 } from "@mui/material";
+import { usePathname } from "next/navigation";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import {
@@ -28,7 +29,7 @@ import {
 } from "@/utils/windingStockService";
 import WindingStockForm from "./_components/WindingStockForm";
 import WindingStockGrid from "./_components/WindingStockGrid";
-import { bucketTotals, grandTotal, todayISO } from "./utils/stockCalc";
+import { bucketTotals, grandTotal, rowActionsDisabled, todayISO } from "./utils/stockCalc";
 import { buildCreatePayload, buildEditPayload, type WindingStockFormValues } from "./utils/stockSchema";
 
 /**
@@ -45,7 +46,11 @@ export default function WindingStockPage() {
 	}, []);
 
 	const { coId } = useSelectedCompanyCoId();
-	const { selectedBranches, selectedCompany } = useSidebarContext();
+	const { selectedBranches, selectedCompany, hasMenuAccess } = useSidebarContext();
+	// A locked day still accepts mutations from a user holding Edit on this
+	// menu (mirrors WeavingProcessBar's lockedNoEdit) — see winding_stock_lock.py.
+	const pathname = usePathname();
+	const canEdit = hasMenuAccess(pathname, "edit");
 
 	// Branch resolution: 1 sidebar branch → auto-use it; several → user must pick one.
 	const sidebarBranchIds = React.useMemo(() => selectedBranches.map(Number), [selectedBranches]);
@@ -421,7 +426,7 @@ export default function WindingStockPage() {
 							onDelete={(row) => {
 								void onDelete(row);
 							}}
-							actionsDisabled={saving || deleting || locked}
+							actionsDisabled={rowActionsDisabled({ saving, deleting, locked, canEdit })}
 						/>
 					</Box>
 				</Box>

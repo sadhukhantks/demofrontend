@@ -38,6 +38,25 @@ export function grandTotal(rows: ReadonlyArray<WindingStockRow>): number {
   );
 }
 
+/**
+ * Whether the grid's row Edit/Delete actions should be disabled.
+ *
+ * A locked day is not a hard freeze (see winding_stock_lock.py): a user
+ * holding Edit access for the Winding Stock menu must still be able to
+ * correct a miscount. Blanket-disabling on `locked` alone (ignoring
+ * `canEdit`) would silently take that away from every user, supervisors
+ * included, and there would be no UI path left to fix a bad row short of a
+ * direct API call.
+ */
+export function rowActionsDisabled(opts: {
+  saving: boolean;
+  deleting: boolean;
+  locked: boolean;
+  canEdit: boolean;
+}): boolean {
+  return opts.saving || opts.deleting || (opts.locked && !opts.canEdit);
+}
+
 export function formatMt(value: number | null | undefined): string {
   const n = Number(value);
   return Number.isFinite(n) ? n.toFixed(MT_SCALE) : "";
