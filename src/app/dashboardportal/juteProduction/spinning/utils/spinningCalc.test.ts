@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupFrameWise, prevShiftRef } from "./spinningCalc";
+import { groupFrameWise, populationStdDev, prevShiftRef, sampleStdDev } from "./spinningCalc";
 import type { DoffEntryRow } from "../types/spinningTypes";
 
 function doff(p: Partial<DoffEntryRow>): DoffEntryRow {
@@ -72,5 +72,29 @@ describe("prevShiftRef", () => {
 	it("returns null for an unknown or missing spell", () => {
 		expect(prevShiftRef(spells, 99, "2026-08-01")).toBeNull();
 		expect(prevShiftRef(spells, null, "2026-08-01")).toBeNull();
+	});
+});
+
+describe("populationStdDev / sampleStdDev", () => {
+	// e:\ejmhands\cvp.xlsx — the lab's R-08-15 working: MV 10.86, SD = SQRT(SUM((x-mean)^2)/30) = 1.6159, CV 14.88.
+	const lab = [11.4, 9.8, 12.2, 10.4, 11, 10.2, 10.4, 10.2, 9.6, 11, 12, 10.4, 10.4, 16.2, 10, 10.2, 9.4, 9.6, 12.4, 10.2, 11.4, 9.8, 16.2, 10.4, 10.4, 9.8, 10.2, 9.6, 11, 10];
+
+	it("population SD matches the lab Excel sheet (÷n)", () => {
+		const sd = populationStdDev(lab);
+		expect(sd).not.toBeNull();
+		expect(sd as number).toBeCloseTo(1.6159, 3);
+		const mean = lab.reduce((a, b) => a + b, 0) / lab.length;
+		expect(((sd as number) / mean) * 100).toBeCloseTo(14.88, 2);
+	});
+
+	it("population vs sample on a 2-value set", () => {
+		expect(populationStdDev([4, 8])).toBe(2);
+		expect(sampleStdDev([4, 8])).toBeCloseTo(Math.SQRT2 * 2, 10);
+	});
+
+	it("population SD is 0 for one value and null for none", () => {
+		expect(populationStdDev([5])).toBe(0);
+		expect(populationStdDev([])).toBeNull();
+		expect(populationStdDev([Number.NaN])).toBeNull();
 	});
 });

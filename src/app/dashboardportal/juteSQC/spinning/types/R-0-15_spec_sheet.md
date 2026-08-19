@@ -34,11 +34,11 @@ b/s           = bundle/lea strength reading the inspector enters (5 per spindle)
 avg_bs        = mean(all 30 readings in the group)
 max           = max(readings)
 min           = min(readings)
-std_dev       = SAMPLE standard deviation of readings  (n-1, STDDEV_SAMP)
+std_dev       = POPULATION standard deviation of readings  (÷n, STDDEV_POP) — lab Excel: SQRT(SUM((x-mean)^2)/n)
 observed_count= AVG(observed_count) of R-08-16 rows for that (date, item_id)   ← READ from R-08-16 saved values, AVG per item_id
 mr_pct        = AVG(mr_pct)         of R-08-16 rows for that (date, item_id)   ← READ from R-08-16 saved values, AVG per item_id
 QR%           = (avg_bs / observed_count) * 100
-CV%           = (std_dev / QR%)          * 100
+CV%           = (std_dev / avg_bs)       * 100   ← lab Excel: SD ÷ MV × 100
 ```
 
 > **Resolved:** "b/s" = bundle/lea strength (the per-spindle reading). QR% and CV%
@@ -48,8 +48,9 @@ CV%           = (std_dev / QR%)          * 100
 > **averaged per `item_id`** at read (D1) — NOT recomputed from raw inputs, and NOT
 > re-stored in the QR/CV tables (the source is already saved by R-08-16). Guard
 > divide-by-zero: QR% → null when `observed_count` is 0/null; CV% → null when
-> `QR%` is 0/null. (Note: this CV% definition is the lab's own — `std_dev / QR% ×
-> 100` — not the textbook `std_dev / mean × 100`; implemented as specified.)
+> `avg_bs` is 0/null. (2026-08-17: corrected to the lab's own Excel working,
+> `e:\ejmhands\cvp.xlsx` — SD = SQRT(SUM((x-mean)^2)/n), CV = SD/mean×100 — the
+> earlier `std_dev / QR%` reading of the register was wrong.)
 
 ---
 
@@ -60,7 +61,7 @@ CV%           = (std_dev / QR%)          * 100
 | D1 | observed_count + MR% per yarn item / `item_id` (R-08-16 has multiple readings) | **AVG over the date's R-08-16 readings** (`AVG(observed_count)`, `AVG(mr_pct)`). |
 | D2 | "machine no" mapping | **FK to `machine_mst.machine_id`** (spinning-type, same dropdown as R-08-16 `mc_id`). |
 | D2b | "spindle no" mapping | **User-entered actual spindle position number**, stored per reading row. |
-| D3 | Std-dev convention | **Sample (n-1) → `STDDEV_SAMP`** / Python `statistics.stdev`. |
+| D3 | Std-dev convention | **Population (÷n) → `STDDEV_POP`** / Python `statistics.pstdev` (matches lab Excel `MRC/30`). |
 | D4 | Save semantics | **Insert-only, multi-observation** (like R-08-16 count). Each save inserts a new group; duplicates allowed; DELETE removes a whole group. |
 | D5 | QR%/CV%/max/min/avg/std | **Computed at read time** from the stored readings (raw readings stored only; no persisted stats). |
 | D6 | observed_count + mr_pct | **Read from R-08-16's already-saved values** (`jute_sqc_spinning_count.observed_count` / `.mr_pct`, saved by `POST /sqc_count_save`), averaged per `item_id` at read (D1). NOT recomputed from raw inputs; NOT re-stored in the QR/CV tables. |
@@ -286,12 +287,12 @@ Response:
   n = len(vals)
   avg_bs = sum(vals) / n if n else None
   mx, mn = (max(vals), min(vals)) if vals else (None, None)
-  std_dev = statistics.stdev(vals) if n >= 2 else (0.0 if n == 1 else None)  # sample (n-1)
+  std_dev = statistics.pstdev(vals) if n >= 1 else None  # population (÷n)
   observed_count = obs_map.get(item_id, {}).get("observed_count")            # AVG of saved R-08-16 values
   qr_pct = (avg_bs / observed_count) * 100 if (avg_bs is not None and observed_count) else None
-  cv_pct = (std_dev / qr_pct) * 100 if (qr_pct not in (None, 0) and std_dev is not None) else None
+  cv_pct = (std_dev / avg_bs) * 100 if (avg_bs and std_dev is not None) else None
   ```
-  (Python `statistics.stdev` = sample/n-1, matching D3. Guard divide-by-zero on
+  (Python `statistics.pstdev` = population/n, matching D3. Guard divide-by-zero on
   `observed_count` and `qr_pct`. Round to 2 dp in the row-out helper.)
 
 ### 4.4 `DELETE /api/juteSQC/sqc_qr_cv_delete/{qr_cv_id}`
@@ -488,10 +489,10 @@ Props: `{ coId, branchId, entryDate, setup: SqcQrCvSetup, onSaved }`.
 - **6 spindle blocks** — render 6 rows, each = a `spindle_no` number field + 5
   `reading_val` number fields (`type="number"`, `step:"any"`, `min:0`).
 - **Live preview** (client-side, server is authoritative): compute `avg_bs`,
-  `max`, `min`, sample `std_dev`, `qr_pct = (avg_bs/observed_count)*100`,
-  `cv_pct = (std_dev/qr_pct)*100` from the filled readings using the selected
+  `max`, `min`, population `std_dev`, `qr_pct = (avg_bs/observed_count)*100`,
+  `cv_pct = (std_dev/avg_bs)*100` from the filled readings using the selected
   yarn's `observed_count`. Add a small helper in
-  `juteProduction/spinning/utils/spinningCalc.ts` (e.g. `sampleStdDev(nums)`).
+  `juteProduction/spinning/utils/spinningCalc.ts` (`populationStdDev(nums)`).
   Guard divide-by-zero.
 - **Save** — POST `SPINNING_SQC_QR_CV_SAVE` with one `SqcQrCvSavePayloadRow`
   (machine + yarn + 6 spindles); on success Snackbar + clear readings (keep
@@ -533,8 +534,8 @@ Cases:
 - `sqc_qr_cv_setup` missing `co_id` → 400; missing `entry_date` → 400.
 - `sqc_qr_cv_save` inserts header + 30 detail rows (no observed_count/mr_pct stored).
 - `sqc_qr_cv_by_date` returns groups with observed_count/mr_pct from saved R-08-16 + `stats`
-  (assert sample std dev; assert `qr_pct = avg_bs/observed_count*100` and
-  `cv_pct = std_dev/qr_pct*100` on a known fixture; assert divide-by-zero guards →
+  (assert population std dev; assert `qr_pct = avg_bs/observed_count*100` and
+  `cv_pct = std_dev/avg_bs*100` on a known fixture; assert divide-by-zero guards →
   null when observed_count=0).
 - `sqc_qr_cv_delete` soft-deletes (404 when absent).
 
@@ -571,5 +572,5 @@ Run: `pytest src/test/test_spinning_sqc_qr_cv.py -v`.
 - [ ] `…/juteSQC/spinning/hooks/useSqcQrCvSetup.ts`, `useSqcQrCvByDate.ts`
 - [ ] `…/juteSQC/spinning/_components/YarnQrCvForm.tsx`, `YarnQrCvGrid.tsx`
 - [ ] `…/juteSQC/spinning/page.tsx` — TABS + tab-3 block (§9.3)
-- [ ] `…/juteProduction/spinning/utils/spinningCalc.ts` — `sampleStdDev` helper
+- [ ] `…/juteProduction/spinning/utils/spinningCalc.ts` — `populationStdDev` helper
 ```

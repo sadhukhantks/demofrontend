@@ -74,8 +74,8 @@ export function correctedCount(observed: number, mrPct: number, stdMrPct: number
 	return round2((Number(observed) / denom) * (100 + Number(stdMrPct)));
 }
 
-// Sample standard deviation (n-1 divisor) for the Spinning SQC QR/CV live
-// preview. The server recomputes via Python `statistics` and is authoritative;
+// Sample standard deviation (n-1 divisor) for the yarn TPI / QR-CV-15A live
+// previews. The server recomputes via Python `statistics` and is authoritative;
 // this only mirrors the math for live display. Non-numeric/NaN values are
 // ignored. Returns null when fewer than 2 numeric values remain (sample stdev
 // is undefined for n < 2) — callers show "—" for an empty/insufficient set.
@@ -183,4 +183,17 @@ export function todayISO(): string {
 	const m = String(d.getMonth() + 1).padStart(2, "0");
 	const day = String(d.getDate()).padStart(2, "0");
 	return `${d.getFullYear()}-${m}-${day}`;
+}
+
+// Population standard deviation (n divisor) — the lab's R-08-15 Excel working
+// (`SD = SQRT(SUM((x-mean)^2)/n)`, cvp.xlsx). Mirrors the server's
+// `statistics.pstdev`; returns 0 for one value, null for none.
+export function populationStdDev(nums: number[]): number | null {
+	const vals = (nums || [])
+		.map((n) => Number(n))
+		.filter((n) => Number.isFinite(n));
+	const n = vals.length;
+	if (n < 1) return null;
+	const mean = vals.reduce((acc, v) => acc + v, 0) / n;
+	return Math.sqrt(vals.reduce((acc, v) => acc + (v - mean) * (v - mean), 0) / n);
 }
