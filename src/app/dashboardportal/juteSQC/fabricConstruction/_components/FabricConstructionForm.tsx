@@ -258,7 +258,8 @@ export default function FabricConstructionForm({ coId, branchId, entryDate, setu
 				</Box>
 			</Box>
 
-			<TableContainer sx={{ overflowX: "auto" }}>
+			{/* Desktop / tablet: wide entry table. Hidden on phones (stacked cards below). */}
+			<TableContainer sx={{ overflowX: "auto", display: { xs: "none", md: "block" } }}>
 				<Table size="small" sx={{ minWidth: 820 }}>
 					<TableHead>
 						<TableRow>
@@ -335,6 +336,70 @@ export default function FabricConstructionForm({ coId, branchId, entryDate, setu
 					</TableBody>
 				</Table>
 			</TableContainer>
+
+			{/* Phones: one card per sample row, every input full-width on its own
+			    line — no horizontal scrolling. */}
+			<Box sx={{ display: { xs: "flex", md: "none" }, flexDirection: "column", gap: 2 }}>
+				{rows.map((r, idx) => {
+					const preview = computeRowPreview(r, stdMrForPreview);
+					return (
+						<Paper
+							key={`sample-${idx}`}
+							variant="outlined"
+							sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}
+						>
+							<Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+								<Typography variant="subtitle2">Row {idx + 1}</Typography>
+								<Tooltip title="Remove row">
+									<span>
+										<IconButton
+											size="small"
+											color="error"
+											disabled={rows.length <= 1}
+											onClick={() => removeRow(idx)}
+											sx={{ minWidth: 40, minHeight: 40 }}
+										>
+											<DeleteIcon size={16} />
+										</IconButton>
+									</span>
+								</Tooltip>
+							</Box>
+							{MEASURED_FIELDS.map((f) => (
+								<TextField
+									key={f.key}
+									type="number"
+									size="small"
+									fullWidth
+									label={f.label}
+									value={r[f.key]}
+									onChange={(e) => setRowField(idx, f.key, e.target.value)}
+									inputProps={{
+										step: "any",
+										min: 0,
+										"aria-label": `Row ${idx + 1} ${f.label}`,
+									}}
+								/>
+							))}
+							<Typography variant="body2" fontWeight={600}>
+								Crcted oz: {fmt(preview.crctedOz)}
+							</Typography>
+						</Paper>
+					);
+				})}
+				<Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1 }}>
+					<Typography variant="subtitle2">Avg</Typography>
+					<Box sx={{ display: "flex", flexWrap: "wrap", columnGap: 2, rowGap: 0.5 }}>
+						{MEASURED_FIELDS.map((f) => (
+							<Typography key={f.key} variant="body2">
+								{f.label}: {fmt(averages[f.key])}
+							</Typography>
+						))}
+						<Typography variant="body2" fontWeight={600}>
+							Crcted oz: {fmt(averages.crcted_oz)}
+						</Typography>
+					</Box>
+				</Paper>
+			</Box>
 
 			<Box>
 				<Button

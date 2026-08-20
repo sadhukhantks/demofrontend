@@ -1,7 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Autocomplete, Box, Button, Snackbar, TextField } from "@mui/material";
+import {
+	Alert,
+	Autocomplete,
+	Box,
+	Button,
+	IconButton,
+	Paper,
+	Snackbar,
+	TextField,
+	Typography,
+} from "@mui/material";
 import {
 	Plus as AddIcon,
 	Save as SaveIcon,
@@ -227,11 +237,12 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 				</Button>
 			</Box>
 
-			{/* Staged rows (not yet persisted) */}
+			{/* Staged rows (not yet persisted) — wide table on desktop/tablet, hidden on phones. */}
 			{rows.length > 0 ? (
 				<Box
 					component="table"
 					sx={{
+						display: { xs: "none", md: "table" },
 						width: "100%",
 						borderCollapse: "collapse",
 						"& th, & td": {
@@ -282,6 +293,41 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 							</Box>
 						))}
 					</Box>
+				</Box>
+			) : null}
+
+			{/* Phones: one card per staged row — no horizontal scrolling. */}
+			{rows.length > 0 ? (
+				<Box sx={{ display: { xs: "flex", md: "none" }, flexDirection: "column", gap: 2 }}>
+					{rows.map((r, i) => (
+						<Paper
+							key={`${r.weaving_quality_id}-${r.machine_id}-${i}`}
+							variant="outlined"
+							sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}
+						>
+							<Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+								<Typography variant="subtitle2">Row {i + 1}</Typography>
+								<IconButton
+									size="small"
+									color="error"
+									onClick={() => handleRemoveRow(i)}
+									sx={{ minWidth: 40, minHeight: 40 }}
+								>
+									<DeleteOutlineIcon size={16} />
+								</IconButton>
+							</Box>
+							<Typography variant="body2">Quality: {r.qualityLabel}</Typography>
+							<Typography variant="body2">Loom: {r.loomLabel}</Typography>
+							<Box sx={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
+								<Typography variant="body2">
+									Width: {r.width != null ? r.width.toFixed(2) : "—"}
+								</Typography>
+								<Typography variant="body2" fontWeight={600}>
+									Pick / PPI: {r.picks.toFixed(2)}
+								</Typography>
+							</Box>
+						</Paper>
+					))}
 				</Box>
 			) : null}
 
