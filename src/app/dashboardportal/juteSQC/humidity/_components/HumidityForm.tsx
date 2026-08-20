@@ -202,7 +202,8 @@ export default function HumidityForm({ coId, branchId, reportDate, setup, onSave
 				/>
 			</Box>
 
-			<TableContainer sx={{ overflowX: "auto" }}>
+			{/* Desktop / tablet: spot-reading entry table. Hidden on phones (stacked cards below). */}
+			<TableContainer sx={{ overflowX: "auto", display: { xs: "none", md: "block" } }}>
 				<Table size="small" sx={{ minWidth: 560 }}>
 					<TableHead>
 						<TableRow>
@@ -308,6 +309,78 @@ export default function HumidityForm({ coId, branchId, reportDate, setup, onSave
 					</TableBody>
 				</Table>
 			</TableContainer>
+
+			{/* Phones: one card per spot reading, every input full-width on its own
+			    line — no horizontal scrolling. */}
+			<Box sx={{ display: { xs: "flex", md: "none" }, flexDirection: "column", gap: 2 }}>
+				{rows.map((r, i) => (
+					<Paper
+						key={`spot-${i}`}
+						variant="outlined"
+						sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}
+					>
+						<Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+							<Typography variant="subtitle2">Row {i + 1}</Typography>
+							<Tooltip title="Remove spot">
+								<span>
+									<IconButton
+										size="small"
+										color="error"
+										disabled={rows.length <= 1}
+										onClick={() => removeRow(i)}
+										sx={{ minWidth: 40, minHeight: 40 }}
+									>
+										<DeleteIcon size={16} />
+									</IconButton>
+								</span>
+							</Tooltip>
+						</Box>
+						<TextField
+							size="small"
+							fullWidth
+							label="Spot label"
+							value={r.spot_label}
+							onChange={(e) => setRowField(i, "spot_label", e.target.value)}
+							inputProps={{ "aria-label": `Spot ${i + 1} label` }}
+						/>
+						<TextField
+							size="small"
+							fullWidth
+							label="Time (HH:MM)"
+							placeholder="HH:MM"
+							value={r.reading_time}
+							onChange={(e) => setRowField(i, "reading_time", e.target.value)}
+							inputProps={{ "aria-label": `Spot ${i + 1} time` }}
+						/>
+						<TextField
+							type="number"
+							size="small"
+							fullWidth
+							label="Temp (°C)"
+							value={r.temp_c}
+							onChange={(e) => setRowField(i, "temp_c", e.target.value)}
+							inputProps={{ step: "any", min: 0, "aria-label": `Spot ${i + 1} temperature` }}
+						/>
+						<TextField
+							type="number"
+							size="small"
+							fullWidth
+							label="RH %"
+							value={r.rh_pct}
+							onChange={(e) => setRowField(i, "rh_pct", e.target.value)}
+							inputProps={{ step: "any", min: 0, max: 100, "aria-label": `Spot ${i + 1} RH%` }}
+						/>
+					</Paper>
+				))}
+				<Box sx={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
+					<Typography variant="body2" fontWeight={600}>
+						Avg Temp (°C): {fmt(averages.avg_temp)}
+					</Typography>
+					<Typography variant="body2" fontWeight={600}>
+						Avg RH %: {fmt(averages.avg_rh)}
+					</Typography>
+				</Box>
+			</Box>
 
 			<Box>
 				<Button

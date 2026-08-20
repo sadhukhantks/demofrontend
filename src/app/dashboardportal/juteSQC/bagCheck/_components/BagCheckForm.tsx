@@ -306,7 +306,8 @@ export default function BagCheckForm({ coId, branchId, entryDate, setup, onSaved
 				</Box>
 			</Box>
 
-			<TableContainer sx={{ overflowX: "auto" }}>
+			{/* Desktop / tablet: entry table. Hidden on phones (stacked cards below). */}
+			<TableContainer sx={{ overflowX: "auto", display: { xs: "none", md: "block" } }}>
 				<Table size="small" sx={{ minWidth: 980 }}>
 					<TableHead>
 						<TableRow>
@@ -395,6 +396,61 @@ export default function BagCheckForm({ coId, branchId, entryDate, setup, onSaved
 					</TableBody>
 				</Table>
 			</TableContainer>
+
+			{/* Phones: one card per bag row, every input full-width on its own
+			    line — no horizontal scrolling. */}
+			<Box sx={{ display: { xs: "flex", md: "none" }, flexDirection: "column", gap: 2 }}>
+				{rows.map((r, i) => {
+					const corr = computeRowCorr(r, stdMrForPreview);
+					return (
+						<Paper
+							key={`bag-m-${i}`}
+							variant="outlined"
+							sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}
+						>
+							<Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+								<Typography variant="subtitle2">Row {i + 1}</Typography>
+								<Tooltip title="Remove bag">
+									<span>
+										<IconButton
+											size="small"
+											color="error"
+											disabled={rows.length <= 1}
+											onClick={() => removeRow(i)}
+											sx={{ minWidth: 40, minHeight: 40 }}
+										>
+											<DeleteIcon size={16} />
+										</IconButton>
+									</span>
+								</Tooltip>
+							</Box>
+							{MEASURED_FIELDS.map((f) => (
+								<TextField
+									key={f.key}
+									type="number"
+									size="small"
+									fullWidth
+									label={f.label}
+									value={r[f.key]}
+									onChange={(e) => setRowField(i, f.key, e.target.value)}
+									inputProps={{ step: "any", min: 0, "aria-label": `Bag ${i + 1} ${f.label}` }}
+								/>
+							))}
+							<TextField
+								size="small"
+								fullWidth
+								label="Defects"
+								value={r.defects}
+								onChange={(e) => setRowField(i, "defects", e.target.value)}
+								inputProps={{ "aria-label": `Bag ${i + 1} defects` }}
+							/>
+							<Typography variant="body2" fontWeight={600}>
+								Corr wt: {fmt(corr)}
+							</Typography>
+						</Paper>
+					);
+				})}
+			</Box>
 
 			<Box>
 				<Button size="small" startIcon={<AddIcon size={16} />} onClick={addRow}>
