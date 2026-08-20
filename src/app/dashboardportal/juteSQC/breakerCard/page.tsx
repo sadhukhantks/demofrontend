@@ -4,7 +4,7 @@ import * as React from "react";
 import { Alert, Box, CircularProgress, MenuItem, Tab, Tabs, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
-import { todayISO } from "./utils/breakerCardCalc";
+import { gmsToLbs, todayISO } from "./utils/breakerCardCalc";
 import { useBreakerCardSetup } from "./hooks/useBreakerCardSetup";
 import { useBreakerCardByDate } from "./hooks/useBreakerCardByDate";
 import BreakerCardForm from "./_components/BreakerCardForm";
@@ -90,6 +90,9 @@ export default function BreakerCardSqcPage() {
 			r.item_grp_name ?? (r.item_grp_id != null ? `Group #${r.item_grp_id}` : "—");
 		const num = (v: number | null | undefined, digits: number): string =>
 			v != null ? Number(v).toFixed(digits) : "";
+		// calc_* weights come back in the entered unit (grams); print them in lbs/100yds.
+		const lbs = (v: number | null | undefined, digits = 2): string =>
+			v != null ? gmsToLbs(Number(v)).toFixed(digits) : "";
 		const pct = (v: number | null | undefined): string =>
 			v != null ? `${(Number(v) * 100).toFixed(2)}%` : "";
 		const band = (v: number | null | undefined): string =>
@@ -102,12 +105,12 @@ export default function BreakerCardSqcPage() {
 			{ key: "group", label: "Yarn Group" },
 			{ key: "std_mr_pct", label: "Std MR%", align: "right" },
 			// The raw cuts the operator recorded, ahead of the derived calc_* values.
-			...readingCols("wt", "Wt", BREAKER_CARD_READINGS),
+			...readingCols("wt", "Wt (g)", BREAKER_CARD_READINGS),
 			...readingCols("mr", "MR%", BREAKER_CARD_READINGS),
-			{ key: "calc_wt", label: "Obs Wt", align: "right" },
+			{ key: "calc_wt", label: "Obs Wt (lbs)", align: "right" },
 			{ key: "calc_mr_pct", label: "MR%", align: "right" },
-			{ key: "calc_corr_wt", label: "Corr Wt", align: "right" },
-			{ key: "calc_sdev", label: "StDev", align: "right" },
+			{ key: "calc_corr_wt", label: "Corr Wt (lbs)", align: "right" },
+			{ key: "calc_sdev", label: "StDev (lbs)", align: "right" },
 			{ key: "calc_cv_pct", label: "CV %", align: "right" },
 			{ key: "cv_within_band", label: "Band", align: "center" },
 		];
@@ -120,10 +123,10 @@ export default function BreakerCardSqcPage() {
 			std_mr_pct: num(r.std_mr_pct, 2),
 			...readingCells("wt", r.weights, BREAKER_CARD_READINGS, 2),
 			...readingCells("mr", r.mr_pcts, BREAKER_CARD_READINGS, 2),
-			calc_wt: num(r.calc_wt, 2),
+			calc_wt: lbs(r.calc_wt),
 			calc_mr_pct: num(r.calc_mr_pct, 2),
-			calc_corr_wt: num(r.calc_corr_wt, 2),
-			calc_sdev: num(r.calc_sdev, 4),
+			calc_corr_wt: lbs(r.calc_corr_wt),
+			calc_sdev: lbs(r.calc_sdev, 4),
 			calc_cv_pct: pct(r.calc_cv_pct),
 			cv_within_band: band(r.cv_within_band),
 		}));
@@ -132,9 +135,9 @@ export default function BreakerCardSqcPage() {
 			{ key: "group", label: "Yarn Group" },
 			{ key: "row_count", label: "Rows", align: "right" },
 			{ key: "std_mr_pct", label: "Std MR%", align: "right" },
-			{ key: "grand_obs", label: "Obs", align: "right" },
+			{ key: "grand_obs", label: "Obs (lbs)", align: "right" },
 			{ key: "grand_mr_pct", label: "MR%", align: "right" },
-			{ key: "grand_corr_wt", label: "Corr", align: "right" },
+			{ key: "grand_corr_wt", label: "Corr (lbs)", align: "right" },
 			{ key: "grand_cv_pct", label: "CV %", align: "right" },
 		];
 
@@ -142,9 +145,9 @@ export default function BreakerCardSqcPage() {
 			group: groupLabel(g),
 			row_count: g.row_count ?? "—",
 			std_mr_pct: num(g.std_mr_pct, 2),
-			grand_obs: num(g.grand_obs, 2),
+			grand_obs: lbs(g.grand_obs),
 			grand_mr_pct: num(g.grand_mr_pct, 2),
-			grand_corr_wt: num(g.grand_corr_wt, 2),
+			grand_corr_wt: lbs(g.grand_corr_wt),
 			grand_cv_pct: pct(g.grand_cv_pct),
 		}));
 
