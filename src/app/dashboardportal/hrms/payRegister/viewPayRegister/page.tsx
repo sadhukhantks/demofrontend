@@ -114,7 +114,7 @@ function ViewPayRegisterContent() {
     try {
       const payload = {
         id: Number(payRegisterId),
-        status,
+        status_id: status,
       };
       const res = await updatePayRegister(coId, payRegisterId, payload);
       if (res?.error) throw new Error(res.error);

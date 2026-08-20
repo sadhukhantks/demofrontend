@@ -133,18 +133,19 @@ export default function WidthPicksGrid({ coId, branchId, blocks, loading, onDele
 							</Tooltip>
 						</Box>
 
+						{/* No fixed min width — cells wrap and padding shrinks on xs so the
+						    table fits a phone without horizontal scrolling. */}
 						<TableContainer sx={{ overflowX: "auto" }}>
-							<Table size="small" sx={{ minWidth: 520 }}>
+							<Table
+								size="small"
+								sx={{ "& .MuiTableCell-root": { px: { xs: 0.5, sm: 2 } } }}
+							>
 								<TableHead>
 									<TableRow>
 										<TableCell sx={{ width: 40 }}>#</TableCell>
-										<TableCell sx={{ minWidth: 200 }}>Loom</TableCell>
-										<TableCell align="right" sx={{ minWidth: 110 }}>
-											Width (cm)
-										</TableCell>
-										<TableCell align="right" sx={{ minWidth: 110 }}>
-											Picks/dm
-										</TableCell>
+										<TableCell>Loom</TableCell>
+										<TableCell align="right">Width (cm)</TableCell>
+										<TableCell align="right">Picks/dm</TableCell>
 									</TableRow>
 								</TableHead>
 								<TableBody>
@@ -295,12 +296,13 @@ function WidthPicksHistory({
 						setPage(0);
 						setSearch(e.target.value);
 					}}
-					sx={{ minWidth: 220 }}
+					sx={{ minWidth: { xs: 0, sm: 220 }, flex: { xs: "1 1 auto", sm: "0 0 auto" } }}
 				/>
 			</Box>
 
+			{/* Same responsive treatment as the block tables: wrap, don't scroll. */}
 			<TableContainer sx={{ overflowX: "auto" }}>
-				<Table size="small" sx={{ minWidth: 640 }}>
+				<Table size="small" sx={{ "& .MuiTableCell-root": { px: { xs: 0.5, sm: 2 } } }}>
 					<TableHead>
 						<TableRow>
 							<TableCell>Date</TableCell>
@@ -354,6 +356,7 @@ function WidthPicksHistory({
 					setPage(0);
 				}}
 				rowsPerPageOptions={[10, 25, 50]}
+				sx={{ "& .MuiTablePagination-toolbar": { flexWrap: "wrap", justifyContent: "flex-end" } }}
 			/>
 		</Paper>
 	);

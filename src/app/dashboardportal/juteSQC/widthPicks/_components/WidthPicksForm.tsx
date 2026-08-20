@@ -10,12 +10,6 @@ import {
 	IconButton,
 	Paper,
 	Snackbar,
-	Table,
-	TableBody,
-	TableCell,
-	TableContainer,
-	TableHead,
-	TableRow,
 	TextField,
 	Tooltip,
 	Typography,
@@ -216,99 +210,92 @@ export default function WidthPicksForm({ coId, branchId, entryDate, setup, onSav
 				/>
 			</Box>
 
-			<TableContainer sx={{ overflowX: "auto" }}>
-				<Table size="small" sx={{ minWidth: 620 }}>
-					<TableHead>
-						<TableRow>
-							<TableCell sx={{ width: 40 }}>#</TableCell>
-							<TableCell sx={{ minWidth: 240 }}>Loom</TableCell>
-							<TableCell align="right" sx={{ minWidth: 130 }}>
-								Width (cm)
-							</TableCell>
-							<TableCell align="right" sx={{ minWidth: 130 }}>
-								Picks/dm (optional)
-							</TableCell>
-							<TableCell align="center" sx={{ width: 56 }} />
-						</TableRow>
-					</TableHead>
-					<TableBody>
-						{rows.map((r, i) => (
-							<TableRow key={`loom-row-${i}`}>
-								<TableCell>{i + 1}</TableCell>
-								<TableCell>
-									<Autocomplete
-										options={setup.looms}
-										getOptionLabel={(opt) => opt.machine_name}
-										renderOption={(props, opt) => (
-											<li {...props} key={opt.machine_id}>
-												{opt.machine_name}
-												{opt.mech_code ? ` (${opt.mech_code})` : ""}
-											</li>
-										)}
-										value={r.loom_id === "" ? null : loomById.get(Number(r.loom_id)) ?? null}
-										onChange={(_, newVal) =>
-											setRowField(i, "loom_id", newVal ? newVal.machine_id : "")
-										}
-										isOptionEqualToValue={(opt, val) => opt.machine_id === val.machine_id}
-										size="small"
-										renderInput={(params) => (
-											<TextField {...params} variant="standard" placeholder="Loom" />
-										)}
-									/>
-								</TableCell>
-								<TableCell align="right">
-									<TextField
-										type="number"
-										size="small"
-										variant="standard"
-										value={r.width_cm}
-										onChange={(e) => setRowField(i, "width_cm", e.target.value)}
-										inputProps={{
-											step: "any",
-											min: 0,
-											"aria-label": `Row ${i + 1} width (cm)`,
-											style: { textAlign: "right" },
-										}}
-										sx={{ width: 110 }}
-									/>
-								</TableCell>
-								<TableCell align="right">
-									<TextField
-										type="number"
-										size="small"
-										variant="standard"
-										placeholder="—"
-										value={r.picks_dm}
-										onChange={(e) => setRowField(i, "picks_dm", e.target.value)}
-										inputProps={{
-											step: "any",
-											min: 0,
-											"aria-label": `Row ${i + 1} picks/dm`,
-											style: { textAlign: "right" },
-										}}
-										sx={{ width: 110 }}
-									/>
-								</TableCell>
-								<TableCell align="center">
-									<Tooltip title="Remove row">
-										<span>
-											<IconButton
-												size="small"
-												color="error"
-												disabled={rows.length <= 1}
-												onClick={() => removeRow(i)}
-												sx={{ minWidth: 40, minHeight: 40 }}
-											>
-												<DeleteIcon size={16} />
-											</IconButton>
-										</span>
-									</Tooltip>
-								</TableCell>
-							</TableRow>
-						))}
-					</TableBody>
-				</Table>
-			</TableContainer>
+			{/* Loom reading rows — flex-wrap, NO fixed min table width: on a phone each row
+			    wraps to two lines (loom, then width + picks + delete) so there is never a
+			    horizontal scroll; on wider screens everything sits on one line. */}
+			<Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+				{rows.map((r, i) => (
+					<Box
+						key={`loom-row-${i}`}
+						sx={{
+							display: "flex",
+							flexWrap: "wrap",
+							alignItems: "center",
+							gap: 1,
+							p: 1,
+							border: 1,
+							borderColor: "divider",
+							borderRadius: 1,
+						}}
+					>
+						<Typography variant="body2" color="text.secondary" sx={{ width: 20 }}>
+							{i + 1}
+						</Typography>
+						<Autocomplete
+							options={setup.looms}
+							getOptionLabel={(opt) => opt.machine_name}
+							renderOption={(props, opt) => (
+								<li {...props} key={opt.machine_id}>
+									{opt.machine_name}
+									{opt.mech_code ? ` (${opt.mech_code})` : ""}
+								</li>
+							)}
+							value={r.loom_id === "" ? null : loomById.get(Number(r.loom_id)) ?? null}
+							onChange={(_, newVal) =>
+								setRowField(i, "loom_id", newVal ? newVal.machine_id : "")
+							}
+							isOptionEqualToValue={(opt, val) => opt.machine_id === val.machine_id}
+							size="small"
+							sx={{ flex: "1 1 200px", minWidth: 0 }}
+							renderInput={(params) => (
+								<TextField {...params} label="Loom" placeholder="Loom" />
+							)}
+						/>
+						<TextField
+							type="number"
+							size="small"
+							label="Width (cm)"
+							value={r.width_cm}
+							onChange={(e) => setRowField(i, "width_cm", e.target.value)}
+							inputProps={{
+								step: "any",
+								min: 0,
+								"aria-label": `Row ${i + 1} width (cm)`,
+								style: { textAlign: "right" },
+							}}
+							sx={{ flex: "1 1 100px", minWidth: 0 }}
+						/>
+						<TextField
+							type="number"
+							size="small"
+							label="Picks/dm"
+							placeholder="—"
+							value={r.picks_dm}
+							onChange={(e) => setRowField(i, "picks_dm", e.target.value)}
+							inputProps={{
+								step: "any",
+								min: 0,
+								"aria-label": `Row ${i + 1} picks/dm`,
+								style: { textAlign: "right" },
+							}}
+							sx={{ flex: "1 1 100px", minWidth: 0 }}
+						/>
+						<Tooltip title="Remove row">
+							<span>
+								<IconButton
+									size="small"
+									color="error"
+									disabled={rows.length <= 1}
+									onClick={() => removeRow(i)}
+									sx={{ minWidth: 40, minHeight: 40 }}
+								>
+									<DeleteIcon size={16} />
+								</IconButton>
+							</span>
+						</Tooltip>
+					</Box>
+				))}
+			</Box>
 
 			<Box>
 				<Button size="small" startIcon={<AddIcon size={16} />} onClick={addRow}>

@@ -31,7 +31,7 @@ import {
 	type BreakerCardSavePayload,
 	type BreakerCardRow,
 } from "../types/breakerCardTypes";
-import { computeRowPreview } from "../utils/breakerCardCalc";
+import { computeRowPreview, gmsToLbs, SAMPLE_LENGTH_YDS } from "../utils/breakerCardCalc";
 
 type Props = {
 	coId: string;
@@ -198,7 +198,8 @@ export default function BreakerCardForm({ coId, branchId, entryDate, setup, onSa
 			>
 				<Typography variant="subtitle2">
 					Reading rows — each row = one Mc / Spell / Yarn Group with {BREAKER_CARD_READINGS} cut
-					weights (LB/5yds) + {BREAKER_CARD_READINGS} MR%
+					weights (gms per {SAMPLE_LENGTH_YDS} yds) + {BREAKER_CARD_READINGS} MR% — Obs / Corr Wt
+					shown in lbs/100yds
 				</Typography>
 				<Button
 					variant="outlined"
@@ -212,15 +213,15 @@ export default function BreakerCardForm({ coId, branchId, entryDate, setup, onSa
 			</Box>
 
 			<TableContainer component={Paper} variant="outlined" sx={{ overflowX: "auto" }}>
-				<Table size="small" sx={{ minWidth: 1180 }}>
+				<Table size="small" sx={{ minWidth: 1360 }}>
 					<TableHead>
 						<TableRow>
-							<TableCell sx={{ minWidth: 150 }}>Machine (Mc)</TableCell>
+							<TableCell sx={{ minWidth: 230 }}>Machine (Mc)</TableCell>
 							<TableCell sx={{ minWidth: 130 }}>Spell</TableCell>
 							<TableCell sx={{ minWidth: 200 }}>Yarn Group</TableCell>
 							{Array.from({ length: BREAKER_CARD_READINGS }).map((_, i) => (
 								<TableCell key={`wt-h-${i}`} align="center" sx={{ minWidth: 92 }}>
-									Wt {i + 1}
+									Wt {i + 1} (g)
 								</TableCell>
 							))}
 							{Array.from({ length: BREAKER_CARD_READINGS }).map((_, i) => (
@@ -228,8 +229,11 @@ export default function BreakerCardForm({ coId, branchId, entryDate, setup, onSa
 									MR% {i + 1}
 								</TableCell>
 							))}
-							<TableCell align="right" sx={{ minWidth: 90 }}>
-								Corr Wt
+							<TableCell align="right" sx={{ minWidth: 100 }}>
+								Obs Wt (lbs)
+							</TableCell>
+							<TableCell align="right" sx={{ minWidth: 100 }}>
+								Corr Wt (lbs)
 							</TableCell>
 							<TableCell align="right" sx={{ minWidth: 90 }}>
 								CV %
@@ -337,8 +341,13 @@ export default function BreakerCardForm({ coId, branchId, entryDate, setup, onSa
 										</TableCell>
 									))}
 									<TableCell align="right">
+										<Typography variant="body2">
+											{preview?.avgWt != null ? gmsToLbs(preview.avgWt).toFixed(2) : "—"}
+										</Typography>
+									</TableCell>
+									<TableCell align="right">
 										<Typography variant="body2" fontWeight={600}>
-											{preview?.corrWt != null ? preview.corrWt.toFixed(2) : "—"}
+											{preview?.corrWt != null ? gmsToLbs(preview.corrWt).toFixed(2) : "—"}
 										</Typography>
 									</TableCell>
 									<TableCell
