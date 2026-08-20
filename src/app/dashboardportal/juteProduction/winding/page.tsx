@@ -289,7 +289,9 @@ export default function WindingPage() {
 									branchId={branchId}
 									date={tranDate}
 									spellId={spellId === "" ? null : spellId}
-									refreshSignal={doffSignal}
+									// Jugar feeds the reconciled production too, so this grid
+									// must re-fetch after a jugar save as well as a doff save.
+									refreshSignal={doffSignal + jugarSignal}
 								/>
 							) : null}
 						</>

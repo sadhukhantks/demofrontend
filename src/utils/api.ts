@@ -968,11 +968,24 @@ const apiRoutesPortalMasters = {
     WINDING_QUALITY_ADD: `${API_URL}/windingProd/quality_add`,
     WINDING_QUALITY_DELETE: `${API_URL}/windingProd/quality_delete`,
     WINDING_QUALITY_BY_DATE: `${API_URL}/windingProd/quality_by_date`,
+    // Winding stock — daily counted snapshot (router prefix /api/windingStock).
+    // *_EDIT / *_DELETE are base paths; caller appends /${id}?co_id=...
+    WINDING_STOCK_SETUP: `${API_URL}/windingStock/setup`,
+    WINDING_STOCK_ROWS_BY_DATE: `${API_URL}/windingStock/rows_by_date`,
+    WINDING_STOCK_WT_DEFAULT: `${API_URL}/windingStock/wt_default`,
+    WINDING_STOCK_ROW_CREATE: `${API_URL}/windingStock/row_create`,
+    WINDING_STOCK_ROW_EDIT: `${API_URL}/windingStock/row_edit`,
+    WINDING_STOCK_ROW_DELETE: `${API_URL}/windingStock/row_delete`,
+    WINDING_STOCK_COPY_PREVIOUS_DAY: `${API_URL}/windingStock/copy_previous_day`,
+    WINDING_STOCK_LOCK: `${API_URL}/windingStock/lock`,
+    WINDING_STOCK_UNLOCK: `${API_URL}/windingStock/unlock`,
     // Winding reports (router prefix /api/juteProductionReports)
     WINDING_SPELL_REPORT: `${API_URL}/juteProductionReports/winding_spell_report`,
     WINDING_QUALITY_WISE_REPORT: `${API_URL}/juteProductionReports/winding_quality_wise`,
+    WINDING_QUALITY_GROUP_WISE_REPORT: `${API_URL}/juteProductionReports/winding_quality_group_wise`,
     // Daily Production Report (whole-mill one-pager)
     JUTE_PROD_DPR: `${API_URL}/juteProductionReports/daily_production_report`,
+    WINDING_WEAVING_DIFFERENCE: `${API_URL}/juteProductionReports/winding_weaving_difference`,
     // Spinning standards master (router prefix /api/spngTargetMap) — *_EDIT/*_DELETE are base paths; caller appends /${id}
     SPNG_TARGET_MAP_SETUP: `${API_URL}/spngTargetMap/target_map_setup`,
     SPNG_TARGET_MAP_LIST: `${API_URL}/spngTargetMap/target_map_list`,
@@ -981,6 +994,14 @@ const apiRoutesPortalMasters = {
     SPNG_TARGET_MAP_DELETE: `${API_URL}/spngTargetMap/target_map_delete`,
     SPNG_TARGET_MAP_GRID: `${API_URL}/spngTargetMap/target_map_grid`,
     SPNG_TARGET_MAP_BULK_SAVE: `${API_URL}/spngTargetMap/target_map_bulk_save`,
+    // Winding standards master (router prefix /api/windingTargetMap) — *_EDIT/*_DELETE are base paths; caller appends /${id}
+    WINDING_TARGET_MAP_SETUP: `${API_URL}/windingTargetMap/target_map_setup`,
+    WINDING_TARGET_MAP_LIST: `${API_URL}/windingTargetMap/target_map_list`,
+    WINDING_TARGET_MAP_CREATE: `${API_URL}/windingTargetMap/target_map_create`,
+    WINDING_TARGET_MAP_EDIT: `${API_URL}/windingTargetMap/target_map_edit`,
+    WINDING_TARGET_MAP_DELETE: `${API_URL}/windingTargetMap/target_map_delete`,
+    WINDING_TARGET_MAP_GRID: `${API_URL}/windingTargetMap/target_map_grid`,
+    WINDING_TARGET_MAP_BULK_SAVE: `${API_URL}/windingTargetMap/target_map_bulk_save`,
     // Spinning SQC (router prefix /api/juteSQC) — SPINNING_SQC_COUNT_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_COUNT_SETUP: `${API_URL}/juteSQC/sqc_count_setup`,
     SPINNING_SQC_COUNT_SAVE: `${API_URL}/juteSQC/sqc_count_save`,
