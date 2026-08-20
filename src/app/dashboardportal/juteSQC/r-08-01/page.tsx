@@ -798,7 +798,7 @@ export default function MorrahWeightQCPage() {
           </Typography>
           <Grid container spacing={1} sx={{ mb: 2 }}>
             {formData.weights.map((w, i) => (
-              <Grid size={{ xs: 6, sm: 2.4 }} key={i}>
+              <Grid size={{ xs: 12, sm: 2.4 }} key={i}>
                 <TextField
                   label={`W${i + 1}`}
                   type="number"

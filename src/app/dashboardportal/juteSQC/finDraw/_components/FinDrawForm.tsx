@@ -231,6 +231,93 @@ export default function FinDrawForm({ coId, branchId, entryDate, setup, onSaved 
 		onSaved();
 	};
 
+	// Shared field renderers so the desktop table and mobile card layouts stay in
+	// sync — `label` is set only on mobile where there is no column header.
+	const renderSectionSelect = (r: DraftRow, label?: string) => (
+		<TextField
+			select
+			size="small"
+			label={label}
+			value={r.section}
+			onChange={(e) => updateRow(r.key, { section: e.target.value as FinDrawSection })}
+			fullWidth
+		>
+			{sectionOptions.map((s) => (
+				<MenuItem key={s} value={s}>
+					{SECTION_LABEL[s]}
+				</MenuItem>
+			))}
+		</TextField>
+	);
+
+	const renderMachineSelect = (r: DraftRow, label?: string) => (
+		<Autocomplete
+			options={setup.machines}
+			getOptionLabel={(opt) =>
+				opt.mech_code ? `${opt.machine_name} (${opt.mech_code})` : opt.machine_name
+			}
+			renderOption={(props, opt) => (
+				<li {...props} key={opt.machine_id}>
+					{opt.machine_name} ({opt.mech_code})
+				</li>
+			)}
+			value={
+				r.mcId === ""
+					? null
+					: (setup.machines.find((m) => m.machine_id === Number(r.mcId)) ?? null)
+			}
+			onChange={(_, newVal) => updateRow(r.key, { mcId: newVal ? newVal.machine_id : "" })}
+			isOptionEqualToValue={(opt, val) => opt.machine_id === val.machine_id}
+			size="small"
+			fullWidth
+			renderInput={(params) => <TextField {...params} label={label} placeholder="Machine" />}
+		/>
+	);
+
+	const renderSpellSelect = (r: DraftRow, label?: string) => (
+		<TextField
+			select
+			size="small"
+			label={label}
+			value={r.spellId}
+			onChange={(e) =>
+				updateRow(r.key, {
+					spellId: e.target.value === "" ? "" : Number(e.target.value),
+				})
+			}
+			fullWidth
+		>
+			<MenuItem value="">
+				<em>None</em>
+			</MenuItem>
+			{setup.spells.map((s) => (
+				<MenuItem key={s.spell_id} value={s.spell_id}>
+					{s.spell_name} ({s.spell_code})
+				</MenuItem>
+			))}
+		</TextField>
+	);
+
+	const renderGroupSelect = (r: DraftRow, label?: string) => (
+		<Autocomplete
+			options={setup.groups}
+			getOptionLabel={(opt) => opt.item_grp_name}
+			renderOption={(props, opt) => (
+				<li {...props} key={opt.item_grp_id}>
+					{opt.item_grp_name}
+				</li>
+			)}
+			value={r.groupId === "" ? null : groupById.get(Number(r.groupId)) ?? null}
+			onChange={(_, newVal) => updateRow(r.key, { groupId: newVal ? newVal.item_grp_id : "" })}
+			size="small"
+			fullWidth
+			renderInput={(params) => (
+				<TextField {...params} label={label} placeholder="Yarn Group" helperText="Std MR%: 16 (default)" />
+			)}
+			isOptionEqualToValue={(opt, val) => opt.item_grp_id === val.item_grp_id}
+		/>
+	);
+
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
 			<Box
@@ -257,7 +344,12 @@ export default function FinDrawForm({ coId, branchId, entryDate, setup, onSaved 
 				</Button>
 			</Box>
 
-			<TableContainer component={Paper} variant="outlined" sx={{ overflowX: "auto" }}>
+			{/* Desktop / tablet: wide entry table. Hidden on phones (stacked cards below). */}
+			<TableContainer
+				component={Paper}
+				variant="outlined"
+				sx={{ overflowX: "auto", display: { xs: "none", md: "block" } }}
+			>
 				<Table size="small" sx={{ minWidth: 1640 }}>
 					<TableHead>
 						<TableRow>
@@ -296,91 +388,10 @@ export default function FinDrawForm({ coId, branchId, entryDate, setup, onSaved 
 							const cvPass = preview?.withinBand;
 							return (
 								<TableRow key={r.key} hover>
-									<TableCell>
-										<TextField
-											select
-											size="small"
-											value={r.section}
-											onChange={(e) =>
-												updateRow(r.key, { section: e.target.value as FinDrawSection })
-											}
-											fullWidth
-										>
-											{sectionOptions.map((s) => (
-												<MenuItem key={s} value={s}>
-													{SECTION_LABEL[s]}
-												</MenuItem>
-											))}
-										</TextField>
-									</TableCell>
-									<TableCell>
-										<Autocomplete
-											options={setup.machines}
-											getOptionLabel={(opt) =>
-												opt.mech_code ? `${opt.machine_name} (${opt.mech_code})` : opt.machine_name
-											}
-											renderOption={(props, opt) => (
-												<li {...props} key={opt.machine_id}>
-													{opt.machine_name} ({opt.mech_code})
-												</li>
-											)}
-											value={
-												r.mcId === ""
-													? null
-													: (setup.machines.find((m) => m.machine_id === Number(r.mcId)) ?? null)
-											}
-											onChange={(_, newVal) =>
-												updateRow(r.key, { mcId: newVal ? newVal.machine_id : "" })
-											}
-											isOptionEqualToValue={(opt, val) => opt.machine_id === val.machine_id}
-											size="small"
-											fullWidth
-											renderInput={(params) => <TextField {...params} placeholder="Machine" />}
-										/>
-									</TableCell>
-									<TableCell>
-										<TextField
-											select
-											size="small"
-											value={r.spellId}
-											onChange={(e) =>
-												updateRow(r.key, {
-													spellId: e.target.value === "" ? "" : Number(e.target.value),
-												})
-											}
-											fullWidth
-										>
-											<MenuItem value="">
-												<em>None</em>
-											</MenuItem>
-											{setup.spells.map((s) => (
-												<MenuItem key={s.spell_id} value={s.spell_id}>
-													{s.spell_name} ({s.spell_code})
-												</MenuItem>
-											))}
-										</TextField>
-									</TableCell>
-									<TableCell>
-										<Autocomplete
-											options={setup.groups}
-											getOptionLabel={(opt) => opt.item_grp_name}
-											renderOption={(props, opt) => (
-												<li {...props} key={opt.item_grp_id}>
-													{opt.item_grp_name}
-												</li>
-											)}
-											value={r.groupId === "" ? null : groupById.get(Number(r.groupId)) ?? null}
-											onChange={(_, newVal) =>
-												updateRow(r.key, { groupId: newVal ? newVal.item_grp_id : "" })
-											}
-											size="small"
-											renderInput={(params) => (
-												<TextField {...params} placeholder="Yarn Group" helperText="Std MR%: 16 (default)" />
-											)}
-											isOptionEqualToValue={(opt, val) => opt.item_grp_id === val.item_grp_id}
-											sx={{ minWidth: 190 }}
-										/>
-									</TableCell>
+									<TableCell>{renderSectionSelect(r)}</TableCell>
+									<TableCell>{renderMachineSelect(r)}</TableCell>
+									<TableCell>{renderSpellSelect(r)}</TableCell>
+									<TableCell sx={{ minWidth: 190 }}>{renderGroupSelect(r)}</TableCell>
 									{r.dlvNos.map((d, i) => (
 										<TableCell key={`${r.key}-dlv-${i}`} align="center">
 											<TextField
@@ -460,6 +471,91 @@ export default function FinDrawForm({ coId, branchId, entryDate, setup, onSaved 
 					</TableBody>
 				</Table>
 			</TableContainer>
+
+			{/* Phones: one card per reading row, every input full-width on its own
+			    line — no horizontal scrolling. */}
+			<Box sx={{ display: { xs: "flex", md: "none" }, flexDirection: "column", gap: 2 }}>
+				{rows.map((r, idx) => {
+					const preview = computeRowPreview(r.weights, r.mrPcts);
+					const cvPass = preview?.withinBand;
+					return (
+						<Paper
+							key={r.key}
+							variant="outlined"
+							sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}
+						>
+							<Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+								<Typography variant="subtitle2">Row {idx + 1}</Typography>
+								<Tooltip title="Remove row">
+									<IconButton
+										size="small"
+										color="error"
+										onClick={() => removeRow(r.key)}
+										sx={{ minWidth: 40, minHeight: 40 }}
+									>
+										<DeleteOutlineIcon size={16} />
+									</IconButton>
+								</Tooltip>
+							</Box>
+							{renderSectionSelect(r, "Section")}
+							{renderMachineSelect(r, "Machine (Mc)")}
+							{renderSpellSelect(r, "Spell")}
+							{renderGroupSelect(r, "Yarn Group")}
+							{r.dlvNos.map((d, i) => (
+								<TextField
+									key={`${r.key}-dlv-${i}`}
+									type="number"
+									size="small"
+									fullWidth
+									label={`DLV ${i + 1}`}
+									value={d}
+									onChange={(e) => setDlvAt(r.key, i, e.target.value)}
+									inputProps={{ step: 1, min: 0, "aria-label": `DLV no ${i + 1}` }}
+								/>
+							))}
+							{r.weights.map((w, i) => (
+								<TextField
+									key={`${r.key}-wt-${i}`}
+									type="number"
+									size="small"
+									fullWidth
+									label={`Wt ${i + 1}`}
+									value={w}
+									onChange={(e) => setWeightAt(r.key, i, e.target.value)}
+									inputProps={{ step: "any", min: 0, "aria-label": `Weight ${i + 1}` }}
+								/>
+							))}
+							{r.mrPcts.map((m, i) => (
+								<TextField
+									key={`${r.key}-mr-${i}`}
+									type="number"
+									size="small"
+									fullWidth
+									label={`MR% ${i + 1}`}
+									value={m}
+									onChange={(e) => setMrAt(r.key, i, e.target.value)}
+									inputProps={{ step: "any", min: 0, "aria-label": `MR% ${i + 1}` }}
+								/>
+							))}
+							<Box sx={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
+								<Typography variant="body2" fontWeight={600}>
+									Corr Wt: {preview?.corrWt != null ? preview.corrWt.toFixed(2) : "—"}
+								</Typography>
+								<Typography
+									variant="body2"
+									sx={
+										preview?.cvPct == null || cvPass == null
+											? undefined
+											: { color: cvPass ? "success.main" : "error.main", fontWeight: 700 }
+									}
+								>
+									CV: {preview?.cvPct != null ? `${preview.cvPct.toFixed(2)}%` : "—"}
+								</Typography>
+							</Box>
+						</Paper>
+					);
+				})}
+			</Box>
 
 			{error ? (
 				<Alert severity="error" onClose={() => setError(null)}>
