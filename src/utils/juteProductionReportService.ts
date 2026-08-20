@@ -225,3 +225,177 @@ export async function fetchDailyProductionReport(params: {
   }
   return result.data.data;
 }
+
+export interface WwdReconciliation {
+  opening_mt: number;
+  winding_mt: number;
+  weaving_mt: number;
+  purchase_mt: number;
+  sale_mt: number;
+  should_be_closing_mt: number;
+  actual_closing_mt: number;
+  difference_mt: number;
+  /** null when winding production is zero — a percentage of nothing. */
+  difference_pct: number | null;
+  jute_issue_mt: number;
+}
+
+export interface WwdStockRow {
+  bucket: string;
+  item_code: string | null;
+  item_name: string | null;
+  quality_name: string | null;
+  yarn_count: number | null;
+  package_label: string;
+  area_name: string | null;
+  no_of_samples: number;
+  wt_per_sample: number;
+  prvs_stock_mt: number;
+  stock_mt: number;
+}
+
+export interface WindingWeavingDifference {
+  report_date: string;
+  date_from: string;
+  stock: Record<string, { rows: WwdStockRow[]; subtotal_mt: number } | number> & {
+    grand_total_mt: number;
+  };
+  production: { day: WwdReconciliation; mtd: WwdReconciliation };
+  cloth_split: {
+    day: Record<string, number>;
+    mtd: Record<string, number>;
+  };
+  chain: {
+    ok: boolean;
+    prev_entry_date: string | null;
+    month_opening_date: string | null;
+  };
+  warnings: {
+    purchase_unknown_uoms: string[];
+    /** Weaving rows (cuts > 0) whose quality did not resolve to an active
+     * weaving quality — excluded from weaving production, so should-be
+     * closing stock reads high by however much they'd have subtracted. */
+    weaving_unresolved_day: number;
+    weaving_unresolved_mtd: number;
+  };
+  note: string;
+}
+
+/** Counted winding stock reconciled against book stock, day and month-to-date. */
+export async function fetchWindingWeavingDifference(params: {
+  coId: number;
+  branchId: number;
+  reportDate: string;
+}): Promise<WindingWeavingDifference> {
+  const qs = new URLSearchParams();
+  qs.set("co_id", String(params.coId));
+  qs.set("branch_id", String(params.branchId));
+  qs.set("report_date", params.reportDate);
+  const url = `${apiRoutesPortalMasters.WINDING_WEAVING_DIFFERENCE}?${qs.toString()}`;
+  const res = await fetchWithCookie<{ data: WindingWeavingDifference }>(url);
+  if (res.error || !res.data) {
+    throw new Error(res.error ?? "Failed to fetch the winding & weaving difference report");
+  }
+  return res.data.data;
+}
+
+/** One quality's day figures (and the grand-total row, which shares the shape). */
+export interface WindingQualityWiseRow {
+  item_id: number | null;
+  item_code: string | null;
+  item_name: string | null;
+  winders_A: number;
+  winders_B: number;
+  winders_C: number;
+  winders_total: number;
+  prod_A: number;
+  prod_B: number;
+  prod_C: number;
+  prod_total: number;
+  target_A: number;
+  target_B: number;
+  target_C: number;
+  target_total: number;
+  difference: number;
+  prod_per_winder_A: number;
+  prod_per_winder_B: number;
+  prod_per_winder_C: number;
+  prod_per_winder_avg: number;
+  mtd_prod: number;
+  mtd_winders: number;
+  mtd_prod_per_winder: number;
+}
+
+export interface WindingQualityWise {
+  report_date: string;
+  mtd_from: string;
+  shifts: string[];
+  rows: WindingQualityWiseRow[];
+  grand_total: WindingQualityWiseRow;
+  note: string;
+}
+
+/** Winders / production / target per winding quality, pivoted A-B-C, plus MTD. */
+export async function fetchWindingQualityWise(params: {
+  branchId: number;
+  reportDate: string;
+}): Promise<WindingQualityWise> {
+  const qs = new URLSearchParams();
+  qs.set("branch_id", String(params.branchId));
+  qs.set("report_date", params.reportDate);
+  const url = `${apiRoutesPortalMasters.WINDING_QUALITY_WISE_REPORT}?${qs.toString()}`;
+  const res = await fetchWithCookie<{ data: WindingQualityWise }>(url);
+  if (res.error || !res.data) {
+    throw new Error(res.error ?? "Failed to fetch the winding quality wise report");
+  }
+  return res.data.data;
+}
+
+/** One item group's winding-vs-spinning figures (and the grand-total row). */
+export interface WindingQualityGroupRow {
+  item_grp_id: number | null;
+  item_grp_name: string;
+  wnd_winders_A: number;
+  wnd_winders_B: number;
+  wnd_winders_C: number;
+  wnd_winders_total: number;
+  wnd_prod_A: number;
+  wnd_prod_B: number;
+  wnd_prod_C: number;
+  wnd_prod_total: number;
+  spg_winding_qty: number;
+  spg_prod_A: number;
+  spg_prod_B: number;
+  spg_prod_C: number;
+  spg_prod_total: number;
+  /** Winding minus spinning per shift — nonzero means the two departments
+   * booked different quantities for the same yarn. */
+  variance_A: number;
+  variance_B: number;
+  variance_C: number;
+  variance_total: number;
+}
+
+export interface WindingQualityGroupWise {
+  report_date: string;
+  shifts: string[];
+  rows: WindingQualityGroupRow[];
+  grand_total: WindingQualityGroupRow;
+  note: string;
+}
+
+/** Winding vs spinning production per item group, pivoted A-B-C. */
+export async function fetchWindingQualityGroupWise(params: {
+  branchId: number;
+  reportDate: string;
+}): Promise<WindingQualityGroupWise> {
+  const qs = new URLSearchParams();
+  qs.set("branch_id", String(params.branchId));
+  qs.set("report_date", params.reportDate);
+  const url = `${apiRoutesPortalMasters.WINDING_QUALITY_GROUP_WISE_REPORT}?${qs.toString()}`;
+  const res = await fetchWithCookie<{ data: WindingQualityGroupWise }>(url);
+  if (res.error || !res.data) {
+    throw new Error(res.error ?? "Failed to fetch the winding quality group wise report");
+  }
+  return res.data.data;
+}

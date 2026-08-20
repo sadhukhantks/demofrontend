@@ -3,8 +3,8 @@
 import * as React from "react";
 import { Alert, Box, Typography } from "@mui/material";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
-import { useDoffByDate } from "../hooks/useDoffByDate";
-import { groupWinderWise, type WinderWiseRow } from "../utils/windingCalc";
+import { useWindingSpellReport } from "../hooks/useWindingSpellReport";
+import { winderWiseRows, winderWiseTotal, type WinderWiseRow } from "../utils/windingCalc";
 
 type Props = {
 	coId: string;
@@ -14,43 +14,66 @@ type Props = {
 	refreshSignal: number;
 };
 
-// ponytail: rolled up client-side from the doff rows already fetched for the day
-// — no new endpoint. Move to SQL only if a day's doff count outgrows the grid.
+// Reads the server reconciliation (WINDING_SPELL_REPORT) rather than re-summing
+// the doff grid: Production and Total must carry the jugar adjustment
+// (doff - opening + closing), which only the backend computes.
 export default function WinderWiseGrid({ coId, branchId, date, spellId, refreshSignal }: Props) {
-	const { rows, loading, error, refresh } = useDoffByDate(coId, date, branchId, spellId);
+	const { rows, loading, error, refresh } = useWindingSpellReport(coId, date, branchId);
 
 	React.useEffect(() => {
 		refresh();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [refreshSignal]);
 
-	const gridRows = React.useMemo(() => groupWinderWise(rows), [rows]);
+	const gridRows = React.useMemo(() => winderWiseRows(rows, spellId), [rows, spellId]);
 
 	const columns = React.useMemo<GridColDef<WinderWiseRow>[]>(
 		() => [
-			// Small minWidths + flex so the three columns fit a phone without
-			// horizontal scroll; text wraps instead (see getRowHeight/sx below).
+			// Small minWidths + flex so the columns fit a phone without horizontal
+			// scroll; text wraps instead (see getRowHeight/sx below).
 			{ field: "winder", headerName: "Winder (EB No)", flex: 1.2, minWidth: 110 },
 			{ field: "item_code", headerName: "Yarn Quality", flex: 0.6, minWidth: 80 },
-			// ponytail: entries + total in one cell ("30 + 40 = 70") — trial layout;
-			// re-add the separate `total` column if the merged cell reads poorly.
 			{
-				field: "weights",
+				field: "sum_production",
+				headerName: "Doff (kg)",
+				type: "number",
+				flex: 0.6,
+				minWidth: 90,
+			},
+			{
+				field: "opening_jugar",
+				headerName: "Op. Jugar (kg)",
+				type: "number",
+				flex: 0.6,
+				minWidth: 90,
+			},
+			{
+				field: "closing_jugar",
+				headerName: "Cl. Jugar (kg)",
+				type: "number",
+				flex: 0.6,
+				minWidth: 90,
+			},
+			{
+				field: "production_kg",
 				headerName: "Production (kg)",
-				flex: 1.4,
-				minWidth: 130,
-				valueGetter: (_v, row) => `${row.weights} = ${row.total}`,
+				type: "number",
+				flex: 0.7,
+				minWidth: 100,
 			},
 		],
 		[],
 	);
 
-	const dayTotal = gridRows.reduce((a, r) => a + r.total, 0);
+	const total = winderWiseTotal(gridRows);
 
 	return (
 		<Box>
-			<Typography variant="subtitle2" sx={{ mb: 1 }}>
-				Winder wise production — total {Math.round(dayTotal * 1000) / 1000} kg
+			<Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+				Winder wise production — total {total} kg
+			</Typography>
+			<Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+				Production = doff weight − opening jugar + closing jugar.
 			</Typography>
 			{error ? (
 				<Alert severity="error" sx={{ mb: 1 }}>
