@@ -61,6 +61,8 @@ export function useGateEntryLineItemColumns({
 				id: "challanItem",
 				header: "Challan Item",
 				width: "1.2fr",
+				// ~10 chars visible for item/quality names at 0.75rem + select arrow
+				minWidth: "170px",
 				renderCell: ({ item }) => {
 					if (!canEdit) {
 						return <span className="text-xs">{getItemLabel(item.challanItem)}</span>;
@@ -85,6 +87,8 @@ export function useGateEntryLineItemColumns({
 				id: "challanQuality",
 				header: "Challan Quality",
 				width: "1.2fr",
+				// ~10 chars visible for item/quality names at 0.75rem + select arrow
+				minWidth: "170px",
 				renderCell: ({ item }) => {
 					if (!canEdit) {
 						return <span className="text-xs">{getQualityLabel(item.challanQuality)}</span>;
@@ -147,6 +151,8 @@ export function useGateEntryLineItemColumns({
 				id: "actualItem",
 				header: "Actual Item",
 				width: "1.2fr",
+				// ~10 chars visible for item/quality names at 0.75rem + select arrow
+				minWidth: "170px",
 				renderCell: ({ item }) => {
 					if (!canEdit) {
 						return <span className="text-xs">{getItemLabel(item.actualItem)}</span>;
@@ -171,6 +177,8 @@ export function useGateEntryLineItemColumns({
 				id: "actualQuality",
 				header: "Actual Quality",
 				width: "1.2fr",
+				// ~10 chars visible for item/quality names at 0.75rem + select arrow
+				minWidth: "170px",
 				renderCell: ({ item }) => {
 					if (!canEdit) {
 						return <span className="text-xs">{getQualityLabel(item.actualQuality)}</span>;
