@@ -560,12 +560,15 @@ const apiRoutesPortalMasters = {
     CASH_ATTENDANCE_REPORT: `${API_URL}/hrmsReports/cash-attendance`,
     EMPLOYEE_HEADCOUNT_REPORT: `${API_URL}/hrmsReports/employee-headcount`,
     SPELL_WISE_REPORT: `${API_URL}/hrmsReports/spell-wise`,
+    SHIFT_WISE_REPORT: `${API_URL}/hrmsReports/shift-wise`,
     BANK_STATEMENT_REPORT: `${API_URL}/hrmsReports/bank-statement`,
     HANDS_COMPLEMENT_REPORT: `${API_URL}/hrmsReports/hands-complement`,
     CASH_HANDS_PROCESS: `${API_URL}/hrmsReports/cash-hands-process`,
     CASH_HANDS_REPORT: `${API_URL}/hrmsReports/cash-hands`,
     CASH_HANDS_SUMMARY_REPORT: `${API_URL}/hrmsReports/cash-hands-summary`,
     CASH_HANDS_PDF: `${API_URL}/hrmsReports/cash-hands-pdf`,
+    PAY_PERIODS_REPORT: `${API_URL}/hrmsReports/pay-periods`,
+    PAY_REGISTER_PRINT_REPORT: `${API_URL}/hrmsReports/pay-register-print`,
 
     // Sales Quotation endpoints
     QUOTATION_TABLE: `${API_URL}/salesQuotation/get_quotation_table`,
@@ -679,6 +682,10 @@ const apiRoutesPortalMasters = {
     HRMS_PAY_REGISTER_PROCESS: `${API_URL}/hrms/pay_register_process`,
     HRMS_PAY_REGISTER_EXPORT: `${API_URL}/hrms/pay_register_export`,
     HRMS_PAY_REGISTER_PAYSLIPS: `${API_URL}/hrms/pay_register_payslips`,
+    // Fixed-width payslip.txt for pre-printed continuous stationery (dot-matrix),
+    // alongside the A4 PDF above.
+    HRMS_PAY_REGISTER_PAYSLIP_TEXT: `${API_URL}/hrms/pay_register_payslip_text`,
+    HRMS_PAY_REGISTER_BANK_SHEET: `${API_URL}/hrms/pay_register_bank_sheet`,
 
     // HRMS Pay Register Display Setup (tbl_payslip_print_component) endpoints
     HRMS_PAYSLIP_PRINT_COMPONENT_LIST: `${API_URL}/hrms/payslip_print_component_list`,
@@ -719,6 +726,12 @@ const apiRoutesPortalMasters = {
     // Legacy "Holiday Data" batch (holget=1): every holiday in a date range
     // for the selected branch.
     HOLIDAY_PROCESS_RANGE: `${API_URL}/hrmsMasters/holiday_process_range`,
+
+    // EJM Wages Process — "Wages Data Process" report over tbl_ejm_wages_data_collection
+    EJM_ATT_INCENTIVE_REPORT: `${API_URL}/hrmsMasters/ejm_att_incentive_report`,
+    EJM_WAGES_DATA_BUILD: `${API_URL}/hrmsMasters/ejm_wages_data_build`,
+    EJM_WAGES_DATA_LIST: `${API_URL}/hrmsMasters/ejm_wages_data_list`,
+    EJM_WAGES_DATA_UPDATE: `${API_URL}/hrmsMasters/ejm_wages_data_update`,
 
     // Holiday & Attendance Incentive Eligibility (tbl_holiday_att_inc_eligibility)
     HOL_INC_ELIG_SETUP: `${API_URL}/hrmsMasters/hol_inc_elig_setup`,
@@ -986,6 +999,7 @@ const apiRoutesPortalMasters = {
     // Daily Production Report (whole-mill one-pager)
     JUTE_PROD_DPR: `${API_URL}/juteProductionReports/daily_production_report`,
     WINDING_WEAVING_DIFFERENCE: `${API_URL}/juteProductionReports/winding_weaving_difference`,
+    LOOM_CHECKLIST: `${API_URL}/juteProductionReports/loom_checklist`,
     // Spinning standards master (router prefix /api/spngTargetMap) — *_EDIT/*_DELETE are base paths; caller appends /${id}
     SPNG_TARGET_MAP_SETUP: `${API_URL}/spngTargetMap/target_map_setup`,
     SPNG_TARGET_MAP_LIST: `${API_URL}/spngTargetMap/target_map_list`,
