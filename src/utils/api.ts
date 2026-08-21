@@ -1105,12 +1105,6 @@ const apiRoutesPortalMasters = {
     BAG_CHECK_BY_DATE: `${API_URL}/juteSQC/get_bag_check_by_date`,
     BAG_CHECK_TABLE: `${API_URL}/juteSQC/get_bag_check_table`,
     BAG_CHECK_DELETE: `${API_URL}/juteSQC/delete_bag_check`,
-    // R-08-21 Width & Picks (router prefix /api/juteSQC) — one save = one (date, cloth-quality) group (header std_width_cm/std_picks + N loom reading rows); WIDTH_PICKS_DELETE POSTs {width_picks_id, co_id}
-    WIDTH_PICKS_CREATE_SETUP: `${API_URL}/juteSQC/width_picks_create_setup`,
-    WIDTH_PICKS_CREATE: `${API_URL}/juteSQC/create_width_picks`,
-    WIDTH_PICKS_BY_DATE: `${API_URL}/juteSQC/get_width_picks_by_date`,
-    WIDTH_PICKS_TABLE: `${API_URL}/juteSQC/get_width_picks_table`,
-    WIDTH_PICKS_DELETE: `${API_URL}/juteSQC/delete_width_picks`,
     // R-08-22 Stitch (router prefix /api/juteSQC) — finishing sewing-stitch-density QC; one save = one (date, sewing machine) reading-set (header std_stitch + 5 stitch counts); STITCH_DELETE POSTs {stitch_id, co_id}
     STITCH_CREATE_SETUP: `${API_URL}/juteSQC/stitch_create_setup`,
     STITCH_CREATE: `${API_URL}/juteSQC/create_stitch`,
@@ -1278,6 +1272,8 @@ const apiRoutesPortalMasters = {
     // Process + lock (router prefix /api/weavingProd)
     WEAVING_PROCESS: `${API_URL}/weavingProd/process`,
     WEAVING_PROCESS_STATUS: `${API_URL}/weavingProd/process_status`,
+    // Sync = recompute + store derived rows WITHOUT locking (warnings, never 400-blocks).
+    WEAVING_SYNC: `${API_URL}/weavingProd/sync`,
 };
 
 // Support tickets (Zendesk-style). Raised from Portal/Tenant Admin widgets,

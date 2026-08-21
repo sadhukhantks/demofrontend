@@ -41,7 +41,8 @@ export interface WeavingPickReadingRow {
 	machine_name: string | null;
 	line_no: number | null;
 	width: number | null;
-	picks: number;
+	picks: number; // PPI (stored)
+	picks_dm?: number | null; // as-entered picks/dm; absent/null on legacy rows pre-deploy
 }
 
 // One summary row from vw_weaving_pick_act.
@@ -50,6 +51,7 @@ export interface WeavingPickSummaryRow {
 	weaving_quality_code: string | null;
 	weaving_quality_name: string | null;
 	avg_picks: number;
+	avg_picks_dm?: number | null;
 	std_picks: number;
 	min_picks: number;
 	max_picks: number;

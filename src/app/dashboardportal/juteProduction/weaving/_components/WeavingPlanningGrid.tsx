@@ -14,6 +14,8 @@ type Props = {
 	branchId: number;
 	date: string;
 	spellId: number | null;
+	// Bumped by the process bar after Sync/Process so the grid refetches.
+	refreshKey?: number;
 };
 
 // Stable composite row id: a loom appears per spell + quality.
@@ -30,16 +32,44 @@ function rollupRowId(r: WeavingShiftRollupRow): string {
 const roundInt = (value: number | string | null) =>
 	value == null || value === "" ? "" : String(Math.round(Number(value)));
 const numCol = { type: "number" as const, valueFormatter: roundInt };
+// Hours keep 2 decimals — whole-number rounding hides idle (stoppage) deductions
+// like 0.5 h; the server-side calculation is full precision either way.
+const round2 = (value: number | string | null) =>
+	value == null || value === "" ? "" : Number(value).toFixed(2);
+const hoursCol = { type: "number" as const, valueFormatter: round2 };
 
 const num = { ...numCol, width: 90 };
 
-export default function WeavingPlanningGrid({ coId, branchId, date, spellId }: Props) {
-	const { data, loading, error, refresh } = useWeavingPlanningGrid(coId, branchId, date, spellId);
+export default function WeavingPlanningGrid({ coId, branchId, date, spellId, refreshKey }: Props) {
+	const { data, loading, error, refresh } = useWeavingPlanningGrid(
+		coId,
+		branchId,
+		date,
+		spellId,
+		refreshKey
+	);
 	const [saving, setSaving] = React.useState(false);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
 	const rows = data?.rows ?? [];
 	const rollup = data?.shift_rollup ?? [];
+
+	// Stored-data state per spell (sync_status optional — older backend omits it).
+	const staleSpells = (data?.sync_status ?? [])
+		.filter((s) => s.stale)
+		.map((s) => s.spell_id)
+		.join(", ");
+	const liveSpells = (data?.sync_status ?? [])
+		.filter((s) => !s.stored)
+		.map((s) => s.spell_id)
+		.join(", ");
+	// Dismiss remembers WHICH spell set was dismissed, so a new stale set re-shows it.
+	const [staleDismissed, setStaleDismissed] = React.useState<string | null>(null);
+	// Re-arm once staleness clears (a sync fixed it): the SAME spell set going
+	// stale again later is a brand-new staleness event and must re-show.
+	React.useEffect(() => {
+		if (!staleSpells) setStaleDismissed(null);
+	}, [staleSpells]);
 
 	// All numeric columns are computed server-side -> read-only display. Unit-labelled
 	// (yards vs kg) so the kg figure is never mistaken for a comparable-to-standard value.
@@ -58,7 +88,7 @@ export default function WeavingPlanningGrid({ coId, branchId, date, spellId }: P
 			{ field: "close_jugar", headerName: "Close Jugar", ...num },
 			{ field: "less_production", headerName: "Adj Jugar", ...num },
 			{ field: "jugar", headerName: "Prod Jugar", ...num },
-			{ field: "working_hours", headerName: "Working Hrs", width: 110, ...numCol },
+			{ field: "working_hours", headerName: "Working Hrs", width: 110, ...hoursCol },
 			{ field: "std_prod_yds", headerName: "100% Prod (yd)", width: 120, ...numCol },
 			{ field: "std_prod_eff", headerName: "Std Prod (yd)", width: 120, ...numCol },
 			{ field: "production_yds", headerName: "Prod (yd)", width: 120, ...numCol },
@@ -128,6 +158,18 @@ export default function WeavingPlanningGrid({ coId, branchId, date, spellId }: P
 			</Box>
 
 			{error ? <Alert severity="error">{error}</Alert> : null}
+
+			{staleSpells && staleDismissed !== staleSpells ? (
+				<Alert severity="warning" onClose={() => setStaleDismissed(staleSpells)}>
+					Stored calculations for spell(s) {staleSpells} are out of date — use Sync to refresh.
+				</Alert>
+			) : null}
+
+			{liveSpells ? (
+				<Typography variant="caption" color="text.secondary">
+					Spell(s) {liveSpells} have no stored calculations yet — values are computed live.
+				</Typography>
+			) : null}
 
 			<Box sx={{ width: "100%" }}>
 				<DataGrid

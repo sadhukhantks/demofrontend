@@ -13,7 +13,8 @@ export function useWeavingPlanningGrid(
 	coId: string | null | undefined,
 	branchId: number | null,
 	tranDate: string,
-	spellId?: number | null
+	spellId?: number | null,
+	refreshKey?: number
 ) {
 	const [data, setData] = React.useState<WeavingPlanningGridData | null>(null);
 	const [loading, setLoading] = React.useState(false);
@@ -47,7 +48,7 @@ export function useWeavingPlanningGrid(
 		return () => {
 			cancelled = true;
 		};
-	}, [coId, branchId, tranDate, spellId, version]);
+	}, [coId, branchId, tranDate, spellId, version, refreshKey]);
 
 	return { data, loading, error, refresh };
 }
