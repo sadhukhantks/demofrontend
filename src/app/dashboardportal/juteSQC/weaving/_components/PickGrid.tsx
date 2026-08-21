@@ -19,6 +19,7 @@ import { Trash2 as DeleteOutlineIcon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
+import { ppiToDm } from "../pickUnits";
 
 // ---- Shared-contract reading + summary shapes ----
 export type WeavingPickReadingRow = {
@@ -36,7 +37,8 @@ export type WeavingPickReadingRow = {
 	machine_name: string | null;
 	line_no: number | null;
 	width: number | null;
-	picks: number;
+	picks: number; // PPI (stored)
+	picks_dm?: number | null; // as-entered picks/dm (absent/null on legacy rows pre-deploy)
 };
 
 export type WeavingPickSummaryRow = {
@@ -44,6 +46,7 @@ export type WeavingPickSummaryRow = {
 	weaving_quality_code: string | null;
 	weaving_quality_name: string | null;
 	avg_picks: number;
+	avg_picks_dm?: number | null;
 	std_picks: number;
 	min_picks: number;
 	max_picks: number;
@@ -148,9 +151,18 @@ export default function PickGrid({ readings, summary, onDeleted, loading = false
 				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
 			},
 			{
+				field: "picks_dm",
+				headerName: "Picks/dm",
+				width: 110,
+				type: "number",
+				// Legacy rows carry only PPI — derive picks/dm client-side.
+				valueGetter: (_value, row) => row.picks_dm ?? ppiToDm(row.picks),
+				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
+			},
+			{
 				field: "picks",
-				headerName: "Pick / PPI",
-				width: 120,
+				headerName: "PPI",
+				width: 110,
 				type: "number",
 				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
 			},
@@ -174,7 +186,7 @@ export default function PickGrid({ readings, summary, onDeleted, loading = false
 					initialState={{
 						pagination: { paginationModel: { pageSize: 25, page: 0 } },
 					}}
-					sx={{ minWidth: 760 }}
+					sx={{ minWidth: 870 }}
 				/>
 			</Box>
 
@@ -194,6 +206,7 @@ export default function PickGrid({ readings, summary, onDeleted, loading = false
 								<TableRow>
 									<TableCell>QUALITY</TableCell>
 									<TableCell align="right">AVG PPI</TableCell>
+									<TableCell align="right">AVG PICKS/DM</TableCell>
 									<TableCell align="right">STD DEV</TableCell>
 									<TableCell align="right">MIN</TableCell>
 									<TableCell align="right">MAX</TableCell>
@@ -206,6 +219,9 @@ export default function PickGrid({ readings, summary, onDeleted, loading = false
 									<TableRow key={r.weaving_quality_id}>
 										<TableCell>{qualityLabel(r)}</TableCell>
 										<TableCell align="right">{fmt(r.avg_picks)}</TableCell>
+										<TableCell align="right">
+											{fmt(r.avg_picks_dm ?? (r.avg_picks != null ? ppiToDm(r.avg_picks) : null))}
+										</TableCell>
 										<TableCell align="right">{fmt(r.std_picks)}</TableCell>
 										<TableCell align="right">{fmt(r.min_picks)}</TableCell>
 										<TableCell align="right">{fmt(r.max_picks)}</TableCell>

@@ -280,6 +280,7 @@ export default function WeavingPage() {
 									branchId={branchId}
 									date={appliedDate}
 									spellId={appliedSpellId === "" ? null : appliedSpellId}
+									refreshKey={reloadKey}
 								/>
 							) : null}
 						</>

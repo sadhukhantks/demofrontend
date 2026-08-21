@@ -12,6 +12,9 @@
 // quality linkage is a YARN GROUP (item_grp_mst, item_type 4), not a single line quality. A yarn group
 // has no single std, so std MR always falls back to 20 and the CV band is
 // unevaluated (cv_within_band null).
+// Std MR% now comes from the Std Moisture Master (juteSQC/stdMoisture) per
+// (co_id, yarn group, process); the value below is only the fallback used
+// while the master has no entry — in that case the backend rejects the save.
 //
 // Dates are 'YYYY-MM-DD' strings; the backend returns floats already.
 
@@ -63,6 +66,11 @@ export type InterCardSetup = {
 	machines: InterCardMachine[];
 	spells: SqcSpell[];
 	groups: YarnGroupOption[];
+	// Std MR% resolved from the Std Moisture Master for THIS page's process, keyed by
+	// item_grp_id AS A STRING. A group missing from the map has no standard set, and
+	// saving readings for it is rejected by the backend (400). Optional so the page
+	// still renders against a backend that predates the master.
+	std_mr_by_group?: Record<string, number>;
 	entries: InterCardReadingRow[];
 };
 

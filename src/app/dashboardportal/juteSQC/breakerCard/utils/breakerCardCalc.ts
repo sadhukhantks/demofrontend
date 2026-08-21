@@ -89,11 +89,18 @@ export type BreakerCardPreview = {
 // avg-then-correct (avgWt corrected by avgMr), which matches the sheet exactly.
 // The CV% follows the owner's Excel (2026-08-19): POPULATION stdev of the RAW
 // observed cuts over their mean — no MR correction in the CV path.
+// Std MR% now comes from the Std Moisture Master (juteSQC/stdMoisture) per
+// (co_id, yarn group, process); the value below is only the fallback used
+// while the master has no entry — in that case the backend rejects the save.
 export function computeRowPreview(
 	weightStrings: string[],
 	mrStrings: string[],
+	// Std MR% resolved from the Std Moisture Master for this row's yarn group.
+	// Falls back to the process default so the preview still renders while the
+	// master has no entry (the backend will reject that save anyway).
+	stdMrPct: number = DEFAULT_STD_MR_PCT,
 ): BreakerCardPreview | null {
-	const stdMr = DEFAULT_STD_MR_PCT;
+	const stdMr = Number.isFinite(stdMrPct) ? stdMrPct : DEFAULT_STD_MR_PCT;
 
 	const observed: number[] = [];
 	const mr: number[] = [];

@@ -1,5 +1,27 @@
 # Jute Production — Weaving (spec / proposed)
 
+> **AMENDED 2026-08-22 — Sync model + picks/dm (supersedes statements below).**
+> 1. **Stored-vs-live reads:** derived weaving data is stored in
+>    `jute_prod_weaving_log` by BOTH Process (freeze + lock) and the new
+>    **Sync** (`POST /weavingProd/sync` — same recompute+store, warn-not-block,
+>    NO lock). Any SYNCED unit serves the log: entries_by_date, the planning
+>    grid (per-spell, with a `sync_status` array in the response), and the
+>    day reports (fresh-only). "Locked units serve the frozen log" is no longer
+>    the whole story.
+> 2. **Staleness:** header `jute_prod_weaving_process_lock` gained
+>    `synced_by`/`synced_date_time`; `reprocess_needed` is the STALE flag,
+>    raised write-time by entry/SQC-pick/stoppage/target-map mutations.
+>    `GET /process_status` now returns `{locked, synced, stale,
+>    reprocess_needed(legacy), synced_at, processed_at}`. FE: Sync button +
+>    "Synced"/"Out of date — Sync to refresh"/"Not synced" chips in
+>    WeavingProcessBar; stale-spell banner on the Planning Grid.
+> 3. **Weaving SQC (§ page 4 below):** actual PPI is NO longer typed into the
+>    target map — per-loom readings go to `jute_sqc_weaving_pick` (R-08-21 tab),
+>    entered as **picks/dm** and stored as PPI (= dm × 0.254) + as-typed
+>    `picks_dm`. Only actual **speed** still uses the TargetMapEditor
+>    (value_role='actual'). The duplicate `juteSQC/widthPicks` page is RETIRED.
+> 4. Planning grid "Working Hrs" displays 2 dp (other numerics whole-number).
+
 Last verified: 2026-06-23 — (c) ALL open questions resolved (§12): loom machine type **'Loom' id 7**
 (Q1), **quality-only** standards + target speed+eff (Q5/Q5b), composite **`_dtl`** (Q6), EB via
 attendance view + **beam-change tab** (Q7), reports (Q8), `_dtl`/Q15/Q16 etc.; **+ NEW spinning-style
