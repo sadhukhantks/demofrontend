@@ -42,7 +42,8 @@ const setup: SpreaderSetup = {
 };
 
 function pick(comboName: string, optionName: string) {
-	fireEvent.mouseDown(screen.getByRole("combobox", { name: comboName }));
+	// MUI Autocomplete: ArrowDown on the input opens the listbox.
+	fireEvent.keyDown(screen.getByRole("combobox", { name: comboName }), { key: "ArrowDown" });
 	fireEvent.click(screen.getByRole("option", { name: optionName }));
 }
 
@@ -85,7 +86,7 @@ describe("ProductionEntryForm second quality", () => {
 		// save does re-read the bin state, and the lock effect overwrites the blend
 		// once that refreshed state arrives.
 		await waitFor(() => expect(refreshBinState).toHaveBeenCalled());
-		expect(screen.getByRole("combobox", { name: "Second quality" })).toHaveTextContent("ATD5");
+		expect(screen.getByRole("combobox", { name: "Second quality" })).toHaveValue("ATD5");
 		expect(screen.getByLabelText("Ratio 1")).toHaveValue(2);
 		expect(screen.getByLabelText("Ratio 2")).toHaveValue(1);
 	});
@@ -113,7 +114,7 @@ describe("ProductionEntryForm second quality", () => {
 		expect(screen.getByText("Open group locked to quality: JTD5/ATD5 (2:1)")).toBeInTheDocument();
 		expect(screen.getByLabelText("Ratio 1")).toBeDisabled();
 		expect(screen.getByLabelText("Ratio 2")).toBeDisabled();
-		expect(screen.getByRole("combobox", { name: "Second quality" })).toHaveAttribute("aria-disabled", "true");
+		expect(screen.getByRole("combobox", { name: "Second quality" })).toBeDisabled();
 		expect(screen.queryByRole("button", { name: "✕" })).toBeNull();
 	});
 });

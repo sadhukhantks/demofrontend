@@ -5,7 +5,6 @@ import {
 	Alert,
 	Box,
 	Button,
-	MenuItem,
 	Snackbar,
 	TextField,
 } from "@mui/material";
@@ -16,6 +15,7 @@ import type { SpreaderSetup } from "../types/spreaderTypes";
 import { spellFromHour, todayISO, currentHour } from "../utils/shift";
 import { useBinState } from "../hooks/useBinState";
 import BinStateBanner from "./BinStateBanner";
+import FormAutocomplete from "./FormAutocomplete";
 
 // Mirror the backend's Field(le=...) caps so a fat-fingered value disables Save
 // instead of coming back as "Request failed with status 422".
@@ -187,34 +187,23 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 					size="small"
 					fullWidth
 				/>
-				<TextField
-					select
+				<FormAutocomplete
 					label="Spell"
 					value={spell}
-					onChange={(e) => setSpell(e.target.value)}
-					size="small"
-					fullWidth
-				>
-					{setup.spells.map((s) => (
-						<MenuItem key={s.code} value={s.code}>
-							{s.label}
-						</MenuItem>
-					))}
-				</TextField>
-				<TextField
-					select
+					options={setup.spells.map((s) => ({ value: s.code, label: s.label }))}
+					onChange={(v) => {
+						if (v !== "") setSpell(String(v));
+					}}
+				/>
+				<FormAutocomplete
 					label="Spreader"
 					value={machineId}
-					onChange={(e) => setMachineId(e.target.value === "" ? "" : Number(e.target.value))}
-					size="small"
-					fullWidth
-				>
-					{setup.machines.map((m) => (
-						<MenuItem key={m.machine_id} value={m.machine_id}>
-							{m.machine_name} ({m.mech_code}) — {m.wt_per_roll} kg
-						</MenuItem>
-					))}
-				</TextField>
+					options={setup.machines.map((m) => ({
+						value: m.machine_id,
+						label: `${m.machine_name} (${m.mech_code}) — ${m.wt_per_roll} kg`,
+					}))}
+					onChange={(v) => setMachineId(v === "" ? "" : Number(v))}
+				/>
 				<TextField
 					label="Wt per Roll (kg)"
 					value={wtPerRoll || ""}
@@ -222,41 +211,27 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 					size="small"
 					fullWidth
 				/>
-				<TextField
-					select
+				<FormAutocomplete
 					label="Bin"
 					value={binId}
-					onChange={(e) => setBinId(e.target.value === "" ? "" : Number(e.target.value))}
-					size="small"
-					fullWidth
-				>
-					{setup.bins.map((b) => (
-						<MenuItem key={b.bin_id} value={b.bin_id}>
-							{b.bin_code}
-							{b.bin_no != null ? ` (#${b.bin_no})` : ""}
-						</MenuItem>
-					))}
-				</TextField>
-				<TextField
-					select
+					options={setup.bins.map((b) => ({
+						value: b.bin_id,
+						label: `${b.bin_code}${b.bin_no != null ? ` (#${b.bin_no})` : ""}`,
+					}))}
+					onChange={(v) => setBinId(v === "" ? "" : Number(v))}
+				/>
+				<FormAutocomplete
 					label="Item (jute / jute waste)"
 					value={itemId}
-					onChange={(e) => {
-						const next = e.target.value === "" ? "" : Number(e.target.value);
+					options={setup.items.map((it) => ({ value: it.item_id, label: it.item_name }))}
+					onChange={(v) => {
+						const next = v === "" ? "" : Number(v);
 						setItemId(next);
 						if (next !== "" && Number(item2Id) === Number(next)) setItem2Id("");
 					}}
-					size="small"
-					fullWidth
 					disabled={!!binState?.locked_item_id}
 					helperText={binState?.locked_item_id ? "Locked by open group" : ""}
-				>
-					{setup.items.map((it) => (
-						<MenuItem key={it.item_id} value={it.item_id}>
-							{it.item_name}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 				{!showSecond ? (
 					<Button
 						size="small"
@@ -268,23 +243,16 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 					</Button>
 				) : (
 					<Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-						<TextField
-							select
+						<FormAutocomplete
 							label="Second quality"
 							value={item2Id}
-							onChange={(e) => setItem2Id(e.target.value === "" ? "" : Number(e.target.value))}
-							size="small"
+							options={setup.items
+								.filter((it) => it.item_id !== Number(itemId))
+								.map((it) => ({ value: it.item_id, label: it.item_name }))}
+							onChange={(v) => setItem2Id(v === "" ? "" : Number(v))}
 							sx={{ flex: 1 }}
 							disabled={!!binState?.locked_item_id}
-						>
-							{setup.items
-								.filter((it) => it.item_id !== Number(itemId))
-								.map((it) => (
-									<MenuItem key={it.item_id} value={it.item_id}>
-										{it.item_name}
-									</MenuItem>
-								))}
-						</TextField>
+						/>
 						<TextField
 							type="number"
 							label="Ratio 1"
