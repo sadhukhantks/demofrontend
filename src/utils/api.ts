@@ -682,6 +682,10 @@ const apiRoutesPortalMasters = {
     HRMS_PAY_REGISTER_PROCESS: `${API_URL}/hrms/pay_register_process`,
     HRMS_PAY_REGISTER_EXPORT: `${API_URL}/hrms/pay_register_export`,
     HRMS_PAY_REGISTER_PAYSLIPS: `${API_URL}/hrms/pay_register_payslips`,
+    // Fixed-width payslip.txt for pre-printed continuous stationery (dot-matrix),
+    // alongside the A4 PDF above.
+    HRMS_PAY_REGISTER_PAYSLIP_TEXT: `${API_URL}/hrms/pay_register_payslip_text`,
+    HRMS_PAY_REGISTER_BANK_SHEET: `${API_URL}/hrms/pay_register_bank_sheet`,
 
     // HRMS Pay Register Display Setup (tbl_payslip_print_component) endpoints
     HRMS_PAYSLIP_PRINT_COMPONENT_LIST: `${API_URL}/hrms/payslip_print_component_list`,
@@ -722,6 +726,12 @@ const apiRoutesPortalMasters = {
     // Legacy "Holiday Data" batch (holget=1): every holiday in a date range
     // for the selected branch.
     HOLIDAY_PROCESS_RANGE: `${API_URL}/hrmsMasters/holiday_process_range`,
+
+    // EJM Wages Process — "Wages Data Process" report over tbl_ejm_wages_data_collection
+    EJM_ATT_INCENTIVE_REPORT: `${API_URL}/hrmsMasters/ejm_att_incentive_report`,
+    EJM_WAGES_DATA_BUILD: `${API_URL}/hrmsMasters/ejm_wages_data_build`,
+    EJM_WAGES_DATA_LIST: `${API_URL}/hrmsMasters/ejm_wages_data_list`,
+    EJM_WAGES_DATA_UPDATE: `${API_URL}/hrmsMasters/ejm_wages_data_update`,
 
     // Holiday & Attendance Incentive Eligibility (tbl_holiday_att_inc_eligibility)
     HOL_INC_ELIG_SETUP: `${API_URL}/hrmsMasters/hol_inc_elig_setup`,

@@ -5,15 +5,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Box, Typography, Paper, Snackbar, Alert } from "@mui/material";
 import { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
 import { saveAs } from "file-saver";
-import { Download as DownloadIcon, Printer as PrinterIcon } from "lucide-react";
+import { Download as DownloadIcon, Landmark as LandmarkIcon, Printer as PrinterIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import MuiDataGrid from "@/components/ui/muiDataGrid";
 import { useSelectedCompanyCoId } from "@/hooks/use-selected-company-coid";
 import {
+  exportBankSheet,
   exportPayRegister,
   fetchPayRegisterById,
   fetchPayRegisterSalary,
   printPaySlips,
+  printPaySlipsText,
   updatePayRegister,
 } from "@/utils/hrmsService";
 import type { PayRegisterDetail, PaySalaryRow, FormMode } from "../types/payRegisterTypes";
@@ -35,6 +37,8 @@ function ViewPayRegisterContent() {
   const [actionLoading, setActionLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [printingText, setPrintingText] = useState(false);
+  const [bankSheeting, setBankSheeting] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
     open: false, message: "", severity: "success",
   });
@@ -164,6 +168,44 @@ function ViewPayRegisterContent() {
     }
   }, [coId, payRegisterId]);
 
+  // Pay slips → fixed-width payslip.txt for pre-printed continuous stationery.
+  // Separate from the PDF above: the column positions land on boxes of the
+  // pre-printed form, so this one is meant for the dot-matrix printer.
+  const handlePrintPaySlipsText = useCallback(async () => {
+    if (!coId || !payRegisterId) return;
+    setPrintingText(true);
+    try {
+      const blob = await printPaySlipsText(coId, payRegisterId);
+      if (!blob || blob.size === 0) {
+        setSnackbar({ open: true, message: "No data for pay slips.", severity: "error" });
+        return;
+      }
+      saveAs(blob, "payslip.txt");
+    } catch (err: unknown) {
+      setSnackbar({ open: true, message: err instanceof Error ? err.message : "Failed to print pay slips", severity: "error" });
+    } finally {
+      setPrintingText(false);
+    }
+  }, [coId, payRegisterId]);
+
+  // Bank sheet → Excel (EB No / Name / A-c No / IFSC / Net Pay / Bank)
+  const handleBankSheet = useCallback(async () => {
+    if (!coId || !payRegisterId) return;
+    setBankSheeting(true);
+    try {
+      const blob = await exportBankSheet(coId, payRegisterId);
+      if (!blob || blob.size === 0) {
+        setSnackbar({ open: true, message: "No data for bank sheet.", severity: "error" });
+        return;
+      }
+      saveAs(blob, `BankSheet_${payRegisterId}.xlsx`);
+    } catch (err: unknown) {
+      setSnackbar({ open: true, message: err instanceof Error ? err.message : "Failed to export bank sheet", severity: "error" });
+    } finally {
+      setBankSheeting(false);
+    }
+  }, [coId, payRegisterId]);
+
   const showApprovalButtons = detail?.approveButton === true;
   const isNotApproved = detail?.status_id != null && String(detail.status_id) !== String(PAY_REGISTER_STATUS.APPROVED);
 
@@ -192,6 +234,24 @@ function ViewPayRegisterContent() {
           >
             <PrinterIcon size={16} />
             {printing ? "Generating..." : "Pay Slip Print"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handlePrintPaySlipsText}
+            disabled={printingText}
+            className="flex items-center gap-2"
+          >
+            <PrinterIcon size={16} />
+            {printingText ? "Generating..." : "Pay Slip (Text)"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleBankSheet}
+            disabled={bankSheeting}
+            className="flex items-center gap-2"
+          >
+            <LandmarkIcon size={16} />
+            {bankSheeting ? "Generating..." : "Bank Sheet"}
           </Button>
           <Button variant="outline" onClick={() => router.push("/dashboardportal/hrms/payRegister")}>
             Back
