@@ -91,6 +91,57 @@ const formatDate = (value?: string) => {
   return trimmed;
 };
 
+// ponytail: responsiveness is CSS-only (sx breakpoints), no useMediaQuery — the
+// server and the first client render then emit the same tree, so nothing here
+// can hydrate-mismatch, and the phone layout costs no extra JS on the floor.
+
+// Both dialogs go edge-to-edge on a phone: a 32px margin on a 360px screen is
+// a tenth of the usable width.
+const MOBILE_FULL_BLEED_PAPER = {
+  sx: {
+    m: { xs: 0, sm: 4 },
+    width: { xs: "100%", sm: "calc(100% - 64px)" },
+    maxHeight: { xs: "100%", sm: "calc(100% - 64px)" },
+    borderRadius: { xs: 0, sm: 1 },
+  },
+} as const;
+
+// Thumb-sized buttons; on xs they split the row evenly instead of hugging text.
+const DIALOG_ACTIONS_SX = {
+  p: 2,
+  gap: 1,
+  "& .MuiButton-root": { flex: { xs: 1, sm: "none" }, minHeight: 44 },
+} as const;
+
+const DESKTOP_ONLY_SX = { display: { xs: "none", md: "block" }, overflowX: "auto" } as const;
+const MOBILE_ONLY_SX = {
+  display: { xs: "flex", md: "none" },
+  flexDirection: "column",
+  gap: 1.5,
+} as const;
+
+/** One label/value pair inside a mobile card. */
+function CardStat({
+  label,
+  value,
+  align = "left",
+}: {
+  label: string;
+  value: React.ReactNode;
+  align?: "left" | "right";
+}) {
+  return (
+    <Box textAlign={align} minWidth={0}>
+      <Typography variant="caption" color="text.secondary" display="block" noWrap>
+        {label}
+      </Typography>
+      <Typography variant="body2" fontWeight={600}>
+        {value}
+      </Typography>
+    </Box>
+  );
+}
+
 // Compact dd-mm-yy for the stock picker, where the row is already column-heavy.
 const formatDateShort = (value?: string | null) => {
   if (!value) return "-";
@@ -200,18 +251,6 @@ function JuteIssueEditPage() {
     issueDate, // Filter stock by issue date
   });
 
-  // Filter stock items by selected jute type and item
-  const stockItems = React.useMemo(() => {
-    let filtered = allStockItems;
-    if (filterItemId) {
-      filtered = filtered.filter((s) => String(s.item_grp_id) === filterItemId.value);
-    }
-    if (filterItemName) {
-      filtered = filtered.filter((s) => String(s.item_id) === filterItemName.value);
-    }
-    return filtered;
-  }, [allStockItems, filterItemId, filterItemName]);
-
   // Calculate how much of each stock has already been entered in draft items.
   // Keyed on stock_key, NOT jute_mr_li_id: waste lines have no MR line, so
   // keying on it would collapse every waste draft into one bucket and net them
@@ -252,6 +291,25 @@ function JuteIssueEditPage() {
     },
     [draftQuantityByStockKey]
   );
+
+  // Filter stock items by selected jute type and item, and drop anything with
+  // nothing left to issue.
+  //
+  // The backend already excludes lines whose stored balance rounds to zero, but
+  // it cannot see the DRAFT lines sitting unsaved on this page — draft a line's
+  // whole balance and the row stayed in the picker showing "0.00". Judge on the
+  // same rounded, draft-netted number the row prints, so the list only ever
+  // offers stock the operator can actually draw.
+  const stockItems = React.useMemo(() => {
+    let filtered = allStockItems.filter((s) => getAdjustedBalQty(s).toFixed(2) !== "0.00");
+    if (filterItemId) {
+      filtered = filtered.filter((s) => String(s.item_grp_id) === filterItemId.value);
+    }
+    if (filterItemName) {
+      filtered = filtered.filter((s) => String(s.item_id) === filterItemName.value);
+    }
+    return filtered;
+  }, [allStockItems, filterItemId, filterItemName, getAdjustedBalQty]);
 
   // Auto-calculate weight based on quantity * wt_per_unit
   // When issuing the full remaining balance, use bal_weight directly to absorb rounding differences
@@ -719,11 +777,18 @@ function JuteIssueEditPage() {
   const canApprove = selectableOpenLines.length > 0;
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1.5, md: 3 }, pb: { xs: 10, md: 3 } }}>
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h5" fontWeight={600}>
+      <Box
+        display="flex"
+        flexDirection={{ xs: "column", sm: "row" }}
+        justifyContent="space-between"
+        alignItems={{ xs: "stretch", sm: "center" }}
+        gap={{ xs: 1.5, sm: 2 }}
+        mb={{ xs: 2, md: 3 }}
+      >
+        <Box minWidth={0}>
+          <Typography variant="h5" fontWeight={600} sx={{ fontSize: { xs: "1.25rem", md: "1.5rem" } }}>
             {isCreateMode ? "Create Jute Issue" : isViewMode ? "View Jute Issue" : "Edit Jute Issue"}
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -732,7 +797,7 @@ function JuteIssueEditPage() {
               : `Issue for ${formatDate(issueDate)}`}
           </Typography>
         </Box>
-        <Box display="flex" gap={2} alignItems="center">
+        <Box display="flex" gap={2} alignItems="center" flexShrink={0}>
           {summary && (
             <Chip
               label={summary.status || "Draft"}
@@ -740,7 +805,11 @@ function JuteIssueEditPage() {
               size="medium"
             />
           )}
-          <Button variant="outlined" onClick={() => router.push("/dashboardportal/jutePurchase/juteIssue")}>
+          <Button
+            variant="outlined"
+            onClick={() => router.push("/dashboardportal/jutePurchase/juteIssue")}
+            sx={{ ml: "auto", minHeight: 44 }}
+          >
             Back to List
           </Button>
         </Box>
@@ -759,8 +828,13 @@ function JuteIssueEditPage() {
       )}
 
       {/* Header Form */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box display="flex" gap={3} flexWrap="wrap">
+      <Paper sx={{ p: { xs: 2, md: 3 }, mb: { xs: 2, md: 3 } }}>
+        <Box
+          display="flex"
+          gap={{ xs: 2, md: 3 }}
+          flexWrap="wrap"
+          sx={{ "& > *": { flex: { xs: "1 1 100%", sm: "0 1 auto" } } }}
+        >
           {/* Branch Selection */}
           {sidebarBranches.length === 1 ? (
             <TextField
@@ -768,10 +842,10 @@ function JuteIssueEditPage() {
               label="Branch"
               value={sidebarBranches[0].label}
               disabled
-              sx={{ minWidth: 200 }}
+              sx={{ minWidth: { sm: 200 } }}
             />
           ) : (
-            <FormControl sx={{ minWidth: 200 }} disabled={!isCreateMode}>
+            <FormControl sx={{ minWidth: { sm: 200 } }} disabled={!isCreateMode}>
               <InputLabel id="jute-issue-branch-label">Branch</InputLabel>
               <Select
                 labelId="jute-issue-branch-label"
@@ -797,7 +871,7 @@ function JuteIssueEditPage() {
             value={issueDate}
             onChange={(e) => setIssueDate(e.target.value)}
             disabled={!isCreateMode}
-            sx={{ minWidth: 200 }}
+            sx={{ minWidth: { sm: 200 } }}
             InputLabelProps={{ shrink: true }}
           />
 
@@ -808,6 +882,7 @@ function JuteIssueEditPage() {
               startIcon={<Plus size={18} />}
               onClick={handleOpenStockDialog}
               disabled={stockLoading}
+              sx={{ minHeight: 48 }}
             >
               Add from Stock
             </Button>
@@ -816,7 +891,7 @@ function JuteIssueEditPage() {
       </Paper>
 
       {/* Issue Line Items */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: { xs: 2, md: 3 }, mb: { xs: 2, md: 3 } }}>
         <Typography variant="h6" mb={2}>
           Issue Items
         </Typography>
@@ -824,6 +899,7 @@ function JuteIssueEditPage() {
         {lineItems.length === 0 ? (
           <Typography color="text.secondary">No issue items added yet</Typography>
         ) : (
+          <Box sx={DESKTOP_ONLY_SX}>
           <Table size="small">
             <TableHead>
               <TableRow>
@@ -931,11 +1007,102 @@ function JuteIssueEditPage() {
               })}
             </TableBody>
           </Table>
+          </Box>
+        )}
+
+        {/* Mobile: the same lines as cards — a 13-column table on a phone is
+            a horizontal scroll nobody reads on the floor. */}
+        {lineItems.length > 0 && (
+          <Box sx={MOBILE_ONLY_SX}>
+            {lineItems.map((line) => {
+              const lineStatusId = line.status_id ?? JUTE_ISSUE_STATUS_IDS.DRAFT;
+              const isSelectable =
+                line.jute_issue_id &&
+                (lineStatusId === JUTE_ISSUE_STATUS_IDS.DRAFT ||
+                  lineStatusId === JUTE_ISSUE_STATUS_IDS.OPEN);
+              return (
+                <Paper key={line.id} variant="outlined" sx={{ p: 1.5 }}>
+                  <Box display="flex" alignItems="center" gap={1} mb={1}>
+                    {isSelectable && (
+                      <Checkbox
+                        checked={selectedLineIds.has(line.id)}
+                        onChange={() => handleToggleLineSelection(line.id)}
+                        sx={{ p: 1 }}
+                      />
+                    )}
+                    <Chip
+                      label={JUTE_ISSUE_STATUS_LABELS[lineStatusId] || "Unknown"}
+                      size="small"
+                      color={getStatusColor(lineStatusId)}
+                    />
+                    <Chip
+                      label={line.source === "WASTE" ? "Waste" : "MR"}
+                      size="small"
+                      color={line.source === "WASTE" ? "secondary" : "default"}
+                      variant={line.source === "WASTE" ? "filled" : "outlined"}
+                    />
+                    {canEdit && (
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleDeleteLine(line)}
+                        sx={{ ml: "auto" }}
+                      >
+                        <Trash2 size={18} />
+                      </IconButton>
+                    )}
+                  </Box>
+
+                  <Typography variant="subtitle2" fontWeight={700}>
+                    {line.item_name || "-"}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    {line.jute_group_name || getJuteItemLabel(line.item_grp_id)}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+                    {getYarnTypeLabel(line.yarn_type_id)} ·{" "}
+                    {line.source === "WASTE"
+                      ? line.dept_name || "-"
+                      : line.jute_gate_entry_no ?? "-"}
+                  </Typography>
+
+                  <Box
+                    display="grid"
+                    gridTemplateColumns="repeat(2, minmax(0, 1fr))"
+                    rowGap={1}
+                    columnGap={2}
+                  >
+                    <CardStat
+                      label={`Qty (${line.unit_conversion || "-"})`}
+                      value={Number(line.quantity).toFixed(2)}
+                    />
+                    <CardStat
+                      label="Weight (kg)"
+                      value={Number(line.weight).toFixed(2)}
+                      align="right"
+                    />
+                    <CardStat label="Rate/Qtl" value={line.actual_rate?.toFixed(2) ?? "-"} />
+                    <CardStat
+                      label="Issue Value"
+                      value={`₹ ${line.issue_value?.toFixed(2) ?? "0.00"}`}
+                      align="right"
+                    />
+                  </Box>
+                </Paper>
+              );
+            })}
+          </Box>
         )}
 
         {/* Totals */}
-        <Box display="flex" justifyContent="flex-end" mt={3} gap={4}>
-          <Box textAlign="right">
+        <Box
+          display="flex"
+          flexWrap="wrap"
+          justifyContent={{ xs: "space-between", sm: "flex-end" }}
+          mt={3}
+          gap={{ xs: 2, sm: 4 }}
+        >
+          <Box textAlign={{ xs: "left", sm: "right" }}>
             <Typography variant="body2" color="text.secondary">
               Total Issue Weight
             </Typography>
@@ -952,7 +1119,7 @@ function JuteIssueEditPage() {
               /Qtl
             </Typography>
           </Box>
-          <Box textAlign="right">
+          <Box textAlign="right" sx={{ flexBasis: { xs: "100%", sm: "auto" } }}>
             <Typography variant="body2" color="text.secondary">
               Total Issue Value
             </Typography>
@@ -961,11 +1128,30 @@ function JuteIssueEditPage() {
         </Box>
       </Paper>
 
-      {/* Action Buttons */}
-      <Box display="flex" justifyContent="flex-end" gap={2} alignItems="center">
+      {/* Action Buttons — pinned to the bottom of the viewport on a phone so the
+          operator never has to scroll past a long item list to save. */}
+      <Box
+        display="flex"
+        flexWrap="wrap"
+        justifyContent={{ xs: "stretch", sm: "flex-end" }}
+        gap={{ xs: 1, sm: 2 }}
+        alignItems="center"
+        sx={{
+          position: { xs: "sticky", md: "static" },
+          bottom: 0,
+          zIndex: 2,
+          bgcolor: { xs: "background.paper", md: "transparent" },
+          mx: { xs: -1.5, md: 0 },
+          px: { xs: 1.5, md: 0 },
+          py: { xs: 1.5, md: 0 },
+          borderTop: { xs: 1, md: 0 },
+          borderColor: "divider",
+          "& .MuiButton-root": { flex: { xs: "1 1 45%", sm: "0 0 auto" }, minHeight: 48 },
+        }}
+      >
         {/* Selection indicator */}
         {selectedLineIds.size > 0 && (
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{ flexBasis: { xs: "100%", sm: "auto" } }}>
             {selectedLineIds.size} item(s) selected
           </Typography>
         )}
@@ -1018,12 +1204,18 @@ function JuteIssueEditPage() {
       </Box>
 
       {/* Stock Selection Dialog */}
-      <Dialog open={stockDialogOpen} onClose={handleCloseStockDialog} maxWidth="xl" fullWidth>
+      <Dialog
+        open={stockDialogOpen}
+        onClose={handleCloseStockDialog}
+        maxWidth="xl"
+        fullWidth
+        PaperProps={MOBILE_FULL_BLEED_PAPER}
+      >
         <DialogTitle>Select Stock to Issue</DialogTitle>
-        <DialogContent>
-          <Box display="flex" flexDirection="column" gap={3} pt={2}>
+        <DialogContent sx={{ px: { xs: 1.5, sm: 3 } }}>
+          <Box display="flex" flexDirection="column" gap={{ xs: 2, sm: 3 }} pt={2}>
             {/* Filters Row */}
-            <Box display="flex" gap={2} flexWrap="wrap">
+            <Box display="flex" gap={2} flexWrap="wrap" alignItems="center">
               <Autocomplete
                 id="stock-filter-jute-type"
                 options={juteItemOptions}
@@ -1033,7 +1225,7 @@ function JuteIssueEditPage() {
                   <TextField {...params} label="Filter by Jute Type" size="small" />
                 )}
                 isOptionEqualToValue={(opt, val) => opt.value === val.value}
-                sx={{ minWidth: 220, flex: 1 }}
+                sx={{ minWidth: { xs: "calc(100% - 56px)", sm: 220 }, flex: 1 }}
               />
               <Autocomplete
                 id="stock-filter-item"
@@ -1044,7 +1236,7 @@ function JuteIssueEditPage() {
                   <TextField {...params} label="Filter by Item" size="small" />
                 )}
                 isOptionEqualToValue={(opt, val) => opt.value === val.value}
-                sx={{ minWidth: 220, flex: 1 }}
+                sx={{ minWidth: { xs: "calc(100% - 56px)", sm: 220 }, flex: 1 }}
               />
               <IconButton onClick={refetchStock} disabled={stockLoading}>
                 <RefreshCw size={18} />
@@ -1062,6 +1254,7 @@ function JuteIssueEditPage() {
               </Typography>
             ) : (
               <RadioGroup value={selectedStockId} onChange={(e) => handleStockRadioChange(e.target.value)}>
+                <Box sx={DESKTOP_ONLY_SX}>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
@@ -1142,11 +1335,92 @@ function JuteIssueEditPage() {
                     ))}
                   </TableBody>
                 </Table>
+                </Box>
+
+                {/* Mobile: one tappable card per stock line. Balance is the
+                    number the operator picks on, so it leads. */}
+                <Box sx={MOBILE_ONLY_SX}>
+                  {stockItems.map((stock) => {
+                    const isSelected = selectedStockId === stock.stock_key;
+                    return (
+                      <Paper
+                        key={stock.stock_key}
+                        variant="outlined"
+                        onClick={() => handleStockRadioChange(stock.stock_key)}
+                        sx={{
+                          p: 1.5,
+                          cursor: "pointer",
+                          borderColor: isSelected ? "primary.main" : "divider",
+                          borderWidth: isSelected ? 2 : 1,
+                          bgcolor: isSelected ? "action.selected" : undefined,
+                        }}
+                      >
+                        <Box display="flex" alignItems="flex-start" gap={1}>
+                          <Radio
+                            checked={isSelected}
+                            value={stock.stock_key}
+                            sx={{ p: 0.5, mt: -0.5 }}
+                          />
+                          <Box minWidth={0} flex={1}>
+                            <Typography variant="subtitle2" fontWeight={700}>
+                              {stock.item_name || "-"}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {stock.source === "WASTE"
+                                ? `${stock.dept_name || "-"} · ${stock.area_name || "-"}`
+                                : `${stock.mr_num ?? stock.branch_mr_no ?? "-"} · GE ${
+                                    stock.gate_entry_num || stock.jute_gate_entry_no || "-"
+                                  }`}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {stock.source === "WASTE"
+                                ? stock.unit_conversion
+                                : `${formatDateShort(stock.jute_gate_entry_date)} · ${
+                                    stock.vehicle_no || "no vehicle"
+                                  } · ${stock.warehouse_name || "-"}`}
+                            </Typography>
+                          </Box>
+                        </Box>
+
+                        <Box
+                          display="grid"
+                          gridTemplateColumns="repeat(2, minmax(0, 1fr))"
+                          columnGap={2}
+                          mt={1}
+                        >
+                          <CardStat
+                            label={`Bal Qty (${stock.unit_conversion || "-"})`}
+                            value={
+                              <>
+                                {getAdjustedBalQty(stock).toFixed(2)}{" "}
+                                <Typography component="span" variant="caption" color="text.secondary">
+                                  (prv {stock.balqty?.toFixed(2)})
+                                </Typography>
+                              </>
+                            }
+                          />
+                          <CardStat
+                            label="Bal Weight (kg)"
+                            align="right"
+                            value={
+                              <>
+                                {getAdjustedBalWeight(stock).toFixed(2)}{" "}
+                                <Typography component="span" variant="caption" color="text.secondary">
+                                  (prv {stock.balweight?.toFixed(2)})
+                                </Typography>
+                              </>
+                            }
+                          />
+                        </Box>
+                      </Paper>
+                    );
+                  })}
+                </Box>
               </RadioGroup>
             )}
           </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={DIALOG_ACTIONS_SX}>
           <Button onClick={handleCloseStockDialog}>Cancel</Button>
           <Button
             variant="contained"
@@ -1159,10 +1433,16 @@ function JuteIssueEditPage() {
       </Dialog>
 
       {/* Add Item Dialog (Quantity/Weight Input) */}
-      <Dialog open={addDialogOpen} onClose={handleCloseAddDialog} maxWidth="sm" fullWidth>
+      <Dialog
+        open={addDialogOpen}
+        onClose={handleCloseAddDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={MOBILE_FULL_BLEED_PAPER}
+      >
         <DialogTitle>Add Issue Item</DialogTitle>
-        <DialogContent>
-          <Box display="flex" flexDirection="column" gap={3} pt={2}>
+        <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
+          <Box display="flex" flexDirection="column" gap={{ xs: 2, sm: 3 }} pt={2}>
             {/* Quantity Error Alert */}
             {quantityExceedsBalance && (
               <Alert severity="error">
@@ -1215,7 +1495,7 @@ function JuteIssueEditPage() {
             />
 
             {/* Quantity and Weight */}
-            <Box display="flex" gap={2}>
+            <Box display="flex" flexDirection={{ xs: "column", sm: "row" }} gap={2}>
               <TextField
                 id="jute-issue-quantity"
                 label={
@@ -1229,7 +1509,13 @@ function JuteIssueEditPage() {
                 onFocus={(e) => e.target.select()}
                 fullWidth
                 autoFocus
-                inputProps={{ min: 0, step: 1, max: selectedStock ? getAdjustedBalQty(selectedStock) : 0 }}
+                inputProps={{
+                  min: 0,
+                  step: 1,
+                  max: selectedStock ? getAdjustedBalQty(selectedStock) : 0,
+                  // numeric soft-keyboard on the floor instead of the full QWERTY
+                  inputMode: "decimal",
+                }}
                 helperText={selectedStock ? `Available: ${getAdjustedBalQty(selectedStock).toFixed(2)}` : ""}
               />
               <TextField
@@ -1256,7 +1542,7 @@ function JuteIssueEditPage() {
             )}
           </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={DIALOG_ACTIONS_SX}>
           <Button onClick={handleCloseAddDialog}>Cancel</Button>
           <Button
             variant="contained"
