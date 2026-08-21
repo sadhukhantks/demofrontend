@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
+import { dmToPpi } from "../pickUnits";
 
 // ---- Shared-contract option shapes (see weaving SQC backend contract) ----
 export type WeavingQualityOption = {
@@ -45,12 +46,13 @@ export type WeavingPickSetup = {
 	summary: unknown[];
 };
 
-// One staged (not-yet-saved) observation row.
+// One staged (not-yet-saved) observation row. picks_dm is the as-typed value;
+// the server converts to PPI (picks = picks_dm × 0.254) on save.
 type StagedRow = {
 	weaving_quality_id: number;
 	machine_id: number;
 	width: number | null;
-	picks: number;
+	picks_dm: number;
 	// display labels captured at stage time
 	qualityLabel: string;
 	loomLabel: string;
@@ -76,7 +78,7 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 	const [qualityId, setQualityId] = React.useState<number | "">("");
 	const [machineId, setMachineId] = React.useState<number | "">("");
 	const [width, setWidth] = React.useState<string>("");
-	const [picks, setPicks] = React.useState<string>("");
+	const [picksDm, setPicksDm] = React.useState<string>("");
 	const [rows, setRows] = React.useState<StagedRow[]>([]);
 	const [saving, setSaving] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
@@ -85,13 +87,16 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 	const selectedQuality = setup.qualities.find((q) => q.weaving_quality_id === Number(qualityId)) ?? null;
 	const selectedLoom = setup.looms.find((l) => l.machine_id === Number(machineId)) ?? null;
 
-	// Quality, loom and Pick/PPI are required; width optional.
-	const formInvalid = !qualityId || !machineId || picks === "" || Number(picks) < 0;
+	// Quality, loom and Picks/dm are required; width optional.
+	const formInvalid = !qualityId || !machineId || picksDm === "" || Number(picksDm) <= 0;
+
+	// Live PPI preview of the as-typed picks/dm value.
+	const livePpi = picksDm !== "" && Number(picksDm) > 0 ? dmToPpi(Number(picksDm)) : null;
 
 	// Stage a row locally (multi-observation — POST all on save).
 	const handleAddRow = () => {
 		if (formInvalid || !selectedQuality || !selectedLoom) {
-			setError("Select a quality and loom and enter Pick/PPI (≥ 0).");
+			setError("Select a quality and loom and enter Picks / dm (> 0).");
 			return;
 		}
 		setError(null);
@@ -101,14 +106,14 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 				weaving_quality_id: selectedQuality.weaving_quality_id,
 				machine_id: selectedLoom.machine_id,
 				width: width === "" ? null : Number(width),
-				picks: Number(picks),
+				picks_dm: Number(picksDm),
 				qualityLabel: qualityLabel(selectedQuality),
 				loomLabel: loomLabel(selectedLoom),
 			},
 		]);
 		// Keep quality + loom selected so the inspector can punch many readings quickly.
 		setWidth("");
-		setPicks("");
+		setPicksDm("");
 	};
 
 	const handleRemoveRow = (idx: number) => {
@@ -127,11 +132,12 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 			co_id: Number(coId),
 			branch_id: Number(branchId),
 			entry_date: entryDate,
+			// Send picks_dm only — the server converts and stores picks (PPI).
 			entries: rows.map((r) => ({
 				weaving_quality_id: r.weaving_quality_id,
 				machine_id: r.machine_id,
 				width: r.width,
-				picks: r.picks,
+				picks_dm: r.picks_dm,
 			})),
 		};
 		const { error: err } = await fetchWithCookie<{ data: { saved: number } }>(
@@ -193,13 +199,14 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 				/>
 				<TextField
 					type="number"
-					label="Pick / PPI"
-					value={picks}
-					onChange={(e) => setPicks(e.target.value)}
+					label="Picks / dm"
+					value={picksDm}
+					onChange={(e) => setPicksDm(e.target.value)}
 					size="small"
 					fullWidth
 					required
 					inputProps={{ step: "any", min: 0 }}
+					helperText={`= ${livePpi != null ? livePpi.toFixed(2) : "—"} PPI`}
 				/>
 			</Box>
 
@@ -264,7 +271,10 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 								Width
 							</Box>
 							<Box component="th" sx={{ textAlign: "right!important" }}>
-								Pick / PPI
+								Picks / dm
+							</Box>
+							<Box component="th" sx={{ textAlign: "right!important" }}>
+								PPI
 							</Box>
 							<Box component="th" sx={{ width: 56 }} />
 						</Box>
@@ -278,7 +288,10 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 									{r.width != null ? r.width.toFixed(2) : "—"}
 								</Box>
 								<Box component="td" sx={{ textAlign: "right!important" }}>
-									{r.picks.toFixed(2)}
+									{r.picks_dm.toFixed(2)}
+								</Box>
+								<Box component="td" sx={{ textAlign: "right!important" }}>
+									{dmToPpi(r.picks_dm).toFixed(2)}
 								</Box>
 								<Box component="td">
 									<Button
@@ -323,7 +336,7 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 									Width: {r.width != null ? r.width.toFixed(2) : "—"}
 								</Typography>
 								<Typography variant="body2" fontWeight={600}>
-									Pick / PPI: {r.picks.toFixed(2)}
+									Picks/dm: {r.picks_dm.toFixed(2)} (= {dmToPpi(r.picks_dm).toFixed(2)} PPI)
 								</Typography>
 							</Box>
 						</Paper>

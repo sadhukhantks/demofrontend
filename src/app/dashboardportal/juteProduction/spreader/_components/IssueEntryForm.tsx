@@ -5,7 +5,6 @@ import {
 	Alert,
 	Box,
 	Button,
-	MenuItem,
 	Snackbar,
 	TextField,
 } from "@mui/material";
@@ -15,6 +14,7 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 import type { IssueSetup } from "../types/spreaderTypes";
 import { spellFromHour, todayISO, currentHour } from "../utils/shift";
 import { useAvailableWeights } from "../hooks/useIssueSetup";
+import FormAutocomplete from "./FormAutocomplete";
 
 type Props = {
 	coId: string;
@@ -115,20 +115,15 @@ export default function IssueEntryForm({ coId, branchId, setup, onSaved }: Props
 					},
 				}}
 			>
-				<TextField
-					select
+				<FormAutocomplete
 					label="Bin (with stock)"
 					value={binKey}
-					onChange={(e) => setBinKey(e.target.value)}
-					size="small"
-					fullWidth
-				>
-					{setup.bins_with_stock.map((b) => (
-						<MenuItem key={`${b.bin_id}-${b.entry_id_grp}`} value={`${b.bin_id}-${b.entry_id_grp}`}>
-							{b.bin_code} · {b.quality_label} · {b.current_rolls} rolls (grp #{b.entry_id_grp})
-						</MenuItem>
-					))}
-				</TextField>
+					options={setup.bins_with_stock.map((b) => ({
+						value: `${b.bin_id}-${b.entry_id_grp}`,
+						label: `${b.bin_code} · ${b.quality_label} · ${b.current_rolls} rolls (grp #${b.entry_id_grp})`,
+					}))}
+					onChange={(v) => setBinKey(String(v))}
+				/>
 				<TextField
 					type="date"
 					label="Issue Date"
@@ -148,20 +143,14 @@ export default function IssueEntryForm({ coId, branchId, setup, onSaved }: Props
 					size="small"
 					fullWidth
 				/>
-				<TextField
-					select
+				<FormAutocomplete
 					label="Spell"
 					value={spell}
-					onChange={(e) => setSpell(e.target.value)}
-					size="small"
-					fullWidth
-				>
-					{setup.spells.map((s) => (
-						<MenuItem key={s.code} value={s.code}>
-							{s.label}
-						</MenuItem>
-					))}
-				</TextField>
+					options={setup.spells.map((s) => ({ value: s.code, label: s.label }))}
+					onChange={(v) => {
+						if (v !== "") setSpell(String(v));
+					}}
+				/>
 				<TextField
 					label="Quality (auto)"
 					value={selectedBin?.quality_label ?? ""}
@@ -169,21 +158,16 @@ export default function IssueEntryForm({ coId, branchId, setup, onSaved }: Props
 					size="small"
 					fullWidth
 				/>
-				<TextField
-					select
+				<FormAutocomplete
 					label="Wt per Roll"
 					value={wtPerRoll}
-					onChange={(e) => setWtPerRoll(e.target.value === "" ? "" : Number(e.target.value))}
-					size="small"
-					fullWidth
+					options={(weights?.weights ?? []).map((w) => ({
+						value: w.wt_per_roll,
+						label: `${w.wt_per_roll} kg (available: ${w.available_rolls})`,
+					}))}
+					onChange={(v) => setWtPerRoll(v === "" ? "" : Number(v))}
 					disabled={!weights || weights.weights.length === 0}
-				>
-					{(weights?.weights ?? []).map((w) => (
-						<MenuItem key={w.wt_per_roll} value={w.wt_per_roll}>
-							{w.wt_per_roll} kg (available: {w.available_rolls})
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 				<TextField
 					type="number"
 					label={`Issue Rolls${wtPerRoll !== "" ? ` (max ${availableForSelected})` : ""}`}

@@ -235,6 +235,22 @@ export default function BreakerCardForm({ coId, branchId, entryDate, setup, onSa
 		</TextField>
 	);
 
+	// Std MR% is set in the Std Moisture Master (juteSQC/stdMoisture) per yarn group
+	// for THIS process, and comes back on setup as std_mr_by_group (string keys).
+	// It is READ-ONLY here — the master value is final. With no entry the backend
+	// rejects the save (400), so the field warns as soon as the group is picked.
+	const stdMrFor = (groupId: number | ""): number | null => {
+		if (groupId === "") return null;
+		const v = setup.std_mr_by_group?.[String(groupId)];
+		return typeof v === "number" ? v : null;
+	};
+
+	const stdMrHelper = (groupId: number | ""): string => {
+		if (groupId === "") return "Std MR% comes from the Std Moisture Master";
+		const std = stdMrFor(groupId);
+		return std != null ? `Std MR%: ${std.toFixed(2)}` : "No std MR% set";
+	};
+
 	const renderGroupSelect = (r: DraftRow, label?: string) => (
 		<Autocomplete
 			options={setup.groups}
@@ -249,7 +265,13 @@ export default function BreakerCardForm({ coId, branchId, entryDate, setup, onSa
 			size="small"
 			fullWidth
 			renderInput={(params) => (
-				<TextField {...params} label={label} placeholder="Yarn Group" helperText="Std MR%: 16 (default)" />
+				<TextField
+					{...params}
+					label={label}
+					placeholder="Yarn Group"
+					error={r.groupId !== "" && stdMrFor(r.groupId) == null}
+					helperText={stdMrHelper(r.groupId)}
+				/>
 			)}
 			isOptionEqualToValue={(opt, val) => opt.item_grp_id === val.item_grp_id}
 		/>
@@ -319,7 +341,7 @@ export default function BreakerCardForm({ coId, branchId, entryDate, setup, onSa
 					<TableBody>
 						{rows.map((r) => {
 							// A yarn group has no std → preview uses std 16, no CV band.
-							const preview = computeRowPreview(r.weights, r.mrPcts);
+							const preview = computeRowPreview(r.weights, r.mrPcts, stdMrFor(r.groupId) ?? undefined);
 							const cvPass = preview?.withinBand;
 							return (
 								<TableRow key={r.key} hover>
@@ -403,7 +425,7 @@ export default function BreakerCardForm({ coId, branchId, entryDate, setup, onSa
 			    line — no horizontal scrolling. */}
 			<Box sx={{ display: { xs: "flex", md: "none" }, flexDirection: "column", gap: 2 }}>
 				{rows.map((r, idx) => {
-					const preview = computeRowPreview(r.weights, r.mrPcts);
+					const preview = computeRowPreview(r.weights, r.mrPcts, stdMrFor(r.groupId) ?? undefined);
 					const cvPass = preview?.withinBand;
 					return (
 						<Paper

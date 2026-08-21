@@ -237,7 +237,8 @@ export default function InterCardSqcPage() {
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 				Capture card sliver weight (R-08-07A) across the three carding sub-sections — Inter Card,
 				Tow Breaker and Hopper — one sheet, many (section, machine, spell, yarn group) reading sets, each linked to a jute-yarn item group,
-				each corrected to the quality&apos;s STD MR% 20 with per-section and per-group grand averages.
+				each corrected to that group&apos;s Std MR% from the Std Moisture Master, with per-section and
+				per-group grand averages.
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (

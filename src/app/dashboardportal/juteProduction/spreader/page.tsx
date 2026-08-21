@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, CircularProgress, MenuItem, Tab, Tabs, TextField, Typography } from "@mui/material";
+import { Alert, Box, CircularProgress, Tab, Tabs, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { useSpreaderSetup } from "./hooks/useSpreaderSetup";
@@ -13,6 +13,7 @@ import DailyEntriesGrid from "./_components/DailyEntriesGrid";
 import IssueEntryForm from "./_components/IssueEntryForm";
 import DailyIssuesGrid from "./_components/DailyIssuesGrid";
 import RollStockTable from "./_components/RollStockTable";
+import FormAutocomplete from "./_components/FormAutocomplete";
 import { todayISO } from "./utils/shift";
 
 const TABS = ["Production", "Issue", "Stock View"] as const;
@@ -107,20 +108,14 @@ export default function SpreaderPage() {
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
-				<TextField
-					select
-					size="small"
+				<FormAutocomplete
 					label="Branch"
 					value={pageBranchId}
-					onChange={(e) => setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))}
+					options={branchOptions.map((b) => ({ value: Number(b.branch_id), label: b.branch_name }))}
+					onChange={(v) => setPageBranchId(v === "" ? "" : Number(v))}
+					fullWidth={false}
 					sx={{ mb: 2, minWidth: 240 }}
-				>
-					{branchOptions.map((b) => (
-						<MenuItem key={b.branch_id} value={Number(b.branch_id)}>
-							{b.branch_name}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 			) : selectedBranchName ? (
 				<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 					Branch: {selectedBranchName}

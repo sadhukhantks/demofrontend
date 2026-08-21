@@ -200,8 +200,8 @@ export default function BreakerCardSqcPage() {
 			</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 				Capture breaker-card coarse-side sliver weight (R-08-05/06/07) — one sheet, many (machine,
-				spell, yarn group) reading sets, each linked to a jute-yarn item group and corrected to the
-				breaker STD MR% 16 with a per-group grand average.
+				spell, yarn group) reading sets, each linked to a jute-yarn item group and corrected to that
+				group&apos;s Std MR% from the Std Moisture Master, with a per-group grand average.
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
