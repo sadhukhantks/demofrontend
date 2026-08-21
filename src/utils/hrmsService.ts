@@ -402,6 +402,22 @@ export const printPaySlips = (
     `${apiRoutesPortalMasters.HRMS_PAY_REGISTER_PAYSLIPS}?co_id=${coId}&pay_period_id=${payPeriodId}`,
   );
 
+export const printPaySlipsText = (
+  coId: string,
+  payPeriodId: number | string,
+): Promise<Blob> =>
+  fetchHrmsBlob(
+    `${apiRoutesPortalMasters.HRMS_PAY_REGISTER_PAYSLIP_TEXT}?co_id=${coId}&pay_period_id=${payPeriodId}`,
+  );
+
+export const exportBankSheet = (
+  coId: string,
+  payPeriodId: number | string,
+): Promise<Blob> =>
+  fetchHrmsBlob(
+    `${apiRoutesPortalMasters.HRMS_PAY_REGISTER_BANK_SHEET}?co_id=${coId}&pay_period_id=${payPeriodId}`,
+  );
+
 // ─── Pay Register Display Setup (tbl_payslip_print_component) ───────
 
 export const fetchPayslipPrintComponentList = async (
