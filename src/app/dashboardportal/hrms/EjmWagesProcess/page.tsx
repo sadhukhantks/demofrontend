@@ -10,6 +10,7 @@ import {
   Snackbar,
   Typography,
 } from "@mui/material";
+import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import MuiForm, {
@@ -27,6 +28,10 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 
 /** Legacy `hol_get` code for the Holiday Data process. */
 const ACTION_HOLIDAY_DATA = "1";
+/** Legacy `hol_get` code for Main Payroll FN Attendance Incentive. */
+const ACTION_ATT_INCENTIVE = "2";
+/** New (not a legacy code): browse/correct tbl_ejm_wages_data_collection. */
+const ACTION_WAGES_DATA = "27";
 
 /**
  * EJM Wages Process — period + pay scheme + action, then Process.
@@ -70,6 +75,9 @@ const ACTION_OPTIONS: Option[] = [
   { label: "Attendance Sheet", value: "24" },
   { label: "Daily Outsider Production(EJM)", value: "25" },
   { label: "Pay Roll Posting", value: "26" },
+  // 27 is ours, not a legacy hol_get code — the legacy modal had this as the
+  // "Attendance Preparation & Updation" grid over tbl_ejm_wages_data_collection.
+  { label: "Wages Data Process", value: ACTION_WAGES_DATA },
 ];
 
 interface FilterValues {
@@ -98,6 +106,113 @@ const submitSchema = z
     path: ["date_to"],
   });
 
+/** One row of tbl_ejm_wages_data_collection as the list endpoint returns it. */
+interface WagesDataRow {
+  data_collection_id: number;
+  eb_id: number | null;
+  eb_no: string;
+  emp_name: string;
+  dept_code: string | null;
+  occu_code: string | null;
+  shift: string | null;
+  t_p: string | null;
+  mc_nos: string | null;
+  working_hours: number;
+  ot_hours: number;
+  ns_hours: number;
+  ot_ns_hours: number;
+  fest_hours: number;
+  stl_days: number;
+  production: number;
+  puja_advance: number;
+  ot_advance: number;
+  stl_advance: number;
+  installment_advance: number;
+  co_loan: number;
+  misc_earn: number;
+  misc_ded: number;
+  misc_ot_earn: number;
+  misc_ot_ded: number;
+  update_for: string | null;
+}
+
+/** The hour/advance fields the grid lets the operator correct — must stay a
+ *  subset of the backend's EDITABLE_FIELDS whitelist. */
+const EDITABLE_NUMERIC_FIELDS = [
+  "working_hours", "ot_hours", "ns_hours", "ot_ns_hours", "fest_hours",
+  "stl_days", "production", "puja_advance", "ot_advance", "stl_advance",
+  "installment_advance", "co_loan", "misc_earn", "misc_ded",
+  "misc_ot_earn", "misc_ot_ded",
+] as const;
+
+const numCol = (field: string, headerName: string): GridColDef => ({
+  field,
+  headerName,
+  width: 100,
+  type: "number",
+  editable: true,
+});
+
+const WAGES_GRID_COLUMNS: GridColDef[] = [
+  { field: "eb_no", headerName: "EB No", width: 90 },
+  { field: "emp_name", headerName: "Employee", width: 180 },
+  { field: "dept_code", headerName: "Dept", width: 70 },
+  { field: "occu_code", headerName: "Occu", width: 70 },
+  { field: "shift", headerName: "Shift", width: 60, editable: true },
+  { field: "mc_nos", headerName: "MC Nos", width: 90, editable: true },
+  numCol("working_hours", "Work Hrs"),
+  numCol("ot_hours", "OT Hrs"),
+  numCol("ns_hours", "NS Hrs"),
+  numCol("ot_ns_hours", "OT NS Hrs"),
+  numCol("fest_hours", "Fest Hrs"),
+  numCol("stl_days", "STL Days"),
+  numCol("production", "Production"),
+  numCol("puja_advance", "Puja Adv"),
+  numCol("ot_advance", "OT Adv"),
+  numCol("stl_advance", "STL Adv"),
+  numCol("installment_advance", "Inst Adv"),
+  numCol("co_loan", "CO Loan"),
+  numCol("misc_earn", "Misc Earn"),
+  numCol("misc_ded", "Misc Ded"),
+  numCol("misc_ot_earn", "Misc OT Earn"),
+  numCol("misc_ot_ded", "Misc OT Ded"),
+  { field: "update_for", headerName: "Source", width: 80 },
+];
+
+/** Eligible days needed to earn any incentive — mirrors the backend's
+ *  INCENTIVE_MIN_DAYS (legacy $attincd). Display only; the backend decides. */
+const INCENTIVE_MIN_DAYS = 12;
+
+/** One employee's fortnightly attendance incentive. */
+interface IncentiveRow {
+  eb_id: number;
+  emp_code: string;
+  dept_desc: string | null;
+  empname: string;
+  incdays: number;
+  lvdays: number;
+  elegday: number;
+  fn_att_inc_rate: number;
+  incamt: number;
+}
+
+const INCENTIVE_GRID_COLUMNS: GridColDef[] = [
+  { field: "emp_code", headerName: "EB No", width: 90 },
+  { field: "empname", headerName: "Employee", width: 200 },
+  { field: "dept_desc", headerName: "Department", width: 190 },
+  { field: "incdays", headerName: "Inc Days", width: 100, type: "number" },
+  { field: "lvdays", headerName: "Leave Days", width: 110, type: "number" },
+  { field: "elegday", headerName: "Eligible Days", width: 120, type: "number" },
+  { field: "fn_att_inc_rate", headerName: "Rate", width: 90, type: "number" },
+  { field: "incamt", headerName: "Incentive Amt", width: 130, type: "number" },
+];
+
+/** What Submit last produced. The two reports have different shapes, so the
+ *  kind decides the columns, the row id, and whether the grid is editable. */
+type ReportResult =
+  | { kind: "wages"; rows: WagesDataRow[] }
+  | { kind: "incentive"; rows: IncentiveRow[] };
+
 export default function EjmWagesProcessPage() {
   const { coId } = useSelectedCompanyCoId();
   // Every action here processes one branch's data — the legacy screen used the
@@ -109,6 +224,8 @@ export default function EjmWagesProcessPage() {
   const [filters, setFilters] = useState<FilterValues>(INITIAL_FILTERS);
   const [paySchemes, setPaySchemes] = useState<Option[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  // null = nothing run yet (grid hidden); rows [] = ran, found nothing.
+  const [result, setResult] = useState<ReportResult | null>(null);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -191,7 +308,59 @@ export default function EjmWagesProcessPage() {
     }
 
     setSubmitting(true);
+    // A stale grid under a different action's result would mislead; clear it
+    // on every submit and repopulate only for the actions that produce one.
+    setResult(null);
     try {
+      if (parsed.data.action === ACTION_WAGES_DATA) {
+        const { data, error } = await fetchWithCookie<{ data: WagesDataRow[] }>(
+          apiRoutesPortalMasters.EJM_WAGES_DATA_LIST,
+          "POST",
+          {
+            date_from: parsed.data.date_from,
+            date_to: parsed.data.date_to,
+            pay_scheme_id: parsed.data.pay_scheme_id,
+          },
+        );
+        if (error || !data) {
+          notify(error || "Failed to load wages data", "error");
+          return;
+        }
+        setResult({ kind: "wages", rows: data.data });
+        if (data.data.length === 0) {
+          notify("No wages data found for the selected period and pay scheme", "info");
+        }
+        return;
+      }
+
+      if (parsed.data.action === ACTION_ATT_INCENTIVE) {
+        // Incentive counts holidays and leave for the branch, so it cannot run
+        // off the company alone the way the legacy screen did.
+        if (branchId == null) {
+          notify("Select a branch in the sidebar before running this report", "error");
+          return;
+        }
+        const { data, error } = await fetchWithCookie<{ data: IncentiveRow[] }>(
+          apiRoutesPortalMasters.EJM_ATT_INCENTIVE_REPORT,
+          "POST",
+          {
+            branch_id: branchId,
+            date_from: parsed.data.date_from,
+            date_to: parsed.data.date_to,
+            pay_scheme_id: parsed.data.pay_scheme_id,
+          },
+        );
+        if (error || !data) {
+          notify(error || "Failed to load attendance incentive", "error");
+          return;
+        }
+        setResult({ kind: "incentive", rows: data.data });
+        if (data.data.length === 0) {
+          notify("No employee qualified for attendance incentive in this period", "info");
+        }
+        return;
+      }
+
       if (parsed.data.action === ACTION_HOLIDAY_DATA) {
         // Pay scheme narrows who gets credited — a branch's workforce spans
         // several schemes and a wages run for one must not pay the others.
@@ -221,6 +390,81 @@ export default function EjmWagesProcessPage() {
       setSubmitting(false);
     }
   }, [filters, notify, branchId]);
+
+  /** Build the collected wages rows for the selected period, then reload.
+   *  Separate from Submit so viewing the data can never overwrite it. */
+  const handleBuildFromAttendance = useCallback(async () => {
+    const parsed = submitSchema.safeParse(filters);
+    if (!parsed.success) {
+      notify(parsed.error.issues[0]?.message ?? "Invalid selection", "error");
+      return;
+    }
+    if (branchId == null) {
+      notify("Select a branch in the sidebar before processing", "error");
+      return;
+    }
+    // Rebuilding discards corrections made to the generated rows.
+    const existing = result?.kind === "wages" ? result.rows.length : 0;
+    if (
+      existing > 0 &&
+      !window.confirm(
+        `Rebuild wages data? Any corrections made to the ${existing} existing record(s) will be lost.`,
+      )
+    ) {
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const body = {
+        branch_id: branchId,
+        date_from: parsed.data.date_from,
+        date_to: parsed.data.date_to,
+        pay_scheme_id: parsed.data.pay_scheme_id,
+      };
+      const { data, error } = await fetchWithCookie<{
+        message: string;
+        inserted: number;
+      }>(apiRoutesPortalMasters.EJM_WAGES_DATA_BUILD, "POST", body);
+      if (error || !data) {
+        notify(error || "Build failed", "error");
+        return;
+      }
+      notify(data.message, data.inserted > 0 ? "success" : "info");
+
+      const { data: listed } = await fetchWithCookie<{ data: WagesDataRow[] }>(
+        apiRoutesPortalMasters.EJM_WAGES_DATA_LIST,
+        "POST",
+        body,
+      );
+      setResult({ kind: "wages", rows: listed?.data ?? [] });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [filters, notify, branchId, result]);
+
+  // Edit-in-place: persist the corrected row, or throw so the grid reverts it.
+  const handleWagesRowUpdate = useCallback(
+    async (newRow: WagesDataRow) => {
+      const payload: Record<string, unknown> = {
+        shift: newRow.shift,
+        mc_nos: newRow.mc_nos,
+      };
+      for (const f of EDITABLE_NUMERIC_FIELDS) payload[f] = newRow[f] ?? 0;
+
+      const { error } = await fetchWithCookie<{ message: string }>(
+        `${apiRoutesPortalMasters.EJM_WAGES_DATA_UPDATE}/${newRow.data_collection_id}`,
+        "PUT",
+        payload,
+      );
+      if (error) {
+        notify(error, "error");
+        throw new Error(error);
+      }
+      return newRow;
+    },
+    [notify],
+  );
 
   return (
     // Same page shell as the other HRMS pages (attendance open/close, payroll).
@@ -257,6 +501,75 @@ export default function EjmWagesProcessPage() {
           </Button>
         </Box>
       </Paper>
+
+      {result !== null && (
+        <Paper className="p-4">
+          <Box className="mb-2 flex items-center justify-between gap-2">
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              {result.kind === "wages"
+                ? "Wages Data Process"
+                : "Main Payroll FN Attendance Incentive"}{" "}
+              — {result.rows.length} record{result.rows.length === 1 ? "" : "s"}
+              {result.kind === "wages" &&
+                result.rows.length > 0 &&
+                " (double-click a cell to correct it)"}
+            </Typography>
+            {result.kind === "wages" && (
+              <Button
+                onClick={() => void handleBuildFromAttendance()}
+                disabled={submitting}
+                className="shrink-0"
+              >
+                Build Wages Data
+              </Button>
+            )}
+          </Box>
+
+          {result.kind === "wages" && result.rows.length === 0 && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              No wages data collected for this period yet. Use{" "}
+              <strong>Build Wages Data</strong> to generate it for the selected
+              branch from attendance, night shifts, approved holidays and STL
+              leave.
+            </Alert>
+          )}
+          {result.kind === "incentive" && result.rows.length === 0 && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              No employee reached the {INCENTIVE_MIN_DAYS}-day eligibility
+              threshold in this period, or none on this pay scheme is marked
+              eligible for attendance incentive.
+            </Alert>
+          )}
+
+          {result.kind === "wages" ? (
+            <DataGrid
+              rows={result.rows}
+              columns={WAGES_GRID_COLUMNS}
+              getRowId={(row) => row.data_collection_id}
+              autoHeight
+              density="compact"
+              pageSizeOptions={[25, 50, 100]}
+              initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+              disableRowSelectionOnClick
+              processRowUpdate={handleWagesRowUpdate}
+              // processRowUpdate already notified; this stops the console error.
+              onProcessRowUpdateError={() => undefined}
+            />
+          ) : (
+            // Read-only: the incentive is derived on every run, never stored.
+            <DataGrid
+              rows={result.rows}
+              columns={INCENTIVE_GRID_COLUMNS}
+              getRowId={(row) => row.eb_id}
+              autoHeight
+              density="compact"
+              pageSizeOptions={[25, 50, 100]}
+              initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+              disableRowSelectionOnClick
+            />
+          )}
+        </Paper>
+      )}
 
       {/* A batch can walk a whole date range of holidays, so the wait is long
           enough to need a blocking spinner — the legacy screen did the same
