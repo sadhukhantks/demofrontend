@@ -399,3 +399,47 @@ export async function fetchWindingQualityGroupWise(params: {
   }
   return res.data.data;
 }
+
+/** One weaving-daily row of the Loom Checklist, with its anomaly remarks. */
+export interface LoomChecklistRow {
+  weaving_daily_id: number;
+  tran_date: string;
+  spell_code: string | null;
+  mech_code: string | null;
+  machine_name: string | null;
+  weaving_quality_code: string | null;
+  weaving_quality_name: string | null;
+  eb_id: number | null;
+  eb_no: string | null;
+  open_jugar: number;
+  cuts: number;
+  close_jugar: number;
+  jugar: number;
+  production_yds: number;
+  production_kg: number;
+  efficiency: number;
+  working_hours: number;
+  remarks: string;
+}
+
+/** Loom Checklist — rtype "chk" = anomalous rows only, "all" = every entry. */
+export async function fetchLoomChecklist(params: {
+  coId: number;
+  branchId: number;
+  dateFrom: string;
+  dateTo: string;
+  rtype: string;
+}): Promise<LoomChecklistRow[]> {
+  const qs = new URLSearchParams();
+  qs.set("co_id", String(params.coId));
+  qs.set("branch_id", String(params.branchId));
+  qs.set("date_from", params.dateFrom);
+  qs.set("date_to", params.dateTo);
+  qs.set("rtype", params.rtype);
+  const url = `${apiRoutesPortalMasters.LOOM_CHECKLIST}?${qs.toString()}`;
+  const res = await fetchWithCookie<{ data: LoomChecklistRow[] }>(url);
+  if (res.error || !res.data) {
+    throw new Error(res.error ?? "Failed to fetch the loom checklist");
+  }
+  return res.data.data;
+}
