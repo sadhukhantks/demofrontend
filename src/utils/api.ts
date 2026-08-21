@@ -1123,6 +1123,15 @@ const apiRoutesPortalMasters = {
     FABRIC_FAULT_BY_DATE: `${API_URL}/juteSQC/get_fabric_fault_by_date`,
     FABRIC_FAULT_TABLE: `${API_URL}/juteSQC/get_fabric_fault_table`,
     FABRIC_FAULT_DELETE: `${API_URL}/juteSQC/delete_fabric_fault`,
+    // Std Moisture Master (router prefix /api/juteSQC) — per (co_id, jute-yarn item group, process)
+    // standard moisture-regain %. SAVE upserts on (co_id, item_grp_id, process); DELETE is a soft
+    // delete and POSTs {co_id, std_mr_id}. The four carding/drawing SQC entry pages (Breaker Card,
+    // Inter Card, Drawhead, Finisher Drawing) resolve their std MR% from here and their save is
+    // REJECTED (400) when the row is missing.
+    STD_MR_MASTER_SETUP: `${API_URL}/juteSQC/std_mr_master/setup`,
+    STD_MR_MASTER_TABLE: `${API_URL}/juteSQC/std_mr_master/table`,
+    STD_MR_MASTER_SAVE: `${API_URL}/juteSQC/std_mr_master/save`,
+    STD_MR_MASTER_DELETE: `${API_URL}/juteSQC/std_mr_master/delete`,
     // RHMR (Temperature / Humidity per date + spell) — SPINNING_SQC_RHMR_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_RHMR_SETUP: `${API_URL}/juteSQC/sqc_rhmr_setup`,
     SPINNING_SQC_RHMR_SEARCH: `${API_URL}/juteSQC/sqc_rhmr_search`,
