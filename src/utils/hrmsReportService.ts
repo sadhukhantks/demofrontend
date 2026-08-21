@@ -452,6 +452,24 @@ export function fetchSpellWise(p: RangeParams): Promise<SpellWiseRow[]> {
   );
 }
 
+/** Row from GET /hrmsReports/shift-wise (long format — pivoted on the page). */
+export interface ShiftWiseRow {
+  id: number;
+  department: string | null;
+  designation: string | null;
+  shift: string | null;
+  hands: number;
+}
+
+/** Shift-wise hands per department + designation (long format). */
+export function fetchShiftWise(p: RangeParams): Promise<ShiftWiseRow[]> {
+  return fetchRangeReport(
+    apiRoutesPortalMasters.SHIFT_WISE_REPORT,
+    p,
+    "shift-wise report",
+  );
+}
+
 /** Row from GET /hrmsReports/bank-statement. */
 export interface BankStatementRow {
   id: number;
@@ -590,6 +608,107 @@ export async function processCashHands(p: {
     throw new Error(result.error ?? "Failed to process cash hands");
   }
   return result.data;
+}
+
+/** Row from GET /hrmsReports/pay-periods — the period picker. */
+export interface PayPeriodOption {
+  payperiod_id: number;
+  from_date: string | null;
+  to_date: string | null;
+  status: number;
+}
+
+/** Non-cancelled pay periods for a payscheme, newest first. */
+export async function fetchPayPeriods(p: {
+  payschemeId: number;
+  branchId?: number | null;
+}): Promise<PayPeriodOption[]> {
+  const qs = new URLSearchParams();
+  qs.set("payscheme_id", String(p.payschemeId));
+  if (p.branchId != null) qs.set("branch_id", String(p.branchId));
+  const result = await fetchWithCookie<{ data: PayPeriodOption[] }>(
+    `${apiRoutesPortalMasters.PAY_PERIODS_REPORT}?${qs.toString()}`,
+  );
+  if (result.error || !result.data) {
+    throw new Error(result.error ?? "Failed to fetch pay periods");
+  }
+  return result.data.data;
+}
+
+/** Row from GET /hrmsReports/pay-register-print — one employee's pivoted
+ * payroll for a pay period (legacy Main Pay Roll register columns). */
+export interface PayRegisterPrintRow {
+  id: number;
+  eb_no: string;
+  wname: string;
+  dept_code: string;
+  dept_desc: string;
+  desig: string;
+  time_piece: string;
+  esi_no: string;
+  pf_no: string;
+  pf_uan_no: string;
+  shift: string;
+  basic_rate: number;
+  working_hours: number;
+  ns_hrs: number;
+  hl_hrs: number;
+  ls_hrs: number;
+  stl_d: number;
+  wrk_days: number;
+  c_work_day: number;
+  prod_basic: number;
+  time_rated_basic: number;
+  fix_basic: number;
+  c_bon_ern: number;
+  pf_gross: number;
+  da: number;
+  ns_amount: number;
+  hol_amt: number;
+  increment_amt: number;
+  layoff_wgs: number;
+  incentive_amount: number;
+  misc_earn: number;
+  stl_wgs: number;
+  gross_pay: number;
+  hra: number;
+  b_f: number;
+  total_earn: number;
+  epf: number;
+  c_pf_cont: number;
+  c_fpf_cont: number;
+  epf_833: number;
+  epf_167: number;
+  co_cont: number;
+  esi_gross: number;
+  esic: number;
+  p_tax: number;
+  lwf: number;
+  co_loan: number;
+  co_loan_bal: number;
+  puja_advance: number;
+  stl_advance: number;
+  exadvance: number;
+  arrear_plus: number;
+  arrear_minus: number;
+  total_deduction: number;
+  c_f: number;
+  net_pay: number;
+}
+
+/** Pay register / payslip print rows for one pay period. */
+export async function fetchPayRegisterPrint(p: {
+  payperiodId: number;
+}): Promise<PayRegisterPrintRow[]> {
+  const qs = new URLSearchParams();
+  qs.set("payperiod_id", String(p.payperiodId));
+  const result = await fetchWithCookie<{ data: PayRegisterPrintRow[] }>(
+    `${apiRoutesPortalMasters.PAY_REGISTER_PRINT_REPORT}?${qs.toString()}`,
+  );
+  if (result.error || !result.data) {
+    throw new Error(result.error ?? "Failed to fetch pay register data");
+  }
+  return result.data.data;
 }
 
 /** Download URL for the Cash Hands PDF (streamed by the backend). */

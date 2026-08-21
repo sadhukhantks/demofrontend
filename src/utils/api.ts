@@ -560,12 +560,15 @@ const apiRoutesPortalMasters = {
     CASH_ATTENDANCE_REPORT: `${API_URL}/hrmsReports/cash-attendance`,
     EMPLOYEE_HEADCOUNT_REPORT: `${API_URL}/hrmsReports/employee-headcount`,
     SPELL_WISE_REPORT: `${API_URL}/hrmsReports/spell-wise`,
+    SHIFT_WISE_REPORT: `${API_URL}/hrmsReports/shift-wise`,
     BANK_STATEMENT_REPORT: `${API_URL}/hrmsReports/bank-statement`,
     HANDS_COMPLEMENT_REPORT: `${API_URL}/hrmsReports/hands-complement`,
     CASH_HANDS_PROCESS: `${API_URL}/hrmsReports/cash-hands-process`,
     CASH_HANDS_REPORT: `${API_URL}/hrmsReports/cash-hands`,
     CASH_HANDS_SUMMARY_REPORT: `${API_URL}/hrmsReports/cash-hands-summary`,
     CASH_HANDS_PDF: `${API_URL}/hrmsReports/cash-hands-pdf`,
+    PAY_PERIODS_REPORT: `${API_URL}/hrmsReports/pay-periods`,
+    PAY_REGISTER_PRINT_REPORT: `${API_URL}/hrmsReports/pay-register-print`,
 
     // Sales Quotation endpoints
     QUOTATION_TABLE: `${API_URL}/salesQuotation/get_quotation_table`,
@@ -986,6 +989,7 @@ const apiRoutesPortalMasters = {
     // Daily Production Report (whole-mill one-pager)
     JUTE_PROD_DPR: `${API_URL}/juteProductionReports/daily_production_report`,
     WINDING_WEAVING_DIFFERENCE: `${API_URL}/juteProductionReports/winding_weaving_difference`,
+    LOOM_CHECKLIST: `${API_URL}/juteProductionReports/loom_checklist`,
     // Spinning standards master (router prefix /api/spngTargetMap) — *_EDIT/*_DELETE are base paths; caller appends /${id}
     SPNG_TARGET_MAP_SETUP: `${API_URL}/spngTargetMap/target_map_setup`,
     SPNG_TARGET_MAP_LIST: `${API_URL}/spngTargetMap/target_map_list`,

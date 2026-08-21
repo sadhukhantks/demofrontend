@@ -30,7 +30,7 @@ export const mapReportRows = (rows: AttendanceReportRow[]): ChecklistGridRow[] =
     designation: r.designation_name || "",
     attType: attTypeLabel(r.att_type),
     source: r.status || "",
-    workingHours: Number(r.working_hours ?? 0),
+    workingHours: Number(r.working_hours ?? 0) - Number(r.idle_hours ?? 0),
     machineNos: r.machine_nos || "",
     remarks: r.remarks || "",
   }));
