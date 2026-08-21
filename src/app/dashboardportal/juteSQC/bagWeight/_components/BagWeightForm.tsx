@@ -199,7 +199,8 @@ export default function BagWeightForm({ coId, branchId, entryDate, setup, onSave
 				/>
 			</Box>
 
-			<TableContainer sx={{ overflowX: "auto" }}>
+			{/* Desktop / tablet: entry table. Hidden on phones (stacked cards below). */}
+			<TableContainer sx={{ overflowX: "auto", display: { xs: "none", md: "block" } }}>
 				<Table size="small" sx={{ minWidth: 480 }}>
 					<TableHead>
 						<TableRow>
@@ -287,6 +288,59 @@ export default function BagWeightForm({ coId, branchId, entryDate, setup, onSave
 					</TableBody>
 				</Table>
 			</TableContainer>
+
+			{/* Phones: one card per reading row, every input full-width on its own
+			    line — no horizontal scrolling. */}
+			<Box sx={{ display: { xs: "flex", md: "none" }, flexDirection: "column", gap: 2 }}>
+				{rows.map((r, i) => {
+					const corr = computeRowCorr(r, stdMrForPreview);
+					return (
+						<Paper
+							key={`reading-m-${i}`}
+							variant="outlined"
+							sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}
+						>
+							<Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+								<Typography variant="subtitle2">Row {i + 1}</Typography>
+								<Tooltip title="Remove row">
+									<span>
+										<IconButton
+											size="small"
+											color="error"
+											disabled={rows.length <= 1}
+											onClick={() => removeRow(i)}
+											sx={{ minWidth: 40, minHeight: 40 }}
+										>
+											<DeleteIcon size={16} />
+										</IconButton>
+									</span>
+								</Tooltip>
+							</Box>
+							<TextField
+								type="number"
+								size="small"
+								fullWidth
+								label="MR%"
+								value={r.mr}
+								onChange={(e) => setRowField(i, "mr", e.target.value)}
+								inputProps={{ step: "any", min: 0, "aria-label": `Row ${i + 1} MR%` }}
+							/>
+							<TextField
+								type="number"
+								size="small"
+								fullWidth
+								label="Obs weight (gm)"
+								value={r.obs}
+								onChange={(e) => setRowField(i, "obs", e.target.value)}
+								inputProps={{ step: "any", min: 0, "aria-label": `Row ${i + 1} observed weight` }}
+							/>
+							<Typography variant="body2" fontWeight={600}>
+								Corr weight: {fmt(corr)}
+							</Typography>
+						</Paper>
+					);
+				})}
+			</Box>
 
 			<Box>
 				<Button

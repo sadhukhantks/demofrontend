@@ -10,6 +10,15 @@
 // Standard moisture regain % used for every yarn group row (a yarn group has no per-row std).
 export const DEFAULT_STD_MR_PCT = 16;
 
+// The operator weighs each 5-yd cut in GRAMS (raw grams are what get stored); the
+// sheet reports sliver weight as LBS per 100 yds. Display-only conversion — the
+// server keeps computing calc_* in the entered (gram) unit.
+export const GMS_PER_LB = 453.6;
+export const SAMPLE_LENGTH_YDS = 5;
+export function gmsToLbs(gms: number): number {
+	return (Number(gms) / GMS_PER_LB) * (100 / SAMPLE_LENGTH_YDS);
+}
+
 function round2(x: number): number {
 	return Math.round(x * 100) / 100;
 }
@@ -30,20 +39,20 @@ export function mean(nums: number[]): number {
 	return nums.reduce((a, b) => a + Number(b), 0) / nums.length;
 }
 
-// Sample standard deviation (n-1 divisor). Guard n<=1 → 0.0 (build plan §2).
-export function sampleStdev(nums: number[]): number {
+// POPULATION standard deviation (n divisor) — the mill sheet's STDEVP. Guard n<=1 → 0.0.
+export function populationStdev(nums: number[]): number {
 	const n = nums.length;
 	if (n <= 1) return 0;
 	const m = mean(nums);
-	const variance = nums.reduce((acc, v) => acc + (Number(v) - m) * (Number(v) - m), 0) / (n - 1);
+	const variance = nums.reduce((acc, v) => acc + (Number(v) - m) * (Number(v) - m), 0) / n;
 	return Math.sqrt(variance);
 }
 
-// CV ratio on the corrected basis: stdev / corr_wt. Guard corr > 0.
-// Returned as a RATIO (render ×100 for a percentage).
-export function cvRatio(stdev: number, corrWt: number): number {
-	if (!corrWt || corrWt <= 0) return 0;
-	return stdev / corrWt;
+// CV ratio on the OBSERVED basis: pstdev(observed) / mean(observed). Guard mean > 0.
+// Returned as a RATIO (render ×100 for a percentage). Unit-invariant (gms == lbs).
+export function cvRatio(stdev: number, meanObs: number): number {
+	if (!meanObs || meanObs <= 0) return 0;
+	return stdev / meanObs;
 }
 
 // Band pass flag. The high edge is the upper tolerance: a row passes when its
@@ -65,7 +74,7 @@ export type BreakerCardPreview = {
 	avgWt: number | null; // mean observed
 	avgMrPct: number | null; // mean MR%
 	corrWt: number | null; // avg-then-correct corrected sliver weight
-	sdev: number | null; // sample stdev of corrected cuts
+	sdev: number | null; // POPULATION stdev of the raw observed cuts
 	cvPct: number | null; // already ×100 (a percentage)
 	withinBand: boolean | null; // pass / fail / null (no band)
 	n: number; // # of valid (numeric, >0) weight readings used
@@ -78,8 +87,8 @@ export type BreakerCardPreview = {
 // A yarn group has no single std, so the preview always uses std 16 with NO CV band
 // (withinBand is always null). Corr Wt follows the cached-value path:
 // avg-then-correct (avgWt corrected by avgMr), which matches the sheet exactly.
-// The CV% uses the per-cut corrected series' sample stdev over the corrected
-// sliver weight.
+// The CV% follows the owner's Excel (2026-08-19): POPULATION stdev of the RAW
+// observed cuts over their mean — no MR correction in the CV path.
 export function computeRowPreview(
 	weightStrings: string[],
 	mrStrings: string[],
@@ -112,8 +121,8 @@ export function computeRowPreview(
 	const avgMr = round2(mean(mr));
 	// avg-then-correct: corrected average weight from the row averages.
 	const corrWt = correctedWeight(avgWt, avgMr, stdMr);
-	const sdev = round4(sampleStdev(corrected));
-	const cv = cvRatio(sdev, corrWt);
+	const sdev = round4(populationStdev(observed));
+	const cv = cvRatio(sdev, avgWt);
 
 	return {
 		observed,
