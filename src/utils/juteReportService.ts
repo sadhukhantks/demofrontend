@@ -13,6 +13,8 @@ import type {
   JutePercentClaimsRow,
   JuteMukhamMoistureRow,
   BatchCostReportRow,
+  IssuePlannerApiResponse,
+  IssuePlannerReport,
   MrListReportRow,
   PaginatedReportApiResponse,
   ReportApiResponse,
@@ -266,4 +268,20 @@ export async function fetchJuteTallyDownload(
     }
     throw err instanceof Error ? err : new Error(String(err));
   }
+}
+
+export async function fetchJuteIssuePlanner(
+  branchId: number,
+  date: string,
+): Promise<IssuePlannerReport> {
+  const qs = new URLSearchParams({
+    branch_id: String(branchId),
+    date,
+  });
+  const url = `${apiRoutesPortalMasters.JUTE_REPORT_ISSUE_PLANNER}?${qs.toString()}`;
+  const result = await fetchWithCookie<IssuePlannerApiResponse>(url);
+  if (result.error || !result.data) {
+    throw new Error(result.error ?? "Failed to fetch jute issue planner report");
+  }
+  return result.data.data;
 }
