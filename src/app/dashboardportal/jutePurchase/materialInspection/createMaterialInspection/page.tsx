@@ -89,6 +89,8 @@ function JuteGateEntryCreatePageContent() {
 
 	// Cascading dropdown state
 	const [parties, setParties] = React.useState<Option[]>([]);
+	const [partyBranches, setPartyBranches] = React.useState<Option[]>([]);
+	const [warehouseOptions, setWarehouseOptions] = React.useState<Option[]>([]);
 	const [qualitiesByItem, setQualitiesByItem] = React.useState<Record<string, JuteQualityRecord[]>>({});
 
 	// Derived options
@@ -239,6 +241,7 @@ function JuteGateEntryCreatePageContent() {
 		mukamOptions,
 		supplierOptions,
 		partyOptions: parties,
+		partyBranchOptions: partyBranches,
 		poOptions,
 		uomOptions: UOM_OPTIONS,
 		hasSupplierSelected: Boolean(formValues.supplier),
@@ -250,6 +253,7 @@ function JuteGateEntryCreatePageContent() {
 	const lineItemColumns = useGateEntryLineItemColumns({
 		canEdit: mode !== "view",
 		juteItems: setupData?.jute_items ?? [],
+		warehouseOptions,
 		qualitiesByItem,
 		handleLineFieldChange,
 		getItemLabel,
@@ -364,6 +368,124 @@ function JuteGateEntryCreatePageContent() {
 
 		void fetchParties();
 	}, [formValues.supplier, coId, setFormValues, setInitialValues, bumpFormKey]);
+
+	// Godown options for the entry's branch (same list the MR page shows)
+	React.useEffect(() => {
+		const branchId = formValues.branch;
+		if (!branchId) {
+			setWarehouseOptions([]);
+			return;
+		}
+		const fetchWarehouses = async () => {
+			try {
+				const url = `${apiRoutesPortalMasters.JUTE_MR_WAREHOUSE_OPTIONS}?branch_id=${branchId}`;
+				const { data, error } = await fetchWithCookie<{
+					warehouses: Array<{ warehouse_id: number; warehouse_name: string; warehouse_path: string }>;
+				}>(url, "GET");
+				if (error || !data) {
+					setWarehouseOptions([]);
+					return;
+				}
+				setWarehouseOptions(
+					(data.warehouses ?? []).map((w) => ({
+						label: w.warehouse_path || w.warehouse_name,
+						value: String(w.warehouse_id),
+					}))
+				);
+			} catch (err) {
+				console.error("Error fetching godowns:", err);
+				setWarehouseOptions([]);
+			}
+		};
+		void fetchWarehouses();
+	}, [formValues.branch]);
+
+	// Drop a godown that is not in this branch's list, so a stale id can't ride
+	// along in the save payload while the cell renders blank — the backend guard
+	// 400s it, and with no matching option there is no clear button to fix it by
+	// hand. Same rule the party-branch effect applies to its own stale ids.
+	React.useEffect(() => {
+		if (warehouseOptions.length === 0) return;
+		const valid = new Set(warehouseOptions.map((o) => o.value));
+		const isStale = (id: string) => Boolean(id) && !valid.has(id);
+		setLineItems((prev) =>
+			prev.some((li) => isStale(li.warehouseId))
+				? prev.map((li) => (isStale(li.warehouseId) ? { ...li, warehouseId: "" } : li))
+				: prev
+		);
+		// Options always land after the record's lines (the branch that triggers this
+		// fetch comes from the same load), so lineItems is deliberately not a dep —
+		// setLineItems normalizes into a fresh array every call, which would re-fire
+		// this effect forever.
+	}, [warehouseOptions, setLineItems]);
+
+	// Latest party branch, read inside the fetch below without making it a dep
+	// (depending on the value would refetch the list on every manual selection)
+	const partyBranchRef = React.useRef(formValues.partyBranch);
+	partyBranchRef.current = formValues.partyBranch;
+
+	// Party branches for the selected party; auto-selects when the party has exactly one
+	React.useEffect(() => {
+		// Drop a branch that is no longer valid for the selected party, so a stale
+		// id can't ride along in the save payload while the select renders blank
+		const clearPartyBranch = () => {
+			if (!partyBranchRef.current) return;
+			setFormValues((prev) => ({ ...prev, partyBranch: "" }));
+			setInitialValues((prev) => ({ ...prev, partyBranch: "" }));
+			formRef.current?.setValue("partyBranch", "");
+		};
+
+		const partyId = formValues.party;
+		if (!partyId) {
+			setPartyBranches([]);
+			clearPartyBranch();
+			return;
+		}
+		let cancelled = false;
+		const fetchPartyBranches = async () => {
+			try {
+				const url = `${apiRoutesPortalMasters.JUTE_MR_PARTY_BRANCHES}?party_id=${partyId}`;
+				const { data, error } = await fetchWithCookie<{
+					branches: Array<{ party_mst_branch_id: number; display: string }>;
+				}>(url, "GET");
+				if (cancelled) return;
+				if (error || !data) {
+					setPartyBranches([]);
+					clearPartyBranch();
+					return;
+				}
+				const options = (data.branches ?? []).map((b) => ({
+					label: b.display,
+					value: String(b.party_mst_branch_id),
+				}));
+				setPartyBranches(options);
+
+				// Keep a stored branch that still belongs to this party; otherwise
+				// auto-select the only branch, or clear a now-invalid one. View mode
+				// shows what is stored — never silently rewrites it.
+				if (mode === "view") return;
+				const current = partyBranchRef.current;
+				if (current && options.some((o) => o.value === current)) return;
+				const next = options.length === 1 ? options[0].value : "";
+				if (current === next) return;
+				setFormValues((prev) => ({ ...prev, partyBranch: next }));
+				setInitialValues((prev) => ({ ...prev, partyBranch: next }));
+				// Push into the live form imperatively — remounting it (bumpFormKey)
+				// would reset every other field the user has edited but not saved
+				formRef.current?.setValue("partyBranch", next);
+			} catch (err) {
+				console.error("Error fetching party branches:", err);
+				if (!cancelled) {
+					setPartyBranches([]);
+					clearPartyBranch();
+				}
+			}
+		};
+		void fetchPartyBranches();
+		return () => {
+			cancelled = true;
+		};
+	}, [formValues.party, mode, setFormValues, setInitialValues, formRef]);
 
 	// Fetch qualities when item is selected in line items
 	const fetchQualitiesForItem = React.useCallback(
@@ -501,6 +623,7 @@ function JuteGateEntryCreatePageContent() {
 						actualQty: poli.quantity ? String(poli.quantity) : "",
 						actualWeight: "",
 						allowableMoisture: poli.allowable_moisture != null ? String(poli.allowable_moisture) : "",  // Copy from PO
+						warehouseId: "",
 						remarks: "",
 						moistureReadings: [],  // Initialize empty moisture readings
 						averageMoisture: null,
@@ -675,6 +798,7 @@ function JuteGateEntryCreatePageContent() {
 					actual_weight: li.actualWeight ? parseFloat(li.actualWeight) : null,
 					unit_conversion: li.juteUom || null,
 					allowable_moisture: li.allowableMoisture ? parseFloat(li.allowableMoisture) : null,
+					warehouse_id: li.warehouseId ? Number(li.warehouseId) : null,
 					moisture_readings: (li.moistureReadings ?? []).map((r) => ({
 						moisture_percentage: r,
 					})),
@@ -706,7 +830,8 @@ function JuteGateEntryCreatePageContent() {
 					jute_uom: formValues.juteUom || null,
 					mukam_id: formValues.mukam ? parseInt(String(formValues.mukam), 10) : null,
 					jute_supplier_id: formValues.supplier ? parseInt(String(formValues.supplier), 10) : null,
-					party_id: formValues.party ? parseInt(String(formValues.party), 10) : null,
+					party_id: formValues.party ? String(formValues.party) : null,
+					party_branch_id: formValues.partyBranch ? parseInt(String(formValues.partyBranch), 10) : null,
 					gross_weight: grossWeightNum,
 					tare_weight: tareWeightNum,
 					variable_shortage: variableShortageNum,
@@ -794,6 +919,7 @@ function JuteGateEntryCreatePageContent() {
 				unit_conversion: li.juteUom || null,
 				// Moisture
 				allowable_moisture: li.allowableMoisture ? parseFloat(li.allowableMoisture) : null,
+				warehouse_id: li.warehouseId ? Number(li.warehouseId) : null,
 				moisture_readings: (li.moistureReadings ?? []).map((r) => ({
 					moisture_percentage: r,
 				})),
@@ -827,7 +953,8 @@ function JuteGateEntryCreatePageContent() {
 				jute_uom: formValues.juteUom || null,
 				mukam_id: formValues.mukam ? parseInt(String(formValues.mukam), 10) : null,
 				jute_supplier_id: formValues.supplier ? parseInt(String(formValues.supplier), 10) : null,
-				party_id: formValues.party ? parseInt(String(formValues.party), 10) : null,
+				party_id: formValues.party ? String(formValues.party) : null,
+				party_branch_id: formValues.partyBranch ? parseInt(String(formValues.partyBranch), 10) : null,
 				gross_weight: grossWeightNum,
 				tare_weight: tareWeightNum,
 				variable_shortage: variableShortageNum,

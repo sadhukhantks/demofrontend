@@ -51,7 +51,7 @@ export type WeavingPickSetup = {
 type StagedRow = {
 	weaving_quality_id: number;
 	machine_id: number;
-	width: number | null;
+	width: number;
 	picks_dm: number;
 	// display labels captured at stage time
 	qualityLabel: string;
@@ -87,8 +87,14 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 	const selectedQuality = setup.qualities.find((q) => q.weaving_quality_id === Number(qualityId)) ?? null;
 	const selectedLoom = setup.looms.find((l) => l.machine_id === Number(machineId)) ?? null;
 
-	// Quality, loom and Picks/dm are required; width optional.
-	const formInvalid = !qualityId || !machineId || picksDm === "" || Number(picksDm) <= 0;
+	// Quality, loom, Width and Picks/dm are all required (R-08-21).
+	const formInvalid =
+		!qualityId ||
+		!machineId ||
+		width === "" ||
+		Number(width) <= 0 ||
+		picksDm === "" ||
+		Number(picksDm) <= 0;
 
 	// Live PPI preview of the as-typed picks/dm value.
 	const livePpi = picksDm !== "" && Number(picksDm) > 0 ? dmToPpi(Number(picksDm)) : null;
@@ -96,7 +102,7 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 	// Stage a row locally (multi-observation — POST all on save).
 	const handleAddRow = () => {
 		if (formInvalid || !selectedQuality || !selectedLoom) {
-			setError("Select a quality and loom and enter Picks / dm (> 0).");
+			setError("Select a quality and loom and enter Width (> 0) and Picks / dm (> 0).");
 			return;
 		}
 		setError(null);
@@ -105,7 +111,7 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 			{
 				weaving_quality_id: selectedQuality.weaving_quality_id,
 				machine_id: selectedLoom.machine_id,
-				width: width === "" ? null : Number(width),
+				width: Number(width),
 				picks_dm: Number(picksDm),
 				qualityLabel: qualityLabel(selectedQuality),
 				loomLabel: loomLabel(selectedLoom),
@@ -195,6 +201,7 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 					onChange={(e) => setWidth(e.target.value)}
 					size="small"
 					fullWidth
+					required
 					inputProps={{ step: "any", min: 0 }}
 				/>
 				<TextField
@@ -285,7 +292,7 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 								<Box component="td">{r.qualityLabel}</Box>
 								<Box component="td">{r.loomLabel}</Box>
 								<Box component="td" sx={{ textAlign: "right!important" }}>
-									{r.width != null ? r.width.toFixed(2) : "—"}
+									{r.width.toFixed(2)}
 								</Box>
 								<Box component="td" sx={{ textAlign: "right!important" }}>
 									{r.picks_dm.toFixed(2)}
@@ -333,7 +340,7 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 							<Typography variant="body2">Loom: {r.loomLabel}</Typography>
 							<Box sx={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
 								<Typography variant="body2">
-									Width: {r.width != null ? r.width.toFixed(2) : "—"}
+									Width: {r.width.toFixed(2)}
 								</Typography>
 								<Typography variant="body2" fontWeight={600}>
 									Picks/dm: {r.picks_dm.toFixed(2)} (= {dmToPpi(r.picks_dm).toFixed(2)} PPI)

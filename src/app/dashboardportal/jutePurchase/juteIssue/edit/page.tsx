@@ -58,6 +58,7 @@ import {
   describeStockOrigin,
   buildLabelMap,
   createLabelResolver,
+  buildItemFilterOptions,
 } from "./utils/juteIssueMappers";
 import { JUTE_ISSUE_STATUS_IDS, JUTE_ISSUE_STATUS_LABELS } from "./utils/juteIssueConstants";
 import { calculateIssueValue } from "./utils/juteIssueFactories";
@@ -342,16 +343,11 @@ function JuteIssueEditPage() {
     return qty > adjustedBalQty;
   }, [newQuantity, selectedStock, getAdjustedBalQty]);
 
-  // Extract unique items from stock for filter dropdown
-  const itemNameOptions = React.useMemo(() => {
-    const seen = new Map<string, string>();
-    allStockItems.forEach((s) => {
-      if (s.item_id && s.item_name && !seen.has(String(s.item_id))) {
-        seen.set(String(s.item_id), s.item_name);
-      }
-    });
-    return Array.from(seen.entries()).map(([id, name]) => ({ value: id, label: name }));
-  }, [allStockItems]);
+  // Item filter options cascade from the selected jute type (group).
+  const itemNameOptions = React.useMemo(
+    () => buildItemFilterOptions(allStockItems, filterItemId?.value),
+    [allStockItems, filterItemId]
+  );
 
   // Get selectable lines (saved items that are not draft - i.e., Open status for approve/reject)
   const selectableOpenLines = React.useMemo(
@@ -1220,7 +1216,10 @@ function JuteIssueEditPage() {
                 id="stock-filter-jute-type"
                 options={juteItemOptions}
                 value={filterItemId}
-                onChange={(_, value) => setFilterItemId(value)}
+                onChange={(_, value) => {
+                  setFilterItemId(value);
+                  setFilterItemName(null); // item list changes with the group
+                }}
                 renderInput={(params) => (
                   <TextField {...params} label="Filter by Jute Type" size="small" />
                 )}

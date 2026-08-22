@@ -86,6 +86,30 @@ export const mapStockToOption = (stock: StockOutstandingItem): Option => ({
 });
 
 /**
+ * Options for the stock picker's "Filter by Item" dropdown.
+ *
+ * Cascades from "Filter by Jute Type": only items that actually have stock
+ * under `groupId` (every item when no group is chosen), one entry per item_id,
+ * sorted by name. Built off the unfiltered list it offered every item at the
+ * branch under whatever group was selected.
+ */
+export const buildItemFilterOptions = (
+  stock: StockOutstandingItem[],
+  groupId: string | undefined
+): Option[] => {
+  const seen = new Map<string, string>();
+  stock.forEach((s) => {
+    if (groupId && String(s.item_grp_id) !== groupId) return;
+    if (s.item_id && s.item_name && !seen.has(String(s.item_id))) {
+      seen.set(String(s.item_id), s.item_name);
+    }
+  });
+  return Array.from(seen.entries())
+    .map(([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+};
+
+/**
  * Map jute items to options.
  */
 export const mapJuteItemsToOptions = (items: JuteItemRecord[]): Option[] =>

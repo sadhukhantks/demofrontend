@@ -14,6 +14,7 @@ type UseGateEntryFormSchemasParams = {
 	mukamOptions: Option[];
 	supplierOptions: Option[];
 	partyOptions: Option[];
+	partyBranchOptions: Option[];
 	poOptions: Option[];
 	uomOptions: Option[];
 	hasSupplierSelected: boolean;
@@ -27,6 +28,7 @@ export function useGateEntryFormSchemas({
 	mukamOptions,
 	supplierOptions,
 	partyOptions,
+	partyBranchOptions,
 	poOptions,
 	uomOptions,
 	hasSupplierSelected,
@@ -130,6 +132,16 @@ export function useGateEntryFormSchemas({
 					disabled: isViewMode || !hasSupplierSelected,
 					grid: { xs: 12, md: 4 },
 					placeholder: hasSupplierSelected ? "Select Party" : "Select Supplier first",
+				},
+				{
+					name: "partyBranch",
+					label: "Party Branch",
+					type: "select" as const,
+					required: false,
+					options: partyBranchOptions,
+					disabled: isViewMode || partyBranchOptions.length === 0,
+					grid: { xs: 12, md: 4 },
+					placeholder: partyBranchOptions.length ? "Select Party Branch" : "Select Party first",
 				},
 
 				// Row 5: Jute UOM, Mukam, Marketing Slip
@@ -271,6 +283,7 @@ export function useGateEntryFormSchemas({
 			mukamOptions,
 			supplierOptions,
 			partyOptions,
+			partyBranchOptions,
 			poOptions,
 			uomOptions,
 			hasSupplierSelected,

@@ -99,6 +99,7 @@ export type GateEntryFormValues = {
 	mukam: string;
 	supplier: string;
 	party: string;
+	partyBranch: string;
 	grossWeight: string;
 	tareWeight: string;
 	challanWeight: string;
@@ -129,6 +130,7 @@ export type GateEntryLineItem = {
 	actualWeight: string;
 	juteUom: string;  // Per-line UOM (e.g. "LOOSE", "BALE")
 	allowableMoisture: string;  // From PO or manually entered
+	warehouseId: string;  // Godown the line is received into (warehouse_mst.warehouse_id)
 	remarks: string;
 	// Moisture reading fields for QC
 	moistureReadings: number[];  // Array of individual moisture readings
@@ -167,6 +169,7 @@ export type GateEntryDetails = {
 	supplier_name: string;
 	party_id: number | null;
 	party_name: string | null;
+	party_branch_id: number | null;
 	mukam_id: number | null;
 	mukam: string;
 	jute_uom: string;
@@ -200,6 +203,7 @@ export type GateEntryLineItemAPI = {
 	actual_qty: number | null;  // Backend returns actual_qty (not actual_quantity)
 	actual_weight: number | null;
 	allowable_moisture: number | null;
+	warehouse_id: number | null;
 	unit_conversion: string | null;  // Backend returns unit_conversion (not jute_uom)
 	remarks: string | null;
 	moisture_readings?: { moisture_percentage: number }[] | null;  // Persisted QC readings from jute_moisture_rdg
