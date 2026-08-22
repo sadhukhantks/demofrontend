@@ -14,6 +14,8 @@ import type {
   JuteMukhamMoistureRow,
   BatchCostReportRow,
   MrListReportRow,
+  JuteMrIssueDetailRow,
+  JuteMrOptionRow,
   PaginatedReportApiResponse,
   ReportApiResponse,
 } from "@/app/dashboardportal/jutePurchase/reports/types/reportTypes";
@@ -194,6 +196,52 @@ export function fetchJuteMrWise(branchId: number): Promise<JuteMrWiseRow[]> {
 export function fetchJuteGodownWise(branchId: number): Promise<JuteGodownWiseRow[]> {
   const url = `${apiRoutesPortalMasters.JUTE_REPORT_GODOWN_WISE}?branch_id=${branchId}`;
   return fetchBranchReport<JuteGodownWiseRow>(url, "Failed to fetch godown wise report");
+}
+
+export interface FetchMrIssueDetailParams {
+  coId: number;
+  branchId: number;
+  dateFrom: string;
+  dateTo: string;
+  /** Optional — when set the backend ignores the date range and returns every
+   * issue of that MR. */
+  mrId?: string;
+}
+
+export function fetchJuteMrIssueDetail(
+  p: FetchMrIssueDetailParams,
+): Promise<JuteMrIssueDetailRow[]> {
+  const url =
+    dateRangeUrl(
+      apiRoutesPortalMasters.JUTE_REPORT_MR_ISSUE_DETAIL,
+      p.branchId,
+      p.dateFrom,
+      p.dateTo,
+    ) +
+    `&co_id=${p.coId}` +
+    (p.mrId ? `&mr_id=${encodeURIComponent(p.mrId)}` : "");
+  return fetchBranchReport<JuteMrIssueDetailRow>(
+    url,
+    "Failed to fetch MR issue detail report",
+  );
+}
+
+/** MR picker options for one branch. Dates are optional — the picker lists
+ * every eligible MR so a user can reach an MR outside the report period. */
+export function fetchJuteMrOptions(
+  coId: number,
+  branchId: number,
+  dateFrom?: string,
+  dateTo?: string,
+): Promise<JuteMrOptionRow[]> {
+  const qs = new URLSearchParams({
+    co_id: String(coId),
+    branch_id: String(branchId),
+  });
+  if (dateFrom) qs.append("date_from", dateFrom);
+  if (dateTo) qs.append("date_to", dateTo);
+  const url = `${apiRoutesPortalMasters.JUTE_REPORT_MR_OPTIONS}?${qs.toString()}`;
+  return fetchBranchReport<JuteMrOptionRow>(url, "Failed to fetch MR list");
 }
 
 export interface FetchMrListParams {

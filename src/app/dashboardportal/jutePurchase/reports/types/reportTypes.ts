@@ -7,6 +7,7 @@ export interface JuteStockReportRow {
   opening_weight: number;
   receipt_weight: number;
   issue_weight: number;
+  sold_weight: number;
   closing_weight: number;
   mtd_receipt_weight: number;
   mtd_issue_weight: number;
@@ -24,6 +25,8 @@ export interface JuteQtyWiseReportRow {
   receipt_qty: number;
   issue_weight: number;
   issue_qty: number;
+  sold_weight: number;
+  sold_qty: number;
   closing_weight: number;
   closing_qty: number;
 }
@@ -163,6 +166,58 @@ export interface MrListReportRow {
   net_total: number | null;
   status_id: number | null;
   status_name: string | null;
+}
+
+/** Row from GET /api/juteReports/mr-issue-detail — one issue against an MR
+ * line; the MR columns repeat, and an MR line with no issues comes back with
+ * every issue field NULL. */
+export interface JuteMrIssueDetailRow {
+  jute_mr_id: number;
+  jute_mr_li_id: number;
+  /** Formatted MR number — NULL until the MR is approved (branch_mr_no is
+   * assigned then), so roughly half the rows have none. Never bind a column
+   * to this: 510/558 dev3 rows are NULL. Use mr_label. */
+  mr_number: string | null;
+  /** Guaranteed non-null display label (mr_number, else GE-<n>, else MR-<id>). */
+  mr_label: string;
+  /** Display date: jute_mr_date COALESCEd with out_date. */
+  mr_date: string | null;
+  /** Provenance only — not shown as columns. */
+  jute_mr_date: string | null;
+  out_date: string | null;
+  jute_gate_entry_no: string | null;
+  party_name: string | null;
+  warehouse_name: string | null;
+  quality: string | null;
+  marka: string | null;
+  crop_year: string | number | null;
+  received_qty: number | null;
+  received_weight: number | null;
+  actual_rate: number | null;
+  jute_issue_id: number | null;
+  issue_date: string | null;
+  issued_qty: number | null;
+  issued_weight: number | null;
+  issue_value: number | null;
+  issue_item_name: string | null;
+  yarn_type_name: string | null;
+  issue_status: string | null;
+  updated_by: string | null;
+  update_date_time: string | null;
+  /** Only present when the backend could join vw_jute_stock_outstanding. */
+  balance_qty?: number | null;
+  balance_weight?: number | null;
+}
+
+/** Row from GET /api/juteReports/mr-options — feeds the MR picker. */
+export interface JuteMrOptionRow {
+  jute_mr_id: number;
+  /** NULL on unapproved MRs — never use it as the picker label. */
+  mr_number: string | null;
+  /** Guaranteed non-null display label (mr_number, else GE-<n>, else MR-<id>). */
+  mr_label: string;
+  mr_date: string | null;
+  party_name: string | null;
 }
 
 /** Generic row shape for the tally-download CSV endpoint */

@@ -187,6 +187,7 @@ export const extractFormValuesFromDetails = (details: GateEntryDetails): GateEnt
 		mukam: details.mukam_id ? String(details.mukam_id) : "",
 		supplier: String(details.jute_supplier_id ?? ""),
 		party: details.party_id ? String(details.party_id) : "",
+		partyBranch: details.party_branch_id ? String(details.party_branch_id) : "",
 		grossWeight: String(details.gross_weight ?? ""),
 		tareWeight: String(details.tare_weight ?? ""),
 		challanWeight: String(details.challan_weight ?? ""),
@@ -223,6 +224,7 @@ export const mapLineItemsFromAPI = (lineItems: GateEntryLineItemAPI[]): GateEntr
 			actualWeight: li.actual_weight ? String(li.actual_weight) : "",
 			juteUom: li.unit_conversion ?? "",
 			allowableMoisture: li.allowable_moisture != null ? String(li.allowable_moisture) : "",
+			warehouseId: li.warehouse_id != null ? String(li.warehouse_id) : "",
 			remarks: li.remarks ?? "",
 			moistureReadings,
 			averageMoisture: moistureReadings.length
