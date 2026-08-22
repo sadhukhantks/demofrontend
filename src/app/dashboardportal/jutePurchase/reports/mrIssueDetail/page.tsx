@@ -20,6 +20,8 @@ import type { JuteMrIssueDetailRow } from "../types/reportTypes";
 // where non-null and be blank everywhere else; add it if approval state ever
 // has to be visible in the export.
 const columns: GridColDef<JuteMrIssueDetailRow>[] = [
+  // Plain, not numCol — numCol would render an id as "27743.00".
+  { field: "jute_mr_id", headerName: "MR ID", width: 90 },
   { field: "mr_label", headerName: "MR #", width: 180 },
   { field: "mr_date", headerName: "MR / Inward Date", width: 120 },
   { field: "jute_gate_entry_no", headerName: "GE #", width: 120 },
