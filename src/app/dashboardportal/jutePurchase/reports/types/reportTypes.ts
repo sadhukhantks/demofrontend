@@ -185,6 +185,7 @@ export interface IssuePlannerSummary {
 /** Previous-day production per yarn (issue planner) */
 export interface IssuePlannerReferenceRow {
   item_id: number | null;
+  jute_yarn_id: number | null;
   yarn_name: string | null;
   production_kg: number;
   reference_kg: number;

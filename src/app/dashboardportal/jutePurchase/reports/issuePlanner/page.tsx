@@ -123,7 +123,13 @@ function IssuePlannerPageContent() {
   const { branches, initialBranchId, dateParam } = useReportBranches();
 
   const [branchId, setBranchId] = useState<number | null>(initialBranchId);
-  const [date, setDate] = useState<string>(dateParam || todayIso());
+  // The reports hub seeds ?date=yesterday for the stock-style reports, but
+  // this page plans FORWARD from the issue day — a past seed would silently
+  // plan yesterday. Honor the param only for today/future dates.
+  const [date, setDate] = useState<string>(() => {
+    const today = todayIso();
+    return dateParam && dateParam >= today ? dateParam : today;
+  });
   const [report, setReport] = useState<IssuePlannerReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -265,7 +271,7 @@ function IssuePlannerPageContent() {
             </Box>
           )}
 
-          {!loading && report && summary && (
+          {branchId != null && !loading && report && summary && (
             <>
               <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 1 }}>
                 <KpiCard
@@ -323,7 +329,7 @@ function IssuePlannerPageContent() {
               <ReportGrid
                 rows={report.reference_production}
                 columns={referenceColumns}
-                getRowId={(r) => `${r.item_id ?? "x"}-${r.yarn_name ?? ""}`}
+                getRowId={(r) => `${r.item_id ?? "x"}-${r.jute_yarn_id ?? "x"}`}
                 loading={false}
                 error={null}
                 height={320}
