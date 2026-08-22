@@ -15,6 +15,8 @@ import { MoistureButton } from "../components/MoistureReadingDialog";
 type UseGateEntryLineItemColumnsParams = {
 	canEdit: boolean;
 	juteItems: JuteItemRecord[];
+	/** Godown options for the entry's branch (warehouse_mst, hierarchical path label) */
+	warehouseOptions: Option[];
 	qualitiesByItem: Record<string, JuteQualityRecord[]>;
 	handleLineFieldChange: (id: string, field: keyof GateEntryLineItem, value: string) => void;
 	getItemLabel: (itemId: string) => string;
@@ -26,6 +28,7 @@ type UseGateEntryLineItemColumnsParams = {
 export function useGateEntryLineItemColumns({
 	canEdit,
 	juteItems,
+	warehouseOptions,
 	qualitiesByItem,
 	handleLineFieldChange,
 	getItemLabel,
@@ -296,6 +299,33 @@ export function useGateEntryLineItemColumns({
 					);
 				},
 			},
+			// Godown (warehouse) column
+			{
+				id: "warehouse",
+				header: "Godown",
+				width: "1.2fr",
+				minWidth: "170px",
+				renderCell: ({ item }) => {
+					const selected = warehouseOptions.find((opt) => opt.value === item.warehouseId) ?? null;
+					if (!canEdit) {
+						return <span className="text-xs">{selected?.label ?? "-"}</span>;
+					}
+					return (
+						<SearchableSelect
+							options={warehouseOptions}
+							value={selected}
+							onChange={(next) =>
+								handleLineFieldChange(item.id, "warehouseId", next?.value ?? "")
+							}
+							getOptionLabel={(opt) => opt.label}
+							isOptionEqualToValue={(a, b) => a.value === b.value}
+							placeholder="Select godown"
+						/>
+					);
+				},
+				getTooltip: ({ item }) =>
+					warehouseOptions.find((opt) => opt.value === item.warehouseId)?.label || undefined,
+			},
 			// Moisture Reading button column
 			{
 				id: "moistureReading",
@@ -330,6 +360,7 @@ export function useGateEntryLineItemColumns({
 		[
 			canEdit,
 			itemOptions,
+			warehouseOptions,
 			getQualityOptions,
 			handleLineFieldChange,
 			getItemLabel,

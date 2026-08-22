@@ -176,6 +176,7 @@ function JuteMREditPageContent() {
 	const [lineItems, setLineItems] = React.useState<MRLineItem[]>([]);
 	const [saving, setSaving] = React.useState(false);
 	const [warehouseOptions, setWarehouseOptions] = React.useState<Array<{ value: number; label: string }>>([]);
+	const [partyOptions, setPartyOptions] = React.useState<Array<{ value: string; label: string }>>([]);
 	const [partyBranchOptions, setPartyBranchOptions] = React.useState<PartyBranchOption[]>([]);
 	const [partyBranchLoading, setPartyBranchLoading] = React.useState(false);
 	const [partyBranchesLoaded, setPartyBranchesLoaded] = React.useState(false);
@@ -190,6 +191,16 @@ function JuteMREditPageContent() {
 			setHeader((prev) => {
 				if (!prev) return null;
 				const updated = { ...prev, [field]: value };
+
+				// Switching party invalidates the branch-derived fields; loadPartyBranches
+				// re-fetches for the new party and auto-selects when it has exactly one
+				if (field === "party_id") {
+					updated.party_name = partyOptions.find((p) => p.value === String(value))?.label ?? null;
+					updated.party_branch_id = null;
+					updated.party_branch_name = null;
+					updated.party_address = null;
+					updated.party_gst_no = null;
+				}
 
 				// When party_branch_id is changed, also update address and gst_no from the selected branch
 				if (field === "party_branch_id") {
@@ -209,7 +220,7 @@ function JuteMREditPageContent() {
 				return updated;
 			});
 		},
-		[partyBranchOptions]
+		[partyBranchOptions, partyOptions]
 	);
 
 	// Build line item columns
@@ -290,22 +301,46 @@ function JuteMREditPageContent() {
 		}
 	}, []);
 
+	/** Parties available for the MR's supplier (same list the QC page offers). */
+	const loadPartyOptions = React.useCallback(async (supplierId: number) => {
+		try {
+			const url = `${apiRoutesPortalMasters.JUTE_GATE_ENTRY_PARTIES_BY_SUPPLIER}/${supplierId}?co_id=${coId}`;
+			const { data, error } = await fetchWithCookie<{ parties: Array<{ party_id: number | string; party_name: string }> }>(url, "GET");
+			if (error || !data) {
+				setPartyOptions([]);
+				return;
+			}
+			setPartyOptions((data.parties ?? []).map((p) => ({ value: String(p.party_id), label: p.party_name })));
+		} catch (err) {
+			console.error("Error loading party options:", err);
+			setPartyOptions([]);
+		}
+	}, [coId]);
+
 	/**
 	 * Load party branches for a given party_id.
 	 * Auto-selects if only one branch exists (mandatory field).
 	 */
+	const partyBranchReqRef = React.useRef(0);
 	const loadPartyBranches = React.useCallback(async (partyId: string, currentPartyBranchId: number | null) => {
 		if (!partyId) {
 			setPartyBranchOptions([]);
 			setPartyBranchesLoaded(false);
 			return;
 		}
-		
+
+		// Only the newest request may write state — party is a dropdown now, so a
+		// fast A->B->A switch can otherwise land A's branches (and A's auto-select)
+		// on party B
+		const reqId = ++partyBranchReqRef.current;
+		const isStale = () => reqId !== partyBranchReqRef.current;
+
 		setPartyBranchLoading(true);
 		setPartyBranchesLoaded(false);
 		try {
 			const url = `${apiRoutesPortalMasters.JUTE_MR_PARTY_BRANCHES}?party_id=${partyId}`;
 			const { data, error } = await fetchWithCookie<{ branches: PartyBranchOption[] }>(url, "GET");
+			if (isStale()) return;
 			if (error || !data) {
 				setPartyBranchOptions([]);
 				setPartyBranchesLoaded(true);
@@ -328,10 +363,11 @@ function JuteMREditPageContent() {
 			}
 		} catch (err) {
 			console.error("Error loading party branches:", err);
+			if (isStale()) return;
 			setPartyBranchOptions([]);
 			setPartyBranchesLoaded(true);
 		} finally {
-			setPartyBranchLoading(false);
+			if (!isStale()) setPartyBranchLoading(false);
 		}
 	}, []);
 
@@ -427,6 +463,30 @@ function JuteMREditPageContent() {
 		}
 	}, [header?.branch_id, loadWarehouseOptions]);
 
+	// Drop a warehouse that is not in this branch's list, so a stale id can't ride
+	// along in the save payload while the cell renders blank — the backend guard
+	// 400s it, and with no matching option there is no clear button to fix it by
+	// hand. Same rule the QC page applies to its own godown column.
+	React.useEffect(() => {
+		if (warehouseOptions.length === 0) return;
+		const valid = new Set(warehouseOptions.map((o) => o.value));
+		const isStale = (id: number | null) => id != null && !valid.has(id);
+		setLineItems((prev) =>
+			prev.some((li) => isStale(li.warehouseId))
+				? prev.map((li) => (isStale(li.warehouseId) ? { ...li, warehouseId: null } : li))
+				: prev
+		);
+		// Options always land after the record's lines (the branch that triggers this
+		// fetch comes from the same load), so lineItems is deliberately not a dep.
+	}, [warehouseOptions]);
+
+	// Load party options once the supplier is known
+	React.useEffect(() => {
+		if (coId && header?.jute_supplier_id) {
+			void loadPartyOptions(header.jute_supplier_id);
+		}
+	}, [coId, header?.jute_supplier_id, loadPartyOptions]);
+
 	// Load party branches when party_id is available
 	React.useEffect(() => {
 		if (header?.party_id) {
@@ -484,6 +544,7 @@ function JuteMREditPageContent() {
 		try {
 			const payload = {
 				mr_weight: Math.round(header.mr_weight ?? 0),
+				party_id: header.party_id,
 				party_branch_id: header.party_branch_id,
 				remarks: header.remarks,
 				line_items: lineItems.map((li) => ({
@@ -623,6 +684,7 @@ function JuteMREditPageContent() {
 					header={header} 
 					mode={canEdit ? mode : "view"} 
 					onHeaderChange={handleHeaderChange}
+					partyOptions={partyOptions}
 					partyBranchOptions={partyBranchOptions}
 					partyBranchLoading={partyBranchLoading}
 					partyBranchesLoaded={partyBranchesLoaded}

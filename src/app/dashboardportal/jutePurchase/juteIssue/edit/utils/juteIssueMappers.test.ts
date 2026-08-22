@@ -6,6 +6,7 @@ import {
 	createLineFromStock,
 	describeStockOrigin,
 	mapApiLineItemsToEditable,
+	buildItemFilterOptions,
 	mapEditableToCreatePayload,
 	mapStockToOption,
 } from "./juteIssueMappers";
@@ -214,5 +215,37 @@ describe("picker labels", () => {
 	it("uses stock_key as the option value so the two sources cannot collide", () => {
 		expect(mapStockToOption(mrStock).value).toBe("MR-24143");
 		expect(mapStockToOption(wasteStock).value).toBe("W-1");
+	});
+});
+
+/**
+ * "Filter by Item" in the stock picker must cascade from "Filter by Jute Type":
+ * with CUTTACK selected it offered A TD-8 (U) / B BOT etc. because the options
+ * were built off the UNFILTERED stock list (2026-08-22, sls br 87).
+ */
+describe("buildItemFilterOptions", () => {
+	const cuttack = { ...mrStock, stock_key: "MR-1", item_grp_id: 10, item_id: 1, item_name: "C TD-5" };
+	const cuttack2 = { ...mrStock, stock_key: "MR-2", item_grp_id: 10, item_id: 1, item_name: "C TD-5" };
+	const cuttackW6 = { ...mrStock, stock_key: "MR-3", item_grp_id: 10, item_id: 3, item_name: "C W6" };
+	const assam = { ...mrStock, stock_key: "MR-4", item_grp_id: 20, item_id: 2, item_name: "A TD-8 (U)" };
+	const rows = [assam, cuttackW6, cuttack, cuttack2];
+
+	it("lists only items of the selected group, deduped and sorted by name", () => {
+		expect(buildItemFilterOptions(rows, "10")).toEqual([
+			{ value: "1", label: "C TD-5" },
+			{ value: "3", label: "C W6" },
+		]);
+	});
+
+	it("lists every distinct item when no group is selected", () => {
+		expect(buildItemFilterOptions(rows, undefined).map((o) => o.label)).toEqual([
+			"A TD-8 (U)",
+			"C TD-5",
+			"C W6",
+		]);
+	});
+
+	it("returns nothing for a group with no stock", () => {
+		expect(buildItemFilterOptions(rows, "99")).toEqual([]);
 	});
 });
