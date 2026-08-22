@@ -209,6 +209,44 @@ export interface JuteMrIssueDetailRow {
   balance_weight?: number | null;
 }
 
+/** Row from GET /api/juteReports/mr-movement-detail — the Issue Detail row plus
+ * raw-jute sales. One row per MOVEMENT, so exactly one of the issue block and
+ * the sale block is populated and issued_weight / sold_weight are both
+ * summable. An MR line with neither movement comes back once with
+ * movement_type null. */
+export interface JuteMrMovementDetailRow
+  extends Omit<JuteMrIssueDetailRow, "jute_mr_id" | "jute_mr_li_id" | "mr_label"> {
+  /** 0 = filed under an MR line, 1 = the unattributed-sales block. */
+  row_group: 0 | 1;
+  /** null on unattributed sale rows — they belong to no MR. */
+  jute_mr_id: number | null;
+  jute_mr_li_id: number | null;
+  mr_label: string | null;
+  /** null on an MR line that has neither an issue nor a sale. */
+  movement_type: "Issue" | "Sale" | "Sale (unattributed)" | null;
+  /** issue_date on Issue rows, invoice_date on Sale rows — the sort key. */
+  movement_date: string | null;
+  invoice_id: number | null;
+  /** Unique per sale row; part of the grid row id. */
+  invoice_line_item_id: number | null;
+  invoice_no: string | number | null;
+  invoice_date: string | null;
+  customer_name: string | null;
+  sale_item_name: string | null;
+  sold_qty: number | null;
+  /** Raw sales_invoice_dtl.sales_weight — no fallback to quantity, which is a
+   * different unit on some rows. */
+  sold_weight: number | null;
+  sale_rate: number | null;
+  /** amount_without_tax, so it compares with issue_value. */
+  sale_value: number | null;
+  invoice_status: string | null;
+  /** What sales_invoice_jute asserted. Populated on unattributed rows so the
+   * user can see WHY the sale did not file under an MR. */
+  claimed_mr_id: number | null;
+  claimed_mr_no: string | null;
+}
+
 /** Row from GET /api/juteReports/mr-options — feeds the MR picker. */
 export interface JuteMrOptionRow {
   jute_mr_id: number;

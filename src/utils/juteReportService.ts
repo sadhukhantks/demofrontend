@@ -15,6 +15,7 @@ import type {
   BatchCostReportRow,
   MrListReportRow,
   JuteMrIssueDetailRow,
+  JuteMrMovementDetailRow,
   JuteMrOptionRow,
   PaginatedReportApiResponse,
   ReportApiResponse,
@@ -223,6 +224,26 @@ export function fetchJuteMrIssueDetail(
   return fetchBranchReport<JuteMrIssueDetailRow>(
     url,
     "Failed to fetch MR issue detail report",
+  );
+}
+
+/** MR-wise Movement Detail — same scope params as the Issue Detail report,
+ * with raw-jute sales unioned in. */
+export function fetchJuteMrMovementDetail(
+  p: FetchMrIssueDetailParams,
+): Promise<JuteMrMovementDetailRow[]> {
+  const url =
+    dateRangeUrl(
+      apiRoutesPortalMasters.JUTE_REPORT_MR_MOVEMENT_DETAIL,
+      p.branchId,
+      p.dateFrom,
+      p.dateTo,
+    ) +
+    `&co_id=${p.coId}` +
+    (p.mrId ? `&mr_id=${encodeURIComponent(p.mrId)}` : "");
+  return fetchBranchReport<JuteMrMovementDetailRow>(
+    url,
+    "Failed to fetch MR movement detail report",
   );
 }
 
