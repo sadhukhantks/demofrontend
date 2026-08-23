@@ -197,12 +197,14 @@ export const BillPassPreview: React.FC<BillPassPreviewProps> = ({
         <tbody>
           {detail.sr_lines.map((line) => {
             const adjustments = drcrMap.get(line.inward_dtl_id) ?? [];
+            // Note line_amount is tax-exclusive; line_total includes the note GST,
+            // which is what actually adjusts this tax-inclusive SR line.
             const drTotal = adjustments
               .filter((a) => a.note_type === 1)
-              .reduce((s, a) => s + a.line_amount, 0);
+              .reduce((s, a) => s + (a.line_total ?? a.line_amount), 0);
             const crTotal = adjustments
               .filter((a) => a.note_type === 2)
-              .reduce((s, a) => s + a.line_amount, 0);
+              .reduce((s, a) => s + (a.line_total ?? a.line_amount), 0);
             const lineNet = line.line_total - drTotal + crTotal;
             const hasAdj = adjustments.length > 0;
 
@@ -263,7 +265,7 @@ export const BillPassPreview: React.FC<BillPassPreviewProps> = ({
                         }}
                       >
                         {isDebit ? "-" : "+"}
-                        {fmtAmt(adj.line_amount)}
+                        {fmtAmt(adj.line_total ?? adj.line_amount)}
                       </td>
                     </tr>
                   );

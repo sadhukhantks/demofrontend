@@ -86,6 +86,13 @@ export type BillPassDRCRLine = {
   line_amount: number;
   item_name: string;
   item_code: string;
+  // GST on the note line. line_total = line_amount + tax_amount and is the
+  // amount that actually adjusts the (tax-inclusive) SR line.
+  cgst_amount?: number;
+  sgst_amount?: number;
+  igst_amount?: number;
+  tax_amount?: number;
+  line_total?: number;
 };
 
 /** DRCR Note in Bill Pass detail */
@@ -97,6 +104,13 @@ export type BillPassDRCRNote = {
   remarks: string;
   gross_amount: number;
   net_amount: number;
+  // GST on the note. total_amount = net_amount + tax_amount and is the
+  // amount that actually adjusts the bill.
+  cgst_amount?: number;
+  sgst_amount?: number;
+  igst_amount?: number;
+  tax_amount?: number;
+  total_amount?: number;
   status_name: string;
   line_count: number;
   lines: BillPassDRCRLine[];
