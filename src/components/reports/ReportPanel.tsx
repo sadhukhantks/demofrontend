@@ -17,7 +17,8 @@ import { usePathname } from "next/navigation";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { resolveReportMenuId } from "@/utils/reportMenuService";
 import ReportGrid from "./ReportGrid";
-import { exportRowsToExcel } from "./exportExcel";
+import { useMounted } from "./useMounted";
+import { exportRowsToExcel, type ReportExportHeader } from "./exportExcel";
 import type { BranchOption } from "./types";
 
 /** The filter values handed to the fetcher when the user submits (branch is
@@ -56,6 +57,13 @@ interface ReportPanelProps<TRow extends GridValidRowModel> {
   sortField?: string;
   sortDir?: "asc" | "desc";
   exportName: string;
+  /** Replaces the default one-sheet export — for reports whose Excel is a
+   * fixed legacy layout rather than a dump of the grid. */
+  exportOverride?: (
+    rows: TRow[],
+    header: ReportExportHeader,
+    filters: ReportFilters,
+  ) => Promise<void>;
   /** Optional row drill-down (see ReportGrid); not fired for total rows. */
   onRowDoubleClick?: (row: TRow) => void;
 }
@@ -84,6 +92,7 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
   sortField,
   sortDir,
   exportName,
+  exportOverride,
   onRowDoubleClick,
 }: ReportPanelProps<TRow>) {
   // Draft filters — bound to the inputs.
@@ -99,10 +108,7 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
   // context, so the server renders an empty branch and the client renders the
   // saved one. Holding the filters back until mount keeps the first client
   // render identical to the server HTML (same gate as MuiDataGrid).
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useMounted();
 
   const [rows, setRows] = useState<TRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -142,13 +148,23 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
         : dates === "single"
           ? dateTo
           : "";
-    await exportRowsToExcel(columns, rows, exportName, {
+    const header = {
       companyName: selectedCompany?.co_name,
       branchName: branch?.branch_name,
       reportName: title,
       reportNo: await resolveReportMenuId(pathname),
       reportFor,
-    });
+    };
+    if (exportOverride) {
+      await exportOverride(rows, header, {
+        branchId: branchId as number,
+        dateFrom,
+        dateTo,
+        extra: extraValue,
+      });
+      return;
+    }
+    await exportRowsToExcel(columns, rows, exportName, header);
   }, [
     dates,
     dateFrom,
@@ -160,6 +176,9 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
     branch?.branch_name,
     title,
     pathname,
+    exportOverride,
+    branchId,
+    extraValue,
   ]);
 
   return (
