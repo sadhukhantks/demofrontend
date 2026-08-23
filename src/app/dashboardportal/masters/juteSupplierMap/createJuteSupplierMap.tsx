@@ -13,13 +13,9 @@ import {
   Typography,
   CircularProgress,
   Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  FormHelperText,
 } from "@mui/material";
 import { X } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import type { MuiFormMode } from "@/components/ui/muiform";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -319,57 +315,58 @@ export default function CreateJuteSupplierMap({
   /**
    * Render create mode content
    */
-  const renderCreateContent = () => (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 1 }}>
-      <FormControl fullWidth error={!!errors.supplier}>
-        <InputLabel id="supplier-label">Jute Supplier *</InputLabel>
-        <Select
-          labelId="supplier-label"
-          value={selectedSupplier}
-          label="Jute Supplier *"
-          onChange={(e) => handleSupplierChange(e.target.value)}
-          disabled={loadingSetup}
-        >
-          {supplierOptions.map((option) => (
-            <MenuItem key={option.value} value={option.value}>
-              {option.label}
-            </MenuItem>
-          ))}
-        </Select>
-        {errors.supplier && <FormHelperText>{errors.supplier}</FormHelperText>}
-      </FormControl>
+  const renderCreateContent = () => {
+    const selectedSupplierOption =
+      supplierOptions.find((option) => option.value === selectedSupplier) ?? null;
+    const selectedPartyOption =
+      partyOptions.find((option) => option.value === selectedParty) ?? null;
+    const partyHelperText =
+      errors.party ??
+      (selectedSupplier && !loadingParties && partyOptions.length === 0
+        ? "All parties are already mapped to this supplier"
+        : undefined);
 
-      <FormControl fullWidth error={!!errors.party} disabled={!selectedSupplier || loadingParties}>
-        <InputLabel id="party-label">Party *</InputLabel>
-        <Select
-          labelId="party-label"
-          value={selectedParty}
-          label="Party *"
-          onChange={(e) => handlePartyChange(e.target.value)}
-        >
-          {loadingParties ? (
-            <MenuItem disabled>
-              <CircularProgress size={20} sx={{ mr: 1 }} /> Loading...
-            </MenuItem>
-          ) : partyOptions.length === 0 && selectedSupplier ? (
-            <MenuItem disabled>No available parties to map</MenuItem>
-          ) : (
-            partyOptions.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))
-          )}
-        </Select>
-        {errors.party && <FormHelperText>{errors.party}</FormHelperText>}
-        {selectedSupplier && !loadingParties && partyOptions.length === 0 && (
-          <FormHelperText>
-            All parties are already mapped to this supplier
-          </FormHelperText>
-        )}
-      </FormControl>
-    </Box>
-  );
+    return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 1 }}>
+      <SearchableSelect<Option>
+        variant="outlined"
+        size="medium"
+        label="Jute Supplier"
+        required
+        options={supplierOptions}
+        value={selectedSupplierOption}
+        onChange={(option) => handleSupplierChange(option?.value ?? "")}
+        getOptionLabel={(option) => option.label}
+        getOptionKey={(option) => option.value}
+        isOptionEqualToValue={(option, selected) => option.value === selected.value}
+        error={!!errors.supplier}
+        helperText={errors.supplier}
+        disabled={loadingSetup}
+        loading={loadingSetup}
+      />
+
+      <SearchableSelect<Option>
+        variant="outlined"
+        size="medium"
+        label="Party"
+        required
+        options={partyOptions}
+        value={selectedPartyOption}
+        onChange={(option) => handlePartyChange(option?.value ?? "")}
+        getOptionLabel={(option) => option.label}
+        getOptionKey={(option) => option.value}
+        isOptionEqualToValue={(option, selected) => option.value === selected.value}
+        error={!!errors.party}
+        helperText={partyHelperText}
+        disabled={!selectedSupplier || loadingParties}
+        loading={loadingParties}
+        noOptionsText={
+          selectedSupplier ? "No available parties to map" : "Select a supplier first"
+        }
+      />
+      </Box>
+    );
+  };
 
   return (
     <>

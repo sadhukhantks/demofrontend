@@ -38,16 +38,12 @@ import {
   Chip,
   CircularProgress,
   Divider,
-  FormControl,
-  FormHelperText,
-  InputLabel,
-  MenuItem,
-  Select,
   TextField,
   Typography,
 } from "@mui/material";
 import { ArrowLeft, LogIn, Save, LogOut } from "lucide-react";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -270,6 +266,11 @@ function JuteGateEntryCreatePageContent() {
       value: String(b.branch_id),
     }));
   }, [setupData, selectedBranches, isCreateMode]);
+
+  const selectedBranchOption = React.useMemo(
+    () => branchOptions.find((opt) => opt.value === formValues.branch) ?? null,
+    [branchOptions, formValues.branch],
+  );
 
   // Auto-select the branch when the sidebar exposes exactly one (create mode only).
   React.useEffect(() => {
@@ -633,22 +634,22 @@ function JuteGateEntryCreatePageContent() {
             }}
           >
             {/* Branch */}
-            <FormControl fullWidth required error={Boolean(errors.branch)} disabled={isViewMode || isEditMode}>
-              <InputLabel id="branch-label">Branch</InputLabel>
-              <Select
-                labelId="branch-label"
-                value={formValues.branch}
-                label="Branch"
-                onChange={(e) => handleFieldChange("branch", e.target.value)}
-              >
-                {branchOptions.map((opt) => (
-                  <MenuItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </MenuItem>
-                ))}
-              </Select>
-              {errors.branch && <FormHelperText>{errors.branch}</FormHelperText>}
-            </FormControl>
+            <SearchableSelect<Option>
+              variant="outlined"
+              size="medium"
+              label="Branch"
+              required
+              clearable={false}
+              error={Boolean(errors.branch)}
+              helperText={errors.branch}
+              disabled={isViewMode || isEditMode}
+              options={branchOptions}
+              value={selectedBranchOption}
+              onChange={(option) => handleFieldChange("branch", option?.value ?? "")}
+              getOptionLabel={(option) => option.label}
+              getOptionKey={(option) => option.value}
+              isOptionEqualToValue={(option, selected) => option.value === selected.value}
+            />
 
             {/* Entry Date */}
             <TextField
