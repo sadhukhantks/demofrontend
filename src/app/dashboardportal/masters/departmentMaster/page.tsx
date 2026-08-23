@@ -14,12 +14,12 @@ import {
 	DialogActions,
 	Switch,
 	FormControlLabel,
-	MenuItem,
-} from "@mui/material";
+	} from "@mui/material";
 import { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui/x-data-grid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import CreateDepartmentPage from "./CreateDepartmentPage";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 
 type DeptRow = {
 	id?: number | string;
@@ -331,13 +331,16 @@ export default function DepartmentMasterPage() {
 							helperText={editCodeError ?? undefined}
 							fullWidth
 						/>
-						<TextField select label="Branch" value={editBranchId} onChange={(e) => setEditBranchId(e.target.value)} fullWidth>
-							{branchOptions.map((b: any) => (
-								<MenuItem key={b.id ?? b.value ?? b.branch_id} value={b.id ?? b.value ?? b.branch_id}>
-									{b.label ?? b.branch_name ?? b.name ?? ""}
-								</MenuItem>
-							))}
-						</TextField>
+						<SearchableOptionSelect
+							label="Branch"
+							fullWidth
+							options={branchOptions.map((b) => ({
+								value: String(b.id ?? b.value ?? b.branch_id),
+								label: String(b.label ?? b.branch_name ?? b.name ?? ""),
+							}))}
+							value={String(editBranchId)}
+							onChange={(selectedValue) => setEditBranchId(selectedValue)}
+						/>
 						<FormControlLabel control={<Switch checked={editDeptActive} onChange={(e) => setEditDeptActive(e.target.checked)} />} label="Active" />
 					</Box>
 				</DialogContent>

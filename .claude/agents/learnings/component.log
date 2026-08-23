@@ -55,3 +55,24 @@
 - **[PATTERN-CHANGE]** `SearchableSelect` defaults to `size="small"`; pass `size="medium"` when neighbouring `TextField`s are default-size, or the field looks short.
 - **[PATTERN-CHANGE]** `SearchableSelect` is a plain function component (no forwardRef), so it cannot be a direct MUI `<Tooltip>` child — wrap it in a `<Box>`.
 - **What should change:** consider a `forwardRef` on `SearchableSelect` so Tooltip/Popper children work without a wrapper element.
+
+## 2026-08-23 - SearchableOptionSelect (dropdown autofill sweep: sales/procurement + whole-tree second pass)
+- **Similar components found:** `SearchableSelect` / `SearchableMultiSelect` (canonical, option-object API);
+  `muiSelect.tsx`, `FormFieldWrapper.tsx`, `select.tsx` (owned by other agents this run).
+- **Pattern used:** MUI (thin wrapper over the canonical `SearchableSelect` Autocomplete).
+- **Why a new component:** the tree held 128 `<TextField select>` call sites that keep a *primitive*
+  id in state and described options as `<MenuItem>` children. Repeating `options.find(...) ?? null`
+  + `getOptionLabel` + `isOptionEqualToValue` at 128 sites would have been the alternative.
+  `SearchableOptionSelect` owns the object<->id mapping once; `""` still means "nothing selected",
+  so every converted `onChange` body kept working with only `e.target.value` -> `selectedValue`.
+- **Theme tokens used:** none added — all colors come from the MUI theme via `SearchableSelect`.
+- **Export pattern:** named export + default export; no barrel file exists in `src/components/ui/`.
+- **[REUSE]** `SearchableOptionSelect` should be the default for any future primitive-valued dropdown;
+  reach for `SearchableSelect` directly only when form state stores the whole option object.
+- **[PATTERN-CHANGE]** A placeholder `<MenuItem value="">None/All/Select…</MenuItem>` no longer exists
+  as an option — it becomes `placeholder="..."` plus the Autocomplete clear (x) button, which emits `""`.
+  Where clearing must be impossible, pass `clearable={false}`.
+- **What should change:** `src/components/ui/` has no `index.ts`; a barrel would stop these near-duplicate
+  wrappers from being rediscovered. Also, ESLint is currently unrunnable in this repo
+  (`next lint` / `eslint` both crash on the flat-config: "Converting circular structure to JSON"),
+  so only `tsc --noEmit` and `vitest` can gate a sweep this size.

@@ -282,7 +282,7 @@ export default function TrollyMasterPage() {
 					<SearchableOptionSelect
 						label="Type"
 						size="small"
-						options={[...[{ value: "ALL", label: "All" }], ...TROLLY_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))]}
+						options={[{ value: "ALL", label: "All" }, ...TROLLY_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))]}
 						value={typeFilter}
 						onChange={(selectedValue) => setTypeFilter(selectedValue as "ALL" | TrollyType)}
 						sx={{ minWidth: 140 }}
@@ -290,7 +290,7 @@ export default function TrollyMasterPage() {
 					<SearchableOptionSelect
 						label="Machine Type"
 						size="small"
-						options={[...[{ value: "ALL", label: "All" }], ...machineTypes.map((mt) => ({ value: String(mt.machine_type_id), label: mt.machine_type_name }))]}
+						options={[{ value: "ALL", label: "All" }, ...machineTypes.map((mt) => ({ value: String(mt.machine_type_id), label: mt.machine_type_name }))]}
 						value={String(machineTypeFilter)}
 						onChange={(selectedValue) => setMachineTypeFilter(selectedValue === "ALL" ? "ALL" : Number(selectedValue))}
 						sx={{ minWidth: 150 }}

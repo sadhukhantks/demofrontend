@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Box, Button, Dialog, DialogContent, DialogTitle, MenuItem, TextField, FormControlLabel, Switch, CircularProgress, FormHelperText } from "@mui/material";
+import { Box, Button, Dialog, DialogContent, DialogTitle, TextField, FormControlLabel, Switch, CircularProgress, FormHelperText } from "@mui/material";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
  
 interface CreateSubDepartmentProps {
   open?: boolean;
@@ -201,12 +202,26 @@ export default function CreateSubDepartmentPage({ open = true, onClose, existing
 
   const FormContent = (
     <Box component="form" onSubmit={handleSubmit} sx={{ p: 2, minWidth: 350 }}>
-      <TextField select label="Branch" name="branch_id" value={form.branch_id} onChange={handleChange} fullWidth margin="normal">
-        {branchOptions.map((b: any) => (<MenuItem key={b.id} value={b.id}>{b.label}</MenuItem>))}
-      </TextField>
-      <TextField select label="Department" name="dept_id" value={form.dept_id} onChange={handleChange} fullWidth margin="normal">
-        {departmentOptions.map((d: any) => (<MenuItem key={d.id} value={d.id}>{d.label}</MenuItem>))}
-      </TextField>
+      <Box sx={{ mt: 2, mb: 1 }}>
+        <SearchableOptionSelect
+          label="Branch"
+          name="branch_id"
+          fullWidth
+          options={branchOptions.map((b) => ({ value: String(b.id), label: String(b.label) }))}
+          value={form.branch_id}
+          onChange={(selectedValue) => setForm((f) => ({ ...f, branch_id: selectedValue }))}
+        />
+      </Box>
+      <Box sx={{ mt: 2, mb: 1 }}>
+        <SearchableOptionSelect
+          label="Department"
+          name="dept_id"
+          fullWidth
+          options={departmentOptions.map((d) => ({ value: String(d.id), label: String(d.label) }))}
+          value={form.dept_id}
+          onChange={(selectedValue) => setForm((f) => ({ ...f, dept_id: selectedValue }))}
+        />
+      </Box>
       <TextField name="subdept_name" label="Subdepartment" value={form.subdept_name} onChange={handleChange} onBlur={() => validateName(existingRows)} error={!!nameError} helperText={nameError ?? undefined} fullWidth margin="normal" required />
       <TextField name="subdept_code" label="Subdepartment Code" value={form.subdept_code} onChange={handleChange} onBlur={() => validateCode(existingRows)} error={!!codeError} helperText={codeError ?? undefined} fullWidth margin="normal" required />
       <TextField name="order_by" label="Order By" type="number" value={form.order_by} onChange={handleChange} onBlur={() => validateOrderBy()} error={!!orderByError} helperText={orderByError ?? undefined} fullWidth margin="normal" required />

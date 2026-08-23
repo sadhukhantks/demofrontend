@@ -94,7 +94,7 @@ export function EnquiryPreview({
 				<SearchableOptionSelect
 					label="Address to"
 					size="small"
-					options={[...[{ value: ALL_SUPPLIERS, label: "All invited suppliers" }], ...suppliers.map((s) => ({ value: String(s.supplier_id), label: `${s.supp_name} ${s.supp_code ? ` (${s.supp_code})` : ""}` }))]}
+					options={[{ value: ALL_SUPPLIERS, label: "All invited suppliers" }, ...suppliers.map((s) => ({ value: String(s.supplier_id), label: `${s.supp_name} ${s.supp_code ? ` (${s.supp_code})` : ""}` }))]}
 					value={supplierSel}
 					onChange={(selectedValue) => setSupplierSel(selectedValue)}
 					sx={{ mb: 2, minWidth: 280 }}
