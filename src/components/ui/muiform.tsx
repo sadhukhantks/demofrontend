@@ -90,6 +90,7 @@ export type MuiFormProps = {
 	onCancel?: () => void;
 	externalDirty?: boolean; // allow parent to mark form dirty (e.g. tables outside form)
 	hideSubmit?: boolean; // parent can hide internal submit button and render it elsewhere
+	idPrefix?: string; // DOM id prefix for the fields; pass a distinct one when two forms share a page
 };
 
 function getInitialValues(schema: Schema, provided?: Record<string, unknown>) {
@@ -141,6 +142,7 @@ export const MuiForm = React.forwardRef(function MuiForm(
 		cancelLabel,
 		onCancel,
 		externalDirty,
+		idPrefix = "f",
 	}: MuiFormProps,
 	ref: React.ForwardedRef<{ submit: () => Promise<void>; isDirty: () => boolean; setValue: (name: string, value: unknown) => void } | null>
 ) {
@@ -308,7 +310,12 @@ export const MuiForm = React.forwardRef(function MuiForm(
 
 		// compute required as boolean for MUI props; field.required may be a function
 		const requiredBool = typeof field.required === 'function' ? Boolean((field.required as any)(values)) : Boolean(field.required);
+		// Deterministic ids. Left to itself MUI falls back to React useId, and
+		// those values differ between the SSR tree and the hydration tree, so every
+		// form page logs an id/htmlFor hydration mismatch.
+		const fieldId = `${idPrefix}-${field.name}`;
 		const commonTextProps = {
+			id: fieldId,
 			label: field.label,
 			fullWidth: true,
 			required: requiredBool,
@@ -389,6 +396,7 @@ export const MuiForm = React.forwardRef(function MuiForm(
 				) : field.type === "select" ? (
 					// single-select rendered as Autocomplete for autofill/filtering
 					<Autocomplete<Option, false, boolean, false>
+						id={fieldId}
 						options={(field.options ?? []) as Option[]}
 						filterOptions={limitedFilterOptions}
 						getOptionLabel={(opt: Option) => opt?.label ?? String(opt?.value ?? "")}
@@ -413,6 +421,7 @@ export const MuiForm = React.forwardRef(function MuiForm(
 					/>
 				) : field.type === "multiselect" ? (
 					<Autocomplete<Option, true, boolean, false>
+						id={fieldId}
 						sx={{ width: '100%' }}
 						multiple
 						options={(field.options ?? []) as Option[]}
