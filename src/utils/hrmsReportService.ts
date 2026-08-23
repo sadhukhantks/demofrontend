@@ -727,3 +727,108 @@ export function cashHandsPdfUrl(p: {
   if (p.companyName) qs.set("company_name", p.companyName);
   return `${apiRoutesPortalMasters.CASH_HANDS_PDF}?${qs.toString()}`;
 }
+
+/** Row from GET /hrmsReports/attendance-payscheme.
+ *  Index signature so it drops into the generic NJM report grid alongside the
+ *  other checklists, which are typed as plain keyed rows. */
+export interface AttendancePayschemeRow {
+  [key: string]: unknown;
+  id: number;
+  emp_code: string | null;
+  emp_name: string | null;
+  department: string | null;
+  sub_department: string | null;
+  category: string | null;
+  status_name: string | null;
+  pay_scheme: string | null;
+  work_hours: number;
+  date_of_join: string | null;
+  pf_uan_no: string | null;
+  esi_no: string | null;
+}
+
+/** "Attendance With PaySchemes" checklist for NJM Wages Data Preparation:
+ *  worked hours (net of idle) per employee for the wage period. */
+export async function fetchAttendancePayscheme(p: {
+  branchId: number;
+  dateFrom: string;
+  dateTo: string;
+  paySchemeId: string | number;
+  subDeptId?: string | number | null;
+}): Promise<AttendancePayschemeRow[]> {
+  const qs = new URLSearchParams();
+  qs.set("branch_id", String(p.branchId));
+  qs.set("date_from", p.dateFrom);
+  qs.set("date_to", p.dateTo);
+  qs.set("pay_scheme_id", String(p.paySchemeId));
+  if (p.subDeptId) qs.set("sub_dept_id", String(p.subDeptId));
+  const result = await fetchWithCookie<{ data: AttendancePayschemeRow[] }>(
+    `${apiRoutesPortalMasters.ATTENDANCE_PAYSCHEME_REPORT}?${qs.toString()}`,
+  );
+  if (result.error || !result.data) {
+    throw new Error(result.error ?? "Failed to fetch attendance with pay schemes");
+  }
+  return result.data.data;
+}
+
+/** Row from GET /hrmsReports/daily-hands-complement (legacy report option 2). */
+export interface DailyHandsComplementRow {
+  id: number;
+  attendance_date: string | null;
+  dept_code: string | null;
+  department: string | null;
+  occupation: string | null;
+  shift_a: number;
+  shift_b: number;
+  shift_c: number;
+  shift_total: number;
+  ot_a: number;
+  ot_b: number;
+  ot_c: number;
+  ot_total: number;
+}
+
+/** Daily hands complement: hands per date / department / occupation, split by
+ *  shift for regular attendance and for overtime. */
+export function fetchDailyHandsComplement(
+  p: RangeParams,
+): Promise<DailyHandsComplementRow[]> {
+  return fetchRangeReport(
+    apiRoutesPortalMasters.DAILY_HANDS_COMPLEMENT_REPORT,
+    p,
+    "daily hands complement report",
+  );
+}
+
+/** Row from GET /hrmsReports/extra-advance-payment (legacy report option 8). */
+export interface ExtraAdvancePaymentRow {
+  id: number;
+  attendance_date: string | null;
+  eb_no: string | null;
+  worker_name: string | null;
+  shift: string | null;
+  department: string | null;
+  occupation: string | null;
+  work_hours: number;
+  advance_amount: number;
+}
+
+/** Daily extra advance payment: overtime attendance priced from the
+ *  extra_advance_rate slabs. Optionally narrowed to one shift. */
+export async function fetchExtraAdvancePayment(
+  p: RangeParams & { shift?: string | null },
+): Promise<ExtraAdvancePaymentRow[]> {
+  const qs = new URLSearchParams();
+  qs.set("co_id", String(p.coId));
+  qs.set("date_from", p.dateFrom);
+  qs.set("date_to", p.dateTo);
+  if (p.branchId != null) qs.set("branch_id", String(p.branchId));
+  if (p.shift) qs.set("shift", p.shift);
+  const result = await fetchWithCookie<{ data: ExtraAdvancePaymentRow[] }>(
+    `${apiRoutesPortalMasters.EXTRA_ADVANCE_PAYMENT_REPORT}?${qs.toString()}`,
+  );
+  if (result.error || !result.data) {
+    throw new Error(result.error ?? "Failed to fetch extra advance payment report");
+  }
+  return result.data.data;
+}

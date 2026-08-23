@@ -13,17 +13,13 @@ import {
   fetchReportMenuTree,
   type ReportMenuNode,
 } from "@/utils/reportMenuService";
+import { yesterdayIso } from "@/components/reports/reportDates";
+import { useMounted } from "@/components/reports/useMounted";
 
 /** Branch option for the selector (kept local — no coupling to other modules). */
 interface BranchOption {
   branch_id: number;
   branch_name: string;
-}
-
-function getYesterdayDate(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return d.toISOString().split("T")[0];
 }
 
 // Module-level cache of the report list. Persists across client-side
@@ -41,7 +37,7 @@ export default function InventoryReportsPage() {
   const [selectedBranch, setSelectedBranch] = useState<BranchOption | null>(
     null,
   );
-  const [reportDate, setReportDate] = useState<string>(getYesterdayDate());
+  const [reportDate, setReportDate] = useState<string>(yesterdayIso());
   // DB-driven reports: direct report children (report=1) of this page's menu.
   // Seed from the module cache so the dropdown is populated immediately on every
   // mount (incl. back navigation), then refresh in the background.
@@ -111,6 +107,9 @@ export default function InventoryReportsPage() {
     [],
   );
 
+  // Filters hydrate from the sidebar context / report cache — see useMounted.
+  const mounted = useMounted();
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography
@@ -120,56 +119,58 @@ export default function InventoryReportsPage() {
         Inventory Reports
       </Typography>
 
-      <Paper elevation={1} sx={{ mb: 3 }}>
-        {/* Filters toolbar */}
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 2,
-            p: 2,
-            flexWrap: "wrap",
-          }}
-        >
-          {/* Searchable report picker — DB-driven (menu_mst report=1, children of the inventory reports menu). */}
-          <Autocomplete
-            options={dbReports}
-            getOptionLabel={(option) => option.menu_name}
-            isOptionEqualToValue={(option, value) =>
-              option.menu_id === value.menu_id
-            }
-            value={selectedReport}
-            onChange={handleReportChange}
-            renderInput={(params) => (
-              <TextField {...params} label="Report" size="small" />
-            )}
-            sx={{ minWidth: 280 }}
-          />
+      {mounted && (
+        <Paper elevation={1} sx={{ mb: 3 }}>
+          {/* Filters toolbar */}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              p: 2,
+              flexWrap: "wrap",
+            }}
+          >
+            {/* Searchable report picker — DB-driven (menu_mst report=1, children of the inventory reports menu). */}
+            <Autocomplete
+              options={dbReports}
+              getOptionLabel={(option) => option.menu_name}
+              isOptionEqualToValue={(option, value) =>
+                option.menu_id === value.menu_id
+              }
+              value={selectedReport}
+              onChange={handleReportChange}
+              renderInput={(params) => (
+                <TextField {...params} label="Report" size="small" />
+              )}
+              sx={{ minWidth: 280 }}
+            />
 
-          <Autocomplete
-            options={branchOptions}
-            getOptionLabel={(option) => option.branch_name}
-            isOptionEqualToValue={(option, value) =>
-              option.branch_id === value.branch_id
-            }
-            value={selectedBranch}
-            onChange={(_, newValue) => setSelectedBranch(newValue)}
-            renderInput={(params) => (
-              <TextField {...params} label="Branch" size="small" required />
-            )}
-            sx={{ minWidth: 240 }}
-          />
-          <TextField
-            type="date"
-            label="Report Date"
-            value={reportDate}
-            onChange={handleDateChange}
-            size="small"
-            slotProps={{ inputLabel: { shrink: true } }}
-            sx={{ width: 180 }}
-          />
-        </Box>
-      </Paper>
+            <Autocomplete
+              options={branchOptions}
+              getOptionLabel={(option) => option.branch_name}
+              isOptionEqualToValue={(option, value) =>
+                option.branch_id === value.branch_id
+              }
+              value={selectedBranch}
+              onChange={(_, newValue) => setSelectedBranch(newValue)}
+              renderInput={(params) => (
+                <TextField {...params} label="Branch" size="small" required />
+              )}
+              sx={{ minWidth: 240 }}
+            />
+            <TextField
+              type="date"
+              label="Report Date"
+              value={reportDate}
+              onChange={handleDateChange}
+              size="small"
+              slotProps={{ inputLabel: { shrink: true } }}
+              sx={{ width: 180 }}
+            />
+          </Box>
+        </Paper>
+      )}
     </Box>
   );
 }

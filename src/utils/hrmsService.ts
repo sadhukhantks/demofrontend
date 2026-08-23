@@ -947,3 +947,125 @@ export const fetchAttendanceRegister = async (params: AttendanceRegisterParams) 
     `${apiRoutesPortalMasters.ATTENDANCE_CHECKLIST_REPORT}?${buildAttendanceRegisterQuery(params)}`,
     "GET",
   );
+
+// ─── NJM Wages Data Preparation — the five "Updates" actions ───────
+
+/** The shared header every NJM Updates action posts. */
+export interface NjmUpdateParams {
+  branchId: number;
+  dateFrom: string;
+  dateTo: string;
+  /** The rows these actions write are keyed by pay scheme. */
+  paySchemeId: string | number;
+}
+
+/** Cad/Vard/GWF deduction amounts. Ignored by the four upload actions. */
+export interface NjmDedAmounts {
+  cad_ded: string;
+  vard_ded: string;
+  gwf_ded: string;
+}
+
+/** Action value (the legacy handler name the page's select carries) -> route. */
+export const NJM_UPDATE_ENDPOINTS: Readonly<Record<string, string>> = Object.freeze({
+  njmwrkvardupdate: apiRoutesPortalMasters.NJM_WRK_VARD_UPDATE,
+  cntexlupload: apiRoutesPortalMasters.NJM_CNT_WAGES_UPLOAD,
+  njmwrkfauploadjs: apiRoutesPortalMasters.NJM_WRK_FA_UPLOAD,
+  njmwrkothadjsuploadjs: apiRoutesPortalMasters.NJM_WRK_OTH_ADJS_UPLOAD,
+  wrklinehoursupload: apiRoutesPortalMasters.NJM_LINE_HOURS_UPLOAD,
+});
+
+/**
+ * Run one NJM Updates action. All five take the same multipart header; only
+ * Cad/Vard/GWF sends amounts and only the other four send a file.
+ */
+export const runNjmUpdate = async (
+  action: string,
+  params: NjmUpdateParams,
+  extra: { file?: File | null; deds?: NjmDedAmounts } = {},
+) => {
+  const url = NJM_UPDATE_ENDPOINTS[action];
+  if (!url) return { data: null, error: `Unknown update action "${action}"` };
+
+  const form = new FormData();
+  form.append("branch_id", String(params.branchId));
+  form.append("date_from", params.dateFrom);
+  form.append("date_to", params.dateTo);
+  form.append("pay_scheme_id", String(params.paySchemeId));
+  if (extra.deds) {
+    for (const [name, value] of Object.entries(extra.deds)) {
+      form.append(name, value === "" ? "0" : value);
+    }
+  }
+  if (extra.file) form.append("file", extra.file);
+
+  return fetchWithCookie<{ data: { message: string; rows: number } }>(
+    url,
+    "POST",
+    form,
+  );
+};
+
+/** Generic row shape for the NJM checklists/exports — each report has its own
+ *  columns, so the page supplies the column defs and reads by key. */
+export type NjmReportRow = Record<string, unknown> & { id: number };
+
+/** One NJM report: GET with a query string, `{ data, total }` back. */
+export const fetchNjmReport = async (
+  url: string,
+  params: Record<string, string | number | undefined>,
+) => {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== "") qs.set(k, String(v));
+  }
+  const query = qs.toString();
+  // `columns` is only sent by the mapping-driven Main Wages export.
+  return fetchWithCookie<{ data: NjmReportRow[]; total: number; columns?: string[] }>(
+    query ? `${url}?${query}` : url,
+    "GET",
+  );
+};
+
+/** Resolve the screen's period + pay scheme to a pay_period id, so Pay
+ *  Register / Pay Slip / Bank Statement can reuse the existing Pay Register
+ *  screens instead of this page growing its own copies. */
+export const fetchNjmPayPeriod = async (p: {
+  branchId: number;
+  dateFrom: string;
+  dateTo: string;
+  paySchemeId: string | number;
+}) =>
+  fetchWithCookie<{ data: { payperiod_id: number; payscheme_name: string | null } }>(
+    `${apiRoutesPortalMasters.NJM_PAY_PERIOD}?${new URLSearchParams({
+      branch_id: String(p.branchId),
+      date_from: p.dateFrom,
+      date_to: p.dateTo,
+      pay_scheme_id: String(p.paySchemeId),
+    })}`,
+    "GET",
+  );
+
+/** Contractor Wages Process / Payroll Posting — the two write actions on the
+ *  NJM Process list. Both take JSON, not multipart. */
+export const runNjmProcess = async (
+  url: string,
+  body: Record<string, unknown>,
+) =>
+  fetchWithCookie<{ data: { message: string; rows: number } }>(url, "POST", body);
+
+/** Contractor ESI: the portal's own template in, the filled return rows out. */
+export const runNjmContractorEsi = async (
+  p: { branchId: number; dateFrom: string; dateTo: string; file: File },
+) => {
+  const form = new FormData();
+  form.append("branch_id", String(p.branchId));
+  form.append("date_from", p.dateFrom);
+  form.append("date_to", p.dateTo);
+  form.append("file", p.file);
+  return fetchWithCookie<{
+    data: NjmReportRow[];
+    total: number;
+    unmatched: string[];
+  }>(apiRoutesPortalMasters.NJM_CONTRACTOR_ESI, "POST", form);
+};
