@@ -177,6 +177,10 @@ able to click a dropdown and start typing to filter it. Selection-only dropdowns
 can only scroll a list -- are not permitted anywhere, in any of the three dashboards.
 
 - **Use `SearchableSelect` / `SearchableMultiSelect`** from `@/components/ui/SearchableSelect`.
+- **Or `SearchableOptionSelect`** from `@/components/ui/SearchableOptionSelect` -- a thin adapter over
+  the above for the common case where form state holds a plain `string`/`number` id and the options
+  were previously `<MenuItem>` children. It owns the option-object <-> id mapping so call sites do
+  not repeat `find(...) ?? null`. Empty selection is `""`, exactly as MUI's `Select` used.
 - **Never render a raw MUI `<Select>` + `<MenuItem>`**, a raw `<TextField select>`, a native
   `<select>`, or the shadcn `<Select>` primitive directly in a page or feature component.
   (`src/components/ui/select.tsx` stays as an internal primitive; consume it only through a shared

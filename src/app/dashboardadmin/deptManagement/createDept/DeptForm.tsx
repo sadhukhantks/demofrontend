@@ -7,11 +7,6 @@ import {
   Button, 
   Card, 
   CardContent,
-  FormControl, 
-  InputLabel, 
-  Select, 
-  MenuItem,
-  FormHelperText,
   Box,
   Typography,
   CircularProgress,
@@ -19,6 +14,7 @@ import {
   Switch,
   FormControlLabel
 } from "@mui/material";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiRoutes, apiRoutesconsole } from "@/utils/api";
 import { fetchWithCookie } from "@/utils/apiClient2";
@@ -44,6 +40,21 @@ interface DeptFormData {
   dept_code: string;
   order_id: string;
   dept_id?: string; // Added to allow initialValues.dept_id
+}
+
+/** Company option derived from the branch list endpoint. */
+interface CompanyOption {
+  co_id: number;
+  co_name: string;
+  branches?: { branch_name: string }[];
+}
+
+/** Branch option as returned by the branch list endpoint. */
+interface BranchOption {
+  co_id: number;
+  co_name: string;
+  branch_id: number;
+  branch_name: string;
 }
 
 interface DeptFormProps {
@@ -77,14 +88,14 @@ const BranchForm: React.FC<DeptFormProps> = ({
   // States for filtered options
   const [filteredStates, setFilteredStates] = useState<any[]>([]);
   const [existingBranches, setExistingBranches] = useState<string[]>([]);
-  const [filteredBranches, setFilteredBranches] = useState<any[]>([]);
+  const [filteredBranches, setFilteredBranches] = useState<BranchOption[]>([]);
   
   // For debounced validation
   const [branchNameError, setBranchNameError] = useState<string | null>(null);
   const companyNameTimerRef = useRef<NodeJS.Timeout | null>(null);
   // Add states for companies and branches
-  const [allBranches, setAllBranches] = useState<any[]>([]);
-  const [companies, setCompanies] = useState<any[]>([]);
+  const [allBranches, setAllBranches] = useState<BranchOption[]>([]);
+  const [companies, setCompanies] = useState<CompanyOption[]>([]);
 
   // Function to check branch name uniqueness with debounce
   const checkCompanyNameUniqueness = useCallback((value: string) => {
@@ -148,9 +159,9 @@ const BranchForm: React.FC<DeptFormProps> = ({
         console.log('Found company with branches:', selectedCompany);
         
         // Extract branch names from the selected company
-        const branchNames = selectedCompany.branches.map((branch: any) => {
-          return branch.branch_name.toLowerCase();
-        }).filter((name: string) => name !== ''); // Filter out any empty strings
+        const branchNames = selectedCompany.branches
+          .map((branch) => branch.branch_name.toLowerCase())
+          .filter((name) => name !== ''); // Filter out any empty strings
         
         console.log("Existing branch names for this company:", branchNames);
         setExistingBranches(branchNames);
@@ -337,14 +348,14 @@ const validateDeptField = (field: 'dept_desc' | 'dept_code' | 'order_id', value:
       // Extract unique companies from the branch data
       const uniqueCompanies = Array.from(
         new Map(
-          data.data.map((branch: any) => [
+          (data.data as BranchOption[]).map((branch) => [
             branch.co_id,
             { co_id: branch.co_id, co_name: branch.co_name }
           ])
         ).values()
       );
 
-      setCompanies(uniqueCompanies);
+      setCompanies(uniqueCompanies as CompanyOption[]);
     } catch (error) {
       console.error('Error fetching branches:', error);
     }
@@ -451,21 +462,24 @@ const validateDeptField = (field: 'dept_desc' | 'dept_code' | 'order_id', value:
               control={control}
               rules={{ required: "Company is required" }}
               render={({ field, fieldState: { error } }) => (
-                <FormControl fullWidth margin="normal" error={!!error} required>
-                  <InputLabel>Company</InputLabel>
-                  <Select
-                    {...field}
+                <Box sx={{ mt: 2, mb: 1 }}>
+                  <SearchableSelect<CompanyOption>
+                    variant="outlined"
+                    clearable={false}
                     label="Company"
-                    value={field.value || ""}
-                  >
-                    {companies.map((company) => (
-                      <MenuItem key={company.co_id} value={company.co_id.toString()}>
-                        {company.co_name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {error && <FormHelperText>{error.message}</FormHelperText>}
-                </FormControl>
+                    placeholder="Search company..."
+                    options={companies}
+                    value={companies.find((company) => company.co_id.toString() === field.value) ?? null}
+                    onChange={(company) => field.onChange(company ? company.co_id.toString() : "")}
+                    getOptionLabel={(company) => company.co_name}
+                    getOptionKey={(company) => company.co_id}
+                    isOptionEqualToValue={(option, selected) => option.co_id === selected.co_id}
+                    required
+                    error={!!error}
+                    helperText={error?.message}
+                    textFieldProps={{ name: field.name, onBlur: field.onBlur, inputRef: field.ref }}
+                  />
+                </Box>
               )}
             />              
             <Controller
@@ -473,21 +487,24 @@ const validateDeptField = (field: 'dept_desc' | 'dept_code' | 'order_id', value:
               control={control}
               rules={{ required: "Branch is required" }}
               render={({ field, fieldState: { error } }) => (
-                <FormControl fullWidth margin="normal" error={!!error} required>
-                  <InputLabel>Branch</InputLabel>
-                  <Select
-                    {...field}
+                <Box sx={{ mt: 2, mb: 1 }}>
+                  <SearchableSelect<BranchOption>
+                    variant="outlined"
+                    clearable={false}
                     label="Branch"
-                    value={field.value || ""}
-                  >
-                    {filteredBranches.map((branch) => (
-                      <MenuItem key={branch.branch_id} value={branch.branch_id.toString()}>
-                        {branch.branch_name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {error && <FormHelperText>{error.message}</FormHelperText>}
-                </FormControl>
+                    placeholder="Search branch..."
+                    options={filteredBranches}
+                    value={filteredBranches.find((branch) => branch.branch_id.toString() === field.value) ?? null}
+                    onChange={(branch) => field.onChange(branch ? branch.branch_id.toString() : "")}
+                    getOptionLabel={(branch) => branch.branch_name}
+                    getOptionKey={(branch) => branch.branch_id}
+                    isOptionEqualToValue={(option, selected) => option.branch_id === selected.branch_id}
+                    required
+                    error={!!error}
+                    helperText={error?.message}
+                    textFieldProps={{ name: field.name, onBlur: field.onBlur, inputRef: field.ref }}
+                  />
+                </Box>
               )}
             />              
 

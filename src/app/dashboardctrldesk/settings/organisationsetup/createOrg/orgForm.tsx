@@ -6,7 +6,10 @@ import FormFieldWrapper from "@/components/ui/FormFieldWrapper";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { Card } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  SearchableSelect,
+  SearchableMultiSelect,
+} from "@/components/ui/SearchableSelect";
 
 interface OrgFormData {
   con_org_name: string;
@@ -25,12 +28,37 @@ interface OrgFormData {
   con_org_country_id: string;
 }
 
+/** Console module option. */
+interface ModuleOption {
+  con_module_id: number;
+  con_module_name: string;
+}
+
+/** Country option. */
+interface CountryOption {
+  country_id: number;
+  country_name: string;
+}
+
+/** State option, scoped to a country. */
+interface StateOption {
+  state_id: number;
+  state_name: string;
+  country_id?: number;
+}
+
+/** Organisation status option. */
+interface StatusOption {
+  con_status_id: number;
+  con_status_name: string;
+}
+
 interface OrgFormProps {
   initialValues?: Partial<OrgFormData> | null;
-  allModules: any[];
-  countries: any[];
-  states: any[];
-  statusAll: any[];
+  allModules: ModuleOption[];
+  countries: CountryOption[];
+  states: StateOption[];
+  statusAll: StatusOption[];
   onSubmit: (data: OrgFormData) => void;
   loading: boolean;
   isEdit: boolean;
@@ -155,25 +183,35 @@ const OrgForm: React.FC<OrgFormProps> = ({
               <Controller
                 control={control}
                 name="con_org_state_id"
-                render={({ field }) => (
-                  <Select
-                    value={field.value || ""}
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select state" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white">
-                      {states
-                        .filter(s => !watchedCountry || s.country_id?.toString() === watchedCountry)
-                        .map((s) => (
-                        <SelectItem key={s.state_id} value={s.state_id.toString()}>
-                          {s.state_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                render={({ field }) => {
+                  const stateOptions = states.filter(
+                    (s) => !watchedCountry || s.country_id?.toString() === watchedCountry,
+                  );
+                  return (
+                    // Wrapped in an element that can hold a ref: FormFieldWrapper
+                    // renders `customInput` inside a Radix `Slot`.
+                    <div className="w-full">
+                      <SearchableSelect<StateOption>
+                        variant="outlined"
+                        options={stateOptions}
+                        value={
+                          stateOptions.find((s) => s.state_id.toString() === field.value) ?? null
+                        }
+                        onChange={(state) =>
+                          field.onChange(state ? state.state_id.toString() : "")
+                        }
+                        getOptionLabel={(s) => s.state_name}
+                        getOptionKey={(s) => s.state_id}
+                        isOptionEqualToValue={(option, selected) =>
+                          option.state_id === selected.state_id
+                        }
+                        clearable={false}
+                        placeholder="Select state"
+                        textFieldProps={{ name: field.name, onBlur: field.onBlur }}
+                      />
+                    </div>
+                  );
+                }}
               />
             }
           />
@@ -199,22 +237,27 @@ const OrgForm: React.FC<OrgFormProps> = ({
                 control={control}
                 name="con_modules_selected"
                 render={({ field }) => (
-                  <select
-                    multiple
-                    value={field.value}
-                    onChange={(e) =>
-                      field.onChange(
-                        Array.from(e.target.selectedOptions, (option) => option.value)
-                      )
-                    }
-                    className="w-full border rounded p-2"
-                  >
-                    {allModules.map((m) => (
-                      <option key={m.con_module_id} value={m.con_module_id.toString()}>
-                        {m.con_module_name}
-                      </option>
-                    ))}
-                  </select>
+                  // Wrapped in an element that can hold a ref: FormFieldWrapper
+                  // renders `customInput` inside a Radix `Slot`.
+                  <div className="w-full">
+                    <SearchableMultiSelect<ModuleOption>
+                      variant="outlined"
+                      options={allModules}
+                      value={allModules.filter((m) =>
+                        (field.value ?? []).includes(m.con_module_id.toString()),
+                      )}
+                      onChange={(modules) =>
+                        field.onChange(modules.map((m) => m.con_module_id.toString()))
+                      }
+                      getOptionLabel={(m) => m.con_module_name}
+                      getOptionKey={(m) => m.con_module_id}
+                      isOptionEqualToValue={(option, selected) =>
+                        option.con_module_id === selected.con_module_id
+                      }
+                      placeholder="Search modules..."
+                      textFieldProps={{ name: field.name, onBlur: field.onBlur }}
+                    />
+                  </div>
                 )}
               />
             }
