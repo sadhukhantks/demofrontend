@@ -74,7 +74,7 @@ function buildInputSx(variant: SearchableSelectVariant, sx: TextFieldProps["sx"]
 }
 
 export type SearchableSelectProps<TOption> = {
-  options: TOption[];
+  options: readonly TOption[];
   value: TOption | null;
   onChange: (option: TOption | null) => void;
   getOptionLabel?: AutocompleteProps<TOption, false, false, false>["getOptionLabel"];

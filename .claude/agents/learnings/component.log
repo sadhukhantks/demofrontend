@@ -1,0 +1,38 @@
+## 2026-08-23 - Searchable dropdown conversion (shared components batch)
+- **Similar components found:** `src/components/ui/select.tsx` (shadcn primitive, left alone),
+  `src/components/ui/transaction/SearchableSelect.tsx` (now a re-export of the canonical one),
+  `react-select` in `CompanySelection.tsx` (already searchable, but non-canonical).
+- **Pattern used:** MUI Autocomplete via the canonical `SearchableSelect`/`SearchableMultiSelect`
+  with `variant="outlined"` as the drop-in for `FormControl` + `InputLabel` + `Select`.
+- **Theme tokens used:** none added. CompanySelection now inherits colour (`color: "inherit"`,
+  `borderColor: "currentColor"`) instead of the hardcoded `#005580`/white react-select styles.
+- **Export pattern:** named exports for feature components (`AssignmentDropdown`,
+  `CompanySelection`), default export + named type exports for `FormFieldWrapper` and `MuiSelect`.
+  No barrel file in `src/components/ui/`, so nothing to update.
+- **[PATTERN-CHANGE]** `FormControl` from `@/components/ui/form` is a Radix `Slot`: it forwards a
+  ref to its child. A plain function component like `SearchableSelect` cannot take one, so the
+  select branch of `FormFieldWrapper` renders OUTSIDE `FormControl` and an inner `SelectField`
+  reads `formItemId`/`error` from `useFormField()` instead. Reuse this shape for any future
+  non-forwardRef control inside a shadcn form.
+- **[REUSE]** `MuiSelect` is now a thin primitive-id <-> option-object adapter over
+  `SearchableSelect`. Any page still doing `options.find(...)` by hand around a raw MUI Select can
+  drop straight onto `MuiSelect`.
+- **Gotcha found:** the canonical `SearchableSelect` typed its Autocomplete as
+  `Autocomplete<TOption, false, false, false>` while passing `disableClearable={!clearable}`
+  (a `boolean`) — TS2322, repo-wide `tsc` failure. Fixed by widening the third type parameter to
+  `boolean`. Check that param whenever `disableClearable` is dynamic.
+- **What should change:** `FormFieldWrapper` still types `control: Control<any>` and `name: string`
+  (pre-existing `any` violation). Making it generic over `TFieldValues` would require re-checking
+  all 8 ctrldesk/admin consumers; worth a dedicated pass.
+- **Tooling note:** `npx eslint` crashes in this repo ("Converting circular structure to JSON" from
+  @eslint/eslintrc) and `next lint` has no `--file`. Use `node_modules/.bin/tsc --noEmit -p
+  tsconfig.json` as the gate.
+
+## 2026-08-23 - SearchableSelect rollout (accounting + BomCosting)
+- **Similar components found:** src/components/ui/SearchableSelect.tsx (canonical, pre-existing); FormFieldWrapper.tsx / muiSelect.tsx / select.tsx owned by another agent this run
+- **Pattern used:** MUI Autocomplete wrapper (SearchableSelect) — `variant="outlined"` for form fields, `variant="bare"` for grid/table cells
+- **Theme tokens used:** none needed (component owns its styling; pages kept existing Tailwind classes)
+- **Export pattern:** named export `SearchableSelect` / `SearchableMultiSelect`, no barrel file in src/components/ui
+- **[REUSE]** Every raw MUI `Select`+`MenuItem` and `TextField select` in these pages was replaceable 1:1 — the only per-site work is option-object <-> id mapping and moving `error`/`helperText` off `FormControl`
+- **[PATTERN-CHANGE]** react-hook-form `Controller` wiring moves from `{...field}` spread to explicit `value`/`onChange` + `textFieldProps={{ name, onBlur, inputRef: field.ref }}`; the `<MenuItem value="">None</MenuItem>` sentinel is replaced by `clearable` (clear = None)
+- **What should change:** SearchableSelectProps has no top-level `name`/`onBlur`/`inputRef` — every RHF call site repeats the same `textFieldProps` block. A `field`-shaped convenience prop (or an RHF-aware `SearchableSelectField`) would remove that boilerplate. Also note the props type takes `TOption[]`, so `ReadonlyArray`/`Object.freeze()` option constants need a `[...spread]` at the call site; accepting `readonly TOption[]` would be better.

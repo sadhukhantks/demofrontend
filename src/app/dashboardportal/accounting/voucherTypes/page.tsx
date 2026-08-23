@@ -10,10 +10,6 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from "@mui/material";
 import { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
 import { z } from "zod";
@@ -21,10 +17,12 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Swal from "sweetalert2";
 import IndexWrapper from "@/components/ui/IndexWrapper";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchVoucherTypes, createVoucherType } from "@/utils/accountingService";
 import {
   VOUCHER_CATEGORIES,
+  type VoucherCategory,
   type VoucherType,
 } from "@/app/dashboardportal/accounting/types/accountingTypes";
 
@@ -298,24 +296,27 @@ export default function VoucherTypesPage() {
               name="type_category"
               control={control}
               render={({ field }) => (
-                <FormControl
-                  fullWidth
-                  margin="dense"
+                <SearchableSelect<VoucherCategory>
+                  variant="outlined"
+                  label="Category"
+                  options={[...VOUCHER_CATEGORIES]}
+                  value={
+                    VOUCHER_CATEGORIES.find((cat) => cat === field.value) ??
+                    null
+                  }
+                  onChange={(cat) => field.onChange(cat ?? undefined)}
+                  getOptionLabel={(cat) => cat.replace("_", " ")}
+                  getOptionKey={(cat) => cat}
+                  isOptionEqualToValue={(cat, v) => cat === v}
                   error={!!errors.type_category}
-                >
-                  <InputLabel>Category</InputLabel>
-                  <Select
-                    {...field}
-                    value={field.value ?? ""}
-                    label="Category"
-                  >
-                    {VOUCHER_CATEGORIES.map((cat) => (
-                      <MenuItem key={cat} value={cat}>
-                        {cat.replace("_", " ")}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                  helperText={errors.type_category?.message}
+                  textFieldProps={{
+                    margin: "dense",
+                    name: field.name,
+                    onBlur: field.onBlur,
+                    inputRef: field.ref,
+                  }}
+                />
               )}
             />
 
