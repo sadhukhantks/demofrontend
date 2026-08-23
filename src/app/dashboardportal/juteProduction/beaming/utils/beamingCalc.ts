@@ -112,3 +112,46 @@ export function todayISO(): string {
 	const day = String(d.getDate()).padStart(2, "0");
 	return `${d.getFullYear()}-${m}-${day}`;
 }
+
+// --- Missing-standards diagnosis (ticket TKT-000075) -------------------------
+// Every figure on this page is derived from time-versioned rows in
+// jute_prod_beaming_target_map (resolved server-side by
+// services/beaming_standards.resolve_machine_standards). An unconfigured param
+// resolves to 0.0, and the formulas then multiply it out to 0 SILENTLY — the
+// symptom reported as "RPM is not showing, so all calculation not showing".
+// This turns those zeros into a named list of what to configure and where.
+export type BeamingResolvedStandards = {
+	laid_length?: number | null;
+	cuts_per_beam?: number | null;
+	std_cuts_per_beam?: number | null;
+	std_eff?: number | null;
+	std_speed?: number | null;
+	dia?: number | null;
+	act_rpm?: number | null;
+};
+
+const BEAMING_STANDARD_SOURCES: {
+	key: keyof BeamingResolvedStandards;
+	label: string;
+	source: string;
+}[] = [
+	{ key: "laid_length", label: "Laid Length", source: "Beaming Standards → Quality / Standard" },
+	{ key: "cuts_per_beam", label: "Cuts / Beam", source: "Beaming Standards → Quality / Standard" },
+	{ key: "std_eff", label: "Std Eff %", source: "Beaming Standards → Quality / Standard" },
+	{ key: "std_speed", label: "Std RPM", source: "Beaming Standards → Machine / Standard" },
+	{ key: "dia", label: "Roller Dia", source: "Beaming Standards → Machine / Standard" },
+	{ key: "act_rpm", label: "Actual RPM", source: "Beaming SQC → Actual RPM" },
+];
+
+// One sentence per source page, listing that page's unset params. Empty array =
+// everything the calculation needs resolved for the chosen machine/quality/date.
+// ponytail: flat scan over 6 params — no memoisation, it runs once per form change.
+export function missingStandards(std: BeamingResolvedStandards | null | undefined): string[] {
+	if (!std) return [];
+	const bySource = new Map<string, string[]>();
+	for (const s of BEAMING_STANDARD_SOURCES) {
+		if (Number(std[s.key])) continue;
+		bySource.set(s.source, [...(bySource.get(s.source) ?? []), s.label]);
+	}
+	return [...bySource].map(([source, labels]) => `${labels.join(", ")} — set in ${source}`);
+}
