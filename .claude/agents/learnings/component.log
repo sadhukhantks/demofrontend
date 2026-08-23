@@ -45,3 +45,13 @@
 - **[PATTERN-CHANGE]** shadcn `<FormControl>` is a Radix `Slot`: it forwards a ref to its child, so a plain function component (SearchableSelect) cannot be its direct child. Two working shapes: (a) render the select OUTSIDE `FormControl` in a small subcomponent that reads `useFormField()` for `formItemId` / error state (used by FormFieldWrapper and now ControlledFormFieldWrapper); (b) wrap in a `<div>` when the select must stay inside `FormControl` (used for `customInput` in orgForm).
 - **[PATTERN-CHANGE]** Preserve exact old behaviour with `clearable={false}` — MUI `Select`/shadcn `Select` had no clear button, so the only user-visible change stays "you can now type to filter".
 - **What should change:** next run, check for an already-converted sibling wrapper before touching a page — several pages (orgForm's Country/Status) needed zero edits because they route through `FormFieldWrapper`. Also: when a form prop is typed `any[]`, tighten it to a local option interface instead of letting the generic infer `any`; callers passing `any[]` still compile.
+
+## 2026-08-23 - SearchableSelect rollout (jutePurchase + masters slice)
+- **Similar components found:** `src/components/ui/transaction/SearchableSelect.tsx` is now a deprecated re-export of the canonical `@/components/ui/SearchableSelect` — no duplicate exists.
+- **Pattern used:** MUI Autocomplete via canonical `SearchableSelect`; `variant="outlined"` for form fields, `variant="bare"` (default) inside line-item grids.
+- **Theme tokens used:** none needed; replaced two hardcoded hexes (`#c00`/`#999` renderValue in BulkItemGrid) with the `error` prop + placeholder.
+- **Export pattern:** named export from `@/components/ui/SearchableSelect` (no barrel in `src/components/ui/`).
+- **[REUSE]** `SearchableSelect` replaced every `FormControl`+`InputLabel`+`Select`+`MenuItem` block in the 12 assigned files; the trio import can be dropped entirely from most pages.
+- **[PATTERN-CHANGE]** `SearchableSelect` defaults to `size="small"`; pass `size="medium"` when neighbouring `TextField`s are default-size, or the field looks short.
+- **[PATTERN-CHANGE]** `SearchableSelect` is a plain function component (no forwardRef), so it cannot be a direct MUI `<Tooltip>` child — wrap it in a `<Box>`.
+- **What should change:** consider a `forwardRef` on `SearchableSelect` so Tooltip/Popper children work without a wrapper element.

@@ -1,19 +1,22 @@
 "use client";
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import {
-  Box,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  SelectChangeEvent,
-  Paper,
-  Typography,
-} from "@mui/material";
+import { Box, Paper, Typography } from "@mui/material";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import SalesOrderListReport from "./_components/SalesOrderListReport";
 import InvoiceListReport from "./_components/InvoiceListReport";
 import type { BranchOption, ReportKey } from "./types/reportTypes";
+
+interface ReportOption {
+  value: ReportKey;
+  label: string;
+}
+
+/** Reports available on this hub, in display order. */
+const REPORT_OPTIONS: ReadonlyArray<ReportOption> = Object.freeze([
+  { value: "salesOrders", label: "List of Sales Orders" },
+  { value: "invoices", label: "List of Invoices" },
+]);
 
 export default function SalesReportsPage() {
   // Hydration safety: defer rendering until mounted because useSidebarContext
@@ -35,12 +38,14 @@ export default function SalesReportsPage() {
     [selectedCompany?.branches],
   );
 
-  const handleReportChange = useCallback(
-    (e: SelectChangeEvent<ReportKey>) => {
-      setSelectedReport(e.target.value as ReportKey);
-    },
-    [],
+  const selectedReportOption = useMemo(
+    () => REPORT_OPTIONS.find((option) => option.value === selectedReport) ?? null,
+    [selectedReport],
   );
+
+  const handleReportChange = useCallback((option: ReportOption | null) => {
+    if (option) setSelectedReport(option.value);
+  }, []);
 
   if (!mounted) return null;
 
@@ -65,18 +70,19 @@ export default function SalesReportsPage() {
             flexWrap: "wrap",
           }}
         >
-          <FormControl size="small" sx={{ minWidth: 240 }}>
-            <InputLabel id="sales-report-select-label">Report</InputLabel>
-            <Select<ReportKey>
-              labelId="sales-report-select-label"
+          <Box sx={{ minWidth: 240 }}>
+            <SearchableSelect<ReportOption>
+              variant="outlined"
               label="Report"
-              value={selectedReport}
+              options={[...REPORT_OPTIONS]}
+              value={selectedReportOption}
               onChange={handleReportChange}
-            >
-              <MenuItem value="salesOrders">List of Sales Orders</MenuItem>
-              <MenuItem value="invoices">List of Invoices</MenuItem>
-            </Select>
-          </FormControl>
+              getOptionLabel={(option) => option.label}
+              getOptionKey={(option) => option.value}
+              isOptionEqualToValue={(option, selected) => option.value === selected.value}
+              clearable={false}
+            />
+          </Box>
         </Box>
       </Paper>
 

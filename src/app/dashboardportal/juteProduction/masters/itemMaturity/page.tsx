@@ -1,27 +1,14 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Box,
-	Button,
-	Dialog,
-	DialogActions,
-	DialogContent,
-	DialogTitle,
-	IconButton,
-	MenuItem,
-	Switch,
-	TextField,
-	Tooltip,
-	Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Switch, TextField, Tooltip, Typography } from "@mui/material";
 import { Pencil as EditOutlinedIcon, Plus as AddIcon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type MaturityRow = {
 	item_maturity_id: number;
 	co_id: number;
@@ -194,20 +181,14 @@ export default function ItemMaturityMasterPage() {
 				<DialogTitle>{editing ? "Edit Maturity" : "New Maturity"}</DialogTitle>
 				<DialogContent>
 					<Box sx={{ display: "grid", gap: 2, mt: 1 }}>
-						<TextField
-							select
+						<SearchableOptionSelect
 							label="Item"
-							value={form.item_id}
-							onChange={(e) => setForm({ ...form, item_id: e.target.value === "" ? "" : Number(e.target.value) })}
 							size="small"
 							disabled={!!editing}
-						>
-							{itemOptions.map((it) => (
-								<MenuItem key={it.item_id} value={it.item_id}>
-									{it.item_name}
-								</MenuItem>
-							))}
-						</TextField>
+							options={itemOptions.map((it) => ({ value: it.item_id, label: it.item_name }))}
+							value={form.item_id}
+							onChange={(selectedValue) => setForm({ ...form, item_id: selectedValue === "" ? "" : Number(selectedValue) })}
+						/>
 						<TextField
 							type="number"
 							label="Maturity (hrs)"

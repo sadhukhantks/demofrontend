@@ -2,37 +2,12 @@
 
 import React, { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-	Alert,
-	Autocomplete,
-	Box,
-	Button,
-	Checkbox,
-	Chip,
-	CircularProgress,
-	Dialog,
-	DialogActions,
-	DialogContent,
-	DialogTitle,
-	Divider,
-	FormControlLabel,
-	IconButton,
-	MenuItem,
-	Paper,
-	Snackbar,
-	Stack,
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableRow,
-	TextField,
-	Typography,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControlLabel, IconButton, Paper, Snackbar, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
 import { Plus, Trash2 } from "lucide-react";
 import { z } from "zod";
 import { ApprovalActionsBar, type ApprovalStatusId } from "@/components/ui/transaction/ApprovalActionsBar";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import {
 	cancelDraftEnquiry,
 	closeEnquiry,
@@ -466,36 +441,24 @@ function CreateEnquiryContent() {
 								disabled={!canEditForm}
 								required
 							/>
-							<TextField
+							<SearchableOptionSelect
 								label="Received Via"
-								select
 								size="small"
-								value={header.received_via ?? ""}
-								onChange={(e) => setHeader((h) => ({ ...h, received_via: e.target.value || null }))}
 								disabled={!canEditForm}
-							>
-								<MenuItem value="">—</MenuItem>
-								{setup.received_via_options.map((option) => (
-									<MenuItem key={option} value={option}>
-										{option}
-									</MenuItem>
-								))}
-							</TextField>
-							<TextField
+								placeholder="\u2014"
+								options={setup.received_via_options.map((option) => ({ value: option, label: option }))}
+								value={header.received_via ?? ""}
+								onChange={(selectedValue) => setHeader((h) => ({ ...h, received_via: selectedValue || null }))}
+							/>
+							<SearchableOptionSelect
 								label="Branch"
-								select
 								size="small"
-								value={header.branch_id || ""}
-								onChange={(e) => setHeader((h) => ({ ...h, branch_id: Number(e.target.value) }))}
 								disabled={!canEditForm || mode !== "create"}
 								required
-							>
-								{branchOptions.map((branch) => (
-									<MenuItem key={branch.branch_id} value={branch.branch_id}>
-										{branch.branch_name}
-									</MenuItem>
-								))}
-							</TextField>
+								options={branchOptions.map((branch) => ({ value: branch.branch_id, label: branch.branch_name }))}
+								value={header.branch_id || ""}
+								onChange={(selectedValue) => setHeader((h) => ({ ...h, branch_id: Number(selectedValue) }))}
+							/>
 							<Autocomplete
 								size="small"
 								options={setup.customers}
@@ -656,21 +619,15 @@ function CreateEnquiryContent() {
 													/>
 												</TableCell>
 												<TableCell>
-													<TextField
-														select
+													<SearchableOptionSelect
 														size="small"
 														fullWidth
-														value={line.uom_id ?? ""}
-														onChange={(e) => setLine(index, { uom_id: e.target.value === "" ? null : Number(e.target.value) })}
 														disabled={!canEditForm}
-													>
-														<MenuItem value="">—</MenuItem>
-														{setup.uoms.map((uom) => (
-															<MenuItem key={uom.uom_id} value={uom.uom_id}>
-																{uom.uom_name}
-															</MenuItem>
-														))}
-													</TextField>
+														placeholder="\u2014"
+														options={setup.uoms.map((uom) => ({ value: uom.uom_id, label: uom.uom_name }))}
+														value={line.uom_id ?? ""}
+														onChange={(selectedValue) => setLine(index, { uom_id: selectedValue === "" ? null : Number(selectedValue) })}
+													/>
 												</TableCell>
 												<TableCell>
 													<TextField
@@ -955,33 +912,25 @@ function MoveStageDialog({ open, onClose, stages, currentStageCode, onHold, onSu
 			<DialogTitle>Move Enquiry Stage</DialogTitle>
 			<DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "12px !important" }}>
 				{localError ? <Alert severity="warning">{localError}</Alert> : null}
-				<TextField
-					select
+				<SearchableOptionSelect
 					label="Action"
 					size="small"
+					options={(Object.keys(ACTION_LABELS) as MoveStageAction[])
+						.filter((a) => (onHold ? a === "RESUME" : a !== "RESUME")).map((a) => ({ value: a, label: ACTION_LABELS[a] }))}
 					value={action}
-					onChange={(e) => {
-						setAction(e.target.value as MoveStageAction);
+					onChange={(selectedValue) => {
+						setAction(selectedValue as MoveStageAction);
 						setToStage("");
 					}}
-				>
-					{(Object.keys(ACTION_LABELS) as MoveStageAction[])
-						.filter((a) => (onHold ? a === "RESUME" : a !== "RESUME"))
-						.map((a) => (
-							<MenuItem key={a} value={a}>
-								{ACTION_LABELS[a]}
-							</MenuItem>
-						))}
-				</TextField>
+				/>
 				{needsStage ? (
-					<TextField select label="Move to stage" size="small" value={toStage} onChange={(e) => setToStage(e.target.value)}>
-						{stageOptions.map((stage) => (
-							<MenuItem key={stage.stage_code} value={stage.stage_code}>
-								{stage.stage_name}
-								{stage.dept_hint ? ` (${stage.dept_hint})` : ""}
-							</MenuItem>
-						))}
-					</TextField>
+					<SearchableOptionSelect
+						label="Move to stage"
+						size="small"
+						options={stageOptions.map((stage) => ({ value: stage.stage_code, label: `${stage.stage_name} ${stage.dept_hint ? ` (${stage.dept_hint})` : ""}` }))}
+						value={toStage}
+						onChange={(selectedValue) => setToStage(selectedValue)}
+					/>
 				) : null}
 				<TextField
 					label={needsFeedback ? "Feedback (required)" : "Feedback / note (optional)"}
@@ -1028,11 +977,13 @@ function CloseEnquiryDialog({ open, onClose, onSubmit }: CloseEnquiryDialogProps
 		<Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
 			<DialogTitle>Close Enquiry</DialogTitle>
 			<DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "12px !important" }}>
-				<TextField select label="Outcome" size="small" value={reason} onChange={(e) => setReason(e.target.value as typeof reason)}>
-					<MenuItem value="won">Won (completed)</MenuItem>
-					<MenuItem value="lost">Lost / Regret</MenuItem>
-					<MenuItem value="cancelled">Cancelled</MenuItem>
-				</TextField>
+				<SearchableOptionSelect
+					label="Outcome"
+					size="small"
+					options={[{ value: "won", label: "Won (completed)" }, { value: "lost", label: "Lost / Regret" }, { value: "cancelled", label: "Cancelled" }]}
+					value={reason}
+					onChange={(selectedValue) => setReason(selectedValue as typeof reason)}
+				/>
 				<TextField
 					label="Remarks"
 					size="small"

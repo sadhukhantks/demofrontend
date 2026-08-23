@@ -1,26 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Autocomplete,
-	Box,
-	Button,
-	IconButton,
-	MenuItem,
-	Paper,
-	Snackbar,
-	Table,
-	TableBody,
-	TableCell,
-	TableContainer,
-	TableHead,
-	TableRow,
-	TextField,
-	Tooltip,
-	Typography,
-	alpha,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, Button, IconButton, Paper, Snackbar, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography, alpha } from "@mui/material";
 import { Plus as AddIcon, Trash2 as DeleteOutlineIcon, Save as SaveIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -33,6 +14,7 @@ import {
 } from "../types/breakerCardTypes";
 import { computeRowPreview, gmsToLbs, SAMPLE_LENGTH_YDS } from "../utils/breakerCardCalc";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type Props = {
 	coId: string;
 	branchId: number;
@@ -212,27 +194,17 @@ export default function BreakerCardForm({ coId, branchId, entryDate, setup, onSa
 	);
 
 	const renderSpellSelect = (r: DraftRow, label?: string) => (
-		<TextField
-			select
-			size="small"
+		<SearchableOptionSelect
 			label={label}
-			value={r.spellId}
-			onChange={(e) =>
-				updateRow(r.key, {
-					spellId: e.target.value === "" ? "" : Number(e.target.value),
-				})
-			}
+			size="small"
 			fullWidth
-		>
-			<MenuItem value="">
-				<em>None</em>
-			</MenuItem>
-			{setup.spells.map((s) => (
-				<MenuItem key={s.spell_id} value={s.spell_id}>
-					{s.spell_name} ({s.spell_code})
-				</MenuItem>
-			))}
-		</TextField>
+			placeholder="None"
+			options={setup.spells.map((s) => ({ value: s.spell_id, label: `${s.spell_name} (${s.spell_code})` }))}
+			value={r.spellId}
+			onChange={(selectedValue) => updateRow(r.key, {
+					spellId: selectedValue === "" ? "" : Number(selectedValue),
+				})}
+		/>
 	);
 
 	// Std MR% is set in the Std Moisture Master (juteSQC/stdMoisture) per yarn group

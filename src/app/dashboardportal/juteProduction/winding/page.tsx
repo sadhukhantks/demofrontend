@@ -1,17 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Box,
-	Button,
-	CircularProgress,
-	MenuItem,
-	Tab,
-	Tabs,
-	TextField,
-	Typography,
-} from "@mui/material";
+import { Alert, Box, Button, CircularProgress, Tab, Tabs, TextField, Typography } from "@mui/material";
 import { useRouter } from "next/navigation";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
@@ -25,6 +15,7 @@ import QualityGrid from "./_components/QualityGrid";
 import WinderWiseGrid from "./_components/WinderWiseGrid";
 import { todayISO } from "../spinning/utils/spinningCalc";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 // ponytail: sessionStorage flag instead of a ?query param — useSearchParams()
 // would force a Suspense boundary on this client page for a one-shot banner.
 const SWITCH_FLAG = "juteProdPageSwitch";
@@ -150,20 +141,14 @@ export default function WindingPage() {
 			) : null}
 
 			{sidebarBranchIds.length > 1 ? (
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Branch"
+					size="small"
+					options={branchOptions.map((b) => ({ value: Number(b.branch_id), label: b.branch_name }))}
 					value={pageBranchId}
-					onChange={(e) => setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))}
+					onChange={(selectedValue) => setPageBranchId(selectedValue === "" ? "" : Number(selectedValue))}
 					sx={{ mb: 2, minWidth: 240 }}
-				>
-					{branchOptions.map((b) => (
-						<MenuItem key={b.branch_id} value={Number(b.branch_id)}>
-							{b.branch_name}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 			) : selectedBranchName ? (
 				<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 					Branch: {selectedBranchName}
@@ -208,22 +193,14 @@ export default function WindingPage() {
 									onChange={(e) => setTranDate(e.target.value)}
 									InputLabelProps={{ shrink: true }}
 								/>
-								<TextField
-									select
-									size="small"
+								<SearchableOptionSelect
 									label="Spell"
+									size="small"
+									options={doffSetup.spells.map((s) => ({ value: s.spell_id, label: `${s.spell_code} (${Number(s.working_hours)} hrs)` }))}
 									value={spellId}
-									onChange={(e) =>
-										setSpellId(e.target.value === "" ? "" : Number(e.target.value))
-									}
+									onChange={(selectedValue) => setSpellId(selectedValue === "" ? "" : Number(selectedValue))}
 									sx={{ minWidth: 160 }}
-								>
-									{doffSetup.spells.map((s) => (
-										<MenuItem key={s.spell_id} value={s.spell_id}>
-											{s.spell_code} ({Number(s.working_hours)} hrs)
-										</MenuItem>
-									))}
-								</TextField>
+								/>
 							</Box>
 
 							{tab === 0 ? (

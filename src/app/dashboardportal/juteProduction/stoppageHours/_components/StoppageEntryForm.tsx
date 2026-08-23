@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, Button, MenuItem, Snackbar, TextField, Typography } from "@mui/material";
+import { Alert, Box, Button, Snackbar, TextField, Typography } from "@mui/material";
 import { Save as SaveIcon, X as CancelIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -9,6 +9,7 @@ import type { StoppageEntryRow, StoppageSetup } from "../types/stoppageTypes";
 import { STOPPAGE_REASON_LABELS, type StoppageReasonCode } from "../types/stoppageTypes";
 import { isStoppageHoursValid, netRunningHours, todayISO } from "../utils/stoppageCalc";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type Props = {
 	coId: string;
 	branchId: number;
@@ -182,54 +183,36 @@ export default function StoppageEntryForm({
 					disabled={editing}
 					fullWidth
 				/>
-				<TextField
-					select
+				<SearchableOptionSelect
 					label="Spell"
-					value={spellId}
-					onChange={(e) => setSpellId(e.target.value === "" ? "" : Number(e.target.value))}
 					size="small"
 					fullWidth
-				>
-					{setup.spells.map((s) => (
-						<MenuItem key={s.spell_id} value={s.spell_id}>
-							{s.spell_code} — {s.spell_name}
-						</MenuItem>
-					))}
-				</TextField>
-				<TextField
-					select
+					options={setup.spells.map((s) => ({ value: s.spell_id, label: `${s.spell_code} — ${s.spell_name}` }))}
+					value={spellId}
+					onChange={(selectedValue) => setSpellId(selectedValue === "" ? "" : Number(selectedValue))}
+				/>
+				<SearchableOptionSelect
 					label="Department"
+					size="small"
+					fullWidth
+					disabled={editing}
+					helperText="Filter only — not saved"
+					options={depts.map((d) => ({ value: d.id, label: d.name }))}
 					value={deptId}
-					onChange={(e) => {
-						setDeptId(e.target.value === "" ? "" : Number(e.target.value));
+					onChange={(selectedValue) => {
+						setDeptId(selectedValue === "" ? "" : Number(selectedValue));
 						setMachineId("");
 					}}
-					size="small"
-					disabled={editing}
-					fullWidth
-					helperText="Filter only — not saved"
-				>
-					{depts.map((d) => (
-						<MenuItem key={d.id} value={d.id}>
-							{d.name}
-						</MenuItem>
-					))}
-				</TextField>
-				<TextField
-					select
+				/>
+				<SearchableOptionSelect
 					label="Machine"
-					value={machineId}
-					onChange={(e) => setMachineId(e.target.value === "" ? "" : Number(e.target.value))}
 					size="small"
-					disabled={editing || deptId === ""}
 					fullWidth
-				>
-					{machinesForDept.map((m) => (
-						<MenuItem key={m.machine_id} value={m.machine_id}>
-							{m.mech_code} — {m.machine_name}
-						</MenuItem>
-					))}
-				</TextField>
+					disabled={editing || deptId === ""}
+					options={machinesForDept.map((m) => ({ value: m.machine_id, label: `${m.mech_code} — ${m.machine_name}` }))}
+					value={machineId}
+					onChange={(selectedValue) => setMachineId(selectedValue === "" ? "" : Number(selectedValue))}
+				/>
 				<TextField
 					type="number"
 					label="Hours"
@@ -249,26 +232,23 @@ export default function StoppageEntryForm({
 								: ""
 					}
 				/>
-				<TextField
-					select
+				<SearchableOptionSelect
 					label="Reason"
-					value={reasonCode}
-					onChange={(e) => setReasonCode(e.target.value)}
-					size="small"
-					fullWidth
-				>
-					{(setup.reasons.length > 0
+					options={(setup.reasons.length > 0
 						? setup.reasons
 						: (Object.keys(STOPPAGE_REASON_LABELS) as StoppageReasonCode[]).map((code) => ({
 								code,
 								label: STOPPAGE_REASON_LABELS[code],
 							}))
-					).map((r) => (
-						<MenuItem key={r.code} value={r.code}>
-							{STOPPAGE_REASON_LABELS[r.code as StoppageReasonCode] ?? r.label}
-						</MenuItem>
-					))}
-				</TextField>
+					).map((r) => ({
+						value: r.code,
+						label: STOPPAGE_REASON_LABELS[r.code as StoppageReasonCode] ?? r.label,
+					}))}
+					value={reasonCode}
+					onChange={(selectedValue) => setReasonCode(selectedValue)}
+					size="small"
+					fullWidth
+				/>
 				<TextField
 					label="Remarks"
 					value={remarks}

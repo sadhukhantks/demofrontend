@@ -1,20 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Box,
-	Button,
-	Dialog,
-	DialogActions,
-	DialogContent,
-	DialogTitle,
-	IconButton,
-	MenuItem,
-	TextField,
-	Tooltip,
-	Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, TextField, Tooltip, Typography } from "@mui/material";
 import { Pencil as EditOutlinedIcon, Plus as AddIcon, Trash2 as DeleteIcon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
@@ -22,6 +9,7 @@ import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 // trolly_type: 'T' = Trolly, 'S' = Spool. Backend column on trolly_mst.
 type TrollyType = "T" | "S";
 
@@ -291,38 +279,22 @@ export default function TrollyMasterPage() {
 					</Typography>
 				</Box>
 				<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-					<TextField
-						select
+					<SearchableOptionSelect
 						label="Type"
+						size="small"
+						options={[...[{ value: "ALL", label: "All" }], ...TROLLY_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))]}
 						value={typeFilter}
-						onChange={(e) => setTypeFilter(e.target.value as "ALL" | TrollyType)}
-						size="small"
+						onChange={(selectedValue) => setTypeFilter(selectedValue as "ALL" | TrollyType)}
 						sx={{ minWidth: 140 }}
-					>
-						<MenuItem value="ALL">All</MenuItem>
-						{TROLLY_TYPE_OPTIONS.map((o) => (
-							<MenuItem key={o.value} value={o.value}>
-								{o.label}
-							</MenuItem>
-						))}
-					</TextField>
-					<TextField
-						select
+					/>
+					<SearchableOptionSelect
 						label="Machine Type"
-						value={String(machineTypeFilter)}
-						onChange={(e) =>
-							setMachineTypeFilter(e.target.value === "ALL" ? "ALL" : Number(e.target.value))
-						}
 						size="small"
+						options={[...[{ value: "ALL", label: "All" }], ...machineTypes.map((mt) => ({ value: String(mt.machine_type_id), label: mt.machine_type_name }))]}
+						value={String(machineTypeFilter)}
+						onChange={(selectedValue) => setMachineTypeFilter(selectedValue === "ALL" ? "ALL" : Number(selectedValue))}
 						sx={{ minWidth: 150 }}
-					>
-						<MenuItem value="ALL">All</MenuItem>
-						{machineTypes.map((mt) => (
-							<MenuItem key={mt.machine_type_id} value={String(mt.machine_type_id)}>
-								{mt.machine_type_name}
-							</MenuItem>
-						))}
-					</TextField>
+					/>
 					<Button variant="contained" startIcon={<AddIcon size={18} />} onClick={openCreate}>
 						New
 					</Button>
@@ -359,36 +331,22 @@ export default function TrollyMasterPage() {
 							size="small"
 							inputProps={{ maxLength: 100 }}
 						/>
-						<TextField
-							select
+						<SearchableOptionSelect
 							label="Type"
-							value={form.trolly_type}
-							onChange={(e) =>
-								setForm({ ...form, trolly_type: e.target.value as TrollyType })
-							}
 							size="small"
-						>
-							{TROLLY_TYPE_OPTIONS.map((o) => (
-								<MenuItem key={o.value} value={o.value}>
-									{o.label}
-								</MenuItem>
-							))}
-						</TextField>
-						<TextField
-							select
+							options={TROLLY_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+							value={form.trolly_type}
+							onChange={(selectedValue) => setForm({ ...form, trolly_type: selectedValue as TrollyType })}
+						/>
+						<SearchableOptionSelect
 							label="Machine Type"
-							value={form.machine_type_id}
-							onChange={(e) => setForm({ ...form, machine_type_id: e.target.value })}
 							size="small"
 							required
 							helperText={machineTypes.length === 0 ? "Loading machine types…" : "Required"}
-						>
-							{machineTypes.map((mt) => (
-								<MenuItem key={mt.machine_type_id} value={String(mt.machine_type_id)}>
-									{mt.machine_type_name}
-								</MenuItem>
-							))}
-						</TextField>
+							options={machineTypes.map((mt) => ({ value: String(mt.machine_type_id), label: mt.machine_type_name }))}
+							value={form.machine_type_id}
+							onChange={(selectedValue) => setForm({ ...form, machine_type_id: selectedValue })}
+						/>
 						<TextField
 							type="number"
 							label="Trolly Weight (kg)"
@@ -412,26 +370,18 @@ export default function TrollyMasterPage() {
 							size="small"
 							inputProps={{ maxLength: 50 }}
 						/>
-						<TextField
-							select
+						<SearchableOptionSelect
 							label="Branch"
+							placeholder="None"
+							options={branchOptions.map((b) => ({ value: String(b.branch_id), label: b.branch_name }))}
 							value={form.branch_id}
-							onChange={(e) => setForm({ ...form, branch_id: e.target.value })}
+							onChange={(selectedValue) => setForm({ ...form, branch_id: selectedValue })}
 							size="small"
 							disabled={branchOptions.length === 0}
+							// With a single branch the field must keep its value, as before.
+							clearable={branchOptions.length !== 1}
 							helperText={branchOptions.length === 0 ? "No branch selected in sidebar" : undefined}
-						>
-							{branchOptions.length !== 1 ? (
-								<MenuItem value="">
-									<em>None</em>
-								</MenuItem>
-							) : null}
-							{branchOptions.map((b) => (
-								<MenuItem key={b.branch_id} value={String(b.branch_id)}>
-									{b.branch_name}
-								</MenuItem>
-							))}
-						</TextField>
+						/>
 					</Box>
 				</DialogContent>
 				<DialogActions>

@@ -1,19 +1,9 @@
 "use client";
 
 import * as React from "react";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableContainer,
-	TableHead,
-	TableRow,
-	TextField,
-	MenuItem,
-	Paper,
-	Typography,
-} from "@mui/material";
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Paper, Typography } from "@mui/material";
 import type { ResponseLineItem } from "../../createEnquiry/types/enquiryTypes";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -93,10 +83,10 @@ const ResponseLineItemsTable: React.FC<ResponseLineItemsTableProps> = ({
 	);
 
 	const handleSelectChange = React.useCallback(
-		(index: number) =>
-			(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-				onItemChange(index, "discountMode", Number(e.target.value));
-			},
+		(index: number) => (value: number | "") => {
+			// "" (field cleared) maps to 0 — the "None" discount mode.
+			onItemChange(index, "discountMode", Number(value));
+		},
 		[onItemChange],
 	);
 
@@ -210,24 +200,14 @@ const ResponseLineItemsTable: React.FC<ResponseLineItemsTableProps> = ({
 										{DISCOUNT_MODE_OPTIONS.find((o) => o.value === (item.discountMode ?? 0))?.label ?? "None"}
 									</Typography>
 								) : (
-									<TextField
-										select
+									<SearchableOptionSelect
 										size="small"
+										placeholder={`Discount mode for ${item.itemName || item.itemCode}`}
+										options={DISCOUNT_MODE_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
 										value={item.discountMode ?? 0}
 										onChange={handleSelectChange(idx)}
-										slotProps={{
-											htmlInput: {
-												"aria-label": `Discount mode for ${item.itemName || item.itemCode}`,
-											},
-										}}
 										sx={{ width: 120 }}
-									>
-										{DISCOUNT_MODE_OPTIONS.map((opt) => (
-											<MenuItem key={opt.value} value={opt.value}>
-												{opt.label}
-											</MenuItem>
-										))}
-									</TextField>
+									/>
 								)}
 							</TableCell>
 

@@ -17,31 +17,12 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  Fab,
-  IconButton,
-  MenuItem,
-  Snackbar,
-  Stack,
-  Tab,
-  Tabs,
-  TextField,
-  Tooltip,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Chip, CircularProgress, Dialog, DialogContent, DialogTitle, Divider, Fab, IconButton, Snackbar, Stack, Tab, Tabs, TextField, Tooltip, Typography } from "@mui/material";
 import { ArrowLeft, LifeBuoy, Send, X } from "lucide-react";
 
 import { useSidebarContextSafe } from "@/components/dashboard/sidebarContext";
 import { AttachmentList, AttachmentUploadButton } from "@/components/support/AttachmentList";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import {
   addReporterComment,
   deleteReporterAttachment,
@@ -333,22 +314,18 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
                     name="category"
                     control={control}
                     render={({ field }) => (
-                      <TextField
-                        select
+                      <SearchableOptionSelect
                         label="Category"
                         size="small"
                         fullWidth
                         required
                         error={Boolean(errors.category)}
                         helperText={errors.category?.message}
-                        {...field}
-                      >
-                        {categoryOptions.map((c) => (
-                          <MenuItem key={c.value} value={c.value}>
-                            {c.label}
-                          </MenuItem>
-                        ))}
-                      </TextField>
+                        name={field.name}
+                        options={categoryOptions.map((c) => ({ value: c.value, label: c.label }))}
+                        value={field.value}
+                        onChange={(selectedValue) => field.onChange(selectedValue)}
+                      />
                     )}
                   />
 
@@ -356,20 +333,18 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
                     name="priority"
                     control={control}
                     render={({ field }) => (
-                      <TextField
-                        select
+                      <SearchableOptionSelect
                         label="Priority"
                         size="small"
                         fullWidth
+                        name={field.name}
+                        options={Object.entries(TICKET_PRIORITY_LABELS).map(([id, label]) => ({
+                          value: Number(id),
+                          label,
+                        }))}
                         value={field.value}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      >
-                        {Object.entries(TICKET_PRIORITY_LABELS).map(([id, label]) => (
-                          <MenuItem key={id} value={Number(id)}>
-                            {label}
-                          </MenuItem>
-                        ))}
-                      </TextField>
+                        onChange={(selectedValue) => field.onChange(Number(selectedValue))}
+                      />
                     )}
                   />
                 </Stack>

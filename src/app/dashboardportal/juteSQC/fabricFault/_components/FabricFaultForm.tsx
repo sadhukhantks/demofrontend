@@ -1,17 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Autocomplete,
-	Box,
-	Button,
-	MenuItem,
-	Paper,
-	Snackbar,
-	TextField,
-	Typography,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Paper, Snackbar, TextField, Typography } from "@mui/material";
 import { Save as SaveIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -23,6 +13,7 @@ import {
 } from "../types/fabricFaultTypes";
 import { pieceTotal } from "../utils/fabricFaultCalc";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type Props = {
 	coId: string;
 	branchId: number;
@@ -141,22 +132,14 @@ export default function FabricFaultForm({ coId, branchId, entryDate, setup, onSa
 					alignItems: "start",
 				}}
 			>
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Shift (spell)"
+					size="small"
+					placeholder="None"
+					options={setup.spells.map((s) => ({ value: s.spell_id, label: s.spell_code }))}
 					value={spellId}
-					onChange={(e) => setSpellId(e.target.value === "" ? "" : Number(e.target.value))}
-				>
-					<MenuItem value="">
-						<em>None</em>
-					</MenuItem>
-					{setup.spells.map((s) => (
-						<MenuItem key={s.spell_id} value={s.spell_id}>
-							{s.spell_code}
-						</MenuItem>
-					))}
-				</TextField>
+					onChange={(selectedValue) => setSpellId(selectedValue === "" ? "" : Number(selectedValue))}
+				/>
 
 				<Autocomplete
 					options={setup.qualities}

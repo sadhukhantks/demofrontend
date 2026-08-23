@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, CircularProgress, MenuItem, TextField, Typography } from "@mui/material";
+import { Alert, Box, CircularProgress, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayISO, computeTpiPreview } from "./utils/yarnTpiCalc";
@@ -14,6 +14,7 @@ import { readingCells, readingColumns } from "../_shared/printReport";
 import type { SqcPrintReport, PrintColumn, PrintSection } from "../_shared/printReport";
 import type { YarnTpiGroup, YarnTpiStats } from "./types/yarnTpiTypes";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 // Mirror YarnTpiGrid.statsFor: prefer server stats, else client fallback.
 function statsForGroup(g: YarnTpiGroup): YarnTpiStats {
 	if (g.stats) return g.stats;
@@ -189,20 +190,14 @@ export default function YarnTpiSqcPage() {
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Branch"
+					size="small"
+					options={branchOptions.map((b) => ({ value: Number(b.branch_id), label: b.branch_name }))}
 					value={pageBranchId}
-					onChange={(e) => setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))}
+					onChange={(selectedValue) => setPageBranchId(selectedValue === "" ? "" : Number(selectedValue))}
 					sx={{ mb: 2, minWidth: 240 }}
-				>
-					{branchOptions.map((b) => (
-						<MenuItem key={b.branch_id} value={Number(b.branch_id)}>
-							{b.branch_name}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 			) : selectedBranchName ? (
 				<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 					Branch: {selectedBranchName}

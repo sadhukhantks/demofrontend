@@ -69,6 +69,11 @@ export interface SearchableOptionSelectProps<TValue extends string | number> {
 	autoFocus?: boolean;
 	/** Styles applied to the underlying input, matching the old `TextField` `sx`. */
 	sx?: TextFieldProps["sx"];
+	/**
+	 * Escape hatch for the underlying `TextField` (e.g. `InputLabelProps`).
+	 * Do not override `inputProps`/`slotProps.htmlInput` — the Autocomplete owns those.
+	 */
+	textFieldProps?: Partial<TextFieldProps>;
 }
 
 export function SearchableOptionSelect<TValue extends string | number>({
@@ -91,6 +96,7 @@ export function SearchableOptionSelect<TValue extends string | number>({
 	name,
 	autoFocus,
 	sx,
+	textFieldProps,
 }: SearchableOptionSelectProps<TValue>) {
 	const optionList = React.useMemo(() => [...options], [options]);
 
@@ -131,7 +137,7 @@ export function SearchableOptionSelect<TValue extends string | number>({
 			size={size}
 			fullWidth={fullWidth}
 			className={className}
-			textFieldProps={{ sx, id, name, autoFocus }}
+			textFieldProps={{ ...textFieldProps, sx, id, name, autoFocus }}
 		/>
 	);
 }

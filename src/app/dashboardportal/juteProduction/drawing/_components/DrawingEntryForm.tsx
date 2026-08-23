@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, Button, MenuItem, Snackbar, TextField } from "@mui/material";
+import { Alert, Box, Button, Snackbar, TextField } from "@mui/material";
 import { Save as SaveIcon, X as CancelIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -9,6 +9,7 @@ import type { DrawingEntryRow, DrawingSetup } from "../types/drawingTypes";
 import { computeDiffMeter, computeEff, todayISO } from "../utils/drawingCalc";
 import { useMachinePrevState } from "../hooks/useMachinePrevState";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type Props = {
 	coId: string;
 	branchId: number;
@@ -200,20 +201,14 @@ export default function DrawingEntryForm({
 					InputLabelProps={{ shrink: true }}
 					fullWidth
 				/>
-				<TextField
-					select
+				<SearchableOptionSelect
 					label="Spell"
-					value={spell}
-					onChange={(e) => handleSpellChange(e.target.value)}
 					size="small"
 					fullWidth
-				>
-					{setup.spells.map((s) => (
-						<MenuItem key={s.spell_code} value={s.spell_code}>
-							{s.spell_code} ({Number(s.working_hours)} hrs)
-						</MenuItem>
-					))}
-				</TextField>
+					options={setup.spells.map((s) => ({ value: s.spell_code, label: `${s.spell_code} (${Number(s.working_hours)} hrs)` }))}
+					value={spell}
+					onChange={(selectedValue) => handleSpellChange(selectedValue)}
+				/>
 				<TextField
 					type="number"
 					label="Working Hours"
@@ -222,20 +217,14 @@ export default function DrawingEntryForm({
 					size="small"
 					fullWidth
 				/>
-				<TextField
-					select
+				<SearchableOptionSelect
 					label="Machine"
-					value={machineId}
-					onChange={(e) => setMachineId(e.target.value === "" ? "" : Number(e.target.value))}
 					size="small"
 					fullWidth
-				>
-					{setup.machines.map((m) => (
-						<MenuItem key={m.machine_id} value={m.machine_id}>
-							{m.mech_code} — {m.machine_name}
-						</MenuItem>
-					))}
-				</TextField>
+					options={setup.machines.map((m) => ({ value: m.machine_id, label: `${m.mech_code} — ${m.machine_name}` }))}
+					value={machineId}
+					onChange={(selectedValue) => setMachineId(selectedValue === "" ? "" : Number(selectedValue))}
+				/>
 				<TextField
 					label="Const Meter (m/8h)"
 					value={constMeter || ""}

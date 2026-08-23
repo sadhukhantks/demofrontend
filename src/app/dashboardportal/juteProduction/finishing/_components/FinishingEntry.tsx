@@ -2,15 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import {
-	Alert,
-	Box,
-	Button,
-	CircularProgress,
-	MenuItem,
-	TextField,
-	Typography,
-} from "@mui/material";
+import { Alert, Box, Button, CircularProgress, TextField, Typography } from "@mui/material";
 import { ArrowLeft } from "lucide-react";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
@@ -20,6 +12,7 @@ import DailyFinishingGrid from "./DailyFinishingGrid";
 import type { FinishingEntryRow, FinishingProcess } from "../types/finishingTypes";
 import { FINISHING_PROCESS_CONFIG, todayISO } from "../_shared/finishingConfig";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type Props = {
 	process: FinishingProcess;
 };
@@ -135,22 +128,14 @@ export default function FinishingEntry({ process }: Props) {
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Branch"
+					size="small"
+					options={branchOptions.map((b) => ({ value: Number(b.branch_id), label: b.branch_name }))}
 					value={pageBranchId}
-					onChange={(e) =>
-						setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))
-					}
+					onChange={(selectedValue) => setPageBranchId(selectedValue === "" ? "" : Number(selectedValue))}
 					sx={{ mb: 2, minWidth: 240 }}
-				>
-					{branchOptions.map((b) => (
-						<MenuItem key={b.branch_id} value={Number(b.branch_id)}>
-							{b.branch_name}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 			) : selectedBranchName ? (
 				<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 					Branch: {selectedBranchName}
@@ -190,20 +175,14 @@ export default function FinishingEntry({ process }: Props) {
 									onChange={(e) => setTranDate(e.target.value)}
 									InputLabelProps={{ shrink: true }}
 								/>
-								<TextField
-									select
-									size="small"
+								<SearchableOptionSelect
 									label="Spell"
+									size="small"
+									options={setup.spells.map((s) => ({ value: s.spell_code, label: `${s.spell_code} (${Number(s.working_hours)} hrs)` }))}
 									value={spell}
-									onChange={(e) => setSpell(e.target.value)}
+									onChange={(selectedValue) => setSpell(selectedValue)}
 									sx={{ minWidth: 160 }}
-								>
-									{setup.spells.map((s) => (
-										<MenuItem key={s.spell_code} value={s.spell_code}>
-											{s.spell_code} ({Number(s.working_hours)} hrs)
-										</MenuItem>
-									))}
-								</TextField>
+								/>
 							</Box>
 
 							<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>

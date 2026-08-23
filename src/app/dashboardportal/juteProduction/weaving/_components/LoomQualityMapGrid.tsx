@@ -1,29 +1,14 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Autocomplete,
-	Box,
-	Button,
-	Chip,
-	CircularProgress,
-	MenuItem,
-	Snackbar,
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableRow,
-	TextField,
-	Typography,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Chip, CircularProgress, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
 import { Save as SaveIcon, Stamp as StampIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WeavingSetup, LoomQualityMapRow } from "../types/weavingTypes";
 import type { LoomQualityMapState } from "../hooks/useLoomQualityMap";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 // Sort looms by shed line (nulls last), then by loom code — the render groups on line_no.
 // Mirrors WeavingEntryGrid so both tabs show the same order.
 function byLineThenCode(a: LoomQualityMapRow, b: LoomQualityMapRow): number {
@@ -271,27 +256,17 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spellI
 										<TableCell>{r.mech_code}</TableCell>
 										<TableCell>{r.machine_name}</TableCell>
 										<TableCell>
-											<TextField
-												select
+											<SearchableOptionSelect
 												size="small"
+												placeholder="None"
+												options={setup.qualities.map((qq) => ({ value: qq.weaving_quality_id, label: `${qq.weaving_quality_name ?? qq.weaving_quality_code} (${qq.weaving_quality_code})` }))}
 												value={q}
-												onChange={(ev) =>
-													setQuality(
+												onChange={(selectedValue) => setQuality(
 														r.machine_id,
-														ev.target.value === "" ? "" : Number(ev.target.value)
-													)
-												}
+														selectedValue === "" ? "" : Number(selectedValue)
+													)}
 												sx={{ minWidth: 180 }}
-											>
-												<MenuItem value="">
-													<em>None</em>
-												</MenuItem>
-												{setup.qualities.map((qq) => (
-													<MenuItem key={qq.weaving_quality_id} value={qq.weaving_quality_id}>
-														{qq.weaving_quality_name ?? qq.weaving_quality_code} ({qq.weaving_quality_code})
-													</MenuItem>
-												))}
-											</TextField>
+											/>
 										</TableCell>
 										<TableCell>
 											{dirty ? (

@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 
 // Generic menu item interface that can handle any field names
 interface MenuItemGeneric {
@@ -234,17 +235,13 @@ const MenuTableDropdown: React.FC<Props> = ({
     const indent = { paddingLeft: `${16 + depth * 20}px` };
 
     const accessCell = depth > 0 ? (
-      <select
-        className="border rounded px-2 py-1 text-sm w-full"
+      <SearchableOptionSelect
+        fullWidth
+        options={dropdownOptions.map((option) => ({ value: option.value, label: option.label }))}
         value={selectedMenuIds.includes(menuId) ? accessLevels[menuId] || "1" : "0"}
-        onChange={(e) => handleChildAccessChange(menuId, e.target.value)}
-      >
-        {dropdownOptions.map(option => (
-          <option key={`${menuId}-${option.value}`} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+        onChange={(selectedValue) => handleChildAccessChange(menuId, String(selectedValue))}
+        clearable={false}
+      />
     ) : null;
 
     return (

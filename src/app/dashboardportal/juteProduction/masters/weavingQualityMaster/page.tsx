@@ -1,23 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-	Accordion,
-	AccordionDetails,
-	AccordionSummary,
-	Alert,
-	Box,
-	Button,
-	Dialog,
-	DialogActions,
-	DialogContent,
-	DialogTitle,
-	IconButton,
-	MenuItem,
-	TextField,
-	Tooltip,
-	Typography,
-} from "@mui/material";
+import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, TextField, Tooltip, Typography } from "@mui/material";
 import {
 	ChevronDown as ExpandIcon,
 	Pencil as EditOutlinedIcon,
@@ -29,6 +13,7 @@ import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 
 // Cloth item supplied by weaving_quality_setup.
 type SetupItem = {
@@ -407,23 +392,17 @@ export default function WeavingQualityMasterPage() {
 				<DialogTitle>{editing ? "Edit Weaving Quality" : "New Weaving Quality"}</DialogTitle>
 				<DialogContent>
 					<Box sx={{ display: "grid", gap: 2, mt: 1 }}>
-						<TextField
-							select
+						<SearchableOptionSelect
 							label="Item"
+							options={items.map((it) => ({ value: String(it.item_id), label: itemLabel(it) }))}
 							value={form.item_id}
-							onChange={(e) => setForm({ ...form, item_id: e.target.value })}
+							onChange={(selectedValue) => setForm({ ...form, item_id: selectedValue })}
 							size="small"
 							required
 							// Item is the master key; locked once a row exists to keep the duplicate key stable.
 							disabled={!!editing || items.length === 0}
 							helperText={items.length === 0 ? "Loading cloth items…" : undefined}
-						>
-							{items.map((it) => (
-								<MenuItem key={it.item_id} value={String(it.item_id)}>
-									{itemLabel(it)}
-								</MenuItem>
-							))}
-						</TextField>
+						/>
 						{/* Primary fields — DB-required and the ones that drive production
 						    calculations (finished_length, ozs_yds, std_ozs_yds, jugar/cut). */}
 						<Box
