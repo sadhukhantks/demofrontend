@@ -43,6 +43,7 @@ Both are auto-listed each session. Module-guide agent full bodies live HERE; `..
 | `src/utils/apiClient2.ts` | `fetchWithCookie` — the only way to call APIs |
 | `src/middleware.ts` | Session verification + portal per-route permission check |
 | `src/components/ui/transaction/ApprovalActionsBar.tsx` | Shared approval bar |
+| `src/components/ui/SearchableSelect.tsx` | Canonical searchable dropdown — the ONLY way to render a dropdown |
 | `src/components/dashboard/sidebarContext.tsx` | Portal sidebar context (companies, branches, menus, permissions) |
 | `src/utils/portalPermissions.ts` | Portal action helpers |
 | `src/styles/tokens.ts` | Theme tokens (never hardcode colors) |
@@ -169,6 +170,34 @@ Portal permission check is in `src/middleware.ts`.
 - **Smart (container) components:** `page.tsx` handles state, data, logic
 - **Dumb (presentational) components:** `_components/*.tsx` renders from props only
 
+### Dropdowns (MANDATORY -- searchable, never selection-only)
+
+**Every dropdown in the app must be searchable with type-ahead autofill.** A user must always be
+able to click a dropdown and start typing to filter it. Selection-only dropdowns -- where the user
+can only scroll a list -- are not permitted anywhere, in any of the three dashboards.
+
+- **Use `SearchableSelect` / `SearchableMultiSelect`** from `@/components/ui/SearchableSelect`.
+- **Never render a raw MUI `<Select>` + `<MenuItem>`**, a raw `<TextField select>`, a native
+  `<select>`, or the shadcn `<Select>` primitive directly in a page or feature component.
+  (`src/components/ui/select.tsx` stays as an internal primitive; consume it only through a shared
+  wrapper.)
+- **No exceptions for short lists.** Two-option dropdowns (Active/Inactive, Yes/No, Dr/Cr) are
+  searchable too. The point is that behaviour is uniform -- a user never has to guess which
+  dropdowns accept typing.
+- **Never disable typing** on an `Autocomplete` (no `readOnly` on the input to force picking).
+  To make a field non-editable, use `disabled`, which is the mode-aware pattern.
+- **Variants:** `variant="outlined"` for normal labelled form fields (the drop-in for
+  `FormControl` + `InputLabel` + `Select`); `variant="bare"` inside DataGrid cells and line-item
+  tables, where the cell already draws the frame.
+- **Value shape:** the component deals in option objects; map option object <-> id at the component
+  boundary so form state keeps storing the primitive id. Pair `getOptionLabel` with
+  `isOptionEqualToValue` whenever options are objects.
+- **Large lists are the reason this exists.** Item, party, and ledger dropdowns run to thousands of
+  rows; `SearchableSelect` caps rendered options and filters by typed text, so typing is both the
+  usability answer and the performance answer.
+
+> For a before/after conversion example, see `docs/claude/code-examples.md`.
+
 ### Styling (Three Layers)
 - **Tailwind CSS** for layout and spacing
 - **MUI components** for complex interactions (DataGrid, Autocomplete, Dialog)
@@ -237,6 +266,7 @@ For documents like Indent, PO, GRN, Invoice -- follow the standardized architect
 8. Never mutate frozen objects
 9. Never hardcode status IDs -- use constants
 10. Never skip tests for complex logic
+11. Never ship a selection-only dropdown -- always `SearchableSelect`/`SearchableMultiSelect`, never a raw MUI `Select`, `TextField select`, or native `<select>`
 
 ### React Hook Declaration Order
 Block-scoped `useMemo`/`useCallback` are NOT hoisted. Always declare dependencies before dependents.
