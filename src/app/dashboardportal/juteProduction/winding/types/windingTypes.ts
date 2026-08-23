@@ -54,13 +54,16 @@ export type WindingMachineOption = {
 	branch_id: number | null;
 };
 
-// Response of WINDING_DOFF_SETUP (data.{...}).
+// Response of WINDING_DOFF_SETUP (data.{...}). `machines` only feeds the doff
+// form's optional machine shortcut (it resolves the winder + quality off the
+// map) — the machine itself is never part of the save payload.
 export type WindingDoffSetup = {
 	workers: WindingWorkerOption[];
 	yarn_items: YarnItemOption[];
 	trollies: WindingTrollyOption[];
 	spools: WindingTrollyOption[];
 	spells: WindingSpellOption[];
+	machines: WindingMachineOption[];
 };
 
 // Response of WINDING_JUGAR_SETUP.
