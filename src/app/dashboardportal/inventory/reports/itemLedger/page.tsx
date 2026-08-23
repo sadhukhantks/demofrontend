@@ -62,7 +62,7 @@ const dmy = (d: string | null | undefined): string =>
   d ? d.slice(0, 10).split("-").reverse().join("-") : "";
 
 // ponytail: legacy Data-Portal single-letter transaction codes
-const TYPE_CODE: Record<string, string> = { Receipt: "R", Issue: "I" };
+const TYPE_CODE: Record<string, string> = { Receipt: "R", Issue: "I", Return: "DN" };
 
 function ItemLedgerContent() {
   const { branches, coId, companyName, initialBranchId, dateParam } =

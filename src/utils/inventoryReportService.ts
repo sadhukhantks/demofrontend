@@ -19,6 +19,9 @@ export interface InventoryStockReportRow {
   receipt_val: number | null;
   issue_qty: number | null;
   issue_val: number | null;
+  /** Goods returned to the supplier on an approved debit note. */
+  return_qty: number | null;
+  return_val: number | null;
   closing_qty: number | null;
   closing_val: number | null;
   last_receipt_date: string | null;

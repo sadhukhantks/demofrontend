@@ -25,6 +25,10 @@ type DrcrNoteRow = {
 	supplier_name: string;
 	gross_amount: number;
 	net_amount: number;
+	// gross/net are tax-exclusive; total_amount includes the note GST and is
+	// the figure Bill Pass deducts.
+	tax_amount?: number;
+	total_amount?: number;
 	status_id: number;
 	status_name: string;
 	auto_create: boolean;
@@ -171,7 +175,7 @@ export default function DrcrNoteIndexPage() {
 			minWidth: 180,
 		},
 		{
-			field: "net_amount",
+			field: "total_amount",
 			headerName: "Amount",
 			type: "number",
 			minWidth: 120,
@@ -260,6 +264,8 @@ export default function DrcrNoteIndexPage() {
 				supplier_name: row.supplier_name ?? "",
 				gross_amount: row.gross_amount ?? 0,
 				net_amount: row.net_amount ?? 0,
+				tax_amount: row.tax_amount ?? 0,
+				total_amount: row.total_amount ?? row.net_amount ?? 0,
 				status_id: row.status_id ?? 0,
 				status_name: row.status_name ?? "Draft",
 				auto_create: row.auto_create ?? false,
