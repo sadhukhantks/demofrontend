@@ -50,6 +50,9 @@ export type FinDrawMachine = {
 // A jute-yarn item group (item_grp_mst, item_type_id 4).
 // item_grp_name is the display label. A yarn group has no single std, so the
 // preview always uses std 16 (drawing) and no CV band.
+// Std MR% now comes from the Std Moisture Master (juteSQC/stdMoisture) per
+// (co_id, yarn group, process); the value below is only the fallback used
+// while the master has no entry — in that case the backend rejects the save.
 export type YarnGroupOption = {
 	item_grp_id: number;
 	item_grp_name: string;
@@ -64,6 +67,11 @@ export type FinDrawSetup = {
 	machines: FinDrawMachine[];
 	spells: SqcSpell[];
 	groups: YarnGroupOption[];
+	// Std MR% resolved from the Std Moisture Master for THIS page's process, keyed by
+	// item_grp_id AS A STRING. A group missing from the map has no standard set, and
+	// saving readings for it is rejected by the backend (400). Optional so the page
+	// still renders against a backend that predates the master.
+	std_mr_by_group?: Record<string, number>;
 	entries: FinDrawReadingRow[];
 };
 

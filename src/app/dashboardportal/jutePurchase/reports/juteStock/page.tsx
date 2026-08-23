@@ -15,6 +15,7 @@ const columns: GridColDef<JuteStockReportRow>[] = [
   numCol("opening_weight", "Opening (kg)", 130),
   numCol("receipt_weight", "Receipt (kg)", 130),
   numCol("issue_weight", "Issue (kg)"),
+  numCol("sold_weight", "Sold (kg)"),
   numCol("closing_weight", "Closing (kg)", 130),
   numCol("mtd_receipt_weight", "MTD Receipt (kg)", 150),
   numCol("mtd_issue_weight", "MTD Issue (kg)", 140),

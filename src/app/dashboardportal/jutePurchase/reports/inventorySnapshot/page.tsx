@@ -18,6 +18,8 @@ const columns: GridColDef<JuteQtyWiseReportRow>[] = [
   numCol("receipt_qty", "Receipt Qty"),
   numCol("issue_weight", "Issue Wt"),
   numCol("issue_qty", "Issue Qty"),
+  numCol("sold_weight", "Sold Wt"),
+  numCol("sold_qty", "Sold Qty"),
   numCol("closing_weight", "Closing Wt"),
   numCol("closing_qty", "Closing Qty"),
 ];

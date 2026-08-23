@@ -7,6 +7,7 @@ import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayISO } from "@/app/dashboardportal/juteProduction/spinning/utils/spinningCalc";
 import { useWeavingPickSetup } from "./hooks/useWeavingPickSetup";
 import { useWeavingPickByDate } from "./hooks/useWeavingPickByDate";
+import { ppiToDm } from "./pickUnits";
 // Shared target-map editor reused across the juteProduction route boundary:
 // the "Actual Speed" tab writes actuals into jute_prod_weaving_target_map (the same
 // table the weaving planning grid reads, value_role='actual'). The editor reuses
@@ -97,7 +98,8 @@ export default function WeavingSqcPage() {
 			{ key: "quality", label: "Quality" },
 			{ key: "loom", label: "Loom" },
 			{ key: "width", label: "Width", align: "right" },
-			{ key: "picks", label: "Pick / PPI", align: "right" },
+			{ key: "picks_dm", label: "Picks / dm", align: "right" },
+			{ key: "picks", label: "PPI", align: "right" },
 		];
 		const readingRows = pickReadings.map((r) => {
 			const loom = `${r.mech_code ?? ""} ${r.machine_name ?? ""}`.trim();
@@ -106,6 +108,8 @@ export default function WeavingSqcPage() {
 				quality: qualityLabel(r),
 				loom: loom === "" ? `Loom #${r.machine_id}` : loom,
 				width: fmt(r.width),
+				// Legacy rows carry only PPI — derive picks/dm client-side.
+				picks_dm: fmt(r.picks_dm ?? ppiToDm(r.picks)),
 				picks: fmt(r.picks),
 			};
 		});
@@ -113,6 +117,7 @@ export default function WeavingSqcPage() {
 		const summaryColumns: PrintColumn[] = [
 			{ key: "quality", label: "Quality" },
 			{ key: "avg_picks", label: "Avg PPI", align: "right" },
+			{ key: "avg_picks_dm", label: "Avg picks/dm", align: "right" },
 			{ key: "std_picks", label: "Std Dev", align: "right" },
 			{ key: "min_picks", label: "Min", align: "right" },
 			{ key: "max_picks", label: "Max", align: "right" },
@@ -122,6 +127,7 @@ export default function WeavingSqcPage() {
 		const summaryRows = pickSummary.map((r) => ({
 			quality: qualityLabel(r),
 			avg_picks: fmt(r.avg_picks),
+			avg_picks_dm: fmt(r.avg_picks_dm ?? (r.avg_picks != null ? ppiToDm(r.avg_picks) : null)),
 			std_picks: fmt(r.std_picks),
 			min_picks: fmt(r.min_picks),
 			max_picks: fmt(r.max_picks),
@@ -180,7 +186,8 @@ export default function WeavingSqcPage() {
 				Weaving SQC
 			</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-				Capture per-loom width &amp; actual picks (R-08-21) and the actual loom speed per weaving quality.
+				Capture per-loom width &amp; actual picks (R-08-21) — picks are entered per dm and converted
+				to PPI automatically — and the actual loom speed per weaving quality.
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (

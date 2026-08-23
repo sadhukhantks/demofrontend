@@ -4,6 +4,7 @@ import {
   Autocomplete,
   Box,
   Button,
+  createFilterOptions,
   FormControl,
   InputLabel,
   MenuItem,
@@ -20,6 +21,18 @@ import ReportGrid from "./ReportGrid";
 import { useMounted } from "./useMounted";
 import { exportRowsToExcel, type ReportExportHeader } from "./exportExcel";
 import type { BranchOption } from "./types";
+
+/** Options rendered at once by the async picker. MUI's listbox is not
+ * virtualized and mounts every filtered option: sls co 2 / br 29 returns 4,861
+ * MRs (~4,861 x N DOM nodes) and opening the empty dropdown froze the main
+ * thread for seconds. Typing still searches the full list — only the RENDERED
+ * count is capped.
+ * ponytail: a filter limit, not a virtualized listbox. Swap in
+ * react-window/MUI's ListboxComponent only if users need to scroll past 100. */
+const ASYNC_OPTION_LIMIT = 100;
+const limitAsyncOptions = createFilterOptions<{ value: string; label: string }>(
+  { limit: ASYNC_OPTION_LIMIT },
+);
 
 /** The filter values handed to the fetcher when the user submits (branch is
  * always set — the fetcher only runs once a branch is selected). */
@@ -49,6 +62,15 @@ interface ReportPanelProps<TRow extends GridValidRowModel> {
   singleLabel?: string;
   /** Optional single-select filter (e.g. Receipts/Issues/All). */
   extra?: ExtraSelect;
+  /** Optional company/branch-dependent, searchable, clearable picker (e.g. the
+   * MR picker). Options reload whenever the company or branch changes (and the
+   * selection is cleared with them); the chosen value is carried in the same
+   * `filters.extra` string as `extra`. Long lists are capped at
+   * ASYNC_OPTION_LIMIT rendered rows — the user types to narrow. */
+  extraAsync?: {
+    label: string;
+    load: (branchId: number) => Promise<{ value: string; label: string }[]>;
+  };
   initialExtra?: string;
   /** Fetches the rows for the submitted filters. */
   fetcher: (filters: ReportFilters) => Promise<TRow[]>;
@@ -85,6 +107,7 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
   toLabel = "To Date",
   singleLabel = "Date",
   extra,
+  extraAsync,
   initialExtra = "",
   fetcher,
   columns,
@@ -136,6 +159,43 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
       void runFetch();
     }
   }, [branchId, runFetch]);
+
+  // Branch-dependent picker options. The loader is held in a ref so pages can
+  // pass an inline `extraAsync={{...}}` object without re-firing the effect.
+  const [asyncOptions, setAsyncOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const loadExtra = useRef(extraAsync?.load);
+  loadExtra.current = extraAsync?.load;
+  // Keyed on company AND branch: a deep link can mount with the branch already
+  // resolved from the URL while selectedCompany is still null (the page's
+  // loader then returns []), and switching company in the sidebar leaves the
+  // branch untouched — both left the picker showing the wrong list forever.
+  const loadedKey = useRef<string | null>(null);
+  const coId = selectedCompany?.co_id ?? null;
+  useEffect(() => {
+    const load = loadExtra.current;
+    if (!load || branchId == null) return;
+    const key = `${coId}:${branchId}`;
+    // A different company or branch invalidates the current selection.
+    if (loadedKey.current !== null && loadedKey.current !== key) {
+      setExtraValue("");
+    }
+    loadedKey.current = key;
+    let alive = true;
+    void load(branchId)
+      .then((opts) => {
+        if (alive) setAsyncOptions(opts);
+      })
+      // ponytail: a failed option load just empties the picker — the report
+      // itself still runs (cleared picker == all MRs).
+      .catch(() => {
+        if (alive) setAsyncOptions([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [branchId, coId]);
 
   const branch = branches.find((b) => b.branch_id === branchId) ?? null;
 
@@ -283,6 +343,35 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
                 </FormControl>
               )}
 
+              {extraAsync && (
+                <Autocomplete
+                  options={asyncOptions}
+                  filterOptions={limitAsyncOptions}
+                  getOptionLabel={(o) => o.label}
+                  isOptionEqualToValue={(o, v) => o.value === v.value}
+                  value={
+                    asyncOptions.find((o) => o.value === extraValue) ?? null
+                  }
+                  onChange={(_, newValue) =>
+                    setExtraValue(newValue?.value ?? "")
+                  }
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={extraAsync.label}
+                      size="small"
+                      // Without this, a capped list reads as "my MR isn't there".
+                      helperText={
+                        asyncOptions.length > ASYNC_OPTION_LIMIT
+                          ? `Type to search — max ${ASYNC_OPTION_LIMIT} of ${asyncOptions.length} shown`
+                          : undefined
+                      }
+                    />
+                  )}
+                  sx={{ minWidth: 300 }}
+                />
+              )}
+
               <Button
                 variant="contained"
                 disabled={branchId == null || loading}
@@ -300,7 +389,11 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
 
               <Button
                 variant="outlined"
-                disabled={rows.length === 0}
+                // branchId == null: ReportGrid has already swapped the grid for
+                // "Select a branch", but `rows` still holds the previous
+                // branch's data — exporting it would write a sheet with no
+                // Branch line in the header over another branch's rows.
+                disabled={branchId == null || rows.length === 0}
                 onClick={() => {
                   void handleExport();
                 }}

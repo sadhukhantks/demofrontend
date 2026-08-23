@@ -44,9 +44,9 @@ type Props = {
   dropdownOptions?: DropdownOption[];
 };
 
-const MenuTableDropdown: React.FC<Props> = ({ 
-  menuData, 
-  onSelectionChange, 
+const MenuTableDropdown: React.FC<Props> = ({
+  menuData,
+  onSelectionChange,
   fieldMapping = DEFAULT_MAPPING, // Use default mapping if not provided
   dropdownOptions = DEFAULT_OPTIONS // Use default options if not provided
 }) => {
@@ -65,12 +65,12 @@ const MenuTableDropdown: React.FC<Props> = ({
     if (!initialLoadRef.current) {
       return;
     }
-    
+
     // Initialize selected menu IDs based on role ID field if it exists
-    const initialSelectedIdsBasedOnRole = roleIdField 
+    const initialSelectedIdsBasedOnRole = roleIdField
       ? menuData.filter(item => item[roleIdField] !== null).map(item => item[idField])
       : [];
-    
+
     const initialAccessLevels: Record<number, string> = {};
     initialSelectedIdsBasedOnRole.forEach(id => {
       const menuItem = menuData.find(item => item[idField] === id);
@@ -89,7 +89,7 @@ const MenuTableDropdown: React.FC<Props> = ({
     setAccessLevels(initialAccessLevels); // Set the full map including potential "0"s for dropdown state
     // Pass the filtered IDs (truly selected) and the full initial levels map
     onSelectionChange(finalSelectedIds, initialAccessLevels);
-    
+
     // Mark initial load as complete
     initialLoadRef.current = false;
   }, [menuData, roleIdField, idField, accessLevelField]); // Remove onSelectionChange from dependencies
@@ -100,106 +100,194 @@ const MenuTableDropdown: React.FC<Props> = ({
     );
   };
 
-  // Get all child menu IDs for a given parent
-  const getChildMenuIds = (parentId: number): number[] => {
-    return validMenuData
-      .filter((item) => item[parentIdField] === parentId)
-      .map((item) => item[idField]);
+  const validMenuData = Array.isArray(menuData) ? menuData : [];
+
+  // menu_mst is a self-referencing tree of arbitrary depth (module -> page ->
+  // report). Everything below walks it recursively so third-level entries
+  // (reports) can be granted or denied per role like any other menu.
+  const childrenOf = (id: number): MenuItemGeneric[] =>
+    validMenuData.filter((item) => item[parentIdField] === id);
+
+  const hasChildren = (id: number): boolean =>
+    validMenuData.some((item) => item[parentIdField] === id);
+
+  const descendantIds = (id: number): number[] =>
+    childrenOf(id).flatMap((child) => [child[idField], ...descendantIds(child[idField])]);
+
+  // Only the leaves carry a meaningful access level, so all/any checks use them.
+  const leafDescendantIds = (id: number): number[] =>
+    descendantIds(id).filter((descId) => !hasChildren(descId));
+
+  const parentLookup = new Map<number, number | null>(
+    validMenuData.map((item) => [item[idField], item[parentIdField]])
+  );
+
+  const ancestorIds = (id: number): number[] => {
+    const out: number[] = [];
+    let parent = parentLookup.get(id);
+    while (parent !== null && parent !== undefined) {
+      out.push(parent);
+      parent = parentLookup.get(parent);
+    }
+    return out;
   };
 
-  // Check if all children of a parent are selected
+  // Drop any ancestor of `id` that no longer has a selected leaf under it.
+  const pruneAncestors = (id: number, ids: number[]): number[] => {
+    let out = ids;
+    ancestorIds(id).forEach((ancestorId) => {
+      const stillSelected = leafDescendantIds(ancestorId).some((leafId) => out.includes(leafId));
+      if (!stillSelected) {
+        out = out.filter((selectedId) => selectedId !== ancestorId);
+      }
+    });
+    return out;
+  };
+
   const areAllChildrenSelected = (parentId: number): boolean => {
-    const childIds = getChildMenuIds(parentId);
-    return childIds.length > 0 && childIds.every(id => selectedMenuIds.includes(id));
+    const leafIds = leafDescendantIds(parentId);
+    return leafIds.length > 0 && leafIds.every(id => selectedMenuIds.includes(id));
   };
 
-  // Check if any child of a parent is selected
   const isAnyChildSelected = (parentId: number): boolean => {
-    const childIds = getChildMenuIds(parentId);
-    return childIds.some(id => selectedMenuIds.includes(id));
+    const leafIds = leafDescendantIds(parentId);
+    return leafIds.some(id => selectedMenuIds.includes(id));
   };
 
+  const commit = (ids: number[], levels: Record<number, string>) => {
+    setSelectedMenuIds(ids);
+    setAccessLevels(levels);
+    onSelectionChange(ids, levels);
+  };
+
+  // Checkbox on a branch row: select or clear the whole subtree.
   const handleParentCheckboxChange = (parentId: number, isChecked: boolean) => {
-    const childIds = getChildMenuIds(parentId);
-    let newSelectedIds;
+    const subtreeIds = descendantIds(parentId);
     const newAccessLevels = { ...accessLevels };
+    let newSelectedIds: number[];
 
     if (isChecked) {
-      // Add parent and all children to selection (avoid duplicates)
-      newSelectedIds = [...new Set([...selectedMenuIds, parentId, ...childIds])];
-      
-      // Set default access level for newly selected children
-      childIds.forEach(childId => {
-        if (!accessLevels[childId]) {
-          newAccessLevels[childId] = "1"; // Default to "Read Only"
+      // Add the branch, its ancestors and the whole subtree (avoid duplicates)
+      newSelectedIds = [...new Set([
+        ...selectedMenuIds,
+        parentId,
+        ...ancestorIds(parentId),
+        ...subtreeIds,
+      ])];
+
+      // Set default access level for newly selected descendants
+      subtreeIds.forEach(descId => {
+        if (!accessLevels[descId]) {
+          newAccessLevels[descId] = "1"; // Default to "Read Only"
         }
       });
     } else {
-      // Remove parent and all children from selection
-      newSelectedIds = selectedMenuIds.filter(id => id !== parentId && !childIds.includes(id));
-      
-      // Remove access levels for deselected children
-      childIds.forEach(childId => {
-        delete newAccessLevels[childId];
+      // Remove the branch and its whole subtree from selection
+      newSelectedIds = selectedMenuIds.filter(
+        id => id !== parentId && !subtreeIds.includes(id)
+      );
+
+      // Remove access levels for deselected rows
+      subtreeIds.forEach(descId => {
+        delete newAccessLevels[descId];
       });
+      delete newAccessLevels[parentId];
+
+      newSelectedIds = pruneAncestors(parentId, newSelectedIds);
     }
 
-    setSelectedMenuIds(newSelectedIds);
-    setAccessLevels(newAccessLevels);
-    onSelectionChange(newSelectedIds, newAccessLevels);
+    commit(newSelectedIds, newAccessLevels);
   };
 
-  const handleChildAccessChange = (childId: number, value: string, parentId: number) => {
-    // Create new copies of state to avoid mutation issues
-    const newSelectedIds = [...selectedMenuIds];
+  // Access dropdown on any non-root row. "0" (Not Accessible) removes the row;
+  // on a branch it clears the subtree too, so children never outlive the parent.
+  const handleChildAccessChange = (menuId: number, value: string) => {
     const newAccessLevels = { ...accessLevels };
-    
-    // If value is "0" (Not Accessible), remove from selection
+
     if (value === "0") {
-      const filteredIds = newSelectedIds.filter(id => id !== childId);
-      delete newAccessLevels[childId];
-      
-      // Check if any children are still selected for this parent
-      const childIds = getChildMenuIds(parentId);
-      const anyChildSelected = childIds.some(id => id !== childId && filteredIds.includes(id));
-      
-      // Remove parent if no children are selected anymore
-      const finalIds = anyChildSelected ? filteredIds : filteredIds.filter(id => id !== parentId);
-      
-      // Update state with the new cleaned arrays
-      setSelectedMenuIds(finalIds);
-      setAccessLevels(newAccessLevels);
-      onSelectionChange(finalIds, newAccessLevels);
-    } 
-    // Otherwise add to selection if not already selected
-    else {
-      // Ensure the child ID is in the selection
-      if (!newSelectedIds.includes(childId)) {
-        newSelectedIds.push(childId);
-      }
-      
-      // Update the access level for this child
-      newAccessLevels[childId] = value;
-      
-      // Make sure parent is selected if any child is selected
-      if (!newSelectedIds.includes(parentId)) {
-        newSelectedIds.push(parentId);
-      }
-      
-      console.log(`Changed access level for menu ${childId} to ${value}`);
-      
-      // Update state with the new values
-      setSelectedMenuIds(newSelectedIds);
-      setAccessLevels(newAccessLevels);
-      onSelectionChange(newSelectedIds, newAccessLevels);
+      const subtreeIds = descendantIds(menuId);
+      subtreeIds.forEach(descId => delete newAccessLevels[descId]);
+      delete newAccessLevels[menuId];
+
+      let finalIds = selectedMenuIds.filter(
+        id => id !== menuId && !subtreeIds.includes(id)
+      );
+      finalIds = pruneAncestors(menuId, finalIds);
+
+      commit(finalIds, newAccessLevels);
+      return;
     }
+
+    // Select the row and every ancestor so the path stays reachable
+    const newSelectedIds = [...new Set([...selectedMenuIds, menuId, ...ancestorIds(menuId)])];
+    newAccessLevels[menuId] = value;
+
+    commit(newSelectedIds, newAccessLevels);
   };
 
-  const validMenuData = Array.isArray(menuData) ? menuData : [];
-  
-  // Filter parent and child menus based on the dynamic field names
-  const parentMenus = validMenuData.filter((item) => item[parentIdField] === null);
-  const childMenus = validMenuData.filter((item) => item[parentIdField] !== null);
+  const rootMenus = validMenuData.filter((item) => item[parentIdField] === null);
+
+  const renderRows = (item: MenuItemGeneric, depth: number): React.ReactNode => {
+    const menuId = item[idField];
+    const children = childrenOf(menuId);
+    const isBranch = children.length > 0;
+    const indent = { paddingLeft: `${16 + depth * 20}px` };
+
+    const accessCell = depth > 0 ? (
+      <select
+        className="border rounded px-2 py-1 text-sm w-full"
+        value={selectedMenuIds.includes(menuId) ? accessLevels[menuId] || "1" : "0"}
+        onChange={(e) => handleChildAccessChange(menuId, e.target.value)}
+      >
+        {dropdownOptions.map(option => (
+          <option key={`${menuId}-${option.value}`} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    ) : null;
+
+    return (
+      <React.Fragment key={menuId}>
+        <tr className={depth === 0 ? "bg-white border-t" : "bg-gray-50 border-t"}>
+          <td
+            className={depth === 0 ? "px-4 py-2 font-medium" : "px-4 py-2 text-gray-700"}
+            style={indent}
+          >
+            {isBranch ? (
+              <button type="button" onClick={() => toggleExpand(menuId)}>
+                {expandedParents.includes(menuId) ? "▼" : "►"} {item[nameField]}
+              </button>
+            ) : (
+              <span>— {item[nameField]}</span>
+            )}
+          </td>
+          <td className="px-4 py-2 text-sm">
+            <div className="flex items-center gap-2">
+              {isBranch && (
+                <input
+                  type="checkbox"
+                  title="Select or clear this menu and everything under it"
+                  checked={areAllChildrenSelected(menuId)}
+                  onChange={(e) => handleParentCheckboxChange(menuId, e.target.checked)}
+                  // Indeterminate when some but not all descendants are selected
+                  ref={el => {
+                    if (el) {
+                      el.indeterminate = !areAllChildrenSelected(menuId) && isAnyChildSelected(menuId);
+                    }
+                  }}
+                />
+              )}
+              {accessCell}
+            </div>
+          </td>
+        </tr>
+
+        {isBranch && expandedParents.includes(menuId) &&
+          children.map((child) => renderRows(child, depth + 1))}
+      </React.Fragment>
+    );
+  };
 
   return (
     <table className="min-w-full border-blue text-sm">
@@ -210,52 +298,7 @@ const MenuTableDropdown: React.FC<Props> = ({
         </tr>
       </thead>
       <tbody>
-        {parentMenus.map((parent) => (
-          <React.Fragment key={parent[idField]}>
-            <tr className="bg-white border-t">
-              <td className="px-4 py-2 font-medium">
-                <button onClick={() => toggleExpand(parent[idField])}>
-                  {expandedParents.includes(parent[idField]) ? "▼" : "►"} {parent[nameField]}
-                </button>
-              </td>
-              <td className="px-4 py-2">
-                <input
-                  type="checkbox"
-                  checked={areAllChildrenSelected(parent[idField])}
-                  onChange={(e) => handleParentCheckboxChange(parent[idField], e.target.checked)}
-                  // Make the checkbox appear in an indeterminate state when some but not all children are selected
-                  ref={el => {
-                    if (el) {
-                      el.indeterminate = !areAllChildrenSelected(parent[idField]) && isAnyChildSelected(parent[idField]);
-                    }
-                  }}
-                />
-              </td>
-            </tr>
-
-            {expandedParents.includes(parent[idField]) &&
-              childMenus
-                .filter((child) => child[parentIdField] === parent[idField])
-                .map((child) => (
-                  <tr key={child[idField]} className="bg-gray-50 border-t">
-                    <td className="px-8 py-2 text-gray-700">— {child[nameField]}</td>
-                    <td className="px-4 py-2 text-sm">
-                      <select
-                        className="border rounded px-2 py-1 text-sm w-full"
-                        value={selectedMenuIds.includes(child[idField]) ? accessLevels[child[idField]] || "1" : "0"} 
-                        onChange={(e) => handleChildAccessChange(child[idField], e.target.value, parent[idField])}
-                      >
-                        {dropdownOptions.map(option => (
-                          <option key={`${child[idField]}-${option.value}`} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-          </React.Fragment>
-        ))}
+        {rootMenus.map((root) => renderRows(root, 0))}
       </tbody>
     </table>
   );

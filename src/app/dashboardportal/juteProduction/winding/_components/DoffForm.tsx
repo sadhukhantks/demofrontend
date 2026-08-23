@@ -13,7 +13,7 @@ import {
 import { Save as SaveIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
-import type { WindingDoffSetup } from "../types/windingTypes";
+import type { WindingDoffSetup, WindingMachineOption } from "../types/windingTypes";
 import { useWindingDoffPrevState } from "../hooks/useWindingDoffPrevState";
 import { useQualityByDate } from "../hooks/useQualityByDate";
 import {
@@ -22,6 +22,7 @@ import {
 	WINDING_NET_MIN,
 	WINDING_NET_MAX,
 } from "../utils/windingCalc";
+import { resolveMachinePick } from "../utils/windingMachineResolve";
 
 type Props = {
 	coId: string;
@@ -39,15 +40,29 @@ type Props = {
 // by several winders — the server deducts the tare ONCE and writes one row per
 // winder with net_total / N. The Save gate mirrors the backend: total net > 0 and
 // 1 <= PER-ROW share <= 500 (a gross fine for one winder can fail split 4 ways).
+// An OPTIONAL Machine picker sits above the banks as a shortcut into that same
+// map: pick a machine and its winder's quality + EB no fill themselves in (it
+// refuses, with the fix named, when the map can't answer). Entry stays
+// person-keyed — the machine is never part of the save payload.
 export default function DoffForm({ coId, branchId, setup, date, spellId, onSaved }: Props) {
 	const [ebIds, setEbIds] = React.useState<number[]>([]);
 	const [trollyId, setTrollyId] = React.useState<number | "">("");
 	const [spoolId, setSpoolId] = React.useState<number | "">("");
 	const [yarnItemId, setYarnItemId] = React.useState<number | "">("");
+	const [machineId, setMachineId] = React.useState<number | "">("");
+	const [machineMsg, setMachineMsg] = React.useState<{
+		severity: "warning" | "error";
+		text: string;
+	} | null>(null);
 	const [grossWeight, setGrossWeight] = React.useState<string>("");
 	const [saving, setSaving] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
 	const [snack, setSnack] = React.useState<string | null>(null);
+
+	// Older backend builds don't send `machines` — no list, no picker.
+	const machineOpts = setup.machines ?? [];
+	const machineLabel = (m: WindingMachineOption) =>
+		`${m.mech_code ?? ""} — ${m.machine_name ?? ""}`;
 
 	const trolly = React.useMemo(
 		() => setup.trollies.find((t) => t.trolly_id === Number(trollyId)) ?? null,
@@ -109,10 +124,36 @@ export default function DoffForm({ coId, branchId, setup, date, spellId, onSaved
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [prevState?.winding_doff_id]);
 
+	// Resolve the machine pick against the map. Keyed on the pick AND the rows so
+	// it re-runs when the rows land after the click (or the date/spell changes).
+	// It must NOT depend on yarnItemId/ebIds — that would be a feedback loop with
+	// the state it sets, so it also can't go through handlePickQuality.
+	React.useEffect(() => {
+		if (machineId === "") return;
+		const m = machineOpts.find((x) => x.machine_id === Number(machineId));
+		const res = resolveMachinePick(
+			qualityRows,
+			Number(machineId),
+			m ? machineLabel(m) : String(machineId),
+		);
+		if (res.kind === "error") {
+			// Leave whatever the operator already picked alone.
+			setMachineMsg({ severity: "error", text: res.message });
+			return;
+		}
+		setYarnItemId(res.itemId);
+		setEbIds(res.ebIds);
+		setMachineMsg(res.warn ? { severity: "warning", text: res.warn } : null);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [machineId, qualityRows]);
+
 	// A different quality means a different set of winders — drop the old picks.
+	// Clearing the machine too keeps a stale shortcut from fighting a manual pick.
 	const handlePickQuality = (itemId: number) => {
 		setYarnItemId(itemId);
 		setEbIds([]);
+		setMachineId("");
+		setMachineMsg(null);
 	};
 
 	// EB buttons are a multi-pick: click toggles, colour IS the state.
@@ -210,6 +251,40 @@ export default function DoffForm({ coId, branchId, setup, date, spellId, onSaved
 
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+			{machineOpts.length > 0 ? (
+				<>
+					<Autocomplete
+						options={machineOpts}
+						getOptionLabel={machineLabel}
+						renderOption={(props, m) => (
+							<li {...props} key={m.machine_id}>
+								{machineLabel(m)}
+							</li>
+						)}
+						value={
+							machineId === ""
+								? null
+								: machineOpts.find((m) => m.machine_id === Number(machineId)) ?? null
+						}
+						onChange={(_, newVal) => {
+							// Clearing drops the shortcut only — the quality/EBs it filled stay.
+							setMachineId(newVal ? newVal.machine_id : "");
+							if (!newVal) setMachineMsg(null);
+						}}
+						size="small"
+						fullWidth
+						clearOnEscape
+						isOptionEqualToValue={(opt, val) => opt.machine_id === val.machine_id}
+						renderInput={(params) => <TextField {...params} label="Machine (optional)" />}
+					/>
+					{machineMsg ? (
+						<Alert severity={machineMsg.severity} onClose={() => setMachineMsg(null)}>
+							{machineMsg.text}
+						</Alert>
+					) : null}
+				</>
+			) : null}
+
 			{qualityOpts.length === 0 ? (
 				<Alert severity="info">
 					No yarn quality mapped for this date and spell. Map the winders in the Quality tab

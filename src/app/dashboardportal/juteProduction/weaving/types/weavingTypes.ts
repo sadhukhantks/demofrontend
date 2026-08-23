@@ -191,9 +191,22 @@ export type WeavingShiftRollupRow = {
 	efficiency: number;
 };
 
+// Per-spell stored/derived-data state returned alongside the planning grid rows.
+// stored=false → nothing stored, the spell computes live; stale=true → stored data
+// is out of date (use Sync in the process bar to refresh).
+export type WeavingSyncStatusRow = {
+	spell_id: number;
+	stored: boolean;
+	locked: boolean;
+	stale: boolean;
+	synced_at: string | null;
+};
+
 export type WeavingPlanningGridData = {
 	rows: WeavingPlanningGridRow[];
 	shift_rollup: WeavingShiftRollupRow[];
+	// Optional for backward compat with an older backend.
+	sync_status?: WeavingSyncStatusRow[];
 };
 
 // --- Target Map (Weaving Standards / Targets) ---

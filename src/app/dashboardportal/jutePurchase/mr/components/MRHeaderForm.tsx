@@ -6,6 +6,8 @@ type MRHeaderFormProps = {
 	header: JuteMRHeader;
 	mode: "edit" | "view";
 	onHeaderChange?: (field: keyof JuteMRHeader, value: string | number | null) => void;
+	/** Parties available for the MR's supplier; empty renders Party read-only */
+	partyOptions?: Array<{ value: string; label: string }>;
 	partyBranchOptions?: PartyBranchOption[];
 	partyBranchLoading?: boolean;
 	/** True once party branches have been fetched (to distinguish empty from loading) */
@@ -14,7 +16,7 @@ type MRHeaderFormProps = {
 	totalAcceptedWeight?: number;
 };
 
-export function MRHeaderForm({ header, mode, onHeaderChange, partyBranchOptions = [], partyBranchLoading = false, partyBranchesLoaded = false, totalAcceptedWeight }: MRHeaderFormProps) {
+export function MRHeaderForm({ header, mode, onHeaderChange, partyOptions = [], partyBranchOptions = [], partyBranchLoading = false, partyBranchesLoaded = false, totalAcceptedWeight }: MRHeaderFormProps) {
 	const showGateEntryDate = header.src_com_id != null;
 	const readOnly = mode === "view";
 	
@@ -56,12 +58,30 @@ export function MRHeaderForm({ header, mode, onHeaderChange, partyBranchOptions 
 						/>
 					</Grid>
 					<Grid size={{ xs: 12, md: 4 }}>
-						<TextField
-							label="Party"
-							fullWidth
-							value={header.party_name ?? ""}
-							InputProps={{ readOnly: true }}
-						/>
+						{readOnly || partyOptions.length === 0 ? (
+							<TextField
+								label="Party"
+								fullWidth
+								value={header.party_name ?? ""}
+								InputProps={{ readOnly: true }}
+							/>
+						) : (
+							<FormControl fullWidth>
+								<InputLabel id="party-label">Party</InputLabel>
+								<Select
+									labelId="party-label"
+									label="Party"
+									value={header.party_id ?? ""}
+									onChange={(e) => onHeaderChange?.("party_id", e.target.value ? String(e.target.value) : null)}
+								>
+									{partyOptions.map((party) => (
+										<MenuItem key={party.value} value={party.value}>
+											{party.label}
+										</MenuItem>
+									))}
+								</Select>
+							</FormControl>
+						)}
 					</Grid>
 					<Grid size={{ xs: 12, md: 4 }}>
 						{readOnly || partyBranchOptions.length <= 1 ? (

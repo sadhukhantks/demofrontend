@@ -37,8 +37,14 @@ type Warnings = {
 	no_standard: WarnLoom[];
 	no_picks: WarnLoom[];
 	negative_jugar?: WarnLoom[];
+	// Sync-only: /sync never 400-blocks on these — they come back as warnings.
+	unmapped?: WarnLoom[];
+	quality_mismatch?: string[];
+	// Branch-scoped sync/process: NULL-branch entry rows the freeze skipped.
+	null_branch_rows?: WarnLoom[];
 };
-type BlockDetail = { message: string; unmapped?: WarnLoom[]; quality_mismatch?: WarnLoom[] };
+// BE sends quality_mismatch as mech_code strings in the 400 block too.
+type BlockDetail = { message: string; unmapped?: WarnLoom[]; quality_mismatch?: string[] };
 
 const codes = (looms: WarnLoom[] = []) =>
 	looms.map((l) => l.mech_code ?? `#${l.machine_id}`).join(", ");
@@ -59,12 +65,16 @@ export default function WeavingProcessBar({ coId, branchId, date, spellId, onPro
 	);
 
 	const [busy, setBusy] = React.useState(false);
+	const [syncBusy, setSyncBusy] = React.useState(false);
 	const [confirmOpen, setConfirmOpen] = React.useState(false);
 	const [warnings, setWarnings] = React.useState<Warnings | null>(null);
+	const [warnTitle, setWarnTitle] = React.useState("Processed with warnings");
 	const [block, setBlock] = React.useState<BlockDetail | null>(null);
 	const [snack, setSnack] = React.useState<string | null>(null);
 
 	const lockedNoEdit = status.locked && !canEdit;
+	// stale supersedes reprocess_needed (legacy alias, same value on new BE).
+	const stale = status.stale ?? status.reprocess_needed;
 
 	const handleProcess = async () => {
 		setConfirmOpen(false);
@@ -87,8 +97,31 @@ export default function WeavingProcessBar({ coId, branchId, date, spellId, onPro
 			}
 			return;
 		}
+		setWarnTitle("Processed with warnings");
 		setWarnings(data?.data?.warnings ?? null);
 		setSnack(`Processed ${data?.data?.processed ?? 0} looms — day/spell locked.`);
+		refresh();
+		onProcessed?.();
+	};
+
+	// Sync = recompute + store derived rows WITHOUT locking. Never 400-blocks on
+	// unmapped/mismatched looms — they arrive as warnings instead.
+	const handleSync = async () => {
+		setSyncBusy(true);
+		setWarnings(null);
+		setBlock(null);
+		const body = { co_id: Number(coId), branch_id: branchId, tran_date: date, spell_id: spellId };
+		const { data, error } = await fetchWithCookie<{
+			data: { synced: number; warnings: Warnings };
+		}>(apiRoutesPortalMasters.WEAVING_SYNC, "POST", body);
+		setSyncBusy(false);
+		if (error) {
+			setSnack(error);
+			return;
+		}
+		setWarnTitle("Synced with warnings");
+		setWarnings(data?.data?.warnings ?? null);
+		setSnack(`Synced ${data?.data?.synced ?? 0} looms.`);
 		refresh();
 		onProcessed?.();
 	};
@@ -103,25 +136,32 @@ export default function WeavingProcessBar({ coId, branchId, date, spellId, onPro
 					color={status.locked ? "warning" : "primary"}
 					size="small"
 					onClick={() => setConfirmOpen(true)}
-					disabled={busy || statusLoading || lockedNoEdit}
+					disabled={busy || syncBusy || statusLoading || lockedNoEdit}
 				>
 					{busy ? "Processing…" : status.locked ? "Re-process" : "Process day + spell"}
+				</Button>
+
+				<Button
+					variant="outlined"
+					size="small"
+					onClick={handleSync}
+					disabled={busy || syncBusy || statusLoading || lockedNoEdit}
+				>
+					{syncBusy ? "Syncing…" : "Sync"}
 				</Button>
 
 				{statusLoading ? (
 					<CircularProgress size={16} />
 				) : status.locked ? (
 					<Chip size="small" color="success" label="Processed & Locked" variant="outlined" />
-				) : (
-					<Chip size="small" label="Not processed" variant="outlined" />
+				) : status.synced && !stale ? (
+					<Chip size="small" color="success" label="Synced" variant="outlined" />
+				) : status.synced ? null : (
+					<Chip size="small" label="Not synced" variant="outlined" />
 				)}
 
-				{status.reprocess_needed ? (
-					<Chip
-						size="small"
-						color="warning"
-						label="SQC / stoppage changed — reprocess"
-					/>
+				{stale ? (
+					<Chip size="small" color="warning" label="Out of date — Sync to refresh" />
 				) : null}
 
 				{lockedNoEdit ? (
@@ -138,7 +178,7 @@ export default function WeavingProcessBar({ coId, branchId, date, spellId, onPro
 						<div>Production but no mapped quality: {codes(block.unmapped)}</div>
 					) : null}
 					{block.quality_mismatch?.length ? (
-						<div>Entry quality differs from mapped quality: {codes(block.quality_mismatch)}</div>
+						<div>Entry quality differs from mapped quality: {block.quality_mismatch.join(", ")}</div>
 					) : null}
 				</Alert>
 			) : null}
@@ -147,9 +187,27 @@ export default function WeavingProcessBar({ coId, branchId, date, spellId, onPro
 			(warnings.no_worker.length ||
 				warnings.no_standard.length ||
 				warnings.no_picks.length ||
-				warnings.negative_jugar?.length) ? (
+				warnings.negative_jugar?.length ||
+				warnings.unmapped?.length ||
+				warnings.quality_mismatch?.length) ? (
 				<Alert severity="warning" onClose={() => setWarnings(null)}>
-					<AlertTitle>Processed with warnings</AlertTitle>
+					<AlertTitle>{warnTitle}</AlertTitle>
+					{warnings.unmapped?.length ? (
+						<div>
+							Looms without mapped quality (stored as zero until mapped): {codes(warnings.unmapped)}
+						</div>
+					) : null}
+					{warnings.quality_mismatch?.length ? (
+						<div>
+							Entry quality differs from mapped quality: {warnings.quality_mismatch.join(", ")}
+						</div>
+					) : null}
+					{warnings.null_branch_rows?.length ? (
+						<div>
+							Entries without a branch were NOT stored by this branch-scoped run (run a
+							company-wide sync to include them): {codes(warnings.null_branch_rows)}
+						</div>
+					) : null}
 					{warnings.no_worker.length ? (
 						<div>No worker (attendance) for: {codes(warnings.no_worker)}</div>
 					) : null}

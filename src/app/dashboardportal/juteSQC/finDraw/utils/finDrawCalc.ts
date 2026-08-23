@@ -7,6 +7,9 @@
 // DELTA vs the Inter Card clone: the drawing-stage std MR default is 16 (carding
 // used 20). The linkage is a YARN GROUP, which has no single std, so the preview
 // always uses DEFAULT_STD_MR_PCT (16) and no CV band.
+// Std MR% now comes from the Std Moisture Master (juteSQC/stdMoisture) per
+// (co_id, yarn group, process); the value below is only the fallback used
+// while the master has no entry — in that case the backend rejects the save.
 
 // Standard moisture regain % used for every yarn group row (a yarn group has no per-row std).
 export const DEFAULT_STD_MR_PCT = 16;
@@ -85,8 +88,12 @@ export type FinDrawPreview = {
 export function computeRowPreview(
 	weightStrings: string[],
 	mrStrings: string[],
+	// Std MR% resolved from the Std Moisture Master for this row's yarn group.
+	// Falls back to the process default so the preview still renders while the
+	// master has no entry (the backend will reject that save anyway).
+	stdMrPct: number = DEFAULT_STD_MR_PCT,
 ): FinDrawPreview | null {
-	const stdMr = DEFAULT_STD_MR_PCT;
+	const stdMr = Number.isFinite(stdMrPct) ? stdMrPct : DEFAULT_STD_MR_PCT;
 
 	const observed: number[] = [];
 	const mr: number[] = [];
