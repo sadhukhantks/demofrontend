@@ -1,21 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Autocomplete,
-	Box,
-	Button,
-	Dialog,
-	DialogActions,
-	DialogContent,
-	DialogTitle,
-	IconButton,
-	MenuItem,
-	TextField,
-	Tooltip,
-	Typography,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, TextField, Tooltip, Typography } from "@mui/material";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { Pencil as EditIcon, Plus as AddIcon, Trash2 as DeleteIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
@@ -23,6 +9,7 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 import { PROD_LABEL, VALUE_ROLE_LABELS } from "./TargetMapEditor";
 import type { ValueRole } from "./TargetGrid";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 // One row of target_map_list, normalised. The list endpoint returns ACTIVE rows
 // only, so a deleted row simply leaves the table (no status column needed).
 export type TargetMapRow = {
@@ -361,21 +348,15 @@ export default function TargetMapList({
 								/>
 							)}
 						/>
-						<TextField
-							select
+						<SearchableOptionSelect
 							label="Role"
-							value={form.value_role}
-							onChange={(e) => setForm((f) => ({ ...f, value_role: e.target.value }))}
-							disabled={!!editing}
 							size="small"
 							fullWidth
-						>
-							{(Object.keys(VALUE_ROLE_LABELS) as ValueRole[]).map((r) => (
-								<MenuItem key={r} value={r}>
-									{VALUE_ROLE_LABELS[r]}
-								</MenuItem>
-							))}
-						</TextField>
+							disabled={!!editing}
+							options={(Object.keys(VALUE_ROLE_LABELS) as ValueRole[]).map((r) => ({ value: r, label: VALUE_ROLE_LABELS[r] }))}
+							value={form.value_role}
+							onChange={(selectedValue) => setForm((f) => ({ ...f, value_role: selectedValue }))}
+						/>
 						<TextField
 							label="Effective From"
 							type="date"

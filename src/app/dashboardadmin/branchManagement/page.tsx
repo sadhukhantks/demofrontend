@@ -12,13 +12,9 @@ import {
 import { 
   Box, 
   TextField, 
-  InputAdornment, 
-  FormControl, 
-  InputLabel, 
-  Select, 
-  MenuItem, 
-  SelectChangeEvent 
+  InputAdornment 
 } from '@mui/material';
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useState, useEffect, useMemo } from 'react';
 
 type Branch = {
@@ -99,8 +95,8 @@ export default function BranchManagement() {
   }, [companies, selectedCompanyId]);
 
   // Handle company selection change
-  const handleCompanyChange = (event: SelectChangeEvent<string>) => {
-    setSelectedCompanyId(event.target.value);
+  const handleCompanyChange = (company: Company | null) => {
+    setSelectedCompanyId(company ? company.co_id.toString() : '');
   };
 
   // Handle search with debounce
@@ -210,22 +206,20 @@ export default function BranchManagement() {
           }}
         >
           {/* Company dropdown */}
-          <FormControl fullWidth sx={{ maxWidth: 350 }} size="small">
-            <InputLabel id="company-select-label">Select Company</InputLabel>
-            <Select
-              labelId="company-select-label"
-              id="company-select"
-              value={selectedCompanyId}
+          <Box sx={{ width: '100%', maxWidth: 350 }}>
+            <SearchableSelect<Company>
+              variant="outlined"
+              clearable={false}
               label="Select Company"
+              placeholder="Search company..."
+              options={companies}
+              value={companies.find((c) => c.co_id.toString() === selectedCompanyId) ?? null}
               onChange={handleCompanyChange}
-            >
-              {companies.map((company) => (
-          <MenuItem key={company.co_id} value={company.co_id.toString()}>
-            {company.co_name}
-          </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              getOptionLabel={(company) => company.co_name}
+              getOptionKey={(company) => company.co_id}
+              isOptionEqualToValue={(option, selected) => option.co_id === selected.co_id}
+            />
+          </Box>
 
           {/* Search input */}
           <TextField

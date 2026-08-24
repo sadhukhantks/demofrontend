@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, CircularProgress, MenuItem, TextField, Typography } from "@mui/material";
+import { Alert, Box, CircularProgress, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayISO } from "./utils/emulsionCalc";
@@ -13,6 +13,7 @@ import SqcPrintButton from "../_shared/SqcPrintButton";
 import type { SqcPrintReport, PrintColumn } from "../_shared/printReport";
 import { ADDITIVE_FIELDS, ADDITIVE_LABELS } from "./types/emulsionTypes";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 // Format a numeric cell to 2dp, mirroring the grid's fmt() (em-dash for blanks).
 function fmtCell(n: number | null | undefined, dp = 2): string {
 	return n != null && Number.isFinite(Number(n)) ? Number(n).toFixed(dp) : "—";
@@ -157,20 +158,14 @@ export default function EmulsionSqcPage() {
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Branch"
+					size="small"
+					options={branchOptions.map((b) => ({ value: Number(b.branch_id), label: b.branch_name }))}
 					value={pageBranchId}
-					onChange={(e) => setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))}
+					onChange={(selectedValue) => setPageBranchId(selectedValue === "" ? "" : Number(selectedValue))}
 					sx={{ mb: 2, minWidth: 240 }}
-				>
-					{branchOptions.map((b) => (
-						<MenuItem key={b.branch_id} value={Number(b.branch_id)}>
-							{b.branch_name}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 			) : selectedBranchName ? (
 				<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 					Branch: {selectedBranchName}

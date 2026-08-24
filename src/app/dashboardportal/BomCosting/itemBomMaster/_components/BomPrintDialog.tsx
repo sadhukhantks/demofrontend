@@ -1,23 +1,23 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   FormControlLabel,
   Checkbox,
   Box,
   Typography,
 } from "@mui/material";
 import { Printer } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { BomPrintOptions } from "./bomPrintRender";
+
+/** Option shape for the searchable "print up to level" dropdown. */
+type DepthOption = { value: number | "all"; label: string };
 
 type BomPrintDialogProps = {
   open: boolean;
@@ -46,6 +46,19 @@ export default function BomPrintDialog({
     }
   }, [open]);
 
+  const depthOptions = useMemo<DepthOption[]>(
+    () => [
+      { value: "all", label: "All levels" },
+      ...Array.from({ length: Math.max(1, maxDepth) }, (_, i) => i + 1).map(
+        (n) => ({
+          value: n,
+          label: `Level ${n}${n === 1 ? " (top components only)" : ""}`,
+        })
+      ),
+    ],
+    [maxDepth]
+  );
+
   const handlePrint = () => {
     onConfirm({ depth, includeQtyUom, includeSequence });
   };
@@ -63,26 +76,19 @@ export default function BomPrintDialog({
 
       <DialogContent dividers>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
-          <FormControl size="small" fullWidth>
-            <InputLabel id="bom-print-depth-label">Print up to level</InputLabel>
-            <Select
-              labelId="bom-print-depth-label"
-              label="Print up to level"
-              value={depth === "all" ? "all" : String(depth)}
-              onChange={(e) => {
-                const v = e.target.value;
-                setDepth(v === "all" ? "all" : Number(v));
-              }}
-            >
-              <MenuItem value="all">All levels</MenuItem>
-              {Array.from({ length: Math.max(1, maxDepth) }, (_, i) => i + 1).map((n) => (
-                <MenuItem key={n} value={String(n)}>
-                  Level {n}
-                  {n === 1 ? " (top components only)" : ""}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <SearchableSelect<DepthOption>
+            variant="outlined"
+            label="Print up to level"
+            options={depthOptions}
+            value={depthOptions.find((o) => o.value === depth) ?? null}
+            onChange={(option) => {
+              if (option) setDepth(option.value);
+            }}
+            getOptionLabel={(o) => o.label}
+            getOptionKey={(o) => String(o.value)}
+            isOptionEqualToValue={(o, v) => o.value === v.value}
+            clearable={false}
+          />
 
           <Box>
             <Typography variant="caption" color="text.secondary">

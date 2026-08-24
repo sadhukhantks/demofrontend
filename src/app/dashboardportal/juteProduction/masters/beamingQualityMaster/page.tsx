@@ -1,23 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Box,
-	Button,
-	Chip,
-	Dialog,
-	DialogActions,
-	DialogContent,
-	DialogTitle,
-	FormControlLabel,
-	IconButton,
-	MenuItem,
-	Switch,
-	TextField,
-	Tooltip,
-	Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, Switch, TextField, Tooltip, Typography } from "@mui/material";
 import { Pencil as EditOutlinedIcon, Plus as AddIcon, Trash2 as DeleteIcon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
@@ -25,6 +9,7 @@ import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 // Jute-cloth item (item_type_id = 5) supplied by bm_quality_create_setup.
 type SetupItem = {
 	item_id: number;
@@ -512,23 +497,17 @@ export default function BeamingQualityMasterPage() {
 				<DialogTitle>{editing ? "Edit Beaming Quality" : "New Beaming Quality"}</DialogTitle>
 				<DialogContent>
 					<Box sx={{ display: "grid", gap: 2, mt: 1 }}>
-						<TextField
-							select
+						<SearchableOptionSelect
 							label="Item"
+							options={items.map((it) => ({ value: String(it.item_id), label: itemLabel(it) }))}
 							value={form.item_id}
-							onChange={(e) => setForm({ ...form, item_id: e.target.value })}
+							onChange={(selectedValue) => setForm({ ...form, item_id: selectedValue })}
 							size="small"
 							required
 							// Item is the master key; locked once a row exists to keep the duplicate key stable.
 							disabled={!!editing || items.length === 0}
 							helperText={items.length === 0 ? "Loading jute-cloth items…" : undefined}
-						>
-							{items.map((it) => (
-								<MenuItem key={it.item_id} value={String(it.item_id)}>
-									{itemLabel(it)}
-								</MenuItem>
-							))}
-						</TextField>
+						/>
 						<TextField
 							label="Quality Code"
 							value={form.bm_quality_code}
@@ -589,23 +568,15 @@ export default function BeamingQualityMasterPage() {
 											required
 											inputProps={{ step: 1, min: 1 }}
 										/>
-										<TextField
-											select
+										<SearchableOptionSelect
 											label="Jute Yarn"
-											value={c.yarn_item_id}
-											onChange={(e) => handleComponentYarnChange(idx, e.target.value)}
 											size="small"
 											disabled={yarns.length === 0}
-										>
-											<MenuItem value="">
-												<em>None</em>
-											</MenuItem>
-											{yarns.map((y) => (
-												<MenuItem key={y.item_id} value={String(y.item_id)}>
-													{`${y.item_code} — ${y.item_name} (${y.jute_yarn_count})`}
-												</MenuItem>
-											))}
-										</TextField>
+											placeholder="None"
+											options={yarns.map((y) => ({ value: String(y.item_id), label: `${`${y.item_code} — ${y.item_name} (${y.jute_yarn_count})`}` }))}
+											value={c.yarn_item_id}
+											onChange={(selectedValue) => handleComponentYarnChange(idx, selectedValue)}
+										/>
 										<TextField
 											type="number"
 											label="Count"
@@ -651,26 +622,18 @@ export default function BeamingQualityMasterPage() {
 									required
 									inputProps={{ step: 1, min: 1 }}
 								/>
-								<TextField
-									select
+								<SearchableOptionSelect
 									label="Jute Yarn (count source)"
-									value={form.yarn_item_id}
-									onChange={(e) => handleYarnChange(e.target.value)}
 									size="small"
 									disabled={yarns.length === 0}
 									helperText={
 										yarns.length === 0 ? "Loading jute yarns…" : "Selecting a yarn fills Std Count"
 									}
-								>
-									<MenuItem value="">
-										<em>None</em>
-									</MenuItem>
-									{yarns.map((y) => (
-										<MenuItem key={y.item_id} value={String(y.item_id)}>
-											{`${y.item_code} — ${y.item_name} (${y.jute_yarn_count})`}
-										</MenuItem>
-									))}
-								</TextField>
+									placeholder="None"
+									options={yarns.map((y) => ({ value: String(y.item_id), label: `${`${y.item_code} — ${y.item_name} (${y.jute_yarn_count})`}` }))}
+									value={form.yarn_item_id}
+									onChange={(selectedValue) => handleYarnChange(selectedValue)}
+								/>
 								<TextField
 									type="number"
 									label="Std Count"

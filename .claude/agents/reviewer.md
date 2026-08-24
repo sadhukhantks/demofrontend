@@ -48,6 +48,14 @@ Use this agent to:
 - [ ] MUI for complex interactions (DataGrid, Autocomplete, Dialog)
 - [ ] CSS variables or token references for all color values
 
+### Dropdowns
+- [ ] Every dropdown is searchable — `SearchableSelect`/`SearchableMultiSelect` from `@/components/ui/SearchableSelect`, never a raw MUI `Select` + `MenuItem`, `TextField select`, native `<select>`, or the shadcn `Select` primitive
+- [ ] Short lists (Active/Inactive, Yes/No) are searchable too — no exceptions
+- [ ] Correct variant — `outlined` for labelled form fields, `bare` inside DataGrid cells
+- [ ] `getOptionLabel` paired with `isOptionEqualToValue` whenever options are objects
+- [ ] Form state still stores the primitive id (option object mapped at the component boundary)
+- [ ] Read-only achieved via `disabled`, never by disabling typing on the input
+
 ### API & Data
 - [ ] API calls go through service functions (never directly in components)
 - [ ] Routes defined in `src/utils/api.ts`

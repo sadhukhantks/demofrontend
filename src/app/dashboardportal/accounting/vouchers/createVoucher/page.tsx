@@ -7,9 +7,7 @@ import {
   Autocomplete,
   Box,
   IconButton,
-  MenuItem,
   Paper,
-  Select,
   Stack,
   Table,
   TableBody,
@@ -29,6 +27,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Swal from "sweetalert2";
 
 import TransactionWrapper from "@/components/ui/TransactionWrapper";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import {
   ApprovalActionsBar,
   type ApprovalInfo,
@@ -36,7 +35,7 @@ import {
   type ApprovalStatusId,
 } from "@/components/ui/transaction/ApprovalActionsBar";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
-import { useBranchOptions } from "@/utils/branchUtils";
+import { useBranchOptions, type Option as BranchOption } from "@/utils/branchUtils";
 import {
   fetchVoucherDetail,
   fetchLedgers,
@@ -98,6 +97,14 @@ const VOUCHER_CATEGORY_VALUES = [
   "PAYMENT", "RECEIPT", "JOURNAL", "CONTRA",
   "SALES", "PURCHASE", "DEBIT_NOTE", "CREDIT_NOTE",
 ] as const;
+
+/** Option shape for the searchable Dr/Cr dropdown on each line item. */
+type DrCrOption = { value: "D" | "C"; label: string };
+
+const DR_CR_OPTIONS: DrCrOption[] = [
+  { value: "D", label: "Dr" },
+  { value: "C", label: "Cr" },
+];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -796,24 +803,27 @@ function VoucherTransactionPageContent() {
             name="type_category"
             control={control}
             render={({ field }) => (
-              <TextField
-                select
+              <SearchableSelect<VoucherHeaderFormValues["type_category"]>
+                variant="outlined"
                 label="Voucher Type"
-                size="small"
-                fullWidth
                 required
                 disabled={isViewMode || !isEditable}
-                value={field.value ?? ""}
-                onChange={field.onChange}
+                options={[...VOUCHER_CATEGORIES]}
+                value={
+                  VOUCHER_CATEGORIES.find((cat) => cat === field.value) ?? null
+                }
+                onChange={(cat) => field.onChange(cat ?? undefined)}
+                getOptionLabel={(cat) => cat.replace(/_/g, " ")}
+                getOptionKey={(cat) => cat}
+                isOptionEqualToValue={(cat, v) => cat === v}
                 error={Boolean(errors.type_category)}
                 helperText={errors.type_category?.message}
-              >
-                {VOUCHER_CATEGORIES.map((cat) => (
-                  <MenuItem key={cat} value={cat}>
-                    {cat.replace(/_/g, " ")}
-                  </MenuItem>
-                ))}
-              </TextField>
+                textFieldProps={{
+                  name: field.name,
+                  onBlur: field.onBlur,
+                  inputRef: field.ref,
+                }}
+              />
             )}
           />
 
@@ -822,24 +832,25 @@ function VoucherTransactionPageContent() {
             name="branch_id"
             control={control}
             render={({ field }) => (
-              <TextField
-                select
+              <SearchableSelect<BranchOption>
+                variant="outlined"
                 label="Branch"
-                size="small"
-                fullWidth
+                placeholder="None"
                 disabled={isViewMode || !isEditable}
-                value={field.value ?? ""}
-                onChange={field.onChange}
-              >
-                <MenuItem value="">
-                  <em>None</em>
-                </MenuItem>
-                {branchOptions.map((b) => (
-                  <MenuItem key={b.value} value={b.value}>
-                    {b.label}
-                  </MenuItem>
-                ))}
-              </TextField>
+                options={branchOptions}
+                value={
+                  branchOptions.find((b) => b.value === field.value) ?? null
+                }
+                onChange={(option) => field.onChange(option?.value ?? "")}
+                getOptionLabel={(b) => b.label}
+                getOptionKey={(b) => b.value}
+                isOptionEqualToValue={(b, v) => b.value === v.value}
+                textFieldProps={{
+                  name: field.name,
+                  onBlur: field.onBlur,
+                  inputRef: field.ref,
+                }}
+              />
             )}
           />
 
@@ -957,18 +968,24 @@ function VoucherTransactionPageContent() {
                   </TableCell>
 
                   <TableCell>
-                    <Select
-                      size="small"
-                      value={line.dr_cr}
+                    <SearchableSelect<DrCrOption>
                       disabled={!isEditable}
-                      onChange={(e) =>
-                        handleLineChange(line.uid, "dr_cr", e.target.value)
+                      options={DR_CR_OPTIONS}
+                      value={
+                        DR_CR_OPTIONS.find((o) => o.value === line.dr_cr) ??
+                        null
                       }
-                      sx={{ minWidth: 80 }}
-                    >
-                      <MenuItem value="D">Dr</MenuItem>
-                      <MenuItem value="C">Cr</MenuItem>
-                    </Select>
+                      onChange={(option) => {
+                        if (option) {
+                          handleLineChange(line.uid, "dr_cr", option.value);
+                        }
+                      }}
+                      getOptionLabel={(o) => o.label}
+                      getOptionKey={(o) => o.value}
+                      isOptionEqualToValue={(o, v) => o.value === v.value}
+                      clearable={false}
+                      className="min-w-[80px]"
+                    />
                   </TableCell>
 
                   <TableCell align="right">
@@ -992,30 +1009,31 @@ function VoucherTransactionPageContent() {
                   </TableCell>
 
                   <TableCell>
-                    <Select
-                      size="small"
-                      value={line.branch_id != null ? String(line.branch_id) : ""}
+                    <SearchableSelect<BranchOption>
                       disabled={!isEditable}
-                      displayEmpty
-                      onChange={(e) => {
-                        const val = e.target.value as string;
+                      options={branchOptions}
+                      value={
+                        branchOptions.find(
+                          (b) =>
+                            b.value ===
+                            (line.branch_id != null
+                              ? String(line.branch_id)
+                              : "")
+                        ) ?? null
+                      }
+                      onChange={(option) =>
                         handleLineChange(
                           line.uid,
                           "branch_id",
-                          val === "" ? null : Number(val)
-                        );
-                      }}
-                      sx={{ minWidth: 130 }}
-                    >
-                      <MenuItem value="">
-                        <em>-</em>
-                      </MenuItem>
-                      {branchOptions.map((b) => (
-                        <MenuItem key={b.value} value={b.value}>
-                          {b.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
+                          option ? Number(option.value) : null
+                        )
+                      }
+                      getOptionLabel={(b) => b.label}
+                      getOptionKey={(b) => b.value}
+                      isOptionEqualToValue={(b, v) => b.value === v.value}
+                      placeholder="-"
+                      className="min-w-[130px]"
+                    />
                   </TableCell>
 
                   <TableCell>

@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Box, Typography, Stack, Chip, Divider, TextField, MenuItem } from "@mui/material";
+import { Box, Typography, Stack, Chip, Divider, TextField } from "@mui/material";
 import type { SRHeader } from "../types/srTypes";
 import type { EditableSRHeader } from "../hooks/useSRFormState";
 import { getStatusColor } from "../utils/srConstants";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 
 /**
  * Format date for display.
@@ -289,23 +290,20 @@ export const SRHeaderForm: React.FC<SRHeaderFormProps> = ({
 					InputLabelProps={{ shrink: true }}
 				/>
 				{canEdit && (header?.supplier_branch_options?.length ?? 0) > 1 ? (
-					<TextField
-						select
+					<SearchableOptionSelect
 						label="Supplier State (GST)"
 						size="small"
+						placeholder="— Select —"
+						options={(header?.supplier_branch_options ?? []).map((opt) => ({
+							value: opt.party_mst_branch_id,
+							label: `${opt.state_name}${opt.gst_no ? ` (${opt.gst_no})` : ""}`,
+						}))}
 						value={header?.supplier_branch_id ?? ""}
-						onChange={(e) => onSupplierBranchChange(e.target.value === "" ? null : Number(e.target.value))}
+						onChange={(selectedValue) => onSupplierBranchChange(selectedValue === "" ? null : Number(selectedValue))}
 						error={!header?.supplier_branch_id}
 						helperText={!header?.supplier_branch_id ? "Select supplier state for GST" : undefined}
-						InputLabelProps={{ shrink: true }}
-					>
-						<MenuItem value="">— Select —</MenuItem>
-						{header?.supplier_branch_options.map((opt) => (
-							<MenuItem key={opt.party_mst_branch_id} value={opt.party_mst_branch_id}>
-								{opt.state_name}{opt.gst_no ? ` (${opt.gst_no})` : ""}
-							</MenuItem>
-						))}
-					</TextField>
+						textFieldProps={{ InputLabelProps: { shrink: true } }}
+					/>
 				) : (
 					<Box>
 						<Typography variant="caption" color="text.secondary">

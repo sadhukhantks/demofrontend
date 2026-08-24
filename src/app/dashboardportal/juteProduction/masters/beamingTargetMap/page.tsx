@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, MenuItem, TextField, Typography } from "@mui/material";
+import { Alert, Box, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayISO } from "../../spinning/utils/spinningCalc";
 import type { IdType, ValueRole } from "./_components/TargetGrid";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import TargetMapEditor, {
 	ID_TYPE_LABELS,
 	VALUE_ROLE_LABELS,
@@ -68,40 +69,24 @@ export default function BeamingTargetMapPage() {
 
 			{/* Header bar (always visible) */}
 			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 3 }}>
-				<TextField
-					select
+				<SearchableOptionSelect
 					label="Type"
 					size="small"
+					placeholder="Select\u2026"
+					options={ID_TYPE_OPTIONS.map((t) => ({ value: t, label: ID_TYPE_LABELS[t] }))}
 					value={idType}
-					onChange={(e) => setIdType(e.target.value as IdType | "")}
+					onChange={(selectedValue) => setIdType(selectedValue as IdType | "")}
 					sx={{ minWidth: 160 }}
-				>
-					<MenuItem value="">
-						<em>Select…</em>
-					</MenuItem>
-					{ID_TYPE_OPTIONS.map((t) => (
-						<MenuItem key={t} value={t}>
-							{ID_TYPE_LABELS[t]}
-						</MenuItem>
-					))}
-				</TextField>
-				<TextField
-					select
+				/>
+				<SearchableOptionSelect
 					label="Role"
 					size="small"
+					placeholder="Select\u2026"
+					options={VALUE_ROLE_OPTIONS.map((r) => ({ value: r, label: VALUE_ROLE_LABELS[r] }))}
 					value={valueRole}
-					onChange={(e) => setValueRole(e.target.value as ValueRole | "")}
+					onChange={(selectedValue) => setValueRole(selectedValue as ValueRole | "")}
 					sx={{ minWidth: 160 }}
-				>
-					<MenuItem value="">
-						<em>Select…</em>
-					</MenuItem>
-					{VALUE_ROLE_OPTIONS.map((r) => (
-						<MenuItem key={r} value={r}>
-							{VALUE_ROLE_LABELS[r]}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 				<TextField
 					type="date"
 					label="Effective Date"

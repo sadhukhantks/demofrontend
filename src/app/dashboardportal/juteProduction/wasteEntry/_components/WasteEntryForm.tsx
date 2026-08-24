@@ -11,7 +11,7 @@ import {
 	wasteEntrySchema,
 	type WasteEntryFormValues,
 } from "../utils/wasteSchema";
-import { MAX_WASTE_QTY, WASTE_QTY_SCALE } from "../utils/wasteCalc";
+import { MAX_WASTE_QTY, WASTE_QTY_SCALE, todayISO } from "../utils/wasteCalc";
 
 /** An option row reduced to what a picker needs: a numeric id and its label. */
 type PickerOption = { id: number; label: string };
@@ -259,6 +259,7 @@ export default function WasteEntryForm({
 							size="small"
 							fullWidth
 							disabled={editing}
+							inputProps={{ max: todayISO() }}
 							InputLabelProps={{ shrink: true }}
 							error={!!errors.tran_date}
 							helperText={errors.tran_date?.message}

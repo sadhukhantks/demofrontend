@@ -124,6 +124,7 @@ Add route constants to the appropriate route object.
 
 ## Critical Rules
 
+- **Dropdowns are ALWAYS searchable** — use `SearchableSelect`/`SearchableMultiSelect` from `@/components/ui/SearchableSelect` with type-ahead autofill. NEVER emit a raw MUI `<Select>` + `<MenuItem>`, a `<TextField select>`, a native `<select>`, or the shadcn `Select` primitive. This holds for short lists too (Active/Inactive, Yes/No). Use `variant="outlined"` for labelled form fields and `variant="bare"` inside DataGrid cells. Never disable typing to make a field read-only — use `disabled`.
 - **NEVER use `any`** — use `unknown` with type guards
 - **Zod is REQUIRED** for all form validation
 - **All types in ONE file** per module (prevent circular deps)

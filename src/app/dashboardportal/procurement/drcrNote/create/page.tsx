@@ -2,29 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import {
-	Alert,
-	Autocomplete,
-	Box,
-	Button,
-	Checkbox,
-	Chip,
-	CircularProgress,
-	Divider,
-	MenuItem,
-	Paper,
-	Stack,
-	Table,
-	TableBody,
-	TableCell,
-	TableContainer,
-	TableHead,
-	TableRow,
-	TextField,
-	ToggleButton,
-	ToggleButtonGroup,
-	Typography,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Checkbox, Chip, CircularProgress, Divider, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
 import { ArrowLeft, Save } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -32,6 +10,7 @@ import { toast } from "@/hooks/use-toast";
 import useDebounce from "@/hooks/use-debounce";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 // Adjustment types
 const TYPE_DEBIT = 1;
 const TYPE_CREDIT = 2;
@@ -431,19 +410,14 @@ export default function DrcrNoteCreatePage() {
 										<TableCell align="right">{formatCurrency(line.accepted_rate)}</TableCell>
 										<TableCell align="right">{formatCurrency(line.invoice_rate)}</TableCell>
 										<TableCell>
-											<TextField
-												select
+											<SearchableOptionSelect
 												size="small"
 												fullWidth
-												value={line.debitnote_type}
 												disabled={!line.include}
-												onChange={(e) =>
-													updateLine(line.inward_dtl_id, { debitnote_type: Number(e.target.value) })
-												}
-											>
-												<MenuItem value={DEBITNOTE_TYPE_QTY_REJECTION}>Qty Rejection</MenuItem>
-												<MenuItem value={DEBITNOTE_TYPE_RATE_DIFF}>Rate Difference</MenuItem>
-											</TextField>
+												options={[{ value: DEBITNOTE_TYPE_QTY_REJECTION, label: "Qty Rejection" }, { value: DEBITNOTE_TYPE_RATE_DIFF, label: "Rate Difference" }]}
+												value={line.debitnote_type}
+												onChange={(selectedValue) => updateLine(line.inward_dtl_id, { debitnote_type: Number(selectedValue) })}
+											/>
 										</TableCell>
 										<TableCell>
 											<TextField

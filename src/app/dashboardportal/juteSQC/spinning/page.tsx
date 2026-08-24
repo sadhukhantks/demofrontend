@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, CircularProgress, MenuItem, Tab, Tabs, TextField, Typography } from "@mui/material";
+import { Alert, Box, CircularProgress, Tab, Tabs, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayISO } from "@/app/dashboardportal/juteProduction/spinning/utils/spinningCalc";
@@ -27,6 +27,7 @@ import RhmrGrid from "./_components/RhmrGrid";
 import YarnQrCvForm from "./_components/YarnQrCvForm";
 import YarnQrCvGrid from "./_components/YarnQrCvGrid";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 const TABS = ["R-08-16 Yarn Parameter", "Actual Speed / TPI", "RHMR", "R-08-15 Yarn QR & CV %"] as const;
 
 export default function SpinningSqcPage() {
@@ -336,20 +337,14 @@ export default function SpinningSqcPage() {
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Branch"
+					size="small"
+					options={branchOptions.map((b) => ({ value: Number(b.branch_id), label: b.branch_name }))}
 					value={pageBranchId}
-					onChange={(e) => setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))}
+					onChange={(selectedValue) => setPageBranchId(selectedValue === "" ? "" : Number(selectedValue))}
 					sx={{ mb: 2, minWidth: 240 }}
-				>
-					{branchOptions.map((b) => (
-						<MenuItem key={b.branch_id} value={Number(b.branch_id)}>
-							{b.branch_name}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 			) : selectedBranchName ? (
 				<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 					Branch: {selectedBranchName}
@@ -480,25 +475,15 @@ export default function SpinningSqcPage() {
 										onChange={(e) => setRhmrFilterDate(e.target.value)}
 										InputLabelProps={{ shrink: true }}
 									/>
-									<TextField
-										select
+									<SearchableOptionSelect
 										label="Filter spell"
 										size="small"
+										placeholder="All spells"
+										options={(rhmrSetup?.spells ?? []).map((s) => ({ value: s.spell_id, label: s.spell_code }))}
 										value={rhmrFilterSpell}
-										onChange={(e) =>
-											setRhmrFilterSpell(e.target.value === "" ? "" : Number(e.target.value))
-										}
+										onChange={(selectedValue) => setRhmrFilterSpell(selectedValue === "" ? "" : Number(selectedValue))}
 										sx={{ minWidth: 180 }}
-									>
-										<MenuItem value="">
-											<em>All spells</em>
-										</MenuItem>
-										{(rhmrSetup?.spells ?? []).map((s) => (
-											<MenuItem key={s.spell_id} value={s.spell_id}>
-												{s.spell_code}
-											</MenuItem>
-										))}
-									</TextField>
+									/>
 									<SqcPrintButton
 										getReport={getRhmrReport}
 										disabled={rhmrRowsLoading || rhmrRows.length === 0}

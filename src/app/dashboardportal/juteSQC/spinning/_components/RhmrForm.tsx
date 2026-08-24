@@ -1,25 +1,14 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Box,
-	Button,
-	Dialog,
-	DialogActions,
-	DialogContent,
-	DialogContentText,
-	DialogTitle,
-	MenuItem,
-	Snackbar,
-	TextField,
-} from "@mui/material";
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Snackbar, TextField } from "@mui/material";
 import { Plus as AddIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { todayISO } from "@/app/dashboardportal/juteProduction/spinning/utils/spinningCalc";
 import type { SqcRhmrSetup, SqcRhmrSavePayload, SqcRhmrSaveResult } from "../types/sqcSpinningTypes";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type Props = {
 	coId: string;
 	branchId: number;
@@ -129,20 +118,14 @@ export default function RhmrForm({ coId, branchId, setup, onSaved }: Props) {
 					fullWidth
 					InputLabelProps={{ shrink: true }}
 				/>
-				<TextField
-					select
+				<SearchableOptionSelect
 					label="Spell"
-					value={spellId}
-					onChange={(e) => setSpellId(e.target.value === "" ? "" : Number(e.target.value))}
 					size="small"
 					fullWidth
-				>
-					{setup.spells.map((s) => (
-						<MenuItem key={s.spell_id} value={s.spell_id}>
-							{s.spell_code}
-						</MenuItem>
-					))}
-				</TextField>
+					options={setup.spells.map((s) => ({ value: s.spell_id, label: s.spell_code }))}
+					value={spellId}
+					onChange={(selectedValue) => setSpellId(selectedValue === "" ? "" : Number(selectedValue))}
+				/>
 				<TextField
 					type="number"
 					label="Temperature (°C)"

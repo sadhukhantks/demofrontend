@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, MenuItem, TextField, Typography } from "@mui/material";
+import { Alert, Box, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
@@ -22,6 +22,7 @@ import TargetMapEditor, {
 import SqcPrintButton from "../_shared/SqcPrintButton";
 import type { PrintCell, PrintColumn, SqcPrintReport } from "../_shared/printReport";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 const PROCESS_OPTIONS = [
 	"damping",
 	"calendering",
@@ -196,20 +197,14 @@ export default function FinishingSqcPage() {
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Branch"
+					size="small"
+					options={branchOptions.map((b) => ({ value: Number(b.branch_id), label: b.branch_name }))}
 					value={pageBranchId}
-					onChange={(e) => setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))}
+					onChange={(selectedValue) => setPageBranchId(selectedValue === "" ? "" : Number(selectedValue))}
 					sx={{ mb: 2, minWidth: 240 }}
-				>
-					{branchOptions.map((b) => (
-						<MenuItem key={b.branch_id} value={Number(b.branch_id)}>
-							{b.branch_name}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 			) : selectedBranchName ? (
 				<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 					Branch: {selectedBranchName}
@@ -221,40 +216,24 @@ export default function FinishingSqcPage() {
 			) : (
 				<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
 					<Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-						<TextField
-							select
+						<SearchableOptionSelect
 							label="Process"
 							size="small"
+							placeholder="Select\u2026"
+							options={PROCESS_OPTIONS.map((p) => ({ value: p, label: PROCESS_LABELS[p] }))}
 							value={process}
-							onChange={(e) => setProcess(e.target.value)}
+							onChange={(selectedValue) => setProcess(selectedValue)}
 							sx={{ minWidth: 180 }}
-						>
-							<MenuItem value="">
-								<em>Select…</em>
-							</MenuItem>
-							{PROCESS_OPTIONS.map((p) => (
-								<MenuItem key={p} value={p}>
-									{PROCESS_LABELS[p]}
-								</MenuItem>
-							))}
-						</TextField>
-						<TextField
-							select
+						/>
+						<SearchableOptionSelect
 							label="Type"
 							size="small"
+							placeholder="Select\u2026"
+							options={ID_TYPE_OPTIONS.map((t) => ({ value: t, label: ID_TYPE_LABELS[t] }))}
 							value={idType}
-							onChange={(e) => setIdType(e.target.value as IdType | "")}
+							onChange={(selectedValue) => setIdType(selectedValue as IdType | "")}
 							sx={{ minWidth: 160 }}
-						>
-							<MenuItem value="">
-								<em>Select…</em>
-							</MenuItem>
-							{ID_TYPE_OPTIONS.map((t) => (
-								<MenuItem key={t} value={t}>
-									{ID_TYPE_LABELS[t]}
-								</MenuItem>
-							))}
-						</TextField>
+						/>
 						<TextField
 							type="date"
 							label="Effective Date"

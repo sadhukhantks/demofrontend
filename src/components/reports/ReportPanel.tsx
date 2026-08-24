@@ -5,14 +5,11 @@ import {
   Box,
   Button,
   createFilterOptions,
-  FormControl,
-  InputLabel,
-  MenuItem,
   Paper,
-  Select,
   TextField,
   Typography,
 } from "@mui/material";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { GridColDef, GridValidRowModel } from "@mui/x-data-grid";
 import { usePathname } from "next/navigation";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
@@ -326,21 +323,23 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
               )}
 
               {extra?.options && (
-                <FormControl size="small" sx={{ minWidth: 150 }}>
-                  <InputLabel id="report-extra-label">{extra.label}</InputLabel>
-                  <Select
-                    labelId="report-extra-label"
+                // Type-to-filter like every other dropdown; the filter value
+                // stays the option's `value` string in `extraValue`.
+                <Box sx={{ minWidth: 150 }}>
+                  <SearchableSelect<{ value: string; label: string }>
+                    variant="outlined"
                     label={extra.label}
-                    value={extraValue}
-                    onChange={(e) => setExtraValue(e.target.value)}
-                  >
-                    {extra.options.map((o) => (
-                      <MenuItem key={o.value} value={o.value}>
-                        {o.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                    options={extra.options}
+                    value={
+                      extra.options.find((o) => o.value === extraValue) ?? null
+                    }
+                    onChange={(option) => setExtraValue(option?.value ?? "")}
+                    getOptionLabel={(o) => o.label}
+                    getOptionKey={(o) => o.value}
+                    isOptionEqualToValue={(o, v) => o.value === v.value}
+                    clearable={false}
+                  />
+                </Box>
               )}
 
               {extraAsync && (

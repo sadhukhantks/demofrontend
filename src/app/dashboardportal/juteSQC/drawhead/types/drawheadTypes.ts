@@ -1,8 +1,8 @@
 // Types for the Drawhead & Finisher Card SQC screen (R-08-08/09/10 Draw Sliver
 // Weight — drawing stage). Mirrors the backend /api/juteSQC draw-sliver-wt
 // endpoints. This is a MULTI-ROW report: one date sheet holds many (section,
-// time_band, machine, spell, yarn group) reading sets, each with exactly 4 cut weights
-// + 4 MR%. The server recomputes and persists every calc_* value on save and is
+// time_band, machine, spell, yarn group) reading sets, each with at least 4 cut weights
+// + matching MR%. The server recomputes and persists every calc_* value on save and is
 // AUTHORITATIVE; the FE only previews the math for live display. Per-section
 // AVERAGES and a per-group GRAND-AVERAGE block are recomputed by the server at
 // read time (NOT stored) and returned alongside the rows.
@@ -20,7 +20,7 @@
 
 import { z } from "zod";
 
-// ─── Number of cut readings captured per draw-sliver row (fixed at 4) ─────────
+// ─── MINIMUM cut readings per draw-sliver row (rows may carry more) ───────────
 export const DRAW_SLIVER_READINGS = 4;
 
 // ─── The three drawing sub-sections ───────────────────────────────────────────
@@ -82,7 +82,7 @@ export type DrawheadSetup = {
 // ─── Saved reading row ────────────────────────────────────────────────────────
 
 // One saved draw-sliver reading set (jute_sqc_draw_sliver_wt + label joins).
-// weights / mr_pcts arrive as parsed arrays (backend json.loads) of length 4.
+// weights / mr_pcts arrive as parsed arrays (backend json.loads), length >= 4.
 export type DrawheadReadingRow = {
 	draw_sliver_wt_id: number;
 	co_id?: number;
@@ -156,7 +156,7 @@ export type DrawheadByDateResponse = {
 // ─── Save payload (multi-row) ─────────────────────────────────────────────────
 
 // One input row in the create payload. Empty selects → null. weights / mr_pcts
-// are exactly-4 numeric arrays; the server recomputes all calc_* values per row
+// are equal-length numeric arrays (>= 4); the server recomputes all calc_* values per row
 // (std MR fixed at 16 for a yarn group, no CV band). time_band is optional.
 export type DrawheadRow = {
 	section: DrawSection;
@@ -178,24 +178,26 @@ export type DrawheadSavePayload = {
 
 // ─── Zod schema ───────────────────────────────────────────────────────────────
 // Numeric inputs are held as strings in form state; the schema validates the
-// parsed payload that is POSTed. Each row needs a section, exactly 4 weights
-// (> 0) and exactly 4 MR% (>= 0). time_band is optional (nullable).
+// parsed payload that is POSTed. Each row needs a section, at least 4 weights
+// (> 0) and one MR% (>= 0) per weight. time_band is optional (nullable).
 
-export const drawheadRowSchema = z.object({
-	section: z.enum(DRAW_SECTIONS),
-	time_band: z.enum(TIME_BANDS).nullable(),
-	mc_id: z.number().int().positive().nullable(),
-	spell_id: z.number().int().positive().nullable(),
-	item_grp_id: z.number({ error: "A yarn group must be selected" }).int().positive("A yarn group must be selected"),
-	weights: z
-		.array(z.number())
-		.refine((arr) => arr.length === DRAW_SLIVER_READINGS, `Enter all ${DRAW_SLIVER_READINGS} cut weights`)
-		.refine((arr) => arr.every((w) => w > 0), "All cut weights must be greater than 0"),
-	mr_pcts: z
-		.array(z.number())
-		.refine((arr) => arr.length === DRAW_SLIVER_READINGS, `Enter all ${DRAW_SLIVER_READINGS} MR% readings`)
-		.refine((arr) => arr.every((m) => m >= 0), "MR% cannot be negative"),
-});
+export const drawheadRowSchema = z
+	.object({
+		section: z.enum(DRAW_SECTIONS),
+		time_band: z.enum(TIME_BANDS).nullable(),
+		mc_id: z.number().int().positive().nullable(),
+		spell_id: z.number().int().positive().nullable(),
+		item_grp_id: z.number({ error: "A yarn group must be selected" }).int().positive("A yarn group must be selected"),
+		weights: z
+			.array(z.number())
+			.refine((arr) => arr.length >= DRAW_SLIVER_READINGS, `Enter at least ${DRAW_SLIVER_READINGS} cut weights`)
+			.refine((arr) => arr.every((w) => w > 0), "All cut weights must be greater than 0"),
+		mr_pcts: z
+			.array(z.number())
+			.refine((arr) => arr.length >= DRAW_SLIVER_READINGS, `Enter at least ${DRAW_SLIVER_READINGS} MR% readings`)
+			.refine((arr) => arr.every((m) => m >= 0), "MR% cannot be negative"),
+	})
+	.refine((row) => row.weights.length === row.mr_pcts.length, "Enter one MR% per cut weight");
 
 export const drawheadSaveSchema = z.object({
 	co_id: z.number().int().positive("A company must be selected"),

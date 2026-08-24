@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Autocomplete, Box, Button, MenuItem, Snackbar, TextField } from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Snackbar, TextField } from "@mui/material";
 import { Save as SaveIcon, X as CancelIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { missingStandards, type BeamingResolvedStandards } from "../utils/beamingCalc";
 import { apiRoutesPortalMasters } from "@/utils/api";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import type {
 	BeamingEntryCreateBody,
 	BeamingEntryEditBody,
@@ -254,24 +255,16 @@ export default function BeamingEntryForm({
 					isOptionEqualToValue={(opt, val) => opt.item_id === val.item_id}
 					renderInput={(params) => <TextField {...params} label="Item (Jute Cloth)" />}
 				/>
-				<TextField
-					select
+				<SearchableOptionSelect
 					label="bm_quality"
-					value={qualityId}
-					onChange={(e) => setQualityId(e.target.value === "" ? "" : Number(e.target.value))}
 					size="small"
 					fullWidth
 					disabled={editing || !itemId}
 					helperText={!itemId ? "Select an item first." : ""}
-				>
-					{qualitiesForItem.map((q) => (
-						<MenuItem key={q.bm_quality_id} value={q.bm_quality_id}>
-							{q.bm_quality_code}
-							{q.bm_quality_name ? ` (${q.bm_quality_name})` : ""}
-							{q.is_composite === 1 ? " — composite" : ""}
-						</MenuItem>
-					))}
-				</TextField>
+					options={qualitiesForItem.map((q) => ({ value: q.bm_quality_id, label: `${q.bm_quality_code} ${q.bm_quality_name ? ` (${q.bm_quality_name})` : ""} ${q.is_composite === 1 ? " — composite" : ""}` }))}
+					value={qualityId}
+					onChange={(selectedValue) => setQualityId(selectedValue === "" ? "" : Number(selectedValue))}
+				/>
 				<TextField
 					label="Ends"
 					value={selectedQuality ? ends : ""}

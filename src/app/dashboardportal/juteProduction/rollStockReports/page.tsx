@@ -6,13 +6,13 @@ import {
 	Box,
 	Card,
 	CardContent,
-	MenuItem,
 	Stack,
 	Tab,
 	Tabs,
 	TextField,
 	Typography,
 } from "@mui/material";
+import { SearchableMultiSelect } from "@/components/ui/SearchableSelect";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayISO } from "../spreader/utils/shift";
@@ -24,6 +24,7 @@ import PivotTable from "./_components/PivotTable";
 
 const TABS = ["Maturity Time", "Spreader Production", "Stock As At"] as const;
 const SHIFTS = ["A1", "B1", "A2", "B2", "C"] as const;
+const SHIFT_OPTIONS: string[] = [...SHIFTS];
 // Spell end boundaries (see spreader/utils/shift.ts buckets: A1 06-10, B1 11-13, A2 14-16, B2 17-21, C 22-05).
 // Selecting a spell = "stock at end of that spell"; C ends 06:00 the NEXT day.
 const SPELL_END: Record<string, { hour: number; nextDay?: boolean }> = {
@@ -188,42 +189,37 @@ export default function RollStockReportsPage() {
 							onChange={(e) => setReportDate(e.target.value)}
 							InputLabelProps={{ shrink: true }}
 						/>
-						<TextField
-							select
+						<SearchableMultiSelect
+							variant="outlined"
 							size="small"
 							label="Spreaders"
-							SelectProps={{ multiple: true, value: selSpreaders, onChange: (e) => setSelSpreaders(e.target.value as unknown as number[]) }}
-						>
-							{availableSpreaders.map((s) => (
-								<MenuItem key={s.id} value={s.id}>
-									{s.name}
-								</MenuItem>
-							))}
-						</TextField>
-						<TextField
-							select
+							options={availableSpreaders}
+							value={availableSpreaders.filter((s) => selSpreaders.includes(s.id))}
+							onChange={(picked) => setSelSpreaders(picked.map((s) => s.id))}
+							getOptionLabel={(s) => s.name}
+							getOptionKey={(s) => s.id}
+							isOptionEqualToValue={(s, selected) => s.id === selected.id}
+						/>
+						<SearchableMultiSelect
+							variant="outlined"
 							size="small"
 							label="Items"
-							SelectProps={{ multiple: true, value: selItems, onChange: (e) => setSelItems(e.target.value as unknown as number[]) }}
-						>
-							{availableItems.map((i) => (
-								<MenuItem key={i.id} value={i.id}>
-									{i.name}
-								</MenuItem>
-							))}
-						</TextField>
-						<TextField
-							select
+							options={availableItems}
+							value={availableItems.filter((i) => selItems.includes(i.id))}
+							onChange={(picked) => setSelItems(picked.map((i) => i.id))}
+							getOptionLabel={(i) => i.name}
+							getOptionKey={(i) => i.id}
+							isOptionEqualToValue={(i, selected) => i.id === selected.id}
+						/>
+						<SearchableMultiSelect<string>
+							variant="outlined"
 							size="small"
 							label="Shifts"
-							SelectProps={{ multiple: true, value: selShifts, onChange: (e) => setSelShifts(e.target.value as unknown as string[]) }}
-						>
-							{SHIFTS.map((s) => (
-								<MenuItem key={s} value={s}>
-									{s}
-								</MenuItem>
-							))}
-						</TextField>
+							options={SHIFT_OPTIONS}
+							value={selShifts}
+							onChange={(picked) => setSelShifts(picked)}
+							getOptionLabel={(shift) => shift}
+						/>
 					</Box>
 
 					{summary.error ? <Alert severity="error">{summary.error}</Alert> : null}

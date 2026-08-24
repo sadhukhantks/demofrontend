@@ -8,14 +8,13 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Select,
-  MenuItem,
   Checkbox,
   TextField,
   IconButton,
   Tooltip,
 } from "@mui/material";
 import { Trash } from 'lucide-react';
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type UOMOption = { label: string; value: string | number };
 
@@ -292,29 +291,28 @@ const UOMMappingTable: React.FC<UOMMappingTableProps> = ({ value = [], uomOption
                   <div>{r.mapFromName ?? (uomOptions.find(o => String(o.value) === String(r.mapFromUom))?.label ?? '')}</div>
                 </TableCell>
                 <TableCell>
-                  <Select
-                    fullWidth
-                    size="small"
-                    value={r.mapToUom ?? ""}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const label = uomOptions.find(o => String(o.value) === String(val))?.label ?? null;
-                      updateRow(idx, { mapToUom: val, mapToName: label });
-                    }}
-                    disabled={disabledAll}
-                  >
-                    <MenuItem value=""><em>None</em></MenuItem>
-                    {uomOptions
+                  <SearchableSelect<UOMOption>
+                    variant="outlined"
+                    options={uomOptions
                       .filter(o => String(o.value) !== String(r.mapFromUom))
                       .filter(o => {
                         // exclude values already used in other rows' mapToUom
                         const usedByOther = rows.some((rr, ri) => ri !== idx && String(rr.mapToUom) === String(o.value));
                         return !usedByOther;
-                      })
-                      .map((o) => (
-                        <MenuItem key={String(o.value)} value={o.value}>{o.label}</MenuItem>
-                      ))}
-                  </Select>
+                      })}
+                    value={uomOptions.find(o => String(o.value) === String(r.mapToUom ?? "")) ?? null}
+                    onChange={(option) => {
+                      updateRow(idx, {
+                        mapToUom: option ? option.value : null,
+                        mapToName: option ? option.label : null,
+                      });
+                    }}
+                    getOptionLabel={(o) => o.label}
+                    getOptionKey={(o) => String(o.value)}
+                    isOptionEqualToValue={(a, b) => String(a.value) === String(b.value)}
+                    placeholder="None"
+                    disabled={disabledAll}
+                  />
                   {errors[idx] && (
                     <div style={{ color: 'red', fontSize: 12 }}>{errors[idx]}</div>
                   )}

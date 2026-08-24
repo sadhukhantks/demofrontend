@@ -7,7 +7,6 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  MenuItem,
   FormControlLabel,
   Checkbox,
   CircularProgress,
@@ -17,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 
 interface OptionItem {
   value: number;
@@ -210,11 +210,14 @@ export default function CreatePayComponent({ open, onClose, editId, coId }: Prop
               <TextField label="Name" value={form.name} onChange={(e) => handleChange("name", e.target.value)} fullWidth required size="small" />
             </Grid>
             <Grid size={{ xs: 12, sm: 3 }}>
-              <TextField label="Type" select value={String(form.type)} onChange={(e) => handleChange("type", Number(e.target.value))} fullWidth size="small">
-                {(setup?.type_options ?? []).map((o) => (
-                  <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-                ))}
-              </TextField>
+              <SearchableOptionSelect
+                label="Type"
+                fullWidth
+                clearable={false}
+                options={(setup?.type_options ?? []).map((o) => ({ value: String(o.value), label: o.label }))}
+                value={String(form.type)}
+                onChange={(selectedValue) => handleChange("type", Number(selectedValue))}
+              />
             </Grid>
             <Grid size={{ xs: 12, sm: 3 }}>
               <TextField label="Effective From" type="date" value={form.effective_from} onChange={(e) => handleChange("effective_from", e.target.value)} fullWidth size="small" slotProps={{ inputLabel: { shrink: true } }} />
@@ -225,28 +228,34 @@ export default function CreatePayComponent({ open, onClose, editId, coId }: Prop
               <TextField label="Effective Till" type="date" value={form.ends_on} onChange={(e) => handleChange("ends_on", e.target.value)} fullWidth size="small" slotProps={{ inputLabel: { shrink: true } }} />
             </Grid>
             <Grid size={{ xs: 12, sm: 3 }}>
-              <TextField label="Parent" select value={form.parent_id} onChange={(e) => handleChange("parent_id", e.target.value)} fullWidth size="small">
-                <MenuItem value="">None</MenuItem>
-                {(setup?.parent_options ?? []).map((o) => (
-                  <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-                ))}
-              </TextField>
+              <SearchableOptionSelect
+                label="Parent"
+                fullWidth
+                placeholder="None"
+                options={(setup?.parent_options ?? []).map((o) => ({ value: String(o.value), label: o.label }))}
+                value={form.parent_id}
+                onChange={(selectedValue) => handleChange("parent_id", selectedValue)}
+              />
             </Grid>
             <Grid size={{ xs: 12, sm: 3 }}>
-              <TextField label="Round To Decimals" select value={form.roundof} onChange={(e) => handleChange("roundof", e.target.value)} fullWidth size="small">
-                <MenuItem value="">None</MenuItem>
-                {(setup?.roundof_options ?? []).map((o) => (
-                  <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-                ))}
-              </TextField>
+              <SearchableOptionSelect
+                label="Round To Decimals"
+                fullWidth
+                placeholder="None"
+                options={(setup?.roundof_options ?? []).map((o) => ({ value: String(o.value), label: o.label }))}
+                value={form.roundof}
+                onChange={(selectedValue) => handleChange("roundof", selectedValue)}
+              />
             </Grid>
             <Grid size={{ xs: 12, sm: 3 }}>
-              <TextField label="Round Off Type" select value={form.roundof_type} onChange={(e) => handleChange("roundof_type", e.target.value)} fullWidth size="small">
-                <MenuItem value="">None</MenuItem>
-                {(setup?.roundof_type_options ?? []).map((o) => (
-                  <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-                ))}
-              </TextField>
+              <SearchableOptionSelect
+                label="Round Off Type"
+                fullWidth
+                placeholder="None"
+                options={(setup?.roundof_type_options ?? []).map((o) => ({ value: String(o.value), label: o.label }))}
+                value={form.roundof_type}
+                onChange={(selectedValue) => handleChange("roundof_type", selectedValue)}
+              />
             </Grid>
 
             {/* Row 3: Checkboxes */}

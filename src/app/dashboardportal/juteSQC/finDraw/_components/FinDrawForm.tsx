@@ -1,26 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Autocomplete,
-	Box,
-	Button,
-	IconButton,
-	MenuItem,
-	Paper,
-	Snackbar,
-	Table,
-	TableBody,
-	TableCell,
-	TableContainer,
-	TableHead,
-	TableRow,
-	TextField,
-	Tooltip,
-	Typography,
-	alpha,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, Button, IconButton, Paper, Snackbar, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography, alpha } from "@mui/material";
 import { Plus as AddIcon, Trash2 as DeleteOutlineIcon, Save as SaveIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -36,6 +17,7 @@ import {
 } from "../types/finDrawTypes";
 import { computeRowPreview } from "../utils/finDrawCalc";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type Props = {
 	coId: string;
 	branchId: number;
@@ -234,20 +216,14 @@ export default function FinDrawForm({ coId, branchId, entryDate, setup, onSaved 
 	// Shared field renderers so the desktop table and mobile card layouts stay in
 	// sync — `label` is set only on mobile where there is no column header.
 	const renderSectionSelect = (r: DraftRow, label?: string) => (
-		<TextField
-			select
-			size="small"
+		<SearchableOptionSelect
 			label={label}
-			value={r.section}
-			onChange={(e) => updateRow(r.key, { section: e.target.value as FinDrawSection })}
+			size="small"
 			fullWidth
-		>
-			{sectionOptions.map((s) => (
-				<MenuItem key={s} value={s}>
-					{SECTION_LABEL[s]}
-				</MenuItem>
-			))}
-		</TextField>
+			options={sectionOptions.map((s) => ({ value: s, label: SECTION_LABEL[s] }))}
+			value={r.section}
+			onChange={(selectedValue) => updateRow(r.key, { section: selectedValue as FinDrawSection })}
+		/>
 	);
 
 	const renderMachineSelect = (r: DraftRow, label?: string) => (
@@ -275,27 +251,17 @@ export default function FinDrawForm({ coId, branchId, entryDate, setup, onSaved 
 	);
 
 	const renderSpellSelect = (r: DraftRow, label?: string) => (
-		<TextField
-			select
-			size="small"
+		<SearchableOptionSelect
 			label={label}
-			value={r.spellId}
-			onChange={(e) =>
-				updateRow(r.key, {
-					spellId: e.target.value === "" ? "" : Number(e.target.value),
-				})
-			}
+			size="small"
 			fullWidth
-		>
-			<MenuItem value="">
-				<em>None</em>
-			</MenuItem>
-			{setup.spells.map((s) => (
-				<MenuItem key={s.spell_id} value={s.spell_id}>
-					{s.spell_name} ({s.spell_code})
-				</MenuItem>
-			))}
-		</TextField>
+			placeholder="None"
+			options={setup.spells.map((s) => ({ value: s.spell_id, label: `${s.spell_name} (${s.spell_code})` }))}
+			value={r.spellId}
+			onChange={(selectedValue) => updateRow(r.key, {
+					spellId: selectedValue === "" ? "" : Number(selectedValue),
+				})}
+		/>
 	);
 
 	// Std MR% is set in the Std Moisture Master (juteSQC/stdMoisture) per yarn group

@@ -9,10 +9,6 @@ import {
   Button,
   Alert,
   CircularProgress,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   TextField,
   Chip,
   Table,
@@ -36,6 +32,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useBranchOptions } from "@/utils/branchUtils";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 import type {
   JuteIssueMode,
@@ -394,6 +391,11 @@ function JuteIssueEditPage() {
     // Otherwise use branches from setup
     return mapBranchesToOptions(branches);
   }, [sidebarBranches, branches]);
+
+  const selectedBranchOption = React.useMemo(
+    () => branchOptions.find((opt) => opt.value === selectedBranchId) ?? null,
+    [branchOptions, selectedBranchId]
+  );
 
   const stockOptions = React.useMemo(
     () => stockItems.map(mapStockToOption),
@@ -841,22 +843,21 @@ function JuteIssueEditPage() {
               sx={{ minWidth: { sm: 200 } }}
             />
           ) : (
-            <FormControl sx={{ minWidth: { sm: 200 } }} disabled={!isCreateMode}>
-              <InputLabel id="jute-issue-branch-label">Branch</InputLabel>
-              <Select
-                labelId="jute-issue-branch-label"
-                id="jute-issue-branch-select"
-                value={selectedBranchId}
-                onChange={(e) => setSelectedBranchId(e.target.value)}
-                label="Branch"
-              >
-                {branchOptions.map((opt) => (
-                  <MenuItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <SearchableSelect<Option>
+              variant="outlined"
+              size="medium"
+              label="Branch"
+              className="sm:min-w-[200px]"
+              fullWidth={false}
+              clearable={false}
+              disabled={!isCreateMode}
+              options={branchOptions}
+              value={selectedBranchOption}
+              onChange={(option) => setSelectedBranchId(option?.value ?? "")}
+              getOptionLabel={(option) => option.label}
+              getOptionKey={(option) => option.value}
+              isOptionEqualToValue={(option, selected) => option.value === selected.value}
+            />
           )}
 
           {/* Date */}

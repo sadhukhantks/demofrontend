@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 // to avoid Suspense requirements during build.
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch, FormControlLabel, FormGroup } from '@mui/material';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Save } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
@@ -239,21 +239,28 @@ export default function CompanyConfigEditPage() {
               <form onSubmit={form.handleSubmit(handleSave)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">                  {/* Currency Selection */}
                   <div className="space-y-2">
-                    <Label htmlFor="currency_id">Currency</Label>                    <Select
-                      value={form.watch('currency_id')?.toString() || ''}
-                      onValueChange={(value) => form.setValue('currency_id', value ? Number(value) : null)}
+                    <Label htmlFor="currency_id">Currency</Label>
+                    <SearchableSelect<Currency>
+                      variant="outlined"
+                      clearable={false}
+                      options={currencies}
+                      value={
+                        currencies.find(
+                          (currency) => currency.currency_id === form.watch('currency_id'),
+                        ) ?? null
+                      }
+                      onChange={(currency) =>
+                        form.setValue('currency_id', currency ? currency.currency_id : null)
+                      }
+                      getOptionLabel={(currency) => currency.currency_prefix}
+                      getOptionKey={(currency) => currency.currency_id}
+                      isOptionEqualToValue={(option, selected) =>
+                        option.currency_id === selected.currency_id
+                      }
                       disabled={currencies.length === 0}
-                    >                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder={currencies.length ? "Select Currency" : "Loading currencies..."} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {currencies.map((currency) => (
-                          <SelectItem key={currency.currency_id} value={currency.currency_id.toString()}>
-                            {currency.currency_prefix}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder={currencies.length ? "Select Currency" : "Loading currencies..."}
+                      textFieldProps={{ id: 'currency_id' }}
+                    />
                   </div>
                 </div>
                 

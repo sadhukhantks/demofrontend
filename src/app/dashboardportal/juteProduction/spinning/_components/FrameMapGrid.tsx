@@ -1,28 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Autocomplete,
-	Box,
-	Button,
-	Chip,
-	CircularProgress,
-	Dialog,
-	DialogActions,
-	DialogContent,
-	DialogContentText,
-	DialogTitle,
-	MenuItem,
-	Snackbar,
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableRow,
-	TextField,
-	Typography,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
 import { Save as SaveIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -35,6 +14,7 @@ import type {
 import { todayISO } from "../utils/spinningCalc";
 import DoffSyncButton from "./DoffSyncButton";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type Props = {
 	coId: string;
 	branchId: number;
@@ -192,42 +172,31 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spellId, onM
 					size="small"
 					label="Effective Date"
 					value={effectiveDate}
-					onChange={(e) => setEffectiveDate(e.target.value)}
+					onChange={(e) => {
+						const v = e.target.value;
+						setEffectiveDate(v && v > todayISO() ? todayISO() : v);
+					}}
+					inputProps={{ max: todayISO() }}
 					InputLabelProps={{ shrink: true }}
 				/>
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Effective Spell"
+					size="small"
+					placeholder="Start of day"
+					options={setup.spells.map((s) => ({ value: s.spell_id, label: s.spell_code }))}
 					value={effectiveSpellId}
-					onChange={(e) =>
-						setEffectiveSpellId(e.target.value === "" ? "" : Number(e.target.value))
-					}
+					onChange={(selectedValue) => setEffectiveSpellId(selectedValue === "" ? "" : Number(selectedValue))}
 					sx={{ minWidth: 150 }}
-				>
-					<MenuItem value="">
-						<em>Start of day</em>
-					</MenuItem>
-					{setup.spells.map((s) => (
-						<MenuItem key={s.spell_id} value={s.spell_id}>
-							{s.spell_code}
-						</MenuItem>
-					))}
-				</TextField>
-				<TextField
-					select
+				/>
+				<SearchableOptionSelect
 					size="small"
 					label="Retro mode"
+					options={Object.entries(RETRO_LABELS).map(([mode, label]) => ({ value: mode, label }))}
 					value={retroMode}
-					onChange={(e) => setRetroMode(e.target.value)}
+					onChange={(selectedValue) => setRetroMode(selectedValue)}
+					clearable={false}
 					sx={{ minWidth: 260 }}
-				>
-					{Object.entries(RETRO_LABELS).map(([mode, label]) => (
-						<MenuItem key={mode} value={mode}>
-							{label}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 				<Button
 					variant="contained"
 					size="small"

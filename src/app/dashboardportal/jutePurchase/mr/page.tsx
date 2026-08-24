@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Button, Chip, CircularProgress, FormControl, InputLabel, MenuItem, Select, TextField, Typography } from "@mui/material";
-import type { SelectChangeEvent } from "@mui/material";
+import { Alert, Button, Chip, CircularProgress, TextField, Typography } from "@mui/material";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import type { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui/x-data-grid";
 import { saveAs } from "file-saver";
 import { fetchWithCookie } from "@/utils/apiClient2";
@@ -60,6 +60,9 @@ const formatDate = (value?: string) => {
 		year: "numeric",
 	}).format(date);
 };
+
+/** Status filter option; `null` is the "All statuses" (no filter) sentinel. */
+type MRStatusFilterOption = { value: number | null; label: string };
 
 // MR status ids (see backend mr.py MR_STATUS_*). NULL status_id renders as "Open".
 const MR_STATUS_FILTER_OPTIONS: ReadonlyArray<{ value: number; label: string }> = [
@@ -342,10 +345,19 @@ export default function JuteMRIndexPage() {
 		setToDate(value);
 	}, []);
 
-	const handleStatusFilterChange = React.useCallback((event: SelectChangeEvent<string>) => {
-		const raw = event.target.value;
+	const statusFilterOptions = React.useMemo<MRStatusFilterOption[]>(
+		() => [{ value: null, label: "All statuses" }, ...MR_STATUS_FILTER_OPTIONS],
+		[],
+	);
+
+	const selectedStatusFilterOption = React.useMemo(
+		() => statusFilterOptions.find((option) => option.value === statusFilter) ?? null,
+		[statusFilterOptions, statusFilter],
+	);
+
+	const handleStatusFilterChange = React.useCallback((option: MRStatusFilterOption | null) => {
 		setPaginationModel((prev) => ({ ...prev, page: 0 }));
-		setStatusFilter(raw === "" ? null : Number(raw));
+		setStatusFilter(option?.value ?? null);
 	}, []);
 
 	const handleClearDates = React.useCallback(() => {
@@ -450,22 +462,19 @@ export default function JuteMRIndexPage() {
 						onChange={handleToDateChange}
 						InputLabelProps={{ shrink: true }}
 					/>
-					<FormControl size="small" sx={{ minWidth: 160 }}>
-						<InputLabel id="mr-status-filter-label">Status</InputLabel>
-						<Select<string>
-							labelId="mr-status-filter-label"
-							label="Status"
-							value={statusFilter === null ? "" : String(statusFilter)}
-							onChange={handleStatusFilterChange}
-						>
-							<MenuItem value="">All statuses</MenuItem>
-							{MR_STATUS_FILTER_OPTIONS.map((option) => (
-								<MenuItem key={option.value} value={String(option.value)}>
-									{option.label}
-								</MenuItem>
-							))}
-						</Select>
-					</FormControl>
+					<SearchableSelect<MRStatusFilterOption>
+						variant="outlined"
+						label="Status"
+						className="min-w-[160px]"
+						fullWidth={false}
+						clearable={false}
+						options={statusFilterOptions}
+						value={selectedStatusFilterOption}
+						onChange={handleStatusFilterChange}
+						getOptionLabel={(option) => option.label}
+						getOptionKey={(option) => String(option.value ?? "all")}
+						isOptionEqualToValue={(option, selected) => option.value === selected.value}
+					/>
 					{(fromDate || toDate) ? (
 						<Button size="small" variant="outlined" onClick={handleClearDates}>
 							Clear dates
