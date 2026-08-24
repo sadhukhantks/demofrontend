@@ -57,16 +57,16 @@ type DraftRow = {
 
 let rowSeq = 0;
 const nextKey = (): string => `r-${++rowSeq}`;
-const blankReadings = (): string[] => Array(DRAW_SLIVER_READINGS).fill("");
-const makeBlankRow = (): DraftRow => ({
+const blankReadings = (count: number): string[] => Array(count).fill("");
+const makeBlankRow = (count: number): DraftRow => ({
 	key: nextKey(),
 	section: DEFAULT_DRAW_SECTION,
 	timeBand: "",
 	mcId: "",
 	spellId: "",
 	groupId: "",
-	weights: blankReadings(),
-	mrPcts: blankReadings(),
+	weights: blankReadings(count),
+	mrPcts: blankReadings(count),
 });
 
 // A draft row is "empty" (skipped on save) when no selects are set and every
@@ -82,7 +82,8 @@ function isRowEmpty(r: DraftRow): boolean {
  * R-08-08/09/10 Drawhead & Finisher Card (Draw Sliver Weight) MULTI-ROW entry form.
  *
  * Renders a table where the inspector adds one row per (section, time band,
- * machine, spell, yarn group) reading set — each with 4 cut weights + 4 MR%. Each row
+ * machine, spell, yarn group) reading set — each with 4+ cut weights + matching MR%
+ * (the sheet-level +/− Cut buttons resize every row; 4 is the minimum). Each row
  * leads with a Section dropdown (Drawhead SWT / Drawhead SWP / Finisher Card) and
  * an optional Time-Band select (Morning / Afternoon). A yarn group has no single std,
  * so the live preview always uses std 16 with no CV band; per row a live Corr Wt
@@ -91,7 +92,10 @@ function isRowEmpty(r: DraftRow): boolean {
  * authoritative; the preview is advisory.
  */
 export default function DrawheadForm({ coId, branchId, entryDate, setup, onSaved }: Props) {
-	const [rows, setRows] = React.useState<DraftRow[]>(() => [makeBlankRow()]);
+	// Cuts per row for the whole sheet — DRAW_SLIVER_READINGS (4) is the minimum,
+	// the inspector can add more columns; every draft row shares the same count.
+	const [numReadings, setNumReadings] = React.useState(DRAW_SLIVER_READINGS);
+	const [rows, setRows] = React.useState<DraftRow[]>(() => [makeBlankRow(DRAW_SLIVER_READINGS)]);
 	const [saving, setSaving] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
 	const [snack, setSnack] = React.useState<string | null>(null);
@@ -117,14 +121,28 @@ export default function DrawheadForm({ coId, branchId, entryDate, setup, onSaved
 	}, [setup.groups]);
 
 	const addRow = React.useCallback(() => {
-		setRows((prev) => [...prev, makeBlankRow()]);
-	}, []);
+		setRows((prev) => [...prev, makeBlankRow(numReadings)]);
+	}, [numReadings]);
 
 	const removeRow = React.useCallback((key: string) => {
 		setRows((prev) => {
 			const next = prev.filter((r) => r.key !== key);
-			return next.length === 0 ? [makeBlankRow()] : next;
+			return next.length === 0 ? [makeBlankRow(prev[0]?.weights.length ?? DRAW_SLIVER_READINGS)] : next;
 		});
+	}, []);
+
+	// Resize every draft row to `n` cut columns, keeping the values already typed
+	// (shrinking drops the trailing cells; growth appends blanks). Min 4.
+	const setReadingCount = React.useCallback((n: number) => {
+		const count = Math.max(DRAW_SLIVER_READINGS, n);
+		setNumReadings(count);
+		setRows((prev) =>
+			prev.map((r) => ({
+				...r,
+				weights: Array.from({ length: count }, (_, i) => r.weights[i] ?? ""),
+				mrPcts: Array.from({ length: count }, (_, i) => r.mrPcts[i] ?? ""),
+			}))
+		);
 	}, []);
 
 	const updateRow = React.useCallback((key: string, patch: Partial<DraftRow>) => {
@@ -202,7 +220,7 @@ export default function DrawheadForm({ coId, branchId, entryDate, setup, onSaved
 			return;
 		}
 		setSnack(`Saved ${payloadRows.length} draw-sliver row${payloadRows.length === 1 ? "" : "s"}`);
-		setRows([makeBlankRow()]);
+		setRows([makeBlankRow(numReadings)]);
 		onSaved();
 	};
 
@@ -326,17 +344,37 @@ export default function DrawheadForm({ coId, branchId, entryDate, setup, onSaved
 			>
 				<Typography variant="subtitle2">
 					Reading rows — each row = one Section / Time band / Mc / Spell / Yarn Group with{" "}
-					{DRAW_SLIVER_READINGS} cut weights (LB/5yds) + {DRAW_SLIVER_READINGS} MR%
+					{numReadings} cut weights (LB/5yds) + {numReadings} MR%
 				</Typography>
-				<Button
-					variant="outlined"
-					size="small"
-					startIcon={<AddIcon size={16} />}
-					onClick={addRow}
-					sx={{ minHeight: 40 }}
-				>
-					Add Row
-				</Button>
+				<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+					<Button
+						variant="outlined"
+						size="small"
+						onClick={() => setReadingCount(numReadings - 1)}
+						disabled={numReadings <= DRAW_SLIVER_READINGS}
+						sx={{ minHeight: 40 }}
+					>
+						− Cut
+					</Button>
+					<Button
+						variant="outlined"
+						size="small"
+						startIcon={<AddIcon size={16} />}
+						onClick={() => setReadingCount(numReadings + 1)}
+						sx={{ minHeight: 40 }}
+					>
+						Cut
+					</Button>
+					<Button
+						variant="outlined"
+						size="small"
+						startIcon={<AddIcon size={16} />}
+						onClick={addRow}
+						sx={{ minHeight: 40 }}
+					>
+						Add Row
+					</Button>
+				</Box>
 			</Box>
 
 			{/* Desktop / tablet: wide entry table. Hidden on phones (stacked cards below). */}
@@ -353,12 +391,12 @@ export default function DrawheadForm({ coId, branchId, entryDate, setup, onSaved
 							<TableCell sx={{ minWidth: 150 }}>Machine (Mc)</TableCell>
 							<TableCell sx={{ minWidth: 130 }}>Spell</TableCell>
 							<TableCell sx={{ minWidth: 200 }}>Yarn Group</TableCell>
-							{Array.from({ length: DRAW_SLIVER_READINGS }).map((_, i) => (
+							{Array.from({ length: numReadings }).map((_, i) => (
 								<TableCell key={`wt-h-${i}`} align="center" sx={{ minWidth: 92 }}>
 									Wt {i + 1}
 								</TableCell>
 							))}
-							{Array.from({ length: DRAW_SLIVER_READINGS }).map((_, i) => (
+							{Array.from({ length: numReadings }).map((_, i) => (
 								<TableCell key={`mr-h-${i}`} align="center" sx={{ minWidth: 84 }}>
 									MR% {i + 1}
 								</TableCell>

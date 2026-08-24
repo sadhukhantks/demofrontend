@@ -119,6 +119,13 @@ export default function DrawheadSqcPage() {
 	const getReport = React.useCallback((): SqcPrintReport | null => {
 		if (rows.length === 0) return null;
 
+		// Rows may carry more than the 4-cut minimum; size the Wt/MR% columns to the
+		// widest row so no reading is dropped from the print.
+		const readingCount = Math.max(
+			DRAW_SLIVER_READINGS,
+			...rows.map((r) => Math.max(r.weights?.length ?? 0, r.mr_pcts?.length ?? 0))
+		);
+
 		const readingColumns: PrintColumn[] = [
 			{ key: "section", label: "Section" },
 			{ key: "time_band", label: "Time Band" },
@@ -127,8 +134,8 @@ export default function DrawheadSqcPage() {
 			{ key: "group", label: "Yarn Group" },
 			{ key: "std_mr_pct", label: "Std MR%", align: "right" },
 			// The raw cuts the operator recorded, ahead of the derived calc_* values.
-			...readingCols("wt", "Wt", DRAW_SLIVER_READINGS),
-			...readingCols("mr", "MR%", DRAW_SLIVER_READINGS),
+			...readingCols("wt", "Wt", readingCount),
+			...readingCols("mr", "MR%", readingCount),
 			{ key: "calc_wt", label: "Obs Wt", align: "right" },
 			{ key: "calc_mr_pct", label: "MR%", align: "right" },
 			{ key: "calc_corr_wt", label: "Corr Wt", align: "right" },
@@ -150,8 +157,8 @@ export default function DrawheadSqcPage() {
 			spell: printSpellLabel(r),
 			group: printGroupLabel(r),
 			std_mr_pct: fmt(r.std_mr_pct),
-			...readingCells("wt", r.weights, DRAW_SLIVER_READINGS, 2),
-			...readingCells("mr", r.mr_pcts, DRAW_SLIVER_READINGS, 2),
+			...readingCells("wt", r.weights, readingCount, 2),
+			...readingCells("mr", r.mr_pcts, readingCount, 2),
 			calc_wt: fmt(r.calc_wt),
 			calc_mr_pct: fmt(r.calc_mr_pct),
 			calc_corr_wt: fmt(r.calc_corr_wt),

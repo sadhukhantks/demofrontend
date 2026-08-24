@@ -110,7 +110,7 @@ export default function WeavingSqcPage() {
 				loom: loom === "" ? `Loom #${r.machine_id}` : loom,
 				width: fmt(r.width),
 				// Legacy rows carry only PPI — derive picks/dm client-side.
-				picks_dm: fmt(r.picks_dm ?? ppiToDm(r.picks)),
+				picks_dm: fmt(r.picks_dm ?? (r.picks != null ? ppiToDm(r.picks) : null)),
 				picks: fmt(r.picks),
 			};
 		});

@@ -37,7 +37,7 @@ export type WeavingPickReadingRow = {
 	machine_name: string | null;
 	line_no: number | null;
 	width: number | null;
-	picks: number; // PPI (stored)
+	picks: number | null; // PPI (stored); null on width-only readings
 	picks_dm?: number | null; // as-entered picks/dm (absent/null on legacy rows pre-deploy)
 };
 
@@ -45,11 +45,11 @@ export type WeavingPickSummaryRow = {
 	weaving_quality_id: number;
 	weaving_quality_code: string | null;
 	weaving_quality_name: string | null;
-	avg_picks: number;
+	avg_picks: number | null; // null when every reading for the date is width-only
 	avg_picks_dm?: number | null;
 	std_picks: number;
-	min_picks: number;
-	max_picks: number;
+	min_picks: number | null;
+	max_picks: number | null;
 	avg_width: number | null;
 	min_width: number | null;
 	max_width: number | null;
@@ -156,7 +156,8 @@ export default function PickGrid({ readings, summary, onDeleted, loading = false
 				width: 110,
 				type: "number",
 				// Legacy rows carry only PPI — derive picks/dm client-side.
-				valueGetter: (_value, row) => row.picks_dm ?? ppiToDm(row.picks),
+				valueGetter: (_value, row) =>
+					row.picks_dm ?? (row.picks != null ? ppiToDm(row.picks) : null),
 				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
 			},
 			{
