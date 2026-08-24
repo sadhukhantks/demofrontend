@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Box, Button, Dialog, DialogContent, DialogTitle, MenuItem, TextField, FormControlLabel, Switch, CircularProgress, FormHelperText, Autocomplete } from "@mui/material";
+import { Box, Button, Dialog, DialogContent, DialogTitle, TextField, FormControlLabel, Switch, CircularProgress, FormHelperText, Autocomplete } from "@mui/material";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 
 interface Props { open?: boolean; onClose?: (saved?: boolean) => void; existingRows?: any[]; readOnly?: boolean; initialValues?: any; isEdit?: boolean; project_id?: string | number }
 
@@ -179,9 +180,17 @@ export default function CreateProjectPage({ open = false, onClose, existingRows 
 
   const Form = (
     <Box component="form" onSubmit={handleSubmit} sx={{ p:2, minWidth: 380 }}>
-      <TextField select label="Branch" name="branch_id" value={form.branch_id} onChange={handleChange} fullWidth margin="normal" disabled={readOnly}>
-        {branchOptions.map(b=> <MenuItem key={b.id} value={b.id}>{b.label}</MenuItem>)}
-      </TextField>
+      <Box sx={{ mt: 2, mb: 1 }}>
+        <SearchableOptionSelect
+          label="Branch"
+          name="branch_id"
+          fullWidth
+          disabled={readOnly}
+          options={branchOptions.map((b) => ({ value: String(b.id), label: String(b.label) }))}
+          value={form.branch_id}
+          onChange={(selectedValue) => setForm((f) => ({ ...f, branch_id: selectedValue }))}
+        />
+      </Box>
       <Autocomplete
         options={departmentOptions}
         getOptionLabel={(option) => option.label || ''}
@@ -194,16 +203,33 @@ export default function CreateProjectPage({ open = false, onClose, existingRows 
         isOptionEqualToValue={(option, value) => option.id === value.id}
         renderInput={(params) => <TextField {...params} label="Department" margin="normal" fullWidth />}
       />
-      <TextField select label="Party" name="party_id" value={form.party_id} onChange={handleChange} fullWidth margin="normal" disabled={readOnly}>
-        {partyOptions.map(p=> <MenuItem key={p.id} value={p.id}>{p.label}</MenuItem>)}
-      </TextField>
+      <Box sx={{ mt: 2, mb: 1 }}>
+        <SearchableOptionSelect
+          label="Party"
+          name="party_id"
+          fullWidth
+          disabled={readOnly}
+          options={partyOptions.map((p) => ({ value: String(p.id), label: String(p.label) }))}
+          value={form.party_id}
+          onChange={(selectedValue) => setForm((f) => ({ ...f, party_id: selectedValue }))}
+        />
+      </Box>
       <TextField name="prj_name" label="Project Name" value={form.prj_name} onChange={handleChange} onBlur={() => validateName(existingRows)} error={!!nameError} helperText={nameError ?? undefined} fullWidth margin="normal" required InputProps={{ readOnly }} />
       <TextField name="prj_desc" label="Project Description" value={form.prj_desc} onChange={handleChange} fullWidth margin="normal" multiline rows={3} InputProps={{ readOnly }} />
       <TextField name="prj_start_dt" label="Start Date" value={form.prj_start_dt} onChange={handleChange} fullWidth margin="normal" type="date" InputLabelProps={{ shrink: true }} InputProps={{ readOnly }} />
       <TextField name="prj_end_dt" label="End Date" value={form.prj_end_dt} onChange={handleChange} fullWidth margin="normal" type="date" InputLabelProps={{ shrink: true }} InputProps={{ readOnly }} />
-      <TextField select label="Status" name="status_id" value={form.status_id} onChange={handleChange} fullWidth margin="normal" disabled={readOnly}>
-        {statusOptions.map(s=> <MenuItem key={s.id} value={s.id}>{s.label}</MenuItem>)}
-      </TextField>
+      <Box sx={{ mt: 2, mb: 1 }}>
+        <SearchableOptionSelect
+          label="Status"
+          name="status_id"
+          fullWidth
+          clearable={false}
+          disabled={readOnly}
+          options={statusOptions.map((s) => ({ value: String(s.id), label: String(s.label) }))}
+          value={form.status_id}
+          onChange={(selectedValue) => setForm((f) => ({ ...f, status_id: selectedValue }))}
+        />
+      </Box>
       <FormControlLabel control={<Switch checked={!!form.active} onChange={(e)=> setForm((f)=> ({ ...f, active: e.target.checked }))} disabled={readOnly} />} label="Active" />
       {error && <FormHelperText error>{error}</FormHelperText>}
       <Box sx={{ mt:2, display:'flex', justifyContent:'flex-end' }}>

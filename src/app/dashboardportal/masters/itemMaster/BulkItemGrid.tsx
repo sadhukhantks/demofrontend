@@ -9,8 +9,6 @@ import {
   TableRow,
   Paper,
   TextField,
-  Select,
-  MenuItem,
   Checkbox,
   IconButton,
   Tooltip,
@@ -18,6 +16,7 @@ import {
   Button,
 } from "@mui/material";
 import { Trash as DeleteIcon, Plus as AddIcon } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 export type BulkRow = {
   rowKey: string;
@@ -42,6 +41,16 @@ export type BulkRow = {
 
 export type GroupOption = { item_grp_id: number; label: string; code: string };
 export type UomOption = { uom_id: number; label: string };
+
+/** Good/Service dropdown option. Clearing the field restores the empty value. */
+type GoodOrServiceOption = { value: Exclude<BulkRow["goodOrService"], "">; label: string };
+
+const GOOD_OR_SERVICE_OPTIONS: GoodOrServiceOption[] = [
+  { value: "Good", label: "Good" },
+  { value: "Service", label: "Service" },
+];
+
+const groupOptionLabel = (g: GroupOption) => `${g.label}${g.code ? ` (${g.code})` : ""}`;
 
 type Props = {
   rows: BulkRow[];
@@ -243,79 +252,67 @@ const BulkItemGrid: React.FC<Props> = ({ rows, onRowsChange, groups, uoms, disab
       );
     }
     if (col.key === "itemGroupId") {
+      // A pasted value that could not be resolved to a group is surfaced as an
+      // error-styled placeholder (previously a red renderValue).
+      const unresolved = !row.itemGroupId && Boolean(row.itemGroupText);
       return (
         <Tooltip title={errMsg ?? ""} arrow disableHoverListener={!errMsg}>
-          <Select
-            value={row.itemGroupId ?? ""}
-            displayEmpty
-            size="small"
-            fullWidth
-            disabled={disabled}
-            sx={errSx}
-            renderValue={v => {
-              if (v) {
-                const g = groups.find(x => x.item_grp_id === v);
-                return g ? g.label : String(v);
+          <Box sx={{ width: "100%" }}>
+            <SearchableSelect<GroupOption>
+              variant="outlined"
+              options={groups}
+              value={groups.find(g => g.item_grp_id === row.itemGroupId) ?? null}
+              onChange={opt =>
+                updateRow(rowIdx, { itemGroupId: opt ? opt.item_grp_id : null, itemGroupText: "" })
               }
-              return row.itemGroupText
-                ? <em style={{ color: "#c00" }}>{row.itemGroupText}</em>
-                : <em style={{ color: "#999" }}>Select</em>;
-            }}
-            onChange={e => updateRow(rowIdx, { itemGroupId: Number(e.target.value) || null, itemGroupText: "" })}
-            {...focusProps}
-          >
-            {groups.map(g => (
-              <MenuItem key={g.item_grp_id} value={g.item_grp_id}>
-                {g.label}{g.code ? ` (${g.code})` : ""}
-              </MenuItem>
-            ))}
-          </Select>
+              getOptionLabel={groupOptionLabel}
+              getOptionKey={g => String(g.item_grp_id)}
+              isOptionEqualToValue={(a, b) => a.item_grp_id === b.item_grp_id}
+              disabled={disabled}
+              error={Boolean(errMsg) || unresolved}
+              placeholder={row.itemGroupText || "Select"}
+              textFieldProps={{ ...focusProps }}
+            />
+          </Box>
         </Tooltip>
       );
     }
     if (col.key === "uomId") {
+      const unresolved = !row.uomId && Boolean(row.uomText);
       return (
         <Tooltip title={errMsg ?? ""} arrow disableHoverListener={!errMsg}>
-          <Select
-            value={row.uomId ?? ""}
-            displayEmpty
-            size="small"
-            fullWidth
-            disabled={disabled}
-            sx={errSx}
-            renderValue={v => {
-              if (v) {
-                const u = uoms.find(x => x.uom_id === v);
-                return u ? u.label : String(v);
-              }
-              return row.uomText
-                ? <em style={{ color: "#c00" }}>{row.uomText}</em>
-                : <em style={{ color: "#999" }}>Select</em>;
-            }}
-            onChange={e => updateRow(rowIdx, { uomId: Number(e.target.value) || null, uomText: "" })}
-            {...focusProps}
-          >
-            {uoms.map(u => (
-              <MenuItem key={u.uom_id} value={u.uom_id}>{u.label}</MenuItem>
-            ))}
-          </Select>
+          <Box sx={{ width: "100%" }}>
+            <SearchableSelect<UomOption>
+              variant="outlined"
+              options={uoms}
+              value={uoms.find(u => u.uom_id === row.uomId) ?? null}
+              onChange={opt => updateRow(rowIdx, { uomId: opt ? opt.uom_id : null, uomText: "" })}
+              getOptionLabel={u => u.label}
+              getOptionKey={u => String(u.uom_id)}
+              isOptionEqualToValue={(a, b) => a.uom_id === b.uom_id}
+              disabled={disabled}
+              error={Boolean(errMsg) || unresolved}
+              placeholder={row.uomText || "Select"}
+              textFieldProps={{ ...focusProps }}
+            />
+          </Box>
         </Tooltip>
       );
     }
     if (col.key === "goodOrService") {
       return (
-        <Select
-          value={row.goodOrService}
-          size="small"
-          fullWidth
+        <SearchableSelect<GoodOrServiceOption>
+          variant="outlined"
+          options={GOOD_OR_SERVICE_OPTIONS}
+          value={GOOD_OR_SERVICE_OPTIONS.find(o => o.value === row.goodOrService) ?? null}
+          onChange={opt => updateRow(rowIdx, { goodOrService: opt ? opt.value : "" })}
+          getOptionLabel={o => o.label}
+          getOptionKey={o => o.value}
+          isOptionEqualToValue={(a, b) => a.value === b.value}
           disabled={disabled}
-          onChange={e => updateRow(rowIdx, { goodOrService: e.target.value as BulkRow["goodOrService"] })}
-          {...focusProps}
-        >
-          <MenuItem value=""><em>—</em></MenuItem>
-          <MenuItem value="Good">Good</MenuItem>
-          <MenuItem value="Service">Service</MenuItem>
-        </Select>
+          placeholder="—"
+          textFieldProps={{ ...focusProps }}
+        />
       );
     }
     if (

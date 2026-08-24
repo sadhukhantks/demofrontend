@@ -9,9 +9,6 @@ import {
   Card, 
   CardContent,
   FormControl, 
-  InputLabel, 
-  Select, 
-  MenuItem,
   FormHelperText,
   Box,
   Typography,
@@ -20,6 +17,7 @@ import {
   Checkbox,
   ListItemText
 } from "@mui/material";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { GridColDef } from '@mui/x-data-grid';
 import { PencilIcon } from '@heroicons/react/solid';
 import { fetchWithCookie } from "@/utils/apiClient2";
@@ -40,11 +38,41 @@ interface menuFormData {
   order_by: string | null;
 }
 
+/** Console module option. */
+interface ModuleOption {
+  con_module_id: number;
+  con_module_name: string;
+}
+
+/** Parent-menu option, scoped to a module. */
+interface ParentMenuOption {
+  menu_id: number;
+  menu_name: string;
+  module_id: number;
+}
+
+/** Menu-type option. */
+interface MenuTypeOption {
+  menu_type_id: number;
+  menu_type: string;
+}
+
+/** Active / inactive option — searchable like every other dropdown. */
+interface StatusOption {
+  value: string;
+  label: string;
+}
+
+const STATUS_OPTIONS: StatusOption[] = [
+  { value: "1", label: "Active" },
+  { value: "0", label: "Inactive" },
+];
+
 interface menuFormProps {
   initialValues?: Partial<menuFormData> | null;
-  allModules: any[];
-  allparentnames: any[]; // Added this property
-  menutypes: any[]; // Added this property
+  allModules: ModuleOption[];
+  allparentnames: ParentMenuOption[]; // Added this property
+  menutypes: MenuTypeOption[]; // Added this property
   onSubmit: (data: menuFormData) => void;
   loading: boolean;
   isEdit: boolean;
@@ -111,7 +139,7 @@ const MenuForm: React.FC<menuFormProps> = ({
   const router = useRouter();
    
   // States for filtered options
-  const [filteredParentNames, setFilteredParentNames] = useState<any[]>([]);
+  const [filteredParentNames, setFilteredParentNames] = useState<ParentMenuOption[]>([]);
 
   useEffect(() => {
     if (watchedModule || watchedModule === "") {
@@ -198,17 +226,29 @@ const MenuForm: React.FC<menuFormProps> = ({
               control={methods.control}
               rules={{ required: "Module is required" }}
               render={({ field, fieldState: { error } }) => (
-                <FormControl fullWidth margin="normal" error={!!error}>
-                  <InputLabel>Module</InputLabel>
-                  <Select {...field} label="Module">
-                    {allModules.map((module) => (
-                      <MenuItem key={module.con_module_id} value={module.con_module_id}>
-                        {module.con_module_name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {error && <FormHelperText>{error.message}</FormHelperText>}
-                </FormControl>
+                <Box sx={{ mt: 2, mb: 1 }}>
+                  <SearchableSelect<ModuleOption>
+                    variant="outlined"
+                    clearable={false}
+                    label="Module"
+                    placeholder="Search module..."
+                    options={allModules}
+                    value={
+                      allModules.find(
+                        (module) => String(module.con_module_id) === String(field.value ?? ""),
+                      ) ?? null
+                    }
+                    onChange={(module) => field.onChange(module ? module.con_module_id : "")}
+                    getOptionLabel={(module) => module.con_module_name}
+                    getOptionKey={(module) => module.con_module_id}
+                    isOptionEqualToValue={(option, selected) =>
+                      option.con_module_id === selected.con_module_id
+                    }
+                    error={!!error}
+                    helperText={error?.message}
+                    textFieldProps={{ name: field.name, onBlur: field.onBlur, inputRef: field.ref }}
+                  />
+                </Box>
               )}
             />
 
@@ -217,17 +257,27 @@ const MenuForm: React.FC<menuFormProps> = ({
               control={methods.control}
               rules={{ required: "Parent Menu is required" }}
               render={({ field, fieldState: { error } }) => (
-                <FormControl fullWidth margin="normal" error={!!error}>
-                  <InputLabel>Parent Menu</InputLabel>
-                  <Select {...field} label="Parent Menu">
-                    {filteredParentNames.map((parent) => (
-                      <MenuItem key={parent.menu_id} value={parent.menu_id}>
-                        {parent.menu_name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {error && <FormHelperText>{error.message}</FormHelperText>}
-                </FormControl>
+                <Box sx={{ mt: 2, mb: 1 }}>
+                  <SearchableSelect<ParentMenuOption>
+                    variant="outlined"
+                    clearable={false}
+                    label="Parent Menu"
+                    placeholder="Search parent menu..."
+                    options={filteredParentNames}
+                    value={
+                      filteredParentNames.find(
+                        (parent) => String(parent.menu_id) === String(field.value ?? ""),
+                      ) ?? null
+                    }
+                    onChange={(parent) => field.onChange(parent ? parent.menu_id : "")}
+                    getOptionLabel={(parent) => parent.menu_name}
+                    getOptionKey={(parent) => parent.menu_id}
+                    isOptionEqualToValue={(option, selected) => option.menu_id === selected.menu_id}
+                    error={!!error}
+                    helperText={error?.message}
+                    textFieldProps={{ name: field.name, onBlur: field.onBlur, inputRef: field.ref }}
+                  />
+                </Box>
               )}
             />
 
@@ -236,17 +286,29 @@ const MenuForm: React.FC<menuFormProps> = ({
               control={methods.control}
               rules={{ required: "Menu Type is required" }}
               render={({ field, fieldState: { error } }) => (
-                <FormControl fullWidth margin="normal" error={!!error}>
-                  <InputLabel>Menu Type</InputLabel>
-                  <Select {...field} label="Menu Type">
-                    {menutypes.map((type) => (
-                      <MenuItem key={type.menu_type_id} value={type.menu_type_id}>
-                        {type.menu_type}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {error && <FormHelperText>{error.message}</FormHelperText>}
-                </FormControl>
+                <Box sx={{ mt: 2, mb: 1 }}>
+                  <SearchableSelect<MenuTypeOption>
+                    variant="outlined"
+                    clearable={false}
+                    label="Menu Type"
+                    placeholder="Search menu type..."
+                    options={menutypes}
+                    value={
+                      menutypes.find(
+                        (type) => String(type.menu_type_id) === String(field.value ?? ""),
+                      ) ?? null
+                    }
+                    onChange={(type) => field.onChange(type ? type.menu_type_id : "")}
+                    getOptionLabel={(type) => type.menu_type}
+                    getOptionKey={(type) => type.menu_type_id}
+                    isOptionEqualToValue={(option, selected) =>
+                      option.menu_type_id === selected.menu_type_id
+                    }
+                    error={!!error}
+                    helperText={error?.message}
+                    textFieldProps={{ name: field.name, onBlur: field.onBlur, inputRef: field.ref }}
+                  />
+                </Box>
               )}
             />
 
@@ -298,13 +360,24 @@ const MenuForm: React.FC<menuFormProps> = ({
               name="active"
               control={methods.control}
               render={({ field }) => (
-                <FormControl fullWidth margin="normal">
-                  <InputLabel>Status</InputLabel>
-                  <Select {...field} label="Status">
-                    <MenuItem value="1">Active</MenuItem>
-                    <MenuItem value="0">Inactive</MenuItem>
-                  </Select>
-                </FormControl>
+                <Box sx={{ mt: 2, mb: 1 }}>
+                  <SearchableSelect<StatusOption>
+                    variant="outlined"
+                    clearable={false}
+                    label="Status"
+                    options={STATUS_OPTIONS}
+                    value={
+                      STATUS_OPTIONS.find(
+                        (status) => status.value === String(field.value ?? ""),
+                      ) ?? null
+                    }
+                    onChange={(status) => field.onChange(status ? status.value : "")}
+                    getOptionLabel={(status) => status.label}
+                    getOptionKey={(status) => status.value}
+                    isOptionEqualToValue={(option, selected) => option.value === selected.value}
+                    textFieldProps={{ name: field.name, onBlur: field.onBlur, inputRef: field.ref }}
+                  />
+                </Box>
               )}
             />
 

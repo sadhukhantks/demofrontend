@@ -9,10 +9,6 @@ import {
   Button,
   Alert,
   CircularProgress,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   TextField,
   Chip,
   Table,
@@ -29,6 +25,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useBranchOptions } from "@/utils/branchUtils";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 import type {
   BatchAssignMode,
@@ -198,6 +195,11 @@ function BatchAssignEditPage() {
     if (sidebarBranches.length >= 1) return sidebarBranches;
     return [] as Option[];
   }, [sidebarBranches]);
+
+  const selectedBranchOption = React.useMemo(
+    () => branchOptions.find((opt) => opt.value === selectedBranchId) ?? null,
+    [branchOptions, selectedBranchId]
+  );
 
   // Label resolvers for displaying names on saved rows
   const yarnTypeLabelMap = React.useMemo(
@@ -719,22 +721,21 @@ function BatchAssignEditPage() {
               sx={{ minWidth: 200 }}
             />
           ) : (
-            <FormControl sx={{ minWidth: 200 }} disabled={!isCreateMode}>
-              <InputLabel id="batch-assign-branch-label">Branch</InputLabel>
-              <Select
-                labelId="batch-assign-branch-label"
-                id="batch-assign-branch-select"
-                value={selectedBranchId}
-                onChange={(e) => setSelectedBranchId(e.target.value)}
-                label="Branch"
-              >
-                {branchOptions.map((opt) => (
-                  <MenuItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <SearchableSelect<Option>
+              variant="outlined"
+              size="medium"
+              label="Branch"
+              className="min-w-[200px]"
+              fullWidth={false}
+              clearable={false}
+              disabled={!isCreateMode}
+              options={branchOptions}
+              value={selectedBranchOption}
+              onChange={(option) => setSelectedBranchId(option?.value ?? "")}
+              getOptionLabel={(option) => option.label}
+              getOptionKey={(option) => option.value}
+              isOptionEqualToValue={(option, selected) => option.value === selected.value}
+            />
           )}
 
           {/* Date picker */}

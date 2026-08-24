@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { Box, Chip, MenuItem, TextField } from "@mui/material";
+import { Box, Chip, TextField } from "@mui/material";
 import type { PlanningDocUI } from "../types/productionPlanningTypes";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 export type BranchOption = {
   branch_id: number;
   branch_name: string;
@@ -50,21 +51,15 @@ export default function PlanningHeaderForm({
         disabled={disabled}
         sx={{ width: 220 }}
       />
-      <TextField
-        select
-        size="small"
+      <SearchableOptionSelect
         label="Branch"
-        value={doc.branch_id ?? ""}
-        onChange={(e) => onPatch({ branch_id: e.target.value === "" ? null : Number(e.target.value) })}
+        size="small"
         disabled={disabled || branchOptions.length <= 1}
+        options={branchOptions.map((b) => ({ value: b.branch_id, label: b.branch_name }))}
+        value={doc.branch_id ?? ""}
+        onChange={(selectedValue) => onPatch({ branch_id: selectedValue === "" ? null : Number(selectedValue) })}
         sx={{ minWidth: 200 }}
-      >
-        {branchOptions.map((b) => (
-          <MenuItem key={b.branch_id} value={b.branch_id}>
-            {b.branch_name}
-          </MenuItem>
-        ))}
-      </TextField>
+      />
       <TextField
         size="small"
         label="Remarks"

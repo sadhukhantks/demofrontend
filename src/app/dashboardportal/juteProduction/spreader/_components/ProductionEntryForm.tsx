@@ -172,7 +172,11 @@ export default function ProductionEntryForm({ coId, branchId, setup, onSaved }: 
 					type="date"
 					label="Entry Date"
 					value={entryDate}
-					onChange={(e) => setEntryDate(e.target.value)}
+					onChange={(e) => {
+						const v = e.target.value;
+						setEntryDate(v && v > todayISO() ? todayISO() : v);
+					}}
+					inputProps={{ max: todayISO() }}
 					size="small"
 					InputLabelProps={{ shrink: true }}
 					fullWidth

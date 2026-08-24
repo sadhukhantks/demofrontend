@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 // Company and Branch structure to match the API format
 interface Company {
   company_id: number;
@@ -253,25 +254,23 @@ const ExpandableTableWithDropdown: React.FC<Props> = ({
                       <span className="ml-6">— {child[nameField]}</span>
                     </td>
                     <td className="px-4 py-2 text-sm">
-                      <select
-                        className="border rounded px-2 py-1 text-sm w-full"
-                        value={accessLevels[child[idField]] || "0"} 
-                        onChange={(e) => handleChildAccessChange(child[idField], e.target.value)}
-                      >
-                        <option value="0">Not Assigned</option>
-                        {Array.isArray(dropdownOptions) && dropdownOptions
-                          .filter(option => option.value !== "0") // Filter out "Not Assigned" since we added it manually
-                          .map((option, index) => {
-                            return (
-                              <option 
-                                key={`${child[idField]}-${index}-${option.value}`} 
-                                value={option.value}
-                              >
-                                {option.label}
-                              </option>
-                            );
-                        })}
-                      </select>
+                      <SearchableOptionSelect
+                        fullWidth
+                        options={[
+                          { value: "0", label: "Not Assigned" },
+                          // "Not Assigned" is added manually above, so drop it from the supplied list.
+                          ...(Array.isArray(dropdownOptions)
+                            ? dropdownOptions
+                                .filter((option) => option.value !== "0")
+                                .map((option) => ({ value: option.value, label: option.label }))
+                            : []),
+                        ]}
+                        value={accessLevels[child[idField]] || "0"}
+                        onChange={(selectedValue) =>
+                          handleChildAccessChange(child[idField], String(selectedValue))
+                        }
+                        clearable={false}
+                      />
                     </td>
                   </tr>
                 ))}

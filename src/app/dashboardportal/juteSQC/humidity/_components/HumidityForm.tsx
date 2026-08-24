@@ -1,28 +1,11 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Autocomplete,
-	Box,
-	Button,
-	IconButton,
-	MenuItem,
-	Paper,
-	Snackbar,
-	Table,
-	TableBody,
-	TableCell,
-	TableContainer,
-	TableHead,
-	TableRow,
-	TextField,
-	Tooltip,
-	Typography,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, Button, IconButton, Paper, Snackbar, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from "@mui/material";
 import { Plus as AddIcon, Save as SaveIcon, Trash2 as DeleteIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import {
 	MAX_SPOT_ROWS,
 	humidityCreateSchema,
@@ -180,19 +163,13 @@ export default function HumidityForm({ coId, branchId, reportDate, setup, onSave
 					)}
 				/>
 
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Round"
+					size="small"
+					options={setup.rounds.map((r) => ({ value: r.round_no, label: r.label }))}
 					value={roundNo}
-					onChange={(e) => setRoundNo(e.target.value === "" ? "" : Number(e.target.value))}
-				>
-					{setup.rounds.map((r) => (
-						<MenuItem key={r.round_no} value={r.round_no}>
-							{r.label}
-						</MenuItem>
-					))}
-				</TextField>
+					onChange={(selectedValue) => setRoundNo(selectedValue === "" ? "" : Number(selectedValue))}
+				/>
 
 				<TextField
 					size="small"

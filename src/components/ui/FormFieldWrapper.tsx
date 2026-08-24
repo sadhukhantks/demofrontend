@@ -1,7 +1,16 @@
-import { ReactNode, useEffect } from "react";
-import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
+"use client";
+
+import { ReactNode } from "react";
+import {
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+  useFormField,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Control } from "react-hook-form";
 
@@ -22,6 +31,88 @@ type FormFieldWrapperProps = {
   customInput?: ReactNode;
 };
 
+type SelectFieldProps = {
+  options: Option[];
+  /** Whatever react-hook-form currently holds; matched against `option.value`. */
+  value: unknown;
+  /** Receives the option's `value`, never the option object. */
+  onValueChange: (value: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  required?: boolean;
+};
+
+/**
+ * @component SelectField
+ * @description Searchable (type-to-filter) dropdown for {@link FormFieldWrapper}'s
+ * `type="select"` branch. It maps option object <-> primitive `value` at this
+ * boundary so react-hook-form keeps storing the same string it always did.
+ * Rendered inside `FormItem`, so it can read the form-item id and error state
+ * from context and keep the label/error wiring the previous trigger had.
+ * @example
+ * <SelectField options={opts} value={field.value ?? ""} onValueChange={field.onChange} />
+ */
+const SelectField = ({
+  options,
+  value,
+  onValueChange,
+  placeholder,
+  disabled,
+  required,
+}: SelectFieldProps) => {
+  const { error, formItemId, formDescriptionId, formMessageId } = useFormField();
+  // Options always carry string values (as the shadcn SelectItem did), so an
+  // id stored as a number still resolves to its option.
+  const current = value === null || value === undefined ? "" : String(value);
+  const selected = options.find((option) => option.value === current) ?? null;
+
+  return (
+    <SearchableSelect<Option>
+      // `label` is intentionally not passed: FormFieldWrapper already renders a
+      // FormLabel above the control, so a floating label would duplicate it.
+      variant="outlined"
+      options={options}
+      value={selected}
+      // The old shadcn Select had no clear button; keeping it off means the only
+      // user-visible change is that the field can now be typed into to filter.
+      clearable={false}
+      onChange={(option) => onValueChange(option ? option.value : "")}
+      getOptionLabel={(option) => option.label}
+      getOptionKey={(option) => option.value}
+      isOptionEqualToValue={(option, selectedOption) =>
+        option.value === selectedOption.value
+      }
+      placeholder={placeholder}
+      disabled={disabled}
+      required={required}
+      error={!!error}
+      textFieldProps={{
+        id: formItemId,
+        "aria-describedby": error
+          ? `${formDescriptionId} ${formMessageId}`
+          : formDescriptionId,
+      }}
+    />
+  );
+};
+SelectField.displayName = "SelectField";
+
+/**
+ * @component FormFieldWrapper
+ * @description react-hook-form field wrapper rendering a label, a control
+ * (text input, searchable select, checkbox, or a caller-supplied `customInput`)
+ * and the validation message. Select fields are always type-to-filter — see the
+ * "Dropdowns" rule in CLAUDE.md.
+ * @example
+ * <FormFieldWrapper
+ *   name="status"
+ *   control={form.control}
+ *   label="Status"
+ *   type="select"
+ *   options={[{ value: "1", label: "Active" }, { value: "0", label: "Inactive" }]}
+ *   required
+ * />
+ */
 const FormFieldWrapper = ({
   name,
   control,
@@ -38,42 +129,28 @@ const FormFieldWrapper = ({
       name={name}
       control={control}
       render={({ field }) => {
-        // For debugging select fields
-        if (type === "select") {
-          console.log(`Select field ${name}:`, {
-            value: field.value,
-            hasMatchingOption: options.some(opt => opt.value === field.value),
-            options: options.map(opt => ({ value: opt.value, label: opt.label }))
-          });
-        }
-        
         return (
           <FormItem>
             <FormLabel>
               {label}
               {required && <span className="text-red-500 ml-1">*</span>}
             </FormLabel>
-            <FormControl>
-              {customInput ? (
-                customInput
-              ) : type === "select" ? (
-                <Select
-                  disabled={disabled}
-                  onValueChange={field.onChange}
-                  value={field.value || ""}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={placeholder} />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white">
-                    {options.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : type === "checkbox" ? (
+            {customInput ? (
+              <FormControl>{customInput}</FormControl>
+            ) : type === "select" ? (
+              // Not wrapped in FormControl: that is a Radix `Slot`, which
+              // forwards a ref its child (a plain function component) cannot
+              // take. SelectField reads the same ids from form context instead.
+              <SelectField
+                options={options}
+                value={field.value}
+                onValueChange={field.onChange}
+                placeholder={placeholder}
+                disabled={disabled}
+                required={required}
+              />
+            ) : type === "checkbox" ? (
+              <FormControl>
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     checked={field.value}
@@ -88,15 +165,17 @@ const FormFieldWrapper = ({
                     {placeholder}
                   </label>
                 </div>
-              ) : (
+              </FormControl>
+            ) : (
+              <FormControl>
                 <Input
                   placeholder={placeholder}
                   type={type}
                   disabled={disabled}
                   {...field}
                 />
-              )}
-            </FormControl>
+              </FormControl>
+            )}
             <FormMessage />
           </FormItem>
         );
@@ -106,3 +185,4 @@ const FormFieldWrapper = ({
 };
 
 export default FormFieldWrapper;
+export type { FormFieldWrapperProps, Option as FormFieldOption };

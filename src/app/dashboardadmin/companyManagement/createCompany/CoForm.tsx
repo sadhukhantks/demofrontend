@@ -7,11 +7,6 @@ import {
   Button,
   Card,
   CardContent,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  FormHelperText,
   Box,
   Typography,
   CircularProgress,
@@ -20,6 +15,7 @@ import {
   ListItemText,
   Alert,
 } from "@mui/material";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import axios from "axios";
 import { apiRoutesconsole } from "@/utils/api";
 
@@ -37,11 +33,24 @@ interface CoFormData {
   alert_email_id: string;
 }
 
+/** Country option. */
+interface CountryOption {
+  country_id: number;
+  country: string;
+}
+
+/** State option, scoped to a country. */
+interface StateOption {
+  state_id: number;
+  state: string;
+  country_id: number;
+}
+
 interface CoFormProps {
   initialValues?: Partial<CoFormData> | null;
-  allModules: any[];
-  countries: any[];
-  states: any[];
+  allModules: unknown[];
+  countries: CountryOption[];
+  states: StateOption[];
   alert_email_id: string[];
   onSubmit: (data: CoFormData) => void;
   loading: boolean;
@@ -82,7 +91,7 @@ const CoForm: React.FC<CoFormProps> = ({
   const watchedCountry = watch("country_id");
 
   // States for filtered options
-  const [filteredStates, setFilteredStates] = useState<any[]>([]);
+  const [filteredStates, setFilteredStates] = useState<StateOption[]>([]);
   const prevCountryRef = useRef<string>("");
 
   // Logo upload state
@@ -305,21 +314,24 @@ const CoForm: React.FC<CoFormProps> = ({
               control={control}
               rules={{ required: "Country is required" }}
               render={({ field, fieldState: { error } }) => (
-                <FormControl fullWidth margin="normal" error={!!error} required>
-                  <InputLabel>Country</InputLabel>
-                  <Select
-                    {...field}
+                <Box sx={{ mt: 2, mb: 1 }}>
+                  <SearchableSelect<CountryOption>
+                    variant="outlined"
+                    clearable={false}
                     label="Country"
-                    value={field.value || ""}
-                  >
-                    {countries.map((c) => (
-                      <MenuItem key={c.country_id} value={c.country_id.toString()}>
-                        {c.country}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {error && <FormHelperText>{error.message}</FormHelperText>}
-                </FormControl>
+                    placeholder="Search country..."
+                    options={countries}
+                    value={countries.find((c) => c.country_id.toString() === field.value) ?? null}
+                    onChange={(country) => field.onChange(country ? country.country_id.toString() : "")}
+                    getOptionLabel={(c) => c.country}
+                    getOptionKey={(c) => c.country_id}
+                    isOptionEqualToValue={(option, selected) => option.country_id === selected.country_id}
+                    required
+                    error={!!error}
+                    helperText={error?.message}
+                    textFieldProps={{ name: field.name, onBlur: field.onBlur, inputRef: field.ref }}
+                  />
+                </Box>
               )}
             />
             
@@ -328,25 +340,25 @@ const CoForm: React.FC<CoFormProps> = ({
               control={control}
               rules={{ required: "State is required" }}
               render={({ field, fieldState: { error } }) => (
-                <FormControl fullWidth margin="normal" error={!!error} required>
-                  <InputLabel>State</InputLabel>
-                  <Select
-                    {...field}
+                <Box sx={{ mt: 2, mb: 1 }}>
+                  <SearchableSelect<StateOption>
+                    variant="outlined"
+                    clearable={false}
                     label="State"
-                    value={field.value || ""}
+                    placeholder="Search state..."
+                    options={filteredStates}
+                    value={filteredStates.find((s) => s.state_id.toString() === field.value) ?? null}
+                    onChange={(state) => field.onChange(state ? state.state_id.toString() : "")}
+                    getOptionLabel={(s) => s.state}
+                    getOptionKey={(s) => s.state_id}
+                    isOptionEqualToValue={(option, selected) => option.state_id === selected.state_id}
+                    required
+                    error={!!error}
+                    helperText={error?.message}
                     disabled={!watchedCountry}
-                    onChange={(e) => {
-                      field.onChange(e);
-                    }}
-                  >
-                    {filteredStates.map((s) => (
-                      <MenuItem key={s.state_id} value={s.state_id.toString()}>
-                        {s.state}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {error && <FormHelperText>{error.message}</FormHelperText>}
-                </FormControl>
+                    textFieldProps={{ name: field.name, onBlur: field.onBlur, inputRef: field.ref }}
+                  />
+                </Box>
               )}
             />
             

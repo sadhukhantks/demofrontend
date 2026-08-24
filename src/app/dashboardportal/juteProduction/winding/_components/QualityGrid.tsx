@@ -1,24 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Autocomplete,
-	Box,
-	Button,
-	CircularProgress,
-	IconButton,
-	MenuItem,
-	Snackbar,
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableRow,
-	TextField,
-	Tooltip,
-	Typography,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, Button, CircularProgress, IconButton, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Tooltip, Typography } from "@mui/material";
 import { RefreshCw as GetIcon, Save as SaveIcon, Trash2 as DeleteIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -31,6 +14,7 @@ import { useQualitySetup } from "../hooks/useQualitySetup";
 import { useQualityByDate } from "../hooks/useQualityByDate";
 import { SPINDLE_MIN, SPINDLE_MAX } from "../utils/windingCalc";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type Props = {
 	coId: string;
 	branchId: number;
@@ -272,27 +256,17 @@ export default function QualityGrid({ coId, branchId, date, spellId, yarnItems }
 												/>
 											</TableCell>
 											<TableCell>
-												<TextField
-													select
+												<SearchableOptionSelect
 													size="small"
+													placeholder="None"
+													options={yarnOpts.map((y) => ({ value: y.item_id, label: `${y.item_code} — ${y.item_name ?? ""}` }))}
 													value={e.item_id}
-													onChange={(ev) =>
-														setYarn(
+													onChange={(selectedValue) => setYarn(
 															r.winding_daily_qlty_id,
-															ev.target.value === "" ? "" : Number(ev.target.value),
-														)
-													}
+															selectedValue === "" ? "" : Number(selectedValue),
+														)}
 													sx={{ minWidth: 200 }}
-												>
-													<MenuItem value="">
-														<em>None</em>
-													</MenuItem>
-													{yarnOpts.map((y) => (
-														<MenuItem key={y.item_id} value={y.item_id}>
-															{y.item_code} — {y.item_name ?? ""}
-														</MenuItem>
-													))}
-												</TextField>
+												/>
 											</TableCell>
 											<TableCell>
 												<TextField

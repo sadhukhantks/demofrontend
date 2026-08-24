@@ -47,12 +47,13 @@ export type WeavingPickSetup = {
 };
 
 // One staged (not-yet-saved) observation row. picks_dm is the as-typed value;
-// the server converts to PPI (picks = picks_dm × 0.254) on save.
+// the server converts to PPI (picks = picks_dm × 0.254) on save. Width and
+// picks/dm are each optional — every row carries at least one of them.
 type StagedRow = {
 	weaving_quality_id: number;
 	machine_id: number;
-	width: number;
-	picks_dm: number;
+	width: number | null;
+	picks_dm: number | null;
 	// display labels captured at stage time
 	qualityLabel: string;
 	loomLabel: string;
@@ -87,14 +88,16 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 	const selectedQuality = setup.qualities.find((q) => q.weaving_quality_id === Number(qualityId)) ?? null;
 	const selectedLoom = setup.looms.find((l) => l.machine_id === Number(machineId)) ?? null;
 
-	// Quality, loom, Width and Picks/dm are all required (R-08-21).
+	// Quality + loom required; Width and Picks/dm each optional, but every
+	// reading needs at least one of them (> 0). Both together are fine too.
+	const widthNum = width === "" ? null : Number(width);
+	const picksDmNum = picksDm === "" ? null : Number(picksDm);
 	const formInvalid =
 		!qualityId ||
 		!machineId ||
-		width === "" ||
-		Number(width) <= 0 ||
-		picksDm === "" ||
-		Number(picksDm) <= 0;
+		(widthNum == null && picksDmNum == null) ||
+		(widthNum != null && widthNum <= 0) ||
+		(picksDmNum != null && picksDmNum <= 0);
 
 	// Live PPI preview of the as-typed picks/dm value.
 	const livePpi = picksDm !== "" && Number(picksDm) > 0 ? dmToPpi(Number(picksDm)) : null;
@@ -102,7 +105,7 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 	// Stage a row locally (multi-observation — POST all on save).
 	const handleAddRow = () => {
 		if (formInvalid || !selectedQuality || !selectedLoom) {
-			setError("Select a quality and loom and enter Width (> 0) and Picks / dm (> 0).");
+			setError("Select a quality and loom and enter Width (> 0) and/or Picks / dm (> 0) — at least one.");
 			return;
 		}
 		setError(null);
@@ -111,8 +114,8 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 			{
 				weaving_quality_id: selectedQuality.weaving_quality_id,
 				machine_id: selectedLoom.machine_id,
-				width: Number(width),
-				picks_dm: Number(picksDm),
+				width: widthNum,
+				picks_dm: picksDmNum,
 				qualityLabel: qualityLabel(selectedQuality),
 				loomLabel: loomLabel(selectedLoom),
 			},
@@ -201,8 +204,8 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 					onChange={(e) => setWidth(e.target.value)}
 					size="small"
 					fullWidth
-					required
 					inputProps={{ step: "any", min: 0 }}
+					helperText="Width and/or Picks / dm"
 				/>
 				<TextField
 					type="number"
@@ -211,7 +214,6 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 					onChange={(e) => setPicksDm(e.target.value)}
 					size="small"
 					fullWidth
-					required
 					inputProps={{ step: "any", min: 0 }}
 					helperText={`= ${livePpi != null ? livePpi.toFixed(2) : "—"} PPI`}
 				/>
@@ -292,13 +294,13 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 								<Box component="td">{r.qualityLabel}</Box>
 								<Box component="td">{r.loomLabel}</Box>
 								<Box component="td" sx={{ textAlign: "right!important" }}>
-									{r.width.toFixed(2)}
+									{r.width != null ? r.width.toFixed(2) : "—"}
 								</Box>
 								<Box component="td" sx={{ textAlign: "right!important" }}>
-									{r.picks_dm.toFixed(2)}
+									{r.picks_dm != null ? r.picks_dm.toFixed(2) : "—"}
 								</Box>
 								<Box component="td" sx={{ textAlign: "right!important" }}>
-									{dmToPpi(r.picks_dm).toFixed(2)}
+									{r.picks_dm != null ? dmToPpi(r.picks_dm).toFixed(2) : "—"}
 								</Box>
 								<Box component="td">
 									<Button
@@ -340,10 +342,13 @@ export default function PickForm({ coId, branchId, entryDate, setup, onSaved }: 
 							<Typography variant="body2">Loom: {r.loomLabel}</Typography>
 							<Box sx={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
 								<Typography variant="body2">
-									Width: {r.width.toFixed(2)}
+									Width: {r.width != null ? r.width.toFixed(2) : "—"}
 								</Typography>
 								<Typography variant="body2" fontWeight={600}>
-									Picks/dm: {r.picks_dm.toFixed(2)} (= {dmToPpi(r.picks_dm).toFixed(2)} PPI)
+									Picks/dm:{" "}
+									{r.picks_dm != null
+										? `${r.picks_dm.toFixed(2)} (= ${dmToPpi(r.picks_dm).toFixed(2)} PPI)`
+										: "—"}
 								</Typography>
 							</Box>
 						</Paper>

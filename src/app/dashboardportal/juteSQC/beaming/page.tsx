@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, MenuItem, Tab, Tabs, TextField, Typography } from "@mui/material";
+import { Alert, Box, Tab, Tabs, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
@@ -21,6 +21,7 @@ import type { TargetGridData } from "../../juteProduction/masters/beamingTargetM
 // is 'speed' (RPM).
 import TargetMapEditor from "../../juteProduction/masters/beamingTargetMap/_components/TargetMapEditor";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 // Single tab today; modelled as a tab shell to mirror the spinning SQC page and to
 // leave room for additional beaming SQC observations later.
 const TABS = ["Actual RPM"] as const;
@@ -170,20 +171,14 @@ export default function BeamingSqcPage() {
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Branch"
+					size="small"
+					options={branchOptions.map((b) => ({ value: Number(b.branch_id), label: b.branch_name }))}
 					value={pageBranchId}
-					onChange={(e) => setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))}
+					onChange={(selectedValue) => setPageBranchId(selectedValue === "" ? "" : Number(selectedValue))}
 					sx={{ mb: 2, minWidth: 240 }}
-				>
-					{branchOptions.map((b) => (
-						<MenuItem key={b.branch_id} value={Number(b.branch_id)}>
-							{b.branch_name}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 			) : selectedBranchName ? (
 				<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 					Branch: {selectedBranchName}

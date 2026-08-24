@@ -1,30 +1,10 @@
 "use client";
 
 import React, { Suspense } from "react";
-import {
-	Alert,
-	Box,
-	Button,
-	Chip,
-	CircularProgress,
-	Dialog,
-	DialogActions,
-	DialogContent,
-	DialogTitle,
-	MenuItem,
-	Paper,
-	Snackbar,
-	Stack,
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableRow,
-	TextField,
-	Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Snackbar, Stack, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
 import { RefreshCw } from "lucide-react";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import {
 	fetchPriceCheckById,
 	fetchPriceCheckPending,
@@ -184,20 +164,14 @@ function PriceCheckContent() {
 				</Box>
 				<Stack direction="row" alignItems="center" gap={1}>
 					{branchOptions.length > 1 ? (
-						<TextField
-							select
-							size="small"
+						<SearchableOptionSelect
 							label="Branch"
-							sx={{ minWidth: 200 }}
+							size="small"
+							options={branchOptions.map((branch) => ({ value: branch.branch_id, label: branch.branch_name }))}
 							value={branchId ?? ""}
-							onChange={(e) => setBranchId(e.target.value === "" ? null : Number(e.target.value))}
-						>
-							{branchOptions.map((branch) => (
-								<MenuItem key={branch.branch_id} value={branch.branch_id}>
-									{branch.branch_name}
-								</MenuItem>
-							))}
-						</TextField>
+							onChange={(selectedValue) => setBranchId(selectedValue === "" ? null : Number(selectedValue))}
+							sx={{ minWidth: 200 }}
+						/>
 					) : null}
 					<Button size="small" variant="outlined" startIcon={<RefreshCw size={16} />} onClick={load} disabled={loading}>
 						Refresh
@@ -319,23 +293,15 @@ function PriceCheckContent() {
 													/>
 												</TableCell>
 												<TableCell>
-													<TextField
-														select
+													<SearchableOptionSelect
 														size="small"
 														fullWidth
+														options={RATE_SOURCES.map((source) => ({ value: source.value, label: source.label }))}
 														value={line.rate_source_input}
-														onChange={(e) =>
-															setResponseLines((prev) =>
-																prev.map((l, i) => (i === index ? { ...l, rate_source_input: e.target.value } : l))
-															)
-														}
-													>
-														{RATE_SOURCES.map((source) => (
-															<MenuItem key={source.value} value={source.value}>
-																{source.label}
-															</MenuItem>
-														))}
-													</TextField>
+														onChange={(selectedValue) => setResponseLines((prev) =>
+																prev.map((l, i) => (i === index ? { ...l, rate_source_input: selectedValue } : l))
+															)}
+													/>
 												</TableCell>
 												<TableCell>
 													<TextField

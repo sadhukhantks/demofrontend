@@ -1,8 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Box, MenuItem, Paper, Select, Typography } from "@mui/material";
+import { Box, Paper, Typography } from "@mui/material";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { reportConfig, ReportKey, reportOrder } from "./_components/reportConfig";
+
+interface ReportOption {
+  value: ReportKey;
+  label: string;
+}
 
 export default function ProcurementReportsHub() {
   const [mounted, setMounted] = React.useState(false);
@@ -10,6 +16,20 @@ export default function ProcurementReportsHub() {
 
   React.useEffect(() => {
     setMounted(true);
+  }, []);
+
+  const reportOptions = React.useMemo<ReportOption[]>(
+    () => reportOrder.map(k => ({ value: k, label: reportConfig[k].label })),
+    [],
+  );
+
+  const selectedOption = React.useMemo(
+    () => reportOptions.find(option => option.value === selected) ?? null,
+    [reportOptions, selected],
+  );
+
+  const handleChange = React.useCallback((option: ReportOption | null) => {
+    if (option) setSelected(option.value);
   }, []);
 
   if (!mounted) return null;
@@ -33,18 +53,19 @@ export default function ProcurementReportsHub() {
             <Typography variant="body2" fontWeight={600}>
               Report:
             </Typography>
-            <Select
-              size="small"
-              value={selected}
-              onChange={e => setSelected(e.target.value as ReportKey)}
-              sx={{ minWidth: 380 }}
-            >
-              {reportOrder.map(k => (
-                <MenuItem key={k} value={k}>
-                  {reportConfig[k].label}
-                </MenuItem>
-              ))}
-            </Select>
+            <Box sx={{ minWidth: 380 }}>
+              <SearchableSelect<ReportOption>
+                variant="outlined"
+                options={reportOptions}
+                value={selectedOption}
+                onChange={handleChange}
+                getOptionLabel={option => option.label}
+                getOptionKey={option => option.value}
+                isOptionEqualToValue={(option, value) => option.value === value.value}
+                clearable={false}
+                placeholder="Search reports"
+              />
+            </Box>
           </Box>
         </Paper>
 

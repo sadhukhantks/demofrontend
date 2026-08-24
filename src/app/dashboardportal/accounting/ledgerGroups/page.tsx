@@ -9,11 +9,6 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  FormHelperText,
   Chip,
 } from "@mui/material";
 import { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
@@ -22,6 +17,7 @@ import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Swal from "sweetalert2";
 import IndexWrapper from "@/components/ui/IndexWrapper";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import {
   fetchLedgerGroups,
@@ -63,6 +59,13 @@ const NATURE_LABELS: Record<AccountNature, string> = {
   I: "Income",
   E: "Expenses",
 };
+
+/** Option shape for the searchable Nature dropdown. */
+type NatureOption = { value: AccountNature; label: string };
+
+const NATURE_OPTIONS: readonly NatureOption[] = (
+  Object.keys(NATURE_LABELS) as AccountNature[]
+).map((value) => ({ value, label: NATURE_LABELS[value] }));
 
 // ---------------------------------------------------------------------------
 // Component
@@ -348,34 +351,38 @@ export default function LedgerGroupsPage() {
               name="parent_group_id"
               control={control}
               render={({ field }) => (
-                <FormControl fullWidth margin="dense" error={!!errors.parent_group_id}>
-                  <InputLabel>Parent Group</InputLabel>
-                  <Select
-                    {...field}
-                    value={field.value ?? ""}
-                    label="Parent Group"
-                    onChange={(e) => {
-                      const v = e.target.value as number | "";
-                      const id = v === "" ? undefined : Number(v);
-                      field.onChange(id);
-                      const inherited = allGroups.find(
-                        (g) => g.acc_ledger_group_id === id
-                      )?.nature;
-                      if (inherited) {
-                        setValue("nature", inherited, { shouldValidate: true });
-                      }
-                    }}
-                  >
-                    <MenuItem value="">
-                      <em>None (root group)</em>
-                    </MenuItem>
-                    {allGroups.map((g) => (
-                      <MenuItem key={g.acc_ledger_group_id} value={g.acc_ledger_group_id}>
-                        {g.group_name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <SearchableSelect<LedgerGroup>
+                  variant="outlined"
+                  label="Parent Group"
+                  placeholder="None (root group)"
+                  options={allGroups}
+                  value={
+                    allGroups.find(
+                      (g) => g.acc_ledger_group_id === field.value
+                    ) ?? null
+                  }
+                  onChange={(option) => {
+                    const id = option?.acc_ledger_group_id;
+                    field.onChange(id);
+                    const inherited = option?.nature;
+                    if (inherited) {
+                      setValue("nature", inherited, { shouldValidate: true });
+                    }
+                  }}
+                  getOptionLabel={(g) => g.group_name}
+                  getOptionKey={(g) => g.acc_ledger_group_id}
+                  isOptionEqualToValue={(g, v) =>
+                    g.acc_ledger_group_id === v.acc_ledger_group_id
+                  }
+                  error={!!errors.parent_group_id}
+                  helperText={errors.parent_group_id?.message}
+                  textFieldProps={{
+                    margin: "dense",
+                    name: field.name,
+                    onBlur: field.onBlur,
+                    inputRef: field.ref,
+                  }}
+                />
               )}
             />
 
@@ -383,28 +390,30 @@ export default function LedgerGroupsPage() {
               name="nature"
               control={control}
               render={({ field }) => (
-                <FormControl
-                  fullWidth
-                  margin="dense"
-                  error={!!errors.nature}
+                <SearchableSelect<NatureOption>
+                  variant="outlined"
+                  label="Nature"
+                  options={[...NATURE_OPTIONS]}
+                  value={
+                    NATURE_OPTIONS.find((o) => o.value === field.value) ?? null
+                  }
+                  onChange={(option) => field.onChange(option?.value)}
+                  getOptionLabel={(o) => o.label}
+                  getOptionKey={(o) => o.value}
+                  isOptionEqualToValue={(o, v) => o.value === v.value}
                   disabled={!!parentNature}
-                >
-                  <InputLabel>Nature</InputLabel>
-                  <Select
-                    {...field}
-                    value={field.value ?? ""}
-                    label="Nature"
-                  >
-                    <MenuItem value="A">Assets</MenuItem>
-                    <MenuItem value="L">Liabilities</MenuItem>
-                    <MenuItem value="I">Income</MenuItem>
-                    <MenuItem value="E">Expenses</MenuItem>
-                  </Select>
-                  <FormHelperText>
-                    {errors.nature?.message ??
-                      (parentNature ? "Inherited from parent group" : "")}
-                  </FormHelperText>
-                </FormControl>
+                  error={!!errors.nature}
+                  helperText={
+                    errors.nature?.message ??
+                    (parentNature ? "Inherited from parent group" : "")
+                  }
+                  textFieldProps={{
+                    margin: "dense",
+                    name: field.name,
+                    onBlur: field.onBlur,
+                    inputRef: field.ref,
+                  }}
+                />
               )}
             />
           </DialogContent>

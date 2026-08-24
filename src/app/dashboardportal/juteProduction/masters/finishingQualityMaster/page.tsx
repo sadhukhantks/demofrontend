@@ -1,22 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Autocomplete,
-	Box,
-	Button,
-	Chip,
-	Dialog,
-	DialogActions,
-	DialogContent,
-	DialogTitle,
-	IconButton,
-	MenuItem,
-	TextField,
-	Tooltip,
-	Typography,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, TextField, Tooltip, Typography } from "@mui/material";
 import { Pencil as EditIcon, Plus as AddIcon, Trash2 as DeleteIcon, Eye as ViewIcon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { z } from "zod";
@@ -27,6 +12,7 @@ import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 // =============================================================================
 // Quality type discriminator (BE: quality_type 1=hessian, 2=sacking — INT, no DB change)
 // =============================================================================
@@ -387,20 +373,14 @@ export default function FinishingQualityMasterPage() {
 					</Typography>
 				</Box>
 				<Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-					<TextField
-						select
-						size="small"
+					<SearchableOptionSelect
 						label="Type"
+						size="small"
+						options={[{ value: "all", label: "All" }, { value: String(QUALITY_TYPE_HESSIAN), label: "Hessian" }, { value: String(QUALITY_TYPE_SACKING), label: "Sacking" }]}
 						value={typeFilter === "all" ? "all" : String(typeFilter)}
-						onChange={(e) =>
-							setTypeFilter(e.target.value === "all" ? "all" : (Number(e.target.value) as QualityType))
-						}
+						onChange={(selectedValue) => setTypeFilter(selectedValue === "all" ? "all" : (Number(selectedValue) as QualityType))}
 						sx={{ minWidth: 140 }}
-					>
-						<MenuItem value="all">All</MenuItem>
-						<MenuItem value={String(QUALITY_TYPE_HESSIAN)}>Hessian</MenuItem>
-						<MenuItem value={String(QUALITY_TYPE_SACKING)}>Sacking</MenuItem>
-					</TextField>
+					/>
 					<Button variant="contained" startIcon={<AddIcon size={18} />} onClick={openCreate}>
 						New Quality
 					</Button>
@@ -437,17 +417,14 @@ export default function FinishingQualityMasterPage() {
 							control={control}
 							name="quality_type"
 							render={({ field }) => (
-								<TextField
-									select
+								<SearchableOptionSelect
 									label="Quality Type"
 									size="small"
-									value={String(field.value)}
-									onChange={(e) => field.onChange(Number(e.target.value) as QualityType)}
 									disabled={lockIdentity}
-								>
-									<MenuItem value={String(QUALITY_TYPE_HESSIAN)}>Hessian</MenuItem>
-									<MenuItem value={String(QUALITY_TYPE_SACKING)}>Sacking</MenuItem>
-								</TextField>
+									options={[{ value: String(QUALITY_TYPE_HESSIAN), label: "Hessian" }, { value: String(QUALITY_TYPE_SACKING), label: "Sacking" }]}
+									value={String(field.value)}
+									onChange={(selectedValue) => field.onChange(Number(selectedValue) as QualityType)}
+								/>
 							)}
 						/>
 

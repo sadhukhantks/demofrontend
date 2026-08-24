@@ -1,13 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Autocomplete, Box, Button, MenuItem, Snackbar, TextField } from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Snackbar, TextField } from "@mui/material";
 import { Plus as AddIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { observedCount, correctedCount } from "@/app/dashboardportal/juteProduction/spinning/utils/spinningCalc";
 import type { SqcCountSetup, SqcCountSavePayloadRow } from "../types/sqcSpinningTypes";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type Props = {
 	coId: string;
 	branchId: number;
@@ -104,23 +105,15 @@ export default function CountForm({ coId, branchId, entryDate, setup, onSaved }:
 					},
 				}}
 			>
-				<TextField
-					select
+				<SearchableOptionSelect
 					label="Spell (optional)"
-					value={spellId}
-					onChange={(e) => setSpellId(e.target.value === "" ? "" : Number(e.target.value))}
 					size="small"
 					fullWidth
-				>
-					<MenuItem value="">
-						<em>None</em>
-					</MenuItem>
-					{setup.spells.map((s) => (
-						<MenuItem key={s.spell_id} value={s.spell_id}>
-							{s.spell_name} ({s.spell_code})
-						</MenuItem>
-					))}
-				</TextField>
+					placeholder="None"
+					options={setup.spells.map((s) => ({ value: s.spell_id, label: `${s.spell_name} (${s.spell_code})` }))}
+					value={spellId}
+					onChange={(selectedValue) => setSpellId(selectedValue === "" ? "" : Number(selectedValue))}
+				/>
 				<Autocomplete
 					options={setup.machines}
 					getOptionLabel={(m) => `${m.machine_name} (${m.mech_code})`}

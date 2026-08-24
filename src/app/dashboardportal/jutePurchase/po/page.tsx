@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Chip, FormControl, InputLabel, MenuItem, Select, Typography } from "@mui/material";
-import type { SelectChangeEvent } from "@mui/material";
+import { Alert, Chip, Typography } from "@mui/material";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import type { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui/x-data-grid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -70,6 +70,9 @@ const getStatusColor = (status: string): "success" | "error" | "warning" | "info
 
 // Jute PO status ids — from jutePO.py status-change endpoints
 // (21=Draft, 1=Open, 20=Pending Approval, 3=Approved, 4=Rejected, 6=Cancelled).
+/** Status filter option; `null` is the "All statuses" (no filter) sentinel. */
+type JutePOStatusFilterOption = { value: number | null; label: string };
+
 const JUTE_PO_STATUS_OPTIONS: ReadonlyArray<{ value: number; label: string }> = [
 	{ value: 21, label: "Draft" },
 	{ value: 1, label: "Open" },
@@ -320,10 +323,19 @@ export default function JutePOIndexPage() {
 		setSearchValue(value);
 	}, []);
 
-	const handleStatusFilterChange = React.useCallback((event: SelectChangeEvent<string>) => {
-		const raw = event.target.value;
+	const statusFilterOptions = React.useMemo<JutePOStatusFilterOption[]>(
+		() => [{ value: null, label: "All statuses" }, ...JUTE_PO_STATUS_OPTIONS],
+		[],
+	);
+
+	const selectedStatusFilterOption = React.useMemo(
+		() => statusFilterOptions.find((option) => option.value === statusFilter) ?? null,
+		[statusFilterOptions, statusFilter],
+	);
+
+	const handleStatusFilterChange = React.useCallback((option: JutePOStatusFilterOption | null) => {
 		setPaginationModel((prev) => ({ ...prev, page: 0 }));
-		setStatusFilter(raw === "" ? null : Number(raw));
+		setStatusFilter(option?.value ?? null);
 	}, []);
 
 	const handleFromDateChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -399,22 +411,19 @@ export default function JutePOIndexPage() {
 			createAction={{ onClick: handleCreateJutePO, label: "Create Jute PO" }}
 			toolbarContent={
 				<>
-					<FormControl size="small" sx={{ minWidth: 180 }}>
-						<InputLabel id="jute-po-status-filter-label">Status</InputLabel>
-						<Select<string>
-							labelId="jute-po-status-filter-label"
-							label="Status"
-							value={statusFilter === null ? "" : String(statusFilter)}
-							onChange={handleStatusFilterChange}
-						>
-							<MenuItem value="">All statuses</MenuItem>
-							{JUTE_PO_STATUS_OPTIONS.map((option) => (
-								<MenuItem key={option.value} value={String(option.value)}>
-									{option.label}
-								</MenuItem>
-							))}
-						</Select>
-					</FormControl>
+					<SearchableSelect<JutePOStatusFilterOption>
+						variant="outlined"
+						label="Status"
+						className="min-w-[180px]"
+						fullWidth={false}
+						clearable={false}
+						options={statusFilterOptions}
+						value={selectedStatusFilterOption}
+						onChange={handleStatusFilterChange}
+						getOptionLabel={(option) => option.label}
+						getOptionKey={(option) => String(option.value ?? "all")}
+						isOptionEqualToValue={(option, selected) => option.value === selected.value}
+					/>
 					<DateRangeToolbar
 						fromDate={fromDate}
 						toDate={toDate}

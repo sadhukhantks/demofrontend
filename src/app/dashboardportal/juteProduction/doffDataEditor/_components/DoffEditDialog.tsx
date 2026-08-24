@@ -1,20 +1,10 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Autocomplete,
-	Button,
-	Dialog,
-	DialogActions,
-	DialogContent,
-	DialogTitle,
-	MenuItem,
-	TextField,
-	Typography,
-} from "@mui/material";
+import { Alert, Autocomplete, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from "@mui/material";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import type {
 	DoffEntryRow,
 	SpinningTrollyOption,
@@ -139,23 +129,23 @@ export default function DoffEditDialog({
 					)}
 				/>
 
-				<TextField
-					select
+				<SearchableOptionSelect
 					size="small"
 					label="Trolly"
+					options={[
+						...trollies.map((t) => ({
+							value: t.trolly_id,
+							label: `${t.trolly_name} — ${t.trolly_weight} kg`,
+						})),
+						// Row's trolly may be out of the branch setup list (legacy/import).
+						...(trollies.every((t) => t.trolly_id !== row.trolly_id)
+							? [{ value: row.trolly_id, label: row.trolly_name ?? `#${row.trolly_id}` }]
+							: []),
+					]}
 					value={trollyId}
-					onChange={(e) => setTrollyId(Number(e.target.value))}
-				>
-					{trollies.map((t) => (
-						<MenuItem key={t.trolly_id} value={t.trolly_id}>
-							{t.trolly_name} — {t.trolly_weight} kg
-						</MenuItem>
-					))}
-					{/* Row's trolly may be out of the branch setup list (legacy/import). */}
-					{trollies.every((t) => t.trolly_id !== row.trolly_id) ? (
-						<MenuItem value={row.trolly_id}>{row.trolly_name ?? `#${row.trolly_id}`}</MenuItem>
-					) : null}
-				</TextField>
+					onChange={(selectedValue) => setTrollyId(Number(selectedValue))}
+					clearable={false}
+				/>
 
 				<TextField
 					size="small"
