@@ -181,7 +181,13 @@ export default function WeavingPage() {
 										size="small"
 										label="Date"
 										value={tranDate}
-										onChange={(e) => setTranDate(e.target.value)}
+										onChange={(e) => {
+											const v = e.target.value;
+											// Future dates not allowed — clamp typed entries too (picker max alone
+											// doesn't stop keyboard input).
+											setTranDate(v && v > todayISO() ? todayISO() : v);
+										}}
+										inputProps={{ max: todayISO() }}
 										InputLabelProps={{ shrink: true }}
 									/>
 								) : null}
