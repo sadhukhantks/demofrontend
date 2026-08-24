@@ -1,27 +1,14 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Autocomplete,
-	Box,
-	Button,
-	Dialog,
-	DialogActions,
-	DialogContent,
-	DialogTitle,
-	IconButton,
-	MenuItem,
-	TextField,
-	Tooltip,
-	Typography,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, TextField, Tooltip, Typography } from "@mui/material";
 import { Pencil as EditIcon, Plus as AddIcon, Trash2 as DeleteIcon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 // Std Moisture (Std MR%) Master — one standard moisture-regain % per
 // (company, jute-yarn item group, process). Plain CRUD: no approval workflow,
 // no status lifecycle. Company-scoped only (the row has no branch_id).
@@ -288,40 +275,24 @@ export default function StdMoistureMasterPage() {
 			</Box>
 
 			<Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Item Group"
-					value={filterGroupId}
-					onChange={(e) => setFilterGroupId(e.target.value === "" ? "" : Number(e.target.value))}
-					sx={{ minWidth: 240 }}
-				>
-					<MenuItem value="">
-						<em>All</em>
-					</MenuItem>
-					{groups.map((g) => (
-						<MenuItem key={g.item_grp_id} value={g.item_grp_id}>
-							{g.item_grp_name}
-						</MenuItem>
-					))}
-				</TextField>
-				<TextField
-					select
 					size="small"
+					placeholder="All"
+					options={groups.map((g) => ({ value: g.item_grp_id, label: g.item_grp_name }))}
+					value={filterGroupId}
+					onChange={(selectedValue) => setFilterGroupId(selectedValue === "" ? "" : Number(selectedValue))}
+					sx={{ minWidth: 240 }}
+				/>
+				<SearchableOptionSelect
 					label="Process"
+					size="small"
+					placeholder="All"
+					options={processes.map((p) => ({ value: p.code, label: p.label }))}
 					value={filterProcess}
-					onChange={(e) => setFilterProcess(e.target.value)}
+					onChange={(selectedValue) => setFilterProcess(selectedValue)}
 					sx={{ minWidth: 260 }}
-				>
-					<MenuItem value="">
-						<em>All</em>
-					</MenuItem>
-					{processes.map((p) => (
-						<MenuItem key={p.code} value={p.code}>
-							{p.label}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 				<TextField
 					size="small"
 					label="Search"
@@ -391,20 +362,14 @@ export default function StdMoistureMasterPage() {
 								<TextField {...params} label="Item Group" placeholder="Jute yarn group" required />
 							)}
 						/>
-						<TextField
-							select
-							size="small"
+						<SearchableOptionSelect
 							label="Process"
-							value={form.process}
-							onChange={(e) => setForm((prev) => ({ ...prev, process: e.target.value }))}
+							size="small"
 							required
-						>
-							{processes.map((p) => (
-								<MenuItem key={p.code} value={p.code}>
-									{p.label}
-								</MenuItem>
-							))}
-						</TextField>
+							options={processes.map((p) => ({ value: p.code, label: p.label }))}
+							value={form.process}
+							onChange={(selectedValue) => setForm((prev) => ({ ...prev, process: selectedValue }))}
+						/>
 						<TextField
 							type="number"
 							size="small"

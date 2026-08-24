@@ -1,18 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Autocomplete,
-	Box,
-	Button,
-	IconButton,
-	MenuItem,
-	Paper,
-	Snackbar,
-	TextField,
-	Typography,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, Button, IconButton, Paper, Snackbar, TextField, Typography } from "@mui/material";
 import { Plus as PlusIcon, Save as SaveIcon, X as XIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -27,6 +16,7 @@ import {
 } from "../types/packingMrTypes";
 import { computePackingMrPreview } from "../utils/packingMrCalc";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type Props = {
 	coId: string;
 	branchId: number;
@@ -137,20 +127,14 @@ export default function PackingMrForm({ coId, branchId, entryDate, setup, onSave
 					gap: 2,
 				}}
 			>
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Quality group"
-					value={qualityGroup}
-					onChange={(e) => setQualityGroup(e.target.value as QualityGroup)}
+					size="small"
 					fullWidth
-				>
-					{QUALITY_GROUPS.map((g) => (
-						<MenuItem key={g} value={g}>
-							{g}
-						</MenuItem>
-					))}
-				</TextField>
+					options={QUALITY_GROUPS.map((g) => ({ value: g, label: g }))}
+					value={qualityGroup}
+					onChange={(selectedValue) => setQualityGroup(selectedValue as QualityGroup)}
+				/>
 
 				<Autocomplete
 					options={setup.qualities}

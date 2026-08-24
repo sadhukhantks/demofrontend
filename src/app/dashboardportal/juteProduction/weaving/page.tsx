@@ -1,17 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Box,
-	Button,
-	CircularProgress,
-	MenuItem,
-	Tab,
-	Tabs,
-	TextField,
-	Typography,
-} from "@mui/material";
+import { Alert, Box, Button, CircularProgress, Tab, Tabs, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { useWeavingSetup } from "./hooks/useWeavingSetup";
@@ -24,6 +14,7 @@ import WeavingAdjustmentGrid from "./_components/WeavingAdjustmentGrid";
 import WeavingPlanningGrid from "./_components/WeavingPlanningGrid";
 import { todayISO } from "./utils/weavingCalc";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 export default function WeavingPage() {
 	const [mounted, setMounted] = React.useState(false);
 	React.useEffect(() => {
@@ -130,20 +121,14 @@ export default function WeavingPage() {
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Branch"
+					size="small"
+					options={branchOptions.map((b) => ({ value: Number(b.branch_id), label: b.branch_name }))}
 					value={pageBranchId}
-					onChange={(e) => setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))}
+					onChange={(selectedValue) => setPageBranchId(selectedValue === "" ? "" : Number(selectedValue))}
 					sx={{ mb: 2, minWidth: 240 }}
-				>
-					{branchOptions.map((b) => (
-						<MenuItem key={b.branch_id} value={Number(b.branch_id)}>
-							{b.branch_name}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 			) : selectedBranchName ? (
 				<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 					Branch: {selectedBranchName}
@@ -196,27 +181,25 @@ export default function WeavingPage() {
 										size="small"
 										label="Date"
 										value={tranDate}
-										onChange={(e) => setTranDate(e.target.value)}
+										onChange={(e) => {
+											const v = e.target.value;
+											// Future dates not allowed — clamp typed entries too (picker max alone
+											// doesn't stop keyboard input).
+											setTranDate(v && v > todayISO() ? todayISO() : v);
+										}}
+										inputProps={{ max: todayISO() }}
 										InputLabelProps={{ shrink: true }}
 									/>
 								) : null}
 								{showSpell ? (
-									<TextField
-										select
-										size="small"
+									<SearchableOptionSelect
 										label="Spell"
+										size="small"
+										options={setup.spells.map((s) => ({ value: s.spell_id, label: `${s.spell_code} (${Number(s.working_hours)} hrs)` }))}
 										value={spellId}
-										onChange={(e) =>
-											setSpellId(e.target.value === "" ? "" : Number(e.target.value))
-										}
+										onChange={(selectedValue) => setSpellId(selectedValue === "" ? "" : Number(selectedValue))}
 										sx={{ minWidth: 160 }}
-									>
-										{setup.spells.map((s) => (
-											<MenuItem key={s.spell_id} value={s.spell_id}>
-												{s.spell_code} ({Number(s.working_hours)} hrs)
-											</MenuItem>
-										))}
-									</TextField>
+									/>
 								) : null}
 								<Button variant="contained" size="small" onClick={handleSearch}>
 									Search

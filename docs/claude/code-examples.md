@@ -246,3 +246,54 @@ const calculatedWeight = React.useMemo(() => {
   return adj * rate;
 }, [getAdjustedBalQty, stock, rate]);
 ```
+
+### 7. Selection-Only Dropdowns
+
+Every dropdown must be searchable with type-ahead autofill -- see the **Dropdowns** rule in
+`CLAUDE.md`. A raw MUI `Select` forces the user to scroll, which is unusable once a master list
+(items, parties, ledgers) grows past a screenful.
+
+```tsx
+// WRONG - selection-only; the user cannot type to filter
+<FormControl fullWidth size="small">
+  <InputLabel>Branch</InputLabel>
+  <Select
+    label="Branch"
+    value={field.value ?? ""}
+    onChange={(e) => field.onChange(e.target.value)}
+  >
+    {branches.map((b) => (
+      <MenuItem key={b.branch_id} value={b.branch_id}>
+        {b.branch_name}
+      </MenuItem>
+    ))}
+  </Select>
+</FormControl>
+
+// CORRECT - searchable; form state still stores the primitive branch_id
+<SearchableSelect
+  variant="outlined"
+  label="Branch"
+  options={branches}
+  value={branches.find((b) => b.branch_id === field.value) ?? null}
+  onChange={(opt) => field.onChange(opt?.branch_id ?? null)}
+  getOptionLabel={(b) => b.branch_name}
+  isOptionEqualToValue={(a, b) => a.branch_id === b.branch_id}
+  disabled={mode === "view"}
+  error={!!fieldState.error}
+  helperText={fieldState.error?.message}
+/>
+```
+
+Key points:
+
+- Import from `@/components/ui/SearchableSelect`.
+- `value` is the option **object** (or `null`); map back to the id in `onChange` so Zod schemas and
+  API payloads are unchanged.
+- Always pair `getOptionLabel` with `isOptionEqualToValue` when options are objects -- without it
+  MUI compares by reference and the field renders blank after a refetch.
+- Use `variant="bare"` instead of `"outlined"` inside DataGrid cells and line-item tables.
+- Short lists get the same treatment. An Active/Inactive dropdown is searchable too, so that
+  dropdown behaviour is uniform everywhere.
+- Never make a dropdown read-only to prevent edits -- use `disabled`, which is the mode-aware
+  pattern the rest of the app follows.

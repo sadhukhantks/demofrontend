@@ -155,6 +155,7 @@ className="bg-primary text-primary-foreground hover:bg-primary/90"
 
 ## Critical Rules
 
+- **Dropdowns are ALWAYS searchable** — use `SearchableSelect`/`SearchableMultiSelect` from `@/components/ui/SearchableSelect` with type-ahead autofill. NEVER emit a raw MUI `<Select>` + `<MenuItem>`, a `<TextField select>`, a native `<select>`, or the shadcn `Select` primitive. This holds for short lists too (Active/Inactive, Yes/No). Use `variant="outlined"` for labelled form fields and `variant="bare"` inside DataGrid cells. Never disable typing to make a field read-only — use `disabled`.
 - **JSDoc is REQUIRED** for shared components — `@component`, `@description`, `@example`
 - **Props interface is REQUIRED** — always export it alongside the component
 - **`displayName` is REQUIRED** when using `forwardRef`

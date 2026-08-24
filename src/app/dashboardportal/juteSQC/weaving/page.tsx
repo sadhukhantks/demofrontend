@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, CircularProgress, MenuItem, Tab, Tabs, TextField, Typography } from "@mui/material";
+import { Alert, Box, CircularProgress, Tab, Tabs, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayISO } from "@/app/dashboardportal/juteProduction/spinning/utils/spinningCalc";
@@ -22,6 +22,7 @@ import PickGrid from "./_components/PickGrid";
 import SqcPrintButton from "../_shared/SqcPrintButton";
 import type { SqcPrintReport, PrintColumn } from "../_shared/printReport";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 const TABS = ["Loom Width & Picks (R-08-21)", "Actual Speed"] as const;
 
 export default function WeavingSqcPage() {
@@ -109,7 +110,7 @@ export default function WeavingSqcPage() {
 				loom: loom === "" ? `Loom #${r.machine_id}` : loom,
 				width: fmt(r.width),
 				// Legacy rows carry only PPI — derive picks/dm client-side.
-				picks_dm: fmt(r.picks_dm ?? ppiToDm(r.picks)),
+				picks_dm: fmt(r.picks_dm ?? (r.picks != null ? ppiToDm(r.picks) : null)),
 				picks: fmt(r.picks),
 			};
 		});
@@ -191,20 +192,14 @@ export default function WeavingSqcPage() {
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Branch"
+					size="small"
+					options={branchOptions.map((b) => ({ value: Number(b.branch_id), label: b.branch_name }))}
 					value={pageBranchId}
-					onChange={(e) => setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))}
+					onChange={(selectedValue) => setPageBranchId(selectedValue === "" ? "" : Number(selectedValue))}
 					sx={{ mb: 2, minWidth: 240 }}
-				>
-					{branchOptions.map((b) => (
-						<MenuItem key={b.branch_id} value={Number(b.branch_id)}>
-							{b.branch_name}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 			) : selectedBranchName ? (
 				<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 					Branch: {selectedBranchName}

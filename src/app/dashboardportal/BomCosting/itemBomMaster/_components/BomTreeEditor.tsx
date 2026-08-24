@@ -12,10 +12,6 @@ import {
   Box,
   Autocomplete,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from "@mui/material";
 
 type BomStatus = "New" | "Certified" | "Under Development" | "Closed";
@@ -34,6 +30,7 @@ import { IconButton, Tooltip } from "@mui/material";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { openStyledPrintWindow } from "@/utils/printUtils";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import BomTreeNode from "./BomTreeNode";
 import ConfirmDialog from "./ConfirmDialog";
 import InlineBomRow, { InlineSavePayload } from "./InlineBomRow";
@@ -586,19 +583,22 @@ export default function BomTreeEditor({ open, onClose, item, onSnackbar }: BomTr
                   </IconButton>
                 </span>
               </Tooltip>
-              <FormControl size="small" sx={{ minWidth: 200 }} disabled={statusSaving}>
-                <InputLabel id="bom-status-label">Status</InputLabel>
-                <Select
-                  labelId="bom-status-label"
-                  label="Status"
-                  value={bomStatus}
-                  onChange={(e) => handleStatusChange(e.target.value as BomStatus)}
-                >
-                  {BOM_STATUS_OPTIONS.map((s) => (
-                    <MenuItem key={s} value={s}>{s}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <SearchableSelect<BomStatus>
+                variant="outlined"
+                label="Status"
+                disabled={statusSaving}
+                options={BOM_STATUS_OPTIONS}
+                value={BOM_STATUS_OPTIONS.find((s) => s === bomStatus) ?? null}
+                onChange={(status) => {
+                  if (status) handleStatusChange(status);
+                }}
+                getOptionLabel={(s) => s}
+                getOptionKey={(s) => s}
+                isOptionEqualToValue={(s, v) => s === v}
+                clearable={false}
+                fullWidth={false}
+                className="min-w-[200px]"
+              />
             </Box>
           )}
         </DialogTitle>

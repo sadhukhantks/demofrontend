@@ -1,18 +1,11 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Snackbar,
-  Alert,
-  Chip,
-  FormControl,
-  Select,
-  MenuItem,
-  SelectChangeEvent,
-} from "@mui/material";
+import { Snackbar, Alert, Chip } from "@mui/material";
 import { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui/x-data-grid";
 import Swal from "sweetalert2";
 import IndexWrapper from "@/components/ui/IndexWrapper";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import {
   fetchAccountDeterminations,
@@ -219,23 +212,28 @@ export default function AccountDeterminationsPage() {
           const row = params.row;
           if (editingRowId === row.id) {
             return (
-              <FormControl size="small" fullWidth>
-                <Select
-                  value={row.acc_ledger_id ?? ""}
-                  onChange={(e: SelectChangeEvent<number | string>) => {
-                    handleLedgerChange(row.id, Number(e.target.value));
-                  }}
-                  onClose={() => setEditingRowId(null)}
-                  autoFocus
-                  open
-                >
-                  {ledgerOptions.map((l) => (
-                    <MenuItem key={l.acc_ledger_id} value={l.acc_ledger_id}>
-                      {l.ledger_name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <SearchableSelect<LedgerOption>
+                options={ledgerOptions}
+                value={
+                  ledgerOptions.find(
+                    (l) => l.acc_ledger_id === row.acc_ledger_id
+                  ) ?? null
+                }
+                onChange={(option) => {
+                  if (option) handleLedgerChange(row.id, option.acc_ledger_id);
+                }}
+                getOptionLabel={(o) => o.ledger_name}
+                getOptionKey={(o) => o.acc_ledger_id}
+                isOptionEqualToValue={(o, v) =>
+                  o.acc_ledger_id === v.acc_ledger_id
+                }
+                placeholder="Search ledger"
+                clearable={false}
+                textFieldProps={{
+                  autoFocus: true,
+                  onBlur: () => setEditingRowId(null),
+                }}
+              />
             );
           }
           return (

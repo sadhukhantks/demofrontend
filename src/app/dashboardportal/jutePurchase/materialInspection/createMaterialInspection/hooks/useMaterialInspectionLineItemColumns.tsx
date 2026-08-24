@@ -4,9 +4,8 @@
  */
 
 import * as React from "react";
-import { SearchableSelect } from "@/components/ui/transaction";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { TextField } from "@mui/material";
-import { MenuItem, Select } from "@mui/material";
 import type { TransactionLineColumn } from "@/components/ui/transaction";
 import type { GateEntryLineItem, Option, JuteItemRecord, JuteQualityRecord } from "../types/MaterialInspectionTypes";
 import { UOM_OPTIONS } from "../utils/MaterialInspectionConstants";
@@ -247,26 +246,22 @@ export function useGateEntryLineItemColumns({
 					if (!canEdit) {
 						return <span className="text-xs">{item.juteUom || "-"}</span>;
 					}
+					const uomValue = UOM_OPTIONS.find((opt) => opt.value === item.juteUom) ?? null;
 					return (
-						<Select
-							size="small"
-							value={item.juteUom || ""}
-							onChange={(e) =>
-								handleLineFieldChange(item.id, "juteUom", e.target.value)
+						<SearchableSelect<Option>
+							options={UOM_OPTIONS}
+							value={uomValue}
+							onChange={(next) =>
+								handleLineFieldChange(item.id, "juteUom", next?.value ?? "")
 							}
-							displayEmpty
-							sx={{ "& .MuiSelect-select": { fontSize: "0.75rem", py: 0.5 } }}
-							fullWidth
-						>
-							<MenuItem value="" sx={{ fontSize: "0.75rem" }}>
-								<em>-</em>
-							</MenuItem>
-							{UOM_OPTIONS.map((opt) => (
-								<MenuItem key={opt.value} value={opt.value} sx={{ fontSize: "0.75rem" }}>
-									{opt.label}
-								</MenuItem>
-							))}
-						</Select>
+							getOptionLabel={(opt) => opt.label}
+							getOptionKey={(opt) => opt.value}
+							isOptionEqualToValue={(a, b) => a.value === b.value}
+							placeholder="-"
+							textFieldProps={{
+								sx: { "& .MuiInputBase-input": { fontSize: "0.75rem", py: 0.5 } },
+							}}
+						/>
 					);
 				},
 			},

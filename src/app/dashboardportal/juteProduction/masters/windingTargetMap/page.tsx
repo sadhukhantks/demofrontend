@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, MenuItem, Tab, Tabs, TextField, Typography } from "@mui/material";
+import { Alert, Box, Tab, Tabs, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayISO } from "../../spinning/utils/spinningCalc";
@@ -9,6 +9,7 @@ import type { ValueRole } from "./_components/TargetGrid";
 import TargetMapEditor, { VALUE_ROLE_LABELS } from "./_components/TargetMapEditor";
 import TargetMapList from "./_components/TargetMapList";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 // --- Header-bar options -----------------------------------------------------
 // Winding standards/targets are QUALITY-ONLY: id_type is always 'qid' (ref_id =
 // the yarn item), so there is no Type selector at all — weaving/beaming/spinning
@@ -68,20 +69,14 @@ export default function WindingTargetMapPage() {
 
 			{/* Header bar (always visible). Drives the entry grid; seeds the history dialog. */}
 			<Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 2 }}>
-				<TextField
-					select
+				<SearchableOptionSelect
 					label="Role"
 					size="small"
+					options={VALUE_ROLE_OPTIONS.map((r) => ({ value: r, label: VALUE_ROLE_LABELS[r] }))}
 					value={valueRole}
-					onChange={(e) => setValueRole(e.target.value as ValueRole)}
+					onChange={(selectedValue) => setValueRole(selectedValue as ValueRole)}
 					sx={{ minWidth: 160 }}
-				>
-					{VALUE_ROLE_OPTIONS.map((r) => (
-						<MenuItem key={r} value={r}>
-							{VALUE_ROLE_LABELS[r]}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 				<TextField
 					type="date"
 					label="Effective Date"

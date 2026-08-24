@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, CircularProgress, MenuItem, TextField, Typography } from "@mui/material";
+import { Alert, Box, CircularProgress, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { useStoppageSetup } from "./hooks/useStoppageSetup";
@@ -11,6 +11,7 @@ import DailyStoppagesGrid from "./_components/DailyStoppagesGrid";
 import { todayISO } from "./utils/stoppageCalc";
 import type { StoppageEntryRow } from "./types/stoppageTypes";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 export default function StoppageHoursPage() {
 	const [mounted, setMounted] = React.useState(false);
 	React.useEffect(() => {
@@ -94,20 +95,14 @@ export default function StoppageHoursPage() {
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Branch"
+					size="small"
+					options={branchOptions.map((b) => ({ value: Number(b.branch_id), label: b.branch_name }))}
 					value={pageBranchId}
-					onChange={(e) => setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))}
+					onChange={(selectedValue) => setPageBranchId(selectedValue === "" ? "" : Number(selectedValue))}
 					sx={{ mb: 2, minWidth: 240 }}
-				>
-					{branchOptions.map((b) => (
-						<MenuItem key={b.branch_id} value={Number(b.branch_id)}>
-							{b.branch_name}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 			) : selectedBranchName ? (
 				<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 					Branch: {selectedBranchName}

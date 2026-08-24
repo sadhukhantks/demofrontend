@@ -1,10 +1,25 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Select, TextField, FormControl, InputLabel, CircularProgress, FormHelperText, Checkbox, FormControlLabel, Autocomplete } from "@mui/material";
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, FormControl, CircularProgress, FormHelperText, Checkbox, FormControlLabel, Autocomplete } from "@mui/material";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { fetchWithCookie } from "@/utils/apiClient2";
-import { SelectChangeEvent } from "@mui/material";
+
+/** Item type option returned by the item-group setup endpoint. */
+type ItemTypeRecord = {
+  item_type_id: number;
+  item_type_name: string;
+};
+
+/** Shape of the create-item-group form state. */
+type ItemGroupFormState = {
+  item_grp_code: string;
+  item_grp_name: string;
+  parent_grp_id: string | number | null;
+  item_type_id: string | number;
+  tax_applicable: boolean;
+};
 
 interface ItemGroupFormProps {
   open?: boolean;
@@ -20,7 +35,7 @@ export default function CreateItemGroupPage({ open = true, onClose }: ItemGroupF
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
 
   // Helper to get initial form state
-  const getInitialForm = () => ({
+  const getInitialForm = (): ItemGroupFormState => ({
     item_grp_code: "",
     item_grp_name: "",
     parent_grp_id: "",
@@ -72,10 +87,9 @@ export default function CreateItemGroupPage({ open = true, onClose }: ItemGroupF
     }));
   };
 
-  // Separate handler for Select
-  const handleSelectChange = (e: SelectChangeEvent) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name!]: value }));
+  // Separate handler for the Item Type dropdown (option object -> stored id)
+  const handleItemTypeChange = (option: ItemTypeRecord | null) => {
+    setForm((prev) => ({ ...prev, item_type_id: option ? option.item_type_id : "" }));
   };
 
   // Handle form submit
@@ -161,6 +175,11 @@ export default function CreateItemGroupPage({ open = true, onClose }: ItemGroupF
     }
   };
 
+  // Item type dropdown options (mapped id <-> option object at this boundary)
+  const itemTypeOptions: ItemTypeRecord[] = setupData?.item_types ?? [];
+  const selectedItemType =
+    itemTypeOptions.find((it) => String(it.item_type_id) === String(form.item_type_id)) ?? null;
+
   // Render as dialog if open prop is provided, else as page
   const FormContent = (
     <Box component="form" onSubmit={handleSubmit} sx={{ p: 2, minWidth: 350 }}>
@@ -203,23 +222,20 @@ export default function CreateItemGroupPage({ open = true, onClose }: ItemGroupF
           disabled={loading || !setupData}
         />
       </FormControl>
-      <FormControl fullWidth margin="normal">
-        <InputLabel id="item-type-label">Item Type</InputLabel>
-        <Select
-          labelId="item-type-label"
-          name="item_type_id"
-          value={form.item_type_id}
-          label="Item Type"
-          onChange={handleSelectChange}
-          disabled={loading || !setupData}
-        >
-          {setupData?.item_types?.map((it: any) => (
-            <MenuItem key={it.item_type_id} value={it.item_type_id}>
-              {it.item_type_name}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      <SearchableSelect<ItemTypeRecord>
+        variant="outlined"
+        size="medium"
+        label="Item Type"
+        placeholder="Type to search..."
+        options={itemTypeOptions}
+        value={selectedItemType}
+        onChange={handleItemTypeChange}
+        getOptionLabel={(option) => option.item_type_name}
+        getOptionKey={(option) => String(option.item_type_id)}
+        isOptionEqualToValue={(option, selected) => option.item_type_id === selected.item_type_id}
+        disabled={loading || !setupData}
+        textFieldProps={{ margin: "normal" }}
+      />
       {/* GST Applicable Checkbox (only if india_gst_applicable === 1) */}
       {setupData?.india_gst_applicable === 1 && (
         <FormControlLabel

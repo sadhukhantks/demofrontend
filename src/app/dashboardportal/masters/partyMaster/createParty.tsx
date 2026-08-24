@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { Dialog, DialogTitle, DialogContent, Box, Snackbar, Alert, DialogActions, FormControl, InputLabel, Select, MenuItem, TextField, Table, TableHead, TableBody, TableRow, TableCell, IconButton, Switch, TableContainer } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, Box, Snackbar, Alert, DialogActions, TextField, Table, TableHead, TableBody, TableRow, TableCell, IconButton, Switch, TableContainer } from '@mui/material';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Delete } from 'lucide-react';
 import { MuiForm, Schema } from '@/components/ui/muiform';
 import { fetchWithCookie } from '@/utils/apiClient2';
@@ -27,6 +28,18 @@ type BranchRow = {
   contact_no?: string;
   active?: boolean;
 };
+
+/** Loosely-shaped state record as returned by the party setup endpoint. */
+type StateRecord = {
+  id?: string | number;
+  state_id?: string | number;
+  name?: string;
+  state_name?: string;
+  display?: string;
+};
+
+/** Normalised option for the branch State dropdown. */
+type StateOption = { value: string; label: string };
 
 export default function CreateParty({ open, onClose, mode = 'create', editId, onSaved }: Props) {
   const [schema, setSchema] = useState<Schema | null>(null);
@@ -222,10 +235,17 @@ export default function CreateParty({ open, onClose, mode = 'create', editId, on
   const branchesDirty = serializeBranches(branches) !== serializeBranches(initialBranches);
 
   // compute available states for a branch given selected country
-  const availableStates = (countryId?: string) => {
-    if (!countryId) return [] as { id?: any; name?: string }[];
+  const availableStates = (countryId?: string): StateRecord[] => {
+    if (!countryId) return [];
     return statesByCountry[countryId] ?? [];
   };
+
+  /** Normalised state dropdown options for the branch rows. */
+  const stateOptionsFor = (countryId?: string): StateOption[] =>
+    availableStates(countryId).map((s) => ({
+      value: String(s.id ?? s.state_id ?? s.name ?? ''),
+      label: String(s.name ?? s.state_name ?? s.display ?? ''),
+    }));
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
@@ -271,20 +291,23 @@ export default function CreateParty({ open, onClose, mode = 'create', editId, on
                       <TextField fullWidth size="small" value={b.zip_code ?? ''} onChange={(e) => upsertBranchRow(i, { zip_code: e.target.value })} placeholder="Zip Code" />
                     </TableCell>
                     <TableCell sx={{ minWidth: 160 }}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel id={`state-label-${i}`}>State</InputLabel>
-                        <Select
-                          labelId={`state-label-${i}`}
-                          value={b.state ?? ''}
-                          label="State"
-                          onChange={(e) => upsertBranchRow(i, { state: String(e.target.value) })}
-                        >
-                          <MenuItem value="">Select state</MenuItem>
-                          {(availableStates(selectedCountry) ?? []).map((s: any) => (
-                            <MenuItem key={s.id ?? s.state_id} value={String(s.id ?? s.state_id ?? s.name)}>{s.name ?? s.state_name ?? s.display}</MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
+                      {(() => {
+                        const options = stateOptionsFor(selectedCountry);
+                        return (
+                          <SearchableSelect<StateOption>
+                            variant="outlined"
+                            label="State"
+                            placeholder="Select state"
+                            options={options}
+                            value={options.find((o) => o.value === (b.state ?? '')) ?? null}
+                            onChange={(option) => upsertBranchRow(i, { state: option ? option.value : '' })}
+                            getOptionLabel={(option) => option.label}
+                            getOptionKey={(option) => option.value}
+                            isOptionEqualToValue={(a, c) => a.value === c.value}
+                            noOptionsText={selectedCountry ? 'No states' : 'Select a country first'}
+                          />
+                        );
+                      })()}
                     </TableCell>
 
                     <TableCell sx={{ minWidth: 160 }}>

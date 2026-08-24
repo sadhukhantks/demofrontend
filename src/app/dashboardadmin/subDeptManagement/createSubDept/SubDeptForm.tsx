@@ -7,11 +7,6 @@ import {
   Button, 
   Card, 
   CardContent,
-  FormControl, 
-  InputLabel, 
-  Select, 
-  MenuItem,
-  FormHelperText,
   Box,
   Typography,
   CircularProgress,
@@ -19,6 +14,7 @@ import {
   Switch,
   FormControlLabel
 } from "@mui/material";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiRoutes, apiRoutesconsole } from "@/utils/api";
 import { fetchWithCookie } from "@/utils/apiClient2";
@@ -50,6 +46,21 @@ interface SubDeptFormData {
   sub_dept_id?: string; // Added to allow initialValues.sub_dept_id
   sub_dept_desc?: string; // Added to allow initialValues.sub_dept_desc
   sub_dept_code?: string; // Added to allow initialValues.sub_dept_code
+}
+
+/** Company option derived from the branch list endpoint. */
+interface CompanyOption {
+  co_id: number;
+  co_name: string;
+  branches?: { branch_name: string }[];
+}
+
+/** Branch option as returned by the branch list endpoint. */
+interface BranchOption {
+  co_id: number;
+  co_name: string;
+  branch_id: number;
+  branch_name: string;
 }
 
 interface SubDeptFormProps {
@@ -86,18 +97,18 @@ const BranchForm: React.FC<SubDeptFormProps> = ({
   // States for filtered options
   const [filteredStates, setFilteredStates] = useState<any[]>([]);
   const [existingBranches, setExistingBranches] = useState<string[]>([]);
-  const [filteredBranches, setFilteredBranches] = useState<any[]>([]);
+  const [filteredBranches, setFilteredBranches] = useState<BranchOption[]>([]);
 
   const [existingDepartments, setExistingDepartments] = useState<string[]>([]);
-  const [filteredDepartments, setFilteredDepartments] = useState<any[]>([]);
+  const [filteredDepartments, setFilteredDepartments] = useState<SubDept[]>([]);
 
 
   // For debounced validation
   const [branchNameError, setBranchNameError] = useState<string | null>(null);
   const companyNameTimerRef = useRef<NodeJS.Timeout | null>(null);
   // Add states for companies and branches
-  const [allBranches, setAllBranches] = useState<any[]>([]);
-  const [companies, setCompanies] = useState<any[]>([]);
+  const [allBranches, setAllBranches] = useState<BranchOption[]>([]);
+  const [companies, setCompanies] = useState<CompanyOption[]>([]);
 
   // Function to check branch name uniqueness with debounce
   const checkCompanyNameUniqueness = useCallback((value: string) => {
@@ -162,9 +173,9 @@ const BranchForm: React.FC<SubDeptFormProps> = ({
         console.log('Found company with branches:', selectedCompany);
         
         // Extract branch names from the selected company
-        const branchNames = selectedCompany.branches.map((branch: any) => {
-          return branch.branch_name.toLowerCase();
-        }).filter((name: string) => name !== ''); // Filter out any empty strings
+        const branchNames = selectedCompany.branches
+          .map((branch) => branch.branch_name.toLowerCase())
+          .filter((name) => name !== ''); // Filter out any empty strings
         
         console.log("Existing branch names for this company:", branchNames);
         setExistingBranches(branchNames);
@@ -351,14 +362,14 @@ const validateSubDeptField = (field: 'dept_desc' | 'dept_code' | 'sub_dept_code'
       // Extract unique companies from the branch data
       const uniqueCompanies = Array.from(
         new Map(
-          data.data.map((branch: any) => [
+          (data.data as BranchOption[]).map((branch) => [
             branch.co_id,
             { co_id: branch.co_id, co_name: branch.co_name }
           ])
         ).values()
       );
 
-      setCompanies(uniqueCompanies);
+      setCompanies(uniqueCompanies as CompanyOption[]);
     } catch (error) {
       console.error('Error fetching branches:', error);
     }
@@ -463,21 +474,24 @@ useEffect(() => {
               control={control}
               rules={{ required: "Company is required" }}
               render={({ field, fieldState: { error } }) => (
-                <FormControl fullWidth margin="normal" error={!!error} required>
-                  <InputLabel>Company</InputLabel>
-                  <Select
-                    {...field}
+                <Box sx={{ mt: 2, mb: 1 }}>
+                  <SearchableSelect<CompanyOption>
+                    variant="outlined"
+                    clearable={false}
                     label="Company"
-                    value={field.value || ""}
-                  >
-                    {companies.map((company) => (
-                      <MenuItem key={company.co_id} value={company.co_id.toString()}>
-                        {company.co_name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {error && <FormHelperText>{error.message}</FormHelperText>}
-                </FormControl>
+                    placeholder="Search company..."
+                    options={companies}
+                    value={companies.find((company) => company.co_id.toString() === field.value) ?? null}
+                    onChange={(company) => field.onChange(company ? company.co_id.toString() : "")}
+                    getOptionLabel={(company) => company.co_name}
+                    getOptionKey={(company) => company.co_id}
+                    isOptionEqualToValue={(option, selected) => option.co_id === selected.co_id}
+                    required
+                    error={!!error}
+                    helperText={error?.message}
+                    textFieldProps={{ name: field.name, onBlur: field.onBlur, inputRef: field.ref }}
+                  />
+                </Box>
               )}
             />              
             <Controller
@@ -485,58 +499,58 @@ useEffect(() => {
               control={control}
               rules={{ required: "Branch is required" }}
               render={({ field, fieldState: { error } }) => (
-                <FormControl fullWidth margin="normal" error={!!error} required>
-                  <InputLabel>Branch</InputLabel>
-                  <Select
-                    {...field}
+                <Box sx={{ mt: 2, mb: 1 }}>
+                  <SearchableSelect<BranchOption>
+                    variant="outlined"
+                    clearable={false}
                     label="Branch"
-                    value={field.value || ""}
-                  >
-                    {filteredBranches.map((branch) => (
-                      <MenuItem key={branch.branch_id} value={branch.branch_id.toString()}>
-                        {branch.branch_name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {error && <FormHelperText>{error.message}</FormHelperText>}
-                </FormControl>
+                    placeholder="Search branch..."
+                    options={filteredBranches}
+                    value={filteredBranches.find((branch) => branch.branch_id.toString() === field.value) ?? null}
+                    onChange={(branch) => field.onChange(branch ? branch.branch_id.toString() : "")}
+                    getOptionLabel={(branch) => branch.branch_name}
+                    getOptionKey={(branch) => branch.branch_id}
+                    isOptionEqualToValue={(option, selected) => option.branch_id === selected.branch_id}
+                    required
+                    error={!!error}
+                    helperText={error?.message}
+                    textFieldProps={{ name: field.name, onBlur: field.onBlur, inputRef: field.ref }}
+                  />
+                </Box>
               )}
             />              
 
 
-            <FormControl fullWidth error={!!errors.dept_desc}>
-              <InputLabel id="dept-desc-label">Department</InputLabel>
-              <Controller
-                name="dept_desc"
-                control={control}
-                rules={{
-                  required: "Department is required",
-                }}
-                render={({ field }) => (
-                  <Select
-                    {...field}
-                    labelId="dept-desc-label"
-                    label="Department"
-                    onChange={(e) => {
-                      field.onChange(e);
-                      const selectedDept = filteredDepartments.find(
-                        (dept) => dept.dept_desc === e.target.value
-                      );
-                      if (selectedDept) {
-                        setValue("dept_code", selectedDept.dept_code);
-                      }
-                    }}
-                  >
-                    {filteredDepartments.map((dept) => (
-                      <MenuItem key={dept.dept_id} value={dept.dept_desc}>
-                        {dept.dept_desc}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                )}
-              />
-              <FormHelperText>{errors.dept_desc?.message}</FormHelperText>
-            </FormControl>
+            <Controller
+              name="dept_desc"
+              control={control}
+              rules={{
+                required: "Department is required",
+              }}
+              render={({ field }) => (
+                <SearchableSelect<SubDept>
+                  variant="outlined"
+                  clearable={false}
+                  label="Department"
+                  placeholder="Search department..."
+                  options={filteredDepartments}
+                  value={filteredDepartments.find((dept) => dept.dept_desc === field.value) ?? null}
+                  onChange={(dept) => {
+                    field.onChange(dept ? dept.dept_desc : "");
+                    if (dept) {
+                      setValue("dept_code", dept.dept_code);
+                    }
+                  }}
+                  getOptionLabel={(dept) => dept.dept_desc}
+                  getOptionKey={(dept) => dept.dept_id}
+                  isOptionEqualToValue={(option, selected) => option.dept_desc === selected.dept_desc}
+                  required
+                  error={!!errors.dept_desc}
+                  helperText={errors.dept_desc?.message}
+                  textFieldProps={{ name: field.name, onBlur: field.onBlur, inputRef: field.ref }}
+                />
+              )}
+            />
             
 
                          

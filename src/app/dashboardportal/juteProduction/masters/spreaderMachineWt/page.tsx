@@ -1,21 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Box,
-	Button,
-	Dialog,
-	DialogActions,
-	DialogContent,
-	DialogTitle,
-	IconButton,
-	MenuItem,
-	Switch,
-	TextField,
-	Tooltip,
-	Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Switch, TextField, Tooltip, Typography } from "@mui/material";
 import { Pencil as EditOutlinedIcon, Plus as AddIcon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
@@ -23,6 +9,7 @@ import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type WtRow = {
 	spreader_machine_attr_id: number;
 	co_id: number;
@@ -224,20 +211,14 @@ export default function SpreaderMachineWtPage() {
 				</Button>
 			</Box>
 			{sidebarBranchIds.length > 1 ? (
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Branch"
+					size="small"
+					options={branchOptions.map((b) => ({ value: Number(b.branch_id), label: b.branch_name }))}
 					value={pageBranchId}
-					onChange={(e) => setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))}
+					onChange={(selectedValue) => setPageBranchId(selectedValue === "" ? "" : Number(selectedValue))}
 					sx={{ mb: 2, minWidth: 240 }}
-				>
-					{branchOptions.map((b) => (
-						<MenuItem key={b.branch_id} value={Number(b.branch_id)}>
-							{b.branch_name}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 			) : selectedBranchName ? (
 				<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 					Branch: {selectedBranchName}
@@ -263,22 +244,14 @@ export default function SpreaderMachineWtPage() {
 				<DialogTitle>{editing ? "Edit Wt per Roll" : "Assign Wt per Roll"}</DialogTitle>
 				<DialogContent>
 					<Box sx={{ display: "grid", gap: 2, mt: 1 }}>
-						<TextField
-							select
+						<SearchableOptionSelect
 							label="Spreader"
-							value={form.machine_id}
-							onChange={(e) =>
-								setForm({ ...form, machine_id: e.target.value === "" ? "" : Number(e.target.value) })
-							}
 							size="small"
 							disabled={!!editing}
-						>
-							{machineOptions.map((m) => (
-								<MenuItem key={m.machine_id} value={m.machine_id}>
-									{m.machine_name} ({m.mech_code})
-								</MenuItem>
-							))}
-						</TextField>
+							options={machineOptions.map((m) => ({ value: m.machine_id, label: `${m.machine_name} (${m.mech_code})` }))}
+							value={form.machine_id}
+							onChange={(selectedValue) => setForm({ ...form, machine_id: selectedValue === "" ? "" : Number(selectedValue) })}
+						/>
 						<TextField
 							type="number"
 							label="Wt per Roll (kg)"

@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Chip, FormControl, InputLabel, MenuItem, Select } from "@mui/material";
-import type { SelectChangeEvent } from "@mui/material";
+import { Box, Chip } from "@mui/material";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 /**
  * Shared helpers for the sales module list (index) pages.
@@ -79,34 +79,47 @@ export interface SalesStatusFilterProps {
 	onChange: (statusId: number | null) => void;
 }
 
-/** Compact status dropdown for list-page toolbars. */
+interface StatusFilterOption {
+	/** `null` is the "All statuses" entry. */
+	value: number | null;
+	label: string;
+}
+
+const ALL_STATUSES_OPTION: StatusFilterOption = Object.freeze({ value: null, label: "All statuses" });
+
+const STATUS_FILTER_SELECT_OPTIONS: ReadonlyArray<StatusFilterOption> = Object.freeze([
+	ALL_STATUSES_OPTION,
+	...SALES_STATUS_FILTER_OPTIONS.map((option): StatusFilterOption => ({ value: option.value, label: option.label })),
+]);
+
+/** Compact, type-to-filter status dropdown for list-page toolbars. */
 export function SalesStatusFilter({ value, onChange }: SalesStatusFilterProps) {
+	const selectedOption = React.useMemo(
+		() => STATUS_FILTER_SELECT_OPTIONS.find((option) => option.value === value) ?? ALL_STATUSES_OPTION,
+		[value],
+	);
+
 	const handleChange = React.useCallback(
-		(event: SelectChangeEvent<string>) => {
-			const raw = event.target.value;
-			onChange(raw === "" ? null : Number(raw));
+		(option: StatusFilterOption | null) => {
+			onChange(option?.value ?? null);
 		},
 		[onChange],
 	);
 
 	return (
-		<FormControl size="small" sx={{ minWidth: 180 }}>
-			<InputLabel id="sales-status-filter-label">Status</InputLabel>
-			<Select<string>
-				labelId="sales-status-filter-label"
+		<Box sx={{ minWidth: 180 }}>
+			<SearchableSelect<StatusFilterOption>
+				variant="outlined"
 				label="Status"
-				value={value === null ? "" : String(value)}
+				options={[...STATUS_FILTER_SELECT_OPTIONS]}
+				value={selectedOption}
 				onChange={handleChange}
-				displayEmpty={false}
-			>
-				<MenuItem value="">All statuses</MenuItem>
-				{SALES_STATUS_FILTER_OPTIONS.map((option) => (
-					<MenuItem key={option.value} value={String(option.value)}>
-						{option.label}
-					</MenuItem>
-				))}
-			</Select>
-		</FormControl>
+				getOptionLabel={(option) => option.label}
+				getOptionKey={(option) => String(option.value ?? "all")}
+				isOptionEqualToValue={(option, selected) => option.value === selected.value}
+				clearable={false}
+			/>
+		</Box>
 	);
 }
 

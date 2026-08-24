@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Box, Button, Dialog, DialogContent, DialogTitle, MenuItem, TextField, FormControlLabel, Switch, CircularProgress, FormHelperText } from "@mui/material";
+import { Box, Button, Dialog, DialogContent, DialogTitle, TextField, FormControlLabel, Switch, CircularProgress, FormHelperText } from "@mui/material";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { fetchWithCookie } from "@/utils/apiClient2";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 
 interface CreateDepartmentProps {
   open?: boolean;
@@ -149,11 +150,16 @@ export default function CreateDepartmentPage({ open = true, onClose, existingRow
     <Box component="form" onSubmit={handleSubmit} sx={{ p: 2, minWidth: 350 }}>
       <TextField name="dept_name" label="Department Name" value={form.dept_name} onChange={handleChange} onBlur={() => validateName(existingRows)} error={!!nameError} helperText={nameError ?? undefined} fullWidth margin="normal" required />
       <TextField name="dept_code" label="Department Code" value={form.dept_code} onChange={handleChange} onBlur={() => validateCode(existingRows)} error={!!codeError} helperText={codeError ?? undefined} fullWidth margin="normal" required />
-      <TextField select label="Branch" name="branch_id" value={form.branch_id} onChange={handleChange} fullWidth margin="normal">
-        {branchOptions.map((b: any) => (
-          <MenuItem key={b.id} value={b.id}>{b.label}</MenuItem>
-        ))}
-      </TextField>
+      <Box sx={{ mt: 2, mb: 1 }}>
+        <SearchableOptionSelect
+          label="Branch"
+          name="branch_id"
+          fullWidth
+          options={branchOptions.map((b) => ({ value: String(b.id), label: String(b.label) }))}
+          value={form.branch_id}
+          onChange={(selectedValue) => setForm((f) => ({ ...f, branch_id: selectedValue }))}
+        />
+      </Box>
       <FormControlLabel control={<Switch checked={!!form.active} onChange={(e) => setForm((f) => ({ ...f, active: e.target.checked }))} />} label="Active" />
   {nameError && <FormHelperText error>{nameError}</FormHelperText>}
   {codeError && <FormHelperText error>{codeError}</FormHelperText>}

@@ -15,13 +15,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  SelectChangeEvent,
   Typography,
 } from "@mui/material";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { X } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -84,7 +80,13 @@ interface SchemeData {
 }
 
 // ─── Operators for formula builder ──────────────────────────────────
-const OPERATORS = [
+/** Formula operator / condition token appended to the formula builder. */
+interface Operator {
+  label: string;
+  value: string;
+}
+
+const OPERATORS: Operator[] = [
   { label: "+", value: "+" },
   { label: "-", value: "-" },
   { label: "*", value: "*" },
@@ -662,21 +664,19 @@ function CreatePaySchemePageContent() {
 
             {/* Wage Type */}
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <FormControl fullWidth size="small" required>
-                <InputLabel>Wage Type</InputLabel>
-                <Select
-                  value={wageType}
-                  label="Wage Type"
-                  onChange={(e: SelectChangeEvent) => setWageType(e.target.value)}
-                  disabled={isLocked || isDeactivated}
-                >
-                  {wageTypes.map((wt) => (
-                    <MenuItem key={wt.id} value={String(wt.id)}>
-                      {wt.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <SearchableSelect<WageType>
+                variant="outlined"
+                clearable={false}
+                label="Wage Type"
+                options={wageTypes}
+                value={wageTypes.find((wt) => String(wt.id) === wageType) ?? null}
+                onChange={(wt) => setWageType(wt ? String(wt.id) : "")}
+                getOptionLabel={(wt) => wt.name}
+                getOptionKey={(wt) => wt.id}
+                isOptionEqualToValue={(option, selected) => option.id === selected.id}
+                required
+                disabled={isLocked || isDeactivated}
+              />
             </Grid>
 
             {/* Description */}
@@ -1041,22 +1041,19 @@ function CreatePaySchemePageContent() {
 
                 {/* Operator */}
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Operator / Condition</InputLabel>
-                    <Select
-                      value=""
-                      label="Operator / Condition"
-                      onChange={(e: SelectChangeEvent) => {
-                        appendToFormula(e.target.value);
-                      }}
-                    >
-                      {OPERATORS.map((op) => (
-                        <MenuItem key={op.label} value={op.value}>
-                          {op.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <SearchableSelect<Operator>
+                    variant="outlined"
+                    clearable={false}
+                    label="Operator / Condition"
+                    options={OPERATORS}
+                    value={null}
+                    onChange={(op) => {
+                      if (op) appendToFormula(op.value);
+                    }}
+                    getOptionLabel={(op) => op.label}
+                    getOptionKey={(op) => op.label}
+                    isOptionEqualToValue={(option, selected) => option.value === selected.value}
+                  />
                 </Grid>
 
                 {/* Value */}

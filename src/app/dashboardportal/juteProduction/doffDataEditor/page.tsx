@@ -5,19 +5,7 @@
 // own menu entry (menu_mst + role_menu_map); no extra FE gating needed.
 
 import * as React from "react";
-import {
-	Alert,
-	Autocomplete,
-	Box,
-	Chip,
-	CircularProgress,
-	IconButton,
-	MenuItem,
-	Snackbar,
-	TextField,
-	Tooltip,
-	Typography,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, Chip, CircularProgress, IconButton, Snackbar, TextField, Tooltip, Typography } from "@mui/material";
 import { Pencil as EditIcon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
@@ -31,6 +19,7 @@ import type { DoffEntryRow, YarnItemOption } from "../spinning/types/spinningTyp
 import { todayISO } from "../spinning/utils/spinningCalc";
 import DoffEditDialog, { type WorkerOption } from "./_components/DoffEditDialog";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type EditorSetup = { yarn_items: YarnItemOption[]; workers: WorkerOption[] };
 
 const sourceChip = (source: string | null) =>
@@ -224,20 +213,14 @@ export default function DoffDataEditorPage() {
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Branch"
+					size="small"
+					options={branchOptions.map((b) => ({ value: Number(b.branch_id), label: b.branch_name }))}
 					value={pageBranchId}
-					onChange={(e) => setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))}
+					onChange={(selectedValue) => setPageBranchId(selectedValue === "" ? "" : Number(selectedValue))}
 					sx={{ mb: 2, minWidth: 240 }}
-				>
-					{branchOptions.map((b) => (
-						<MenuItem key={b.branch_id} value={Number(b.branch_id)}>
-							{b.branch_name}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 			) : selectedBranchName ? (
 				<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 					Branch: {selectedBranchName}
@@ -264,22 +247,14 @@ export default function DoffDataEditorPage() {
 									onChange={(e) => setTranDate(e.target.value)}
 									InputLabelProps={{ shrink: true }}
 								/>
-								<TextField
-									select
-									size="small"
+								<SearchableOptionSelect
 									label="Spell"
+									size="small"
+									options={setup.spells.map((s) => ({ value: s.spell_id, label: `${s.spell_code} (${Number(s.working_hours)} hrs)` }))}
 									value={spellId}
-									onChange={(e) =>
-										setSpellId(e.target.value === "" ? "" : Number(e.target.value))
-									}
+									onChange={(selectedValue) => setSpellId(selectedValue === "" ? "" : Number(selectedValue))}
 									sx={{ minWidth: 160 }}
-								>
-									{setup.spells.map((s) => (
-										<MenuItem key={s.spell_id} value={s.spell_id}>
-											{s.spell_code} ({Number(s.working_hours)} hrs)
-										</MenuItem>
-									))}
-								</TextField>
+								/>
 								<Autocomplete
 									options={setup.machines}
 									getOptionLabel={(m) => `${m.mech_code} — ${m.machine_name}`}

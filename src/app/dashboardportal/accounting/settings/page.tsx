@@ -7,13 +7,8 @@ import {
   Button,
   Chip,
   CircularProgress,
-  FormControl,
   FormControlLabel,
-  FormHelperText,
-  InputLabel,
-  MenuItem,
   Paper,
-  Select,
   Snackbar,
   Stack,
   Switch,
@@ -32,6 +27,7 @@ import { z } from "zod";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import {
   fetchCompanySettings,
   updateCompanySettings,
@@ -82,14 +78,20 @@ const DEFAULT_FORM_VALUES: SettingsFormData = Object.freeze({
   enable_tds: false,
 });
 
-const POSTING_MODE_OPTIONS: ReadonlyArray<{ value: PostingMode; label: string }> =
+/** Option shape for the searchable posting-mode dropdowns. */
+type PostingModeOption = { value: PostingMode; label: string };
+
+const POSTING_MODE_OPTIONS: ReadonlyArray<PostingModeOption> =
   Object.freeze([
     { value: "OFF", label: "Off" },
     { value: "AUTO_DRAFT", label: "Auto — Draft for review" },
     { value: "AUTO_APPROVED", label: "Auto — Post approved" },
   ]);
 
-const DUE_DATE_RULE_OPTIONS: ReadonlyArray<{ value: DueDateRule; label: string }> =
+/** Option shape for the searchable due-date-rule dropdown. */
+type DueDateRuleOption = { value: DueDateRule; label: string };
+
+const DUE_DATE_RULE_OPTIONS: ReadonlyArray<DueDateRuleOption> =
   Object.freeze([
     { value: "PO_CREDIT_DAYS", label: "From PO credit days" },
     { value: "MANUAL", label: "Manual" },
@@ -374,19 +376,28 @@ export default function AccountingSettingsPage() {
                   name={name}
                   control={control}
                   render={({ field }) => (
-                    <FormControl fullWidth size="small" error={!!errors[name]}>
-                      <InputLabel>{label}</InputLabel>
-                      <Select {...field} label={label}>
-                        {POSTING_MODE_OPTIONS.map((o) => (
-                          <MenuItem key={o.value} value={o.value}>
-                            {o.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                      {errors[name] && (
-                        <FormHelperText>{errors[name]?.message}</FormHelperText>
-                      )}
-                    </FormControl>
+                    <SearchableSelect<PostingModeOption>
+                      variant="outlined"
+                      label={label}
+                      options={[...POSTING_MODE_OPTIONS]}
+                      value={
+                        POSTING_MODE_OPTIONS.find(
+                          (o) => o.value === field.value
+                        ) ?? null
+                      }
+                      onChange={(option) => field.onChange(option?.value)}
+                      getOptionLabel={(o) => o.label}
+                      getOptionKey={(o) => o.value}
+                      isOptionEqualToValue={(o, v) => o.value === v.value}
+                      clearable={false}
+                      error={!!errors[name]}
+                      helperText={errors[name]?.message}
+                      textFieldProps={{
+                        name: field.name,
+                        onBlur: field.onBlur,
+                        inputRef: field.ref,
+                      }}
+                    />
                   )}
                 />
               ))}
@@ -407,19 +418,28 @@ export default function AccountingSettingsPage() {
                 name="due_date_rule"
                 control={control}
                 render={({ field }) => (
-                  <FormControl fullWidth size="small" error={!!errors.due_date_rule}>
-                    <InputLabel>Due Date Rule</InputLabel>
-                    <Select {...field} label="Due Date Rule">
-                      {DUE_DATE_RULE_OPTIONS.map((o) => (
-                        <MenuItem key={o.value} value={o.value}>
-                          {o.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {errors.due_date_rule && (
-                      <FormHelperText>{errors.due_date_rule.message}</FormHelperText>
-                    )}
-                  </FormControl>
+                  <SearchableSelect<DueDateRuleOption>
+                    variant="outlined"
+                    label="Due Date Rule"
+                    options={[...DUE_DATE_RULE_OPTIONS]}
+                    value={
+                      DUE_DATE_RULE_OPTIONS.find(
+                        (o) => o.value === field.value
+                      ) ?? null
+                    }
+                    onChange={(option) => field.onChange(option?.value)}
+                    getOptionLabel={(o) => o.label}
+                    getOptionKey={(o) => o.value}
+                    isOptionEqualToValue={(o, v) => o.value === v.value}
+                    clearable={false}
+                    error={!!errors.due_date_rule}
+                    helperText={errors.due_date_rule?.message}
+                    textFieldProps={{
+                      name: field.name,
+                      onBlur: field.onBlur,
+                      inputRef: field.ref,
+                    }}
+                  />
                 )}
               />
 

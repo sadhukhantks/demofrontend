@@ -12,13 +12,9 @@ import {
 import {
   Box,
   TextField,
-  InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  SelectChangeEvent
+  InputAdornment
 } from '@mui/material';
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useState, useEffect, useMemo } from 'react';
 
 type Dept = {
@@ -181,11 +177,11 @@ export default function DeptManagement() {
   }, [filteredBranches]);
 
   // Handle company selection change
-  const handleCompanyChange = (event: SelectChangeEvent<string>) => {
-    setSelectedCompanyId(event.target.value);
+  const handleCompanyChange = (company: Company | null) => {
+    setSelectedCompanyId(company ? company.co_id.toString() : '');
   };
-  const handleBranchChange = (event: SelectChangeEvent<string>) => {
-    setSelectedBranchId(event.target.value);
+  const handleBranchChange = (branch: Dept | null) => {
+    setSelectedBranchId(branch ? branch.branch_id.toString() : '');
   };
 
   // Handle search with debounce
@@ -322,40 +318,36 @@ export default function DeptManagement() {
           }}
         >
           {/* Company dropdown */}
-          <FormControl fullWidth sx={{ maxWidth: 350 }} size="small">
-            <InputLabel id="company-select-label">Select Company</InputLabel>
-            <Select
-              labelId="company-select-label"
-              id="company-select"
-              value={selectedCompanyId}
+          <Box sx={{ width: '100%', maxWidth: 350 }}>
+            <SearchableSelect<Company>
+              variant="outlined"
+              clearable={false}
               label="Select Company"
+              placeholder="Search company..."
+              options={companies}
+              value={companies.find((c) => c.co_id.toString() === selectedCompanyId) ?? null}
               onChange={handleCompanyChange}
-            >
-              {companies.map((company) => (
-                <MenuItem key={company.co_id} value={company.co_id.toString()}>
-                  {company.co_name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              getOptionLabel={(company) => company.co_name}
+              getOptionKey={(company) => company.co_id}
+              isOptionEqualToValue={(option, selected) => option.co_id === selected.co_id}
+            />
+          </Box>
 
           {/* Branch dropdown */}
-          <FormControl fullWidth sx={{ maxWidth: 350 }} size="small">
-            <InputLabel id="branch-select-label">Select Branch</InputLabel>
-            <Select
-              labelId="branch-select-label"
-              id="branch-select"
-              value={selectedBranchId}
+          <Box sx={{ width: '100%', maxWidth: 350 }}>
+            <SearchableSelect<Dept>
+              variant="outlined"
+              clearable={false}
               label="Select Branch"
+              placeholder="Search branch..."
+              options={filteredBranches}
+              value={filteredBranches.find((b) => b.branch_id.toString() === selectedBranchId) ?? null}
               onChange={handleBranchChange}
-            >
-              {filteredBranches.map((branch) => (
-                <MenuItem key={branch.branch_id} value={branch.branch_id.toString()}>
-                  {branch.branch_name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              getOptionLabel={(branch) => branch.branch_name}
+              getOptionKey={(branch) => branch.branch_id}
+              isOptionEqualToValue={(option, selected) => option.branch_id === selected.branch_id}
+            />
+          </Box>
         </Box>
 
         {/* Search input */}

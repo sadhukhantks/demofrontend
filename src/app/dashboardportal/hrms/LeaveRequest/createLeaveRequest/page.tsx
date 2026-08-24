@@ -7,16 +7,7 @@ import React, {
   useState,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Alert,
-  Box,
-  MenuItem,
-  Paper,
-  Snackbar,
-  Stack,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Paper, Snackbar, Stack, TextField, Typography } from "@mui/material";
 import { Button } from "@/components/ui/button";
 import { useSelectedCompanyCoId } from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
@@ -34,6 +25,7 @@ import {
 import { leaveRequestFormSchema } from "./utils/schema";
 import { STATUS_COLOR, STATUS_LABELS } from "../types/leaveRequestTypes";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 const LIST_PATH = "/dashboardportal/hrms/LeaveRequest";
 
 function CreateLeaveRequestContent() {
@@ -263,13 +255,16 @@ function CreateLeaveRequestContent() {
             className="grid gap-4"
             sx={{ gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" } }}
           >
-            <TextField
-              select
+            <SearchableOptionSelect
               label="Branch"
               size="small"
+              disabled={isView || mode === "edit"}
+              required
+              placeholder="Select branch"
+              options={branchOptions.map((b) => ({ value: String(b.branch_id), label: b.branch_name }))}
               value={values.branch_id ? String(values.branch_id) : ""}
-              onChange={(e) => {
-                const nextBranch = Number(e.target.value);
+              onChange={(selectedValue) => {
+                const nextBranch = Number(selectedValue);
                 // Changing branch invalidates the current employee lookup.
                 setValues((prev) => ({
                   ...prev,
@@ -277,16 +272,7 @@ function CreateLeaveRequestContent() {
                   eb_id: 0,
                 }));
               }}
-              disabled={isView || mode === "edit"}
-              required
-            >
-              <MenuItem value="">Select branch</MenuItem>
-              {branchOptions.map((b) => (
-                <MenuItem key={b.branch_id} value={String(b.branch_id)}>
-                  {b.branch_name}
-                </MenuItem>
-              ))}
-            </TextField>
+            />
             <TextField
               label="Employee Code"
               size="small"
@@ -320,27 +306,16 @@ function CreateLeaveRequestContent() {
             className="grid gap-4"
             sx={{ gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(5, 1fr)" } }}
           >
-            <TextField
-              select
+            <SearchableOptionSelect
               label="Leave Type"
               size="small"
-              value={values.leave_type_id ? String(values.leave_type_id) : ""}
-              onChange={(e) =>
-                updateField("leave_type_id", Number(e.target.value))
-              }
               disabled={isView || !canEdit}
               required
-            >
-              <MenuItem value="">Select leave type</MenuItem>
-              {leaveTypeOptions.map((opt) => (
-                <MenuItem
-                  key={opt.leave_type_id}
-                  value={String(opt.leave_type_id)}
-                >
-                  {opt.leave_type_description || opt.leave_type_code}
-                </MenuItem>
-              ))}
-            </TextField>
+              placeholder="Select leave type"
+              options={leaveTypeOptions.map((opt) => ({ value: String(opt.leave_type_id), label: opt.leave_type_description || opt.leave_type_code }))}
+              value={values.leave_type_id ? String(values.leave_type_id) : ""}
+              onChange={(selectedValue) => updateField("leave_type_id", Number(selectedValue))}
+            />
             <TextField
               label="From Date"
               type="date"

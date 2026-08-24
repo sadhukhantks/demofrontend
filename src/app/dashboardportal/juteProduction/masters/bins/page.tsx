@@ -1,21 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Box,
-	Button,
-	Dialog,
-	DialogActions,
-	DialogContent,
-	DialogTitle,
-	IconButton,
-	MenuItem,
-	Switch,
-	TextField,
-	Tooltip,
-	Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Switch, TextField, Tooltip, Typography } from "@mui/material";
 import { Pencil as EditOutlinedIcon, Plus as AddIcon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
@@ -23,6 +9,7 @@ import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type BinRow = {
 	bin_id: number;
 	co_id: number;
@@ -197,20 +184,14 @@ export default function SpreaderBinsPage() {
 							onChange={(e) => setForm({ ...form, bin_no: e.target.value })}
 							size="small"
 						/>
-						<TextField
-							select
+						<SearchableOptionSelect
 							label="Branch"
-							value={form.branch_id}
-							onChange={(e) => setForm({ ...form, branch_id: e.target.value })}
 							size="small"
 							required
-						>
-							{branchOptions.map((b) => (
-								<MenuItem key={b.branch_id} value={String(b.branch_id)}>
-									{b.branch_name}
-								</MenuItem>
-							))}
-						</TextField>
+							options={branchOptions.map((b) => ({ value: String(b.branch_id), label: b.branch_name }))}
+							value={form.branch_id}
+							onChange={(selectedValue) => setForm({ ...form, branch_id: selectedValue })}
+						/>
 						<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
 							<Typography variant="body2">Active</Typography>
 							<Switch
