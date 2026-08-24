@@ -134,7 +134,11 @@ export default function DrawingPage() {
 								type="date"
 								size="small"
 								value={gridDate}
-								onChange={(e) => setGridDate(e.target.value)}
+								onChange={(e) => {
+									const v = e.target.value;
+									setGridDate(v && v > todayISO() ? todayISO() : v);
+								}}
+								inputProps={{ max: todayISO() }}
 								InputLabelProps={{ shrink: true }}
 							/>
 						</Box>

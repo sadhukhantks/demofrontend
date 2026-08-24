@@ -172,7 +172,11 @@ export default function FrameMapGrid({ coId, branchId, setup, date, spellId, onM
 					size="small"
 					label="Effective Date"
 					value={effectiveDate}
-					onChange={(e) => setEffectiveDate(e.target.value)}
+					onChange={(e) => {
+						const v = e.target.value;
+						setEffectiveDate(v && v > todayISO() ? todayISO() : v);
+					}}
+					inputProps={{ max: todayISO() }}
 					InputLabelProps={{ shrink: true }}
 				/>
 				<SearchableOptionSelect

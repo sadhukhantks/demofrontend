@@ -128,7 +128,11 @@ export default function IssueEntryForm({ coId, branchId, setup, onSaved }: Props
 					type="date"
 					label="Issue Date"
 					value={issueDate}
-					onChange={(e) => setIssueDate(e.target.value)}
+					onChange={(e) => {
+						const v = e.target.value;
+						setIssueDate(v && v > todayISO() ? todayISO() : v);
+					}}
+					inputProps={{ max: todayISO() }}
 					size="small"
 					InputLabelProps={{ shrink: true }}
 					fullWidth

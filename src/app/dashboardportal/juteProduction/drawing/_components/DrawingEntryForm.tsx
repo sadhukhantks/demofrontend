@@ -196,7 +196,11 @@ export default function DrawingEntryForm({
 					type="date"
 					label="Date"
 					value={tranDate}
-					onChange={(e) => setTranDate(e.target.value)}
+					onChange={(e) => {
+						const v = e.target.value;
+						setTranDate(v && v > todayISO() ? todayISO() : v);
+					}}
+					inputProps={{ max: todayISO() }}
 					size="small"
 					InputLabelProps={{ shrink: true }}
 					fullWidth

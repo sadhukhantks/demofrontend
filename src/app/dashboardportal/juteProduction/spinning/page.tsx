@@ -211,7 +211,11 @@ export default function SpinningPage() {
 										size="small"
 										label="Date"
 										value={tranDate}
-										onChange={(e) => setTranDate(e.target.value)}
+										onChange={(e) => {
+											const v = e.target.value;
+											setTranDate(v && v > todayISO() ? todayISO() : v);
+										}}
+										inputProps={{ max: todayISO() }}
 										InputLabelProps={{ shrink: true }}
 									/>
 								) : null}
