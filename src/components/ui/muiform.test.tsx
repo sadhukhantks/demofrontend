@@ -157,3 +157,25 @@ describe('MuiForm with select field', () => {
     });
   });
 });
+
+describe('MuiForm field ids', () => {
+  const schema: Schema = {
+    fields: [
+      { name: 'date_from', label: 'From Date', type: 'date' },
+      { name: 'branch', label: 'Branch', type: 'select', options: [{ label: 'A', value: '1' }] },
+    ],
+  };
+
+  // Guards the hydration fix: ids must come from the field name, not React useId,
+  // whose values differ between the SSR and hydration trees.
+  it('derives stable ids from idPrefix + field name', () => {
+    const { unmount } = render(<MuiForm schema={schema} hideModeToggle hideSubmit />);
+    expect(document.querySelector('#f-date_from')).toBeInTheDocument();
+    expect(document.querySelector('#f-branch')).toBeInTheDocument();
+    unmount();
+
+    render(<MuiForm schema={schema} idPrefix="filters" hideModeToggle hideSubmit />);
+    expect(document.querySelector('#filters-date_from')).toBeInTheDocument();
+    expect(document.querySelector('#filters-branch')).toBeInTheDocument();
+  });
+});
