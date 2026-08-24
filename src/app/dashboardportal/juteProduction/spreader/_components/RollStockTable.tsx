@@ -10,9 +10,11 @@ type Props = {
 	rows: RollStockRow[];
 	summary: QualitySummaryRow[];
 	loading: boolean;
+	summaryFirst?: boolean;
+	detailTitle?: string;
 };
 
-export default function RollStockTable({ rows, summary, loading }: Props) {
+export default function RollStockTable({ rows, summary, loading, summaryFirst, detailTitle }: Props) {
 	const [selectedQualities, setSelectedQualities] = React.useState<string[]>([]);
 	const availableQualities = React.useMemo(
 		() => Array.from(new Map(rows.map((r) => [r.quality_label, r.quality_label])).keys()),
@@ -83,6 +85,64 @@ export default function RollStockTable({ rows, summary, loading }: Props) {
 		[]
 	);
 
+	const detailBlock = (
+		<Box sx={{ width: "100%" }}>
+			<Typography variant="subtitle2" sx={{ mb: 1 }}>
+				{detailTitle ?? "Current Roll Stock (Bin × Group × Quality)"}
+			</Typography>
+			<DataGrid
+				autoHeight
+				rows={filtered.map((r, i) => ({ ...r, id: `${r.bin_id}-${r.entry_id_grp}-${i}` }))}
+				columns={columns}
+				loading={loading}
+				density="comfortable"
+				disableRowSelectionOnClick
+				pageSizeOptions={[10, 25, 50]}
+				initialState={{
+					pagination: { paginationModel: { pageSize: 25, page: 0 } },
+				}}
+				sx={{ width: "100%" }}
+			/>
+		</Box>
+	);
+
+	const summaryRowsWithTotal = React.useMemo(() => {
+		const rows = filteredSummary.map((r) => ({
+			...r,
+			id: `${r.item_id}-${r.item_id_2 ?? 0}-${r.ratio_1}-${r.ratio_2 ?? 0}`,
+		}));
+		if (rows.length === 0) return rows;
+		const sum = (f: (r: QualitySummaryRow) => number) =>
+			filteredSummary.reduce((a, r) => a + (f(r) || 0), 0);
+		rows.push({
+			id: "__total__",
+			quality_label: "TOTAL",
+			closing_rolls: sum((r) => r.closing_rolls),
+			closing_mt: Math.round(sum((r) => r.closing_mt) * 1000) / 1000,
+			comp1_kg: Math.round(sum((r) => r.comp1_kg) * 1000) / 1000,
+			comp2_kg: Math.round(sum((r) => r.comp2_kg) * 1000) / 1000,
+		} as (typeof rows)[number]);
+		return rows;
+	}, [filteredSummary]);
+
+	const summaryBlock = (
+		<Box sx={{ width: "100%" }}>
+			<Typography variant="subtitle2" sx={{ mb: 1 }}>
+				Quality-wise Closing Stock
+			</Typography>
+			<DataGrid
+				autoHeight
+				rows={summaryRowsWithTotal}
+				columns={summaryColumns}
+				loading={loading}
+				density="comfortable"
+				disableRowSelectionOnClick
+				hideFooter
+				sx={{ width: "100%" }}
+			/>
+		</Box>
+	);
+
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
 			<Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -107,39 +167,8 @@ export default function RollStockTable({ rows, summary, loading }: Props) {
 					<Chip label="Clear filters" onDelete={() => setSelectedQualities([])} onClick={() => setSelectedQualities([])} />
 				) : null}
 			</Stack>
-			<Box sx={{ width: "100%" }}>
-				<Typography variant="subtitle2" sx={{ mb: 1 }}>
-					Current Roll Stock (Bin × Group × Quality)
-				</Typography>
-				<DataGrid
-					autoHeight
-					rows={filtered.map((r, i) => ({ ...r, id: `${r.bin_id}-${r.entry_id_grp}-${i}` }))}
-					columns={columns}
-					loading={loading}
-					density="comfortable"
-					disableRowSelectionOnClick
-					pageSizeOptions={[10, 25, 50]}
-					initialState={{
-						pagination: { paginationModel: { pageSize: 25, page: 0 } },
-					}}
-					sx={{ width: "100%" }}
-				/>
-			</Box>
-			<Box sx={{ width: "100%" }}>
-				<Typography variant="subtitle2" sx={{ mb: 1 }}>
-					Quality-wise Closing Stock
-				</Typography>
-				<DataGrid
-					autoHeight
-					rows={filteredSummary.map((r) => ({ ...r, id: `${r.item_id}-${r.item_id_2 ?? 0}-${r.ratio_1}-${r.ratio_2 ?? 0}` }))}
-					columns={summaryColumns}
-					loading={loading}
-					density="comfortable"
-					disableRowSelectionOnClick
-					hideFooter
-					sx={{ width: "100%" }}
-				/>
-			</Box>
+			{summaryFirst ? summaryBlock : detailBlock}
+			{summaryFirst ? detailBlock : summaryBlock}
 		</Box>
 	);
 }
