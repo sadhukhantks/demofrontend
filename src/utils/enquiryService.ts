@@ -47,6 +47,7 @@ export type EnquiryLine = {
 	enquiry_dtl_id?: number;
 	item_id?: number | null;
 	item_code?: string | null;
+	full_item_code?: string | null;
 	item_name?: string | null;
 	item_desc_freetext?: string | null;
 	is_new_item?: number;
@@ -118,6 +119,7 @@ export type EnquiryDetail = EnquiryListRow & {
 export type EnquirySetup = {
 	customers: Array<{ party_id: number; party_name: string }>;
 	uoms: Array<{ uom_id: number; uom_name: string }>;
+	/** Always [] since TKT-000057 — items come from /itemMaster/item_search (typeahead). */
 	items: Array<{ item_id: number; item_code?: string; item_name: string; item_grp_id?: number; item_grp_name?: string }>;
 	stages: EnquiryStage[];
 	received_via_options: string[];

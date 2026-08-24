@@ -4,6 +4,7 @@ import * as React from "react";
 import { Alert, Autocomplete, Box, Button, Snackbar, TextField } from "@mui/material";
 import { Save as SaveIcon, X as CancelIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
+import { missingStandards, type BeamingResolvedStandards } from "../utils/beamingCalc";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import type {
@@ -44,8 +45,11 @@ export default function BeamingEntryForm({
 	const [noOfBeam, setNoOfBeam] = React.useState<string>("");
 	// EB No, Std Count and Beam No are intentionally NOT entry fields (removed to
 	// avoid confusion). eb_id / beam_no are sent null on create; on edit the server
-	// keeps the existing values. rpm_roller / act_speed come from the future Beaming
-	// SQC tab (like Spinning SQC), resolved server-side.
+	// keeps the existing values. rpm_roller / act_speed come from the Beaming SQC page
+	// (juteSQC/beaming -> Actual RPM, built), resolved server-side as-of tran_date.
+	// Full standards bundle resolved for (machine, quality, date) — drives both the
+	// act-cuts default and the missing-standards warning (ticket TKT-000075).
+	const [standards, setStandards] = React.useState<BeamingResolvedStandards | null>(null);
 	const [saving, setSaving] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
 	const [snack, setSnack] = React.useState<string | null>(null);
@@ -91,22 +95,35 @@ export default function BeamingEntryForm({
 	// is QUALITY-linked, so resolve it by the selected bm_quality (machine is passed
 	// when chosen but is not required; the standard resolves without it).
 	React.useEffect(() => {
-		if (editing) return;
-		if (qualityId === "" || !date) return;
+		if (qualityId === "" || !date) {
+			setStandards(null);
+			return;
+		}
 		let cancelled = false;
 		let url = `${apiRoutesPortalMasters.BEAMING_MACHINE_STANDARDS}?co_id=${coId}&bm_quality_id=${qualityId}&tran_date=${date}`;
 		if (machineId !== "") url += `&machine_id=${machineId}`;
-		void fetchWithCookie<{ data: { std_cuts_per_beam: number | null } }>(url, "GET").then(
-			({ data }) => {
-				if (cancelled) return;
-				const stdCuts = Number(data?.data?.std_cuts_per_beam ?? 0);
-				if (stdCuts > 0) setActCuts(String(Math.round(stdCuts)));
-			}
-		);
+		void fetchWithCookie<{ data: BeamingResolvedStandards }>(url, "GET").then(({ data }) => {
+			if (cancelled) return;
+			const std = data?.data ?? null;
+			setStandards(std);
+			// Prefill is create-mode only; the fetch itself runs in edit mode too so the
+			// missing-standards warning shows there as well.
+			if (editing) return;
+			const stdCuts = Number(std?.std_cuts_per_beam ?? 0);
+			if (stdCuts > 0) setActCuts(String(Math.round(stdCuts)));
+		});
 		return () => {
 			cancelled = true;
 		};
 	}, [qualityId, machineId, date, editing, coId]);
+
+	// Unconfigured target-map params resolve to 0 server-side and silently zero every
+	// derived figure (RPM / Act Spd / kg / Act Eff). Name them instead (TKT-000075).
+	// Machine-linked params only resolve once a machine is chosen, so wait for both.
+	const missingStds = React.useMemo(
+		() => (machineId !== "" && qualityId !== "" ? missingStandards(standards) : []),
+		[standards, machineId, qualityId]
+	);
 
 	// Ends is shown read-only from the selected quality. All kg / efficiency figures
 	// are computed server-side and appear in the day grid after save — the form no
@@ -275,6 +292,18 @@ export default function BeamingEntryForm({
 					helperText="Defaults to std cuts/beam — editable"
 				/>
 			</Box>
+
+			{missingStds.length > 0 ? (
+				<Alert severity="warning">
+					Standards are not set for this machine/quality as of {date} — RPM, kg and
+					efficiency will compute as 0 until they are:
+					<ul style={{ margin: "4px 0 0", paddingInlineStart: 20 }}>
+						{missingStds.map((m) => (
+							<li key={m}>{m}</li>
+						))}
+					</ul>
+				</Alert>
+			) : null}
 
 			{error ? (
 				<Alert severity="error" onClose={() => setError(null)}>

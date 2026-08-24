@@ -8,6 +8,8 @@ import { z } from "zod";
 import { ApprovalActionsBar, type ApprovalStatusId } from "@/components/ui/transaction/ApprovalActionsBar";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
+import { useDebounce } from "@/hooks/use-debounce";
+import { fetchItemSearch } from "@/utils/itemSearchService";
 import {
 	cancelDraftEnquiry,
 	closeEnquiry,
@@ -61,11 +63,15 @@ const headerSchema = z.object({
 	lines: z.array(lineSchema).min(1, "At least one line is required"),
 });
 
-type LineForm = z.infer<typeof lineSchema>;
+type LineForm = z.infer<typeof lineSchema> & {
+	/** Display label of the picked item (UI only — stripped by zod on submit). */
+	item_label?: string | null;
+};
 type HeaderForm = z.infer<typeof headerSchema>;
 
 const createBlankLine = (): LineForm => ({
 	item_id: null,
+	item_label: null,
 	item_desc_freetext: null,
 	is_new_item: false,
 	design_change: false,
@@ -91,6 +97,124 @@ const ACTION_LABELS: Record<MoveStageAction, string> = {
 	RESUME: "Resume",
 	MARK_LOST: "Mark as lost",
 };
+
+// ---------------------------------------------------------------------------
+// Item typeahead (TKT-000057)
+// ---------------------------------------------------------------------------
+// Server-side search via /itemMaster/item_search — the item master is never
+// loaded whole (amcl has 46k items; the old eager-loaded Autocomplete hung).
+
+type ItemOption = { item_id: number; label: string };
+
+/** Sentinel row telling the user the result set is truncated — never selectable. */
+const MORE_RESULTS_ID = -1;
+
+const itemLabel = (i: {
+	item_id?: number | null;
+	full_item_code?: string | null;
+	item_code?: string | null;
+	item_name?: string | null;
+}) =>
+	`${i.full_item_code || i.item_code || ""} — ${i.item_name ?? ""}`.replace(/^ — /, "").trim() ||
+	`Item #${i.item_id ?? ""}`;
+
+function ItemTypeahead({
+	coId,
+	value,
+	onChange,
+	disabled,
+}: {
+	coId: string;
+	value: ItemOption | null;
+	onChange: (value: ItemOption | null) => void;
+	disabled?: boolean;
+}) {
+	const [open, setOpen] = React.useState(false);
+	const [input, setInput] = React.useState("");
+	const [options, setOptions] = React.useState<ItemOption[]>([]);
+	const [total, setTotal] = React.useState(0);
+	const [error, setError] = React.useState<string | null>(null);
+	const [loading, setLoading] = React.useState(false);
+	const search = useDebounce(input, 300);
+
+	React.useEffect(() => {
+		if (!open || !coId) return;
+		let cancelled = false;
+		setLoading(true);
+		fetchItemSearch(coId, { search: search || undefined, limit: 50, filter: "saleable" })
+			.then((res) => {
+				if (cancelled) return;
+				setError(null);
+				setTotal(res.total);
+				setOptions(res.data.map((i) => ({ item_id: i.item_id, label: itemLabel(i) })));
+			})
+			.catch(() => {
+				if (cancelled) return;
+				setError("Search failed — retry");
+				setTotal(0);
+				setOptions([]);
+			})
+			.finally(() => {
+				if (!cancelled) setLoading(false);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [open, coId, search]);
+
+	// keep the current value selectable even when it's not in the page of results
+	const merged = value && !options.some((o) => o.item_id === value.item_id) ? [value, ...options] : options;
+	const allOptions =
+		total > merged.length
+			? [...merged, { item_id: MORE_RESULTS_ID, label: `Showing ${merged.length} of ${total} — refine search` }]
+			: merged;
+
+	return (
+		<Autocomplete
+			size="small"
+			open={open}
+			onOpen={() => setOpen(true)}
+			onClose={() => {
+				setOpen(false);
+				setInput("");
+			}}
+			options={allOptions}
+			filterOptions={(x) => x}
+			getOptionDisabled={(o) => o.item_id === MORE_RESULTS_ID}
+			noOptionsText={error ?? "No options"}
+			loading={loading}
+			value={value}
+			isOptionEqualToValue={(a, b) => a.item_id === b.item_id}
+			getOptionLabel={(o) => o.label}
+			onChange={(_, v) => onChange(v)}
+			onInputChange={(_, v, reason) => {
+				if (reason === "input") setInput(v);
+				else if (reason === "clear") setInput("");
+			}}
+			renderOption={(props, option) => (
+				<li {...props} key={option.item_id}>
+					{option.label}
+				</li>
+			)}
+			renderInput={(params) => (
+				<TextField
+					{...params}
+					label="Existing item (type to search)"
+					InputProps={{
+						...params.InputProps,
+						endAdornment: (
+							<>
+								{loading ? <CircularProgress size={16} /> : null}
+								{params.InputProps.endAdornment}
+							</>
+						),
+					}}
+				/>
+			)}
+			disabled={disabled}
+		/>
+	);
+}
 
 // ---------------------------------------------------------------------------
 // Page
@@ -202,6 +326,7 @@ function CreateEnquiryContent() {
 			setLines(
 				(d.lines ?? []).map((line) => ({
 					item_id: line.item_id ? Number(line.item_id) : null,
+					item_label: line.item_id ? itemLabel(line) : null,
 					item_desc_freetext: line.item_desc_freetext ?? null,
 					is_new_item: Number(line.is_new_item) === 1,
 					design_change: Number(line.design_change) === 1,
@@ -558,20 +683,10 @@ function CreateEnquiryContent() {
 											<TableRow key={index}>
 												<TableCell>
 													<Stack spacing={1}>
-														<Autocomplete
-															size="small"
-															options={setup.items}
-															getOptionLabel={(option) =>
-																option.item_code ? `${option.item_code} — ${option.item_name}` : option.item_name
-															}
-															value={setup.items.find((i) => i.item_id === line.item_id) ?? null}
-															onChange={(_, value) => setLine(index, { item_id: value?.item_id ?? null })}
-															renderOption={(props, option) => (
-																	<li {...props} key={option.item_id}>
-																		{option.item_code ? `${option.item_code} — ${option.item_name}` : option.item_name}
-																	</li>
-																)}
-																renderInput={(params) => <TextField {...params} label="Existing item" />}
+														<ItemTypeahead
+															coId={coId ? String(coId) : ""}
+															value={line.item_id ? { item_id: line.item_id, label: line.item_label ?? `Item #${line.item_id}` } : null}
+															onChange={(opt) => setLine(index, { item_id: opt?.item_id ?? null, item_label: opt?.label ?? null })}
 															disabled={!canEditForm || line.is_new_item}
 														/>
 														{line.is_new_item || (!line.item_id && line.item_desc_freetext) || canEditForm ? (
