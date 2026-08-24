@@ -404,9 +404,12 @@ export async function fetchWindingQualityGroupWise(params: {
 export interface LoomChecklistRow {
   weaving_daily_id: number;
   tran_date: string;
+  spell_id: number;
   spell_code: string | null;
+  branch_id: number | null;
   mech_code: string | null;
   machine_name: string | null;
+  weaving_quality_id: number | null;
   weaving_quality_code: string | null;
   weaving_quality_name: string | null;
   eb_id: number | null;
@@ -417,8 +420,11 @@ export interface LoomChecklistRow {
   jugar: number;
   production_yds: number;
   production_kg: number;
+  less_production: number;
   efficiency: number;
+  std_eff: number;
   working_hours: number;
+  sync_state: "not_synced" | "synced" | "locked" | "stale";
   remarks: string;
 }
 
