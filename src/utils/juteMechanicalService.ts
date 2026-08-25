@@ -737,8 +737,18 @@ export interface MechBreakdownCreate {
   spares?: MechBreakdownSpareInput[];
 }
 
-/** Body for the quick close from the live board. */
+/**
+ * Body for the quick close from the live board.
+ *
+ * `co_id` is required: every write is scoped `AND co_id = :co_id` server-side, so
+ * one company cannot close another's incident even with a guessed id. The backend
+ * accepts it in the body or as a query param; the body is what this service sends.
+ *
+ * Omitting `action_taken` leaves any note the fitter already recorded intact — the
+ * backend coalesces rather than overwriting — so a bare close never wipes it.
+ */
 export interface MechBreakdownClosePayload {
+  co_id: number;
   restart_datetime: string;
   action_taken?: string | null;
 }
