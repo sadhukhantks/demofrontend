@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Alert, Box, CircularProgress, Divider, Snackbar, TextField, Typography } from "@mui/material";
+import { PAGE_PADDING_SX } from "@/components/ui/responsiveEntry";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
@@ -235,7 +236,7 @@ export default function OverhaulRegisterPage() {
 	}
 
 	return (
-		<Box sx={{ p: { xs: 1.5, md: 3 } }}>
+		<Box sx={PAGE_PADDING_SX}>
 			<Typography variant="h5" sx={{ fontWeight: 600 }}>
 				Overhaul Register
 			</Typography>

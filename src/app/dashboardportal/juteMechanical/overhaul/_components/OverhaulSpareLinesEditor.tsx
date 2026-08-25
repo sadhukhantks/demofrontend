@@ -19,6 +19,11 @@ import {
 } from "@mui/material";
 import { Plus as PlusIcon, Trash2 as TrashIcon } from "lucide-react";
 import {
+	DESKTOP_ONLY_SX,
+	MOBILE_ONLY_SX,
+	TOUCH_ICON_BUTTON_SX,
+} from "@/components/ui/responsiveEntry";
+import {
 	ItemSelectionDialog,
 	type SelectedItem,
 } from "@/components/ui/transaction/ItemSelectionDialog";
@@ -50,6 +55,13 @@ type NumericField = "qty" | "rate" | "amount";
  * `amount` is editable and optional: leave it blank and the line values at
  * qty x rate, exactly as the backend derives it. A typed amount always wins, which
  * is how a lump-sum charge with no meaningful quantity gets booked.
+ *
+ * Below `md` the seven-column table becomes one stacked card per line: the item on
+ * its own full-width row, then qty / rate / amount side by side, then remarks. A
+ * squeezed multi-column row on a 360px screen leaves each number input about 40px
+ * wide, which is not a field anyone can type a rate into one-handed. The swap is
+ * CSS-only (`DESKTOP_ONLY_SX` / `MOBILE_ONLY_SX`) — both trees render, so there is
+ * no `useMediaQuery` and no hydration mismatch.
  */
 export default function OverhaulSpareLinesEditor({
 	coId,
@@ -126,7 +138,7 @@ export default function OverhaulSpareLinesEditor({
 					startIcon={<PlusIcon size={16} />}
 					onClick={() => setPickerOpen(true)}
 					disabled={disabled || !coId}
-					sx={{ minHeight: 36 }}
+					sx={{ minHeight: 44 }}
 				>
 					Add spares
 				</Button>
@@ -138,119 +150,228 @@ export default function OverhaulSpareLinesEditor({
 			</Box>
 
 			{lines.length > 0 ? (
-				<TableContainer component={Paper} variant="outlined" sx={{ overflowX: "auto" }}>
-					<Table size="small">
-						<TableHead>
-							<TableRow>
-								<TableCell sx={{ minWidth: 200 }}>Item</TableCell>
-								<TableCell sx={{ width: 90 }}>UOM</TableCell>
-								<TableCell align="right" sx={{ width: 110 }}>
-									Qty
-								</TableCell>
-								<TableCell align="right" sx={{ width: 120 }}>
-									Rate
-								</TableCell>
-								<TableCell align="right" sx={{ width: 140 }}>
-									Amount
-								</TableCell>
-								<TableCell sx={{ minWidth: 160 }}>Remarks</TableCell>
-								<TableCell sx={{ width: 56 }} />
-							</TableRow>
-						</TableHead>
-						<TableBody>
-							{lines.map((line) => (
-								<TableRow key={line.line_id} hover>
-									<TableCell>
-										<Typography variant="body2" sx={{ fontWeight: 600 }}>
-											{line.item_code || `#${line.item_id}`}
-										</Typography>
-										<Typography variant="caption" color="text.secondary">
-											{line.item_name}
-										</Typography>
+				<Box sx={DESKTOP_ONLY_SX}>
+					<TableContainer component={Paper} variant="outlined" sx={{ overflowX: "auto" }}>
+						<Table size="small">
+							<TableHead>
+								<TableRow>
+									<TableCell sx={{ minWidth: 200 }}>Item</TableCell>
+									<TableCell sx={{ width: 90 }}>UOM</TableCell>
+									<TableCell align="right" sx={{ width: 110 }}>
+										Qty
 									</TableCell>
-									<TableCell>{line.uom_name || "—"}</TableCell>
-									<TableCell align="right">
-										<TextField
-											value={line.qty}
-											onChange={(e) =>
-												handleNumericChange(line.line_id, "qty", e.target.value)
-											}
-											type="number"
-											size="small"
-											disabled={disabled}
-											inputProps={{ min: 0, step: "any", style: { textAlign: "right" } }}
-											sx={{ width: 100 }}
-										/>
+									<TableCell align="right" sx={{ width: 120 }}>
+										Rate
 									</TableCell>
-									<TableCell align="right">
-										<TextField
-											value={line.rate}
-											onChange={(e) =>
-												handleNumericChange(line.line_id, "rate", e.target.value)
-											}
-											type="number"
-											size="small"
-											disabled={disabled}
-											inputProps={{ min: 0, step: "any", style: { textAlign: "right" } }}
-											sx={{ width: 110 }}
-										/>
+									<TableCell align="right" sx={{ width: 140 }}>
+										Amount
 									</TableCell>
-									<TableCell align="right">
-										<TextField
-											value={line.amount}
-											onChange={(e) =>
-												handleNumericChange(line.line_id, "amount", e.target.value)
-											}
-											type="number"
-											size="small"
-											disabled={disabled}
-											placeholder={formatAmount(spareLineAmount(line))}
-											inputProps={{ min: 0, step: "any", style: { textAlign: "right" } }}
-											sx={{ width: 130 }}
-											helperText={line.amount === "" ? "qty x rate" : undefined}
-										/>
-									</TableCell>
-									<TableCell>
-										<TextField
-											value={line.remarks}
-											onChange={(e) => handleRemarksChange(line.line_id, e.target.value)}
-											size="small"
-											fullWidth
-											disabled={disabled}
-											inputProps={{ maxLength: 255 }}
-										/>
-									</TableCell>
-									<TableCell>
-										<Tooltip title="Remove line">
-											<span>
-												<IconButton
-													size="small"
-													color="error"
-													onClick={() => handleRemove(line.line_id)}
-													disabled={disabled}
-													sx={{ minWidth: 40, minHeight: 40 }}
-												>
-													<TrashIcon size={16} />
-												</IconButton>
-											</span>
-										</Tooltip>
-									</TableCell>
+									<TableCell sx={{ minWidth: 160 }}>Remarks</TableCell>
+									<TableCell sx={{ width: 56 }} />
 								</TableRow>
-							))}
-						</TableBody>
-						<TableFooter>
-							<TableRow>
-								<TableCell colSpan={4} align="right" sx={{ fontWeight: 600 }}>
-									Spare cost
-								</TableCell>
-								<TableCell align="right" sx={{ fontWeight: 600 }}>
-									{formatAmount(spareTotal)}
-								</TableCell>
-								<TableCell colSpan={2} />
-							</TableRow>
-						</TableFooter>
-					</Table>
-				</TableContainer>
+							</TableHead>
+							<TableBody>
+								{lines.map((line) => (
+									<TableRow key={line.line_id} hover>
+										<TableCell>
+											<Typography variant="body2" sx={{ fontWeight: 600 }}>
+												{line.item_code || `#${line.item_id}`}
+											</Typography>
+											<Typography variant="caption" color="text.secondary">
+												{line.item_name}
+											</Typography>
+										</TableCell>
+										<TableCell>{line.uom_name || "—"}</TableCell>
+										<TableCell align="right">
+											<TextField
+												value={line.qty}
+												onChange={(e) =>
+													handleNumericChange(line.line_id, "qty", e.target.value)
+												}
+												type="number"
+												size="small"
+												disabled={disabled}
+												inputProps={{ min: 0, step: "any", style: { textAlign: "right" } }}
+												sx={{ width: 100 }}
+											/>
+										</TableCell>
+										<TableCell align="right">
+											<TextField
+												value={line.rate}
+												onChange={(e) =>
+													handleNumericChange(line.line_id, "rate", e.target.value)
+												}
+												type="number"
+												size="small"
+												disabled={disabled}
+												inputProps={{ min: 0, step: "any", style: { textAlign: "right" } }}
+												sx={{ width: 110 }}
+											/>
+										</TableCell>
+										<TableCell align="right">
+											<TextField
+												value={line.amount}
+												onChange={(e) =>
+													handleNumericChange(line.line_id, "amount", e.target.value)
+												}
+												type="number"
+												size="small"
+												disabled={disabled}
+												placeholder={formatAmount(spareLineAmount(line))}
+												inputProps={{ min: 0, step: "any", style: { textAlign: "right" } }}
+												sx={{ width: 130 }}
+												helperText={line.amount === "" ? "qty x rate" : undefined}
+											/>
+										</TableCell>
+										<TableCell>
+											<TextField
+												value={line.remarks}
+												onChange={(e) => handleRemarksChange(line.line_id, e.target.value)}
+												size="small"
+												fullWidth
+												disabled={disabled}
+												inputProps={{ maxLength: 255 }}
+											/>
+										</TableCell>
+										<TableCell>
+											<Tooltip title="Remove line">
+												<span>
+													<IconButton
+														size="small"
+														color="error"
+														onClick={() => handleRemove(line.line_id)}
+														disabled={disabled}
+														sx={TOUCH_ICON_BUTTON_SX}
+													>
+														<TrashIcon size={16} />
+													</IconButton>
+												</span>
+											</Tooltip>
+										</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+							<TableFooter>
+								<TableRow>
+									<TableCell colSpan={4} align="right" sx={{ fontWeight: 600 }}>
+										Spare cost
+									</TableCell>
+									<TableCell align="right" sx={{ fontWeight: 600 }}>
+										{formatAmount(spareTotal)}
+									</TableCell>
+									<TableCell colSpan={2} />
+								</TableRow>
+							</TableFooter>
+						</Table>
+					</TableContainer>
+				</Box>
+			) : null}
+
+			{/* Phone: one stacked card per spare line, same handlers as the table above. */}
+			{lines.length > 0 ? (
+				<Box sx={MOBILE_ONLY_SX}>
+					{lines.map((line) => (
+						<Paper key={line.line_id} variant="outlined" sx={{ p: 1.5 }}>
+							<Box sx={{ display: "flex", alignItems: "flex-start", gap: 1, mb: 1 }}>
+								<Box sx={{ minWidth: 0, flex: 1 }}>
+									<Typography
+										variant="body2"
+										sx={{ fontWeight: 600, overflowWrap: "anywhere" }}
+									>
+										{line.item_code || `#${line.item_id}`}
+									</Typography>
+									<Typography
+										variant="caption"
+										color="text.secondary"
+										sx={{ display: "block", overflowWrap: "anywhere" }}
+									>
+										{line.item_name}
+									</Typography>
+									<Typography variant="caption" color="text.secondary">
+										UOM: {line.uom_name || "—"}
+									</Typography>
+								</Box>
+								<IconButton
+									size="small"
+									color="error"
+									aria-label="Remove spare line"
+									onClick={() => handleRemove(line.line_id)}
+									disabled={disabled}
+									sx={TOUCH_ICON_BUTTON_SX}
+								>
+									<TrashIcon size={18} />
+								</IconButton>
+							</Box>
+
+							<Box
+								sx={{
+									display: "grid",
+									gap: 1,
+									gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+								}}
+							>
+								<TextField
+									label="Qty"
+									value={line.qty}
+									onChange={(e) => handleNumericChange(line.line_id, "qty", e.target.value)}
+									type="number"
+									size="small"
+									fullWidth
+									disabled={disabled}
+									InputLabelProps={{ shrink: true }}
+									inputProps={{ min: 0, step: "any", inputMode: "decimal" }}
+								/>
+								<TextField
+									label="Rate"
+									value={line.rate}
+									onChange={(e) => handleNumericChange(line.line_id, "rate", e.target.value)}
+									type="number"
+									size="small"
+									fullWidth
+									disabled={disabled}
+									InputLabelProps={{ shrink: true }}
+									inputProps={{ min: 0, step: "any", inputMode: "decimal" }}
+								/>
+								<TextField
+									label="Amount"
+									value={line.amount}
+									onChange={(e) =>
+										handleNumericChange(line.line_id, "amount", e.target.value)
+									}
+									type="number"
+									size="small"
+									fullWidth
+									disabled={disabled}
+									InputLabelProps={{ shrink: true }}
+									placeholder={formatAmount(spareLineAmount(line))}
+									inputProps={{ min: 0, step: "any", inputMode: "decimal" }}
+									helperText={line.amount === "" ? "qty x rate" : undefined}
+								/>
+							</Box>
+
+							<TextField
+								label="Remarks"
+								value={line.remarks}
+								onChange={(e) => handleRemarksChange(line.line_id, e.target.value)}
+								size="small"
+								fullWidth
+								disabled={disabled}
+								InputLabelProps={{ shrink: true }}
+								inputProps={{ maxLength: 255 }}
+								sx={{ mt: 1 }}
+							/>
+						</Paper>
+					))}
+
+					<Box sx={{ display: "flex", justifyContent: "space-between", gap: 1 }}>
+						<Typography variant="body2" sx={{ fontWeight: 600 }}>
+							Spare cost
+						</Typography>
+						<Typography variant="body2" sx={{ fontWeight: 600 }}>
+							{formatAmount(spareTotal)}
+						</Typography>
+					</Box>
+				</Box>
 			) : null}
 
 			<ItemSelectionDialog

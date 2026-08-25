@@ -5,6 +5,12 @@ import { Alert, Box, Button, Chip, Divider, TextField, Typography } from "@mui/m
 import { Save as SaveIcon, X as CancelIcon } from "lucide-react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import {
+	FORM_GRID_2_SX,
+	FORM_GRID_SX,
+	STICKY_ACTIONS_SX,
+	TOUCH_TARGET,
+} from "@/components/ui/responsiveEntry";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import type { MechMachineAttr, MechOverhaulSetup } from "@/utils/juteMechanicalService";
 import OverhaulSpareLinesEditor from "./OverhaulSpareLinesEditor";
@@ -178,17 +184,7 @@ export default function OverhaulEntryForm({
 				{editing ? "Edit overhaul" : "Record an overhaul"}
 			</Typography>
 
-			<Box
-				sx={{
-					display: "grid",
-					gap: 2,
-					gridTemplateColumns: {
-						xs: "1fr",
-						sm: "repeat(2, minmax(0, 1fr))",
-						md: "repeat(3, minmax(0, 1fr))",
-					},
-				}}
-			>
+			<Box sx={FORM_GRID_SX}>
 				<Controller
 					control={control}
 					name="machine_id"
@@ -248,6 +244,11 @@ export default function OverhaulEntryForm({
 					)}
 				/>
 
+			</Box>
+
+			{/* The two dates are read as a pair, so they stay side by side from `sm`
+			    up instead of being split across a three-column row. */}
+			<Box sx={FORM_GRID_2_SX}>
 				<Controller
 					control={control}
 					name="from_date"
@@ -285,6 +286,9 @@ export default function OverhaulEntryForm({
 					)}
 				/>
 
+			</Box>
+
+			<Box sx={FORM_GRID_SX}>
 				<Controller
 					control={control}
 					name="labour_cost"
@@ -395,7 +399,7 @@ export default function OverhaulEntryForm({
 			</Box>
 
 			{machineIdValue !== "" && !freqMonths ? (
-				<Alert severity="warning">
+				<Alert severity="warning" sx={{ overflowWrap: "anywhere" }}>
 					No overhaul interval set for this machine; set it in Maintenance Masters &gt; Machine
 					Attributes to track the next due date. The overhaul will still save, but it will have
 					no next-due date and the machine will not appear on the maintenance-due report.
@@ -404,24 +408,14 @@ export default function OverhaulEntryForm({
 
 			{submitError ? <Alert severity="error">{submitError}</Alert> : null}
 
-			<Box
-				sx={{
-					position: { xs: "sticky", md: "static" },
-					bottom: 0,
-					bgcolor: "background.paper",
-					py: 1,
-					display: "flex",
-					gap: 1,
-					justifyContent: { xs: "stretch", md: "flex-end" },
-				}}
-			>
+			<Box sx={STICKY_ACTIONS_SX} justifyContent={{ xs: "stretch", sm: "flex-end" }}>
 				{editing ? (
 					<Button
 						variant="outlined"
 						startIcon={<CancelIcon size={18} />}
 						onClick={onCancelEdit}
 						disabled={submitting}
-						sx={{ minHeight: 44 }}
+						sx={{ minHeight: TOUCH_TARGET }}
 					>
 						Cancel edit
 					</Button>
@@ -431,7 +425,7 @@ export default function OverhaulEntryForm({
 					variant="contained"
 					startIcon={<SaveIcon size={18} />}
 					disabled={submitting}
-					sx={{ minHeight: 44, width: { xs: "100%", md: "auto" } }}
+					sx={{ minHeight: TOUCH_TARGET }}
 				>
 					{submitting ? "Saving…" : editing ? "Update overhaul" : "Save overhaul"}
 				</Button>

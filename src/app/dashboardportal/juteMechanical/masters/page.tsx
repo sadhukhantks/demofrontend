@@ -13,6 +13,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Box, Card, CardActionArea, Chip, Stack, Typography } from "@mui/material";
 import { AlertTriangle, ClipboardList, Cog, Puzzle } from "lucide-react";
+import { PAGE_PADDING_SX, TOUCH_TARGET } from "@/components/ui/responsiveEntry";
 
 /** One card on the hub. */
 type MasterLink = {
@@ -68,7 +69,7 @@ const MASTER_LINKS: readonly MasterLink[] = [
 
 export default function JuteMechanicalMastersHubPage() {
 	return (
-		<Box sx={{ p: { xs: 2, md: 4 } }}>
+		<Box sx={PAGE_PADDING_SX}>
 			<Stack spacing={1} sx={{ mb: 3 }}>
 				<Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
 					Mechanical &amp; Maintenance Masters
@@ -84,6 +85,8 @@ export default function JuteMechanicalMastersHubPage() {
 				sx={{
 					display: "grid",
 					gap: 2,
+					// One card per line on a phone: `minmax(0, 1fr)` so a long impact
+					// line wraps instead of widening the column past the screen.
 					gridTemplateColumns: {
 						xs: "1fr",
 						md: "repeat(2, minmax(0, 1fr))",
@@ -103,7 +106,14 @@ export default function JuteMechanicalMastersHubPage() {
 						<CardActionArea
 							component={Link}
 							href={link.href}
-							sx={{ height: "100%", p: 2.5, alignItems: "flex-start" }}
+							// The whole card is the link, and on a phone it is the tap
+							// target — keep it comfortably taller than a thumb.
+							sx={{
+								height: "100%",
+								minHeight: TOUCH_TARGET * 2,
+								p: 2.5,
+								alignItems: "flex-start",
+							}}
 						>
 							<Stack spacing={1.5} sx={{ height: "100%" }}>
 								<Stack direction="row" spacing={1.5} alignItems="center">

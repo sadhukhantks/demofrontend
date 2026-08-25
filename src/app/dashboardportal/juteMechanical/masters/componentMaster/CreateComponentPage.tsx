@@ -28,6 +28,8 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
+import { DIALOG_ACTIONS_SX, MOBILE_FULL_BLEED_PAPER } from "@/components/ui/responsiveEntry";
+import { DIALOG_FORM_SCROLL_SX } from "../_components/responsiveDialog";
 import {
 	createMechComponent,
 	fetchMechComponentById,
@@ -176,7 +178,14 @@ export default function CreateComponentPage({
 	const disabled = readOnly || isSubmitting;
 
 	return (
-		<Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+		<Dialog
+			open={open}
+			onClose={onClose}
+			fullWidth
+			maxWidth="sm"
+			PaperProps={MOBILE_FULL_BLEED_PAPER}
+			sx={DIALOG_FORM_SCROLL_SX}
+		>
 			<form onSubmit={handleSubmit(onSubmit)} noValidate>
 				<DialogTitle
 					sx={{
@@ -283,7 +292,7 @@ export default function CreateComponentPage({
 					)}
 				</DialogContent>
 
-				<DialogActions sx={{ px: 3, py: 2 }}>
+				<DialogActions sx={DIALOG_ACTIONS_SX}>
 					<Button type="button" variant="outline" onClick={onClose}>
 						{readOnly ? "Close" : "Cancel"}
 					</Button>

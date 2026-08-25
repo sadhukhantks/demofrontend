@@ -29,6 +29,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import {
+	DIALOG_ACTIONS_SX,
+	FORM_GRID_2_SX,
+	MOBILE_FULL_BLEED_PAPER,
+} from "@/components/ui/responsiveEntry";
+import { DIALOG_FORM_SCROLL_SX } from "../_components/responsiveDialog";
+import {
 	createMechReason,
 	fetchMechReasonById,
 	updateMechReason,
@@ -225,7 +231,14 @@ export default function CreateReasonPage({
 	const disabled = readOnly || isSubmitting;
 
 	return (
-		<Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+		<Dialog
+			open={open}
+			onClose={onClose}
+			fullWidth
+			maxWidth="md"
+			PaperProps={MOBILE_FULL_BLEED_PAPER}
+			sx={DIALOG_FORM_SCROLL_SX}
+		>
 			<form onSubmit={handleSubmit(onSubmit)} noValidate>
 				<DialogTitle
 					sx={{
@@ -266,13 +279,7 @@ export default function CreateReasonPage({
 									: "Machine type is empty, so this is a global code — it is offered on every machine. Set a machine type to restrict it to that section."}
 							</Alert>
 
-							<Box
-								sx={{
-									display: "grid",
-									gap: 2,
-									gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
-								}}
-							>
+							<Box sx={FORM_GRID_2_SX}>
 								<Controller
 									name="machine_type_id"
 									control={control}
@@ -414,7 +421,7 @@ export default function CreateReasonPage({
 					)}
 				</DialogContent>
 
-				<DialogActions sx={{ px: 3, py: 2 }}>
+				<DialogActions sx={DIALOG_ACTIONS_SX}>
 					<Button type="button" variant="outline" onClick={onClose}>
 						{readOnly ? "Close" : "Cancel"}
 					</Button>

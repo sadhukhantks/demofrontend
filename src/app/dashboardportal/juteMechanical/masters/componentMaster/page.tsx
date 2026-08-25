@@ -9,10 +9,20 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Chip, Snackbar } from "@mui/material";
+import { Alert, Box, Chip, Snackbar, Typography } from "@mui/material";
 import type { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
+import {
+	CardStat,
+	DESKTOP_ONLY_SX,
+	MOBILE_ONLY_SX,
+	MobileCard,
+} from "@/components/ui/responsiveEntry";
+import {
+	MasterCardAction,
+	MasterMobileList,
+} from "../_components/MasterMobileList";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import {
@@ -221,41 +231,112 @@ export default function MechComponentMasterPage() {
 		);
 	}
 
+	const subtitle = selectedCompany
+		? `Failure components for ${selectedCompany.co_name}, shared across every machine section.`
+		: "Failure components shared across every machine section.";
+
 	return (
-		<IndexWrapper
-			title="Failure Component Master"
-			subtitle={
-				selectedCompany
-					? `Failure components for ${selectedCompany.co_name}, shared across every machine section.`
-					: "Failure components shared across every machine section."
-			}
-			rows={rows}
-			columns={columns}
-			rowCount={totalRows}
-			paginationModel={paginationModel}
-			onPaginationModelChange={setPaginationModel}
-			loading={loading}
-			showLoadingUntilLoaded
-			search={{
-				value: searchQuery,
-				onChange: handleSearchChange,
-				placeholder: "Search component or group",
-				debounceDelayMs: 500,
-			}}
-			toolbarContent={
-				<SearchableOptionSelect<string>
-					label="Component Group"
-					placeholder="All groups"
-					options={groupOptions}
-					value={groupFilter}
-					onChange={handleGroupFilter}
-					sx={{ minWidth: 220 }}
+		<>
+			{/*
+			 * Two layouts, one data source. The grid does not reflow below ~900px, so
+			 * it is hidden there and the card list takes over; both are fed by the same
+			 * `rows` state, and which one is visible is decided by CSS breakpoints only.
+			 */}
+			<Box sx={DESKTOP_ONLY_SX}>
+				<IndexWrapper
+					title="Failure Component Master"
+					subtitle={subtitle}
+					rows={rows}
+					columns={columns}
+					rowCount={totalRows}
+					paginationModel={paginationModel}
+					onPaginationModelChange={setPaginationModel}
+					loading={loading}
+					showLoadingUntilLoaded
+					search={{
+						value: searchQuery,
+						onChange: handleSearchChange,
+						placeholder: "Search component or group",
+						debounceDelayMs: 500,
+					}}
+					toolbarContent={
+						<SearchableOptionSelect<string>
+							label="Component Group"
+							placeholder="All groups"
+							options={groupOptions}
+							value={groupFilter}
+							onChange={handleGroupFilter}
+							sx={{ minWidth: 220 }}
+						/>
+					}
+					createAction={{ label: "Create Component", onClick: handleCreate }}
+					onEdit={handleEdit}
+					onView={handleView}
 				/>
-			}
-			createAction={{ label: "Create Component", onClick: handleCreate }}
-			onEdit={handleEdit}
-			onView={handleView}
-		>
+			</Box>
+
+			<Box sx={MOBILE_ONLY_SX}>
+				<MasterMobileList
+					title="Failure Component Master"
+					subtitle={subtitle}
+					search={{
+						value: searchQuery,
+						onChange: handleSearchChange,
+						placeholder: "Search component or group",
+						debounceDelayMs: 500,
+					}}
+					filters={
+						<SearchableOptionSelect<string>
+							label="Component Group"
+							placeholder="All groups"
+							options={groupOptions}
+							value={groupFilter}
+							onChange={handleGroupFilter}
+						/>
+					}
+					createAction={{ label: "Create Component", onClick: handleCreate }}
+					loading={loading}
+					visibleCount={rows.length}
+					rowCount={totalRows}
+					paginationModel={paginationModel}
+					onPaginationModelChange={setPaginationModel}
+					emptyMessage="No components match the current filters."
+				>
+					{rows.map((row) => (
+						<MobileCard
+							key={row.id}
+							header={
+								<>
+									<Typography
+										variant="subtitle2"
+										sx={{ fontWeight: 700, minWidth: 0, wordBreak: "break-word" }}
+									>
+										{row.component_name}
+									</Typography>
+									<Box sx={{ ml: "auto" }}>
+										<MasterCardAction row={row} onEdit={handleEdit} onView={handleView} />
+									</Box>
+								</>
+							}
+						>
+							<CardStat label="Group" value={row.component_group ?? "—"} />
+							<CardStat
+								label="Status"
+								value={
+									<Chip
+										component="span"
+										label={row.active === 1 ? "Active" : "Inactive"}
+										size="small"
+										color={row.active === 1 ? "success" : "default"}
+										variant={row.active === 1 ? "filled" : "outlined"}
+									/>
+								}
+							/>
+						</MobileCard>
+					))}
+				</MasterMobileList>
+			</Box>
+
 			<CreateComponentPage
 				open={dialogOpen}
 				onClose={handleDialogClose}
@@ -280,6 +361,6 @@ export default function MechComponentMasterPage() {
 					{snackbar.message}
 				</Alert>
 			</Snackbar>
-		</IndexWrapper>
+		</>
 	);
 }

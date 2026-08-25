@@ -14,10 +14,20 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Chip, Snackbar, Tooltip } from "@mui/material";
+import { Alert, Box, Chip, Snackbar, Tooltip, Typography } from "@mui/material";
 import type { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
+import {
+	CardStat,
+	DESKTOP_ONLY_SX,
+	MOBILE_ONLY_SX,
+	MobileCard,
+} from "@/components/ui/responsiveEntry";
+import {
+	MasterCardAction,
+	MasterMobileList,
+} from "../_components/MasterMobileList";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import {
@@ -346,37 +356,145 @@ export default function MechMachineAttributePage() {
 				: "Maintenance record for every machine.";
 
 	return (
-		<IndexWrapper
-			title="Machine Attributes"
-			subtitle={subtitle}
-			rows={rows}
-			columns={columns}
-			rowCount={totalRows}
-			paginationModel={paginationModel}
-			onPaginationModelChange={setPaginationModel}
-			loading={loading}
-			showLoadingUntilLoaded
-			contentClassName="max-w-full"
-			search={{
-				value: searchQuery,
-				onChange: handleSearchChange,
-				placeholder: "Search machine, code, make or serial",
-				debounceDelayMs: 500,
-			}}
-			toolbarContent={
-				<SearchableOptionSelect<number>
-					label="Machine Type"
-					placeholder="All machine types"
-					options={machineTypeOptions}
-					value={machineTypeFilter}
-					onChange={handleMachineTypeFilter}
-					sx={{ minWidth: 220 }}
+		<>
+			{/*
+			 * Two layouts, one data source. Eleven columns cannot fit a phone and the
+			 * grid does not reflow, so below ~900px the same `rows` are drawn as cards.
+			 * Which one is visible is decided by CSS breakpoints only.
+			 */}
+			<Box sx={DESKTOP_ONLY_SX}>
+				<IndexWrapper
+					title="Machine Attributes"
+					subtitle={subtitle}
+					rows={rows}
+					columns={columns}
+					rowCount={totalRows}
+					paginationModel={paginationModel}
+					onPaginationModelChange={setPaginationModel}
+					loading={loading}
+					showLoadingUntilLoaded
+					contentClassName="max-w-full"
+					search={{
+						value: searchQuery,
+						onChange: handleSearchChange,
+						placeholder: "Search machine, code, make or serial",
+						debounceDelayMs: 500,
+					}}
+					toolbarContent={
+						<SearchableOptionSelect<number>
+							label="Machine Type"
+							placeholder="All machine types"
+							options={machineTypeOptions}
+							value={machineTypeFilter}
+							onChange={handleMachineTypeFilter}
+							sx={{ minWidth: 220 }}
+						/>
+					}
+					createAction={{ label: "Configure Machine", onClick: handleCreate }}
+					onEdit={handleEdit}
+					onView={handleView}
 				/>
-			}
-			createAction={{ label: "Configure Machine", onClick: handleCreate }}
-			onEdit={handleEdit}
-			onView={handleView}
-		>
+			</Box>
+
+			<Box sx={MOBILE_ONLY_SX}>
+				<MasterMobileList
+					title="Machine Attributes"
+					subtitle={subtitle}
+					search={{
+						value: searchQuery,
+						onChange: handleSearchChange,
+						placeholder: "Search machine, code, make or serial",
+						debounceDelayMs: 500,
+					}}
+					filters={
+						<SearchableOptionSelect<number>
+							label="Machine Type"
+							placeholder="All machine types"
+							options={machineTypeOptions}
+							value={machineTypeFilter}
+							onChange={handleMachineTypeFilter}
+						/>
+					}
+					createAction={{ label: "Configure Machine", onClick: handleCreate }}
+					loading={loading}
+					visibleCount={rows.length}
+					rowCount={totalRows}
+					paginationModel={paginationModel}
+					onPaginationModelChange={setPaginationModel}
+					emptyMessage="No machines match the current filters."
+				>
+					{rows.map((row) => (
+						<MobileCard
+							key={row.id}
+							header={
+								<>
+									<Typography
+										variant="subtitle2"
+										sx={{ fontWeight: 700, minWidth: 0, wordBreak: "break-word" }}
+									>
+										{row.mech_code
+											? `${row.machine_name} (${row.mech_code})`
+											: row.machine_name}
+									</Typography>
+									{/*
+									 * `machine_attr_id` is null for a machine nobody has configured.
+									 * The card says so and its edit button still opens the dialog —
+									 * in create mode, locked to this machine, exactly as the grid row
+									 * does, because the backend upserts on (co_id, machine_id).
+									 */}
+									{row.machine_attr_id === null ? (
+										<Chip
+											label="Not configured"
+											size="small"
+											color="warning"
+											variant="outlined"
+										/>
+									) : null}
+									{row.criticality ? (
+										<Chip
+											label={
+												criticalityLabels.get(row.criticality) ?? row.criticality
+											}
+											size="small"
+											variant="outlined"
+										/>
+									) : null}
+									<Box sx={{ ml: "auto" }}>
+										<MasterCardAction row={row} onEdit={handleEdit} onView={handleView} />
+									</Box>
+								</>
+							}
+						>
+							<Box sx={{ gridColumn: "1 / -1" }}>
+								<CardStat
+									label="Make / Model"
+									value={
+										row.make || row.model
+											? [row.make, row.model].filter(Boolean).join(" / ")
+											: EM_DASH
+									}
+								/>
+							</Box>
+							<CardStat label="Last Overhaul" value={displayDate(row.last_overhaul_date)} />
+							<CardStat
+								label="Next Overhaul Due"
+								value={displayDate(row.next_overhaul_due)}
+							/>
+							<CardStat label="Last PM" value={displayDate(row.last_pm_date)} />
+							<CardStat label="Next PM Due" value={displayDate(row.next_pm_due)} />
+							{row.machine_attr_id === null ? (
+								<Box sx={{ gridColumn: "1 / -1" }}>
+									<Typography variant="caption" color="text.secondary">
+										No maintenance record yet — this machine never appears on the
+										maintenance-due report. Set its PM and overhaul intervals to add it.
+									</Typography>
+								</Box>
+							) : null}
+						</MobileCard>
+					))}
+				</MasterMobileList>
+			</Box>
+
 			<CreateMachineAttributePage
 				open={dialogOpen}
 				onClose={handleDialogClose}
@@ -402,6 +520,6 @@ export default function MechMachineAttributePage() {
 					{snackbar.message}
 				</Alert>
 			</Snackbar>
-		</IndexWrapper>
+		</>
 	);
 }

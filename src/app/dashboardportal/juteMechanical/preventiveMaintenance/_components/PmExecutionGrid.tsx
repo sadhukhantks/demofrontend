@@ -1,9 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { Box, IconButton, Tooltip } from "@mui/material";
+import { Box, Button, Chip, CircularProgress, IconButton, Tooltip, Typography } from "@mui/material";
 import { DataGrid, type GridColDef, type GridPaginationModel } from "@mui/x-data-grid";
 import { Pencil as EditIcon, Trash2 as TrashIcon } from "lucide-react";
+import {
+	CardStat,
+	DESKTOP_ONLY_SX,
+	MOBILE_ONLY_SX,
+	TOUCH_ICON_BUTTON_SX,
+	TOUCH_TARGET,
+} from "@/components/ui/responsiveEntry";
 import type { MechPmExecution } from "@/utils/juteMechanicalService";
 
 export interface PmExecutionGridProps {
@@ -19,9 +26,19 @@ export interface PmExecutionGridProps {
 	busy?: boolean;
 }
 
+/** `mech_code — machine_name`, or whichever half exists. */
+function machineLabel(row: MechPmExecution): string {
+	if (row.mech_code) return `${row.mech_code} — ${row.machine_name ?? ""}`;
+	return row.machine_name ?? `#${row.pm_exec_id}`;
+}
+
 /**
  * The PM execution log. Server-paginated (the backend caps `limit` at 200 and
  * returns `total`), so the grid drives `page`/`limit` rather than slicing locally.
+ *
+ * Below `md` the DataGrid gives way to a card list of the SAME `rows` prop. The
+ * swap is CSS-only (`DESKTOP_ONLY_SX` / `MOBILE_ONLY_SX`), never `useMediaQuery`,
+ * so both trees render and the page's hydration guard is unaffected.
  */
 export default function PmExecutionGrid({
 	rows,
@@ -112,23 +129,141 @@ export default function PmExecutionGrid({
 		[busy, onDelete, onEdit],
 	);
 
+	const pageCount = pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1;
+
 	return (
 		<Box sx={{ width: "100%" }}>
-			<DataGrid
-				autoHeight
-				rows={[...rows]}
-				getRowId={(row) => row.pm_exec_id}
-				columns={columns}
-				loading={loading}
-				disableRowSelectionOnClick
-				density="comfortable"
-				paginationMode="server"
-				rowCount={total}
-				paginationModel={paginationModel}
-				onPaginationModelChange={handlePaginationChange}
-				pageSizeOptions={[10, 25, 50, 100]}
-				sx={{ width: "100%" }}
-			/>
+			<Box sx={DESKTOP_ONLY_SX}>
+				<DataGrid
+					autoHeight
+					rows={[...rows]}
+					getRowId={(row) => row.pm_exec_id}
+					columns={columns}
+					loading={loading}
+					disableRowSelectionOnClick
+					density="comfortable"
+					paginationMode="server"
+					rowCount={total}
+					paginationModel={paginationModel}
+					onPaginationModelChange={handlePaginationChange}
+					pageSizeOptions={[10, 25, 50, 100]}
+					sx={{ width: "100%" }}
+				/>
+			</Box>
+
+			{/* Phone: the same rows as cards, from the same `rows` prop. */}
+			<Box sx={MOBILE_ONLY_SX}>
+				{loading ? (
+					<Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+						<CircularProgress size={24} />
+					</Box>
+				) : null}
+
+				{!loading && rows.length === 0 ? (
+					<Typography variant="body2" color="text.secondary">
+						No PM rounds recorded for this filter.
+					</Typography>
+				) : null}
+
+				{rows.map((row) => (
+					<Box
+						key={row.pm_exec_id}
+						sx={{ p: 1.5, border: 1, borderColor: "divider", borderRadius: 1 }}
+					>
+						<Box sx={{ display: "flex", alignItems: "flex-start", gap: 1, mb: 1 }}>
+							<Box sx={{ minWidth: 0, flex: 1 }}>
+								<Typography
+									variant="subtitle2"
+									sx={{ fontWeight: 700, overflowWrap: "anywhere" }}
+								>
+									{machineLabel(row)}
+								</Typography>
+								<Typography variant="caption" color="text.secondary" display="block">
+									{row.machine_type_name ?? "—"}
+								</Typography>
+							</Box>
+							{row.frequency ? (
+								<Chip size="small" variant="outlined" label={row.frequency} />
+							) : null}
+							<IconButton
+								size="small"
+								color="primary"
+								aria-label="Edit PM execution"
+								disabled={busy}
+								onClick={() => onEdit(row)}
+								sx={TOUCH_ICON_BUTTON_SX}
+							>
+								<EditIcon size={18} />
+							</IconButton>
+							<IconButton
+								size="small"
+								color="error"
+								aria-label="Delete PM execution"
+								disabled={busy}
+								onClick={() => onDelete(row)}
+								sx={TOUCH_ICON_BUTTON_SX}
+							>
+								<TrashIcon size={18} />
+							</IconButton>
+						</Box>
+
+						<Box
+							sx={{
+								display: "grid",
+								gap: 1,
+								gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+							}}
+						>
+							<CardStat label="PM date" value={row.pm_date || "—"} />
+							<CardStat label="Frequency" value={row.frequency ?? "—"} align="right" />
+							<CardStat
+								label="Downtime (min)"
+								value={row.downtime_min === null ? "—" : String(row.downtime_min)}
+							/>
+							<CardStat label="Next due" value={row.next_due_date ?? "—"} align="right" />
+							<CardStat label="Done by" value={row.done_by ?? "—"} />
+						</Box>
+
+						{row.remarks ? (
+							<Typography
+								variant="body2"
+								color="text.secondary"
+								sx={{ mt: 1, overflowWrap: "anywhere" }}
+							>
+								{row.remarks}
+							</Typography>
+						) : null}
+					</Box>
+				))}
+
+				{/* The DataGrid footer is inside the grid, so the card list carries its own
+				    pager onto the same server-side page state. */}
+				{total > 0 ? (
+					<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+						<Button
+							size="small"
+							variant="outlined"
+							disabled={page <= 1 || loading}
+							onClick={() => onPageChange(page - 1)}
+							sx={{ minHeight: TOUCH_TARGET, flex: 1 }}
+						>
+							Previous
+						</Button>
+						<Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
+							{page} / {pageCount}
+						</Typography>
+						<Button
+							size="small"
+							variant="outlined"
+							disabled={page >= pageCount || loading}
+							onClick={() => onPageChange(page + 1)}
+							sx={{ minHeight: TOUCH_TARGET, flex: 1 }}
+						>
+							Next
+						</Button>
+					</Box>
+				) : null}
+			</Box>
 		</Box>
 	);
 }

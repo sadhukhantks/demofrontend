@@ -10,10 +10,20 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Chip, Snackbar } from "@mui/material";
+import { Alert, Box, Chip, Snackbar, Typography } from "@mui/material";
 import type { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
+import {
+	CardStat,
+	DESKTOP_ONLY_SX,
+	MOBILE_ONLY_SX,
+	MobileCard,
+} from "@/components/ui/responsiveEntry";
+import {
+	MasterCardAction,
+	MasterMobileList,
+} from "../_components/MasterMobileList";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import {
@@ -293,51 +303,157 @@ export default function MechPmSchedulePage() {
 		);
 	}
 
+	const subtitle = selectedCompany
+		? `Preventive-maintenance tasks for ${selectedCompany.co_name}. Each task belongs either to a machine type or to one machine.`
+		: "Each task belongs either to a machine type or to one machine.";
+
+	/** Same three-way scope as the grid's "Applies To" column, as one line of text. */
+	const scopeLabel = (row: PmScheduleRow): string => {
+		if (row.machine_id !== null) {
+			return `Machine: ${row.machine_name ?? row.machine_id}`;
+		}
+		if (row.machine_type_id !== null) {
+			return `Section: ${row.machine_type_name ?? row.machine_type_id}`;
+		}
+		return "Unscoped — never picked up";
+	};
+
+	/** Frequency label plus its day count, exactly as the grid shows it. */
+	const frequencyLabel = (row: PmScheduleRow): string => {
+		const label = frequencyLabels.get(row.frequency) ?? row.frequency;
+		return row.freq_days ? `${label} (${row.freq_days}d)` : label;
+	};
+
 	return (
-		<IndexWrapper
-			title="PM Schedule (Checklist Template)"
-			subtitle={
-				selectedCompany
-					? `Preventive-maintenance tasks for ${selectedCompany.co_name}. Each task belongs either to a machine type or to one machine.`
-					: "Each task belongs either to a machine type or to one machine."
-			}
-			rows={rows}
-			columns={columns}
-			rowCount={totalRows}
-			paginationModel={paginationModel}
-			onPaginationModelChange={setPaginationModel}
-			loading={loading}
-			showLoadingUntilLoaded
-			search={{
-				value: searchQuery,
-				onChange: handleSearchChange,
-				placeholder: "Search task description",
-				debounceDelayMs: 500,
-			}}
-			toolbarContent={
-				<>
-					<SearchableOptionSelect<number>
-						label="Machine Type"
-						placeholder="All machine types"
-						options={machineTypeOptions}
-						value={machineTypeFilter}
-						onChange={handleMachineTypeFilter}
-						sx={{ minWidth: 220 }}
-					/>
-					<SearchableOptionSelect<string>
-						label="Frequency"
-						placeholder="All frequencies"
-						options={frequencyOptions}
-						value={frequencyFilter}
-						onChange={handleFrequencyFilter}
-						sx={{ minWidth: 200 }}
-					/>
-				</>
-			}
-			createAction={{ label: "Create PM Task", onClick: handleCreate }}
-			onEdit={handleEdit}
-			onView={handleView}
-		>
+		<>
+			{/*
+			 * Two layouts, one data source. The grid does not reflow below ~900px, so
+			 * it is hidden there and the card list takes over; both are fed by the same
+			 * `rows` state, and which one is visible is decided by CSS breakpoints only.
+			 */}
+			<Box sx={DESKTOP_ONLY_SX}>
+				<IndexWrapper
+					title="PM Schedule (Checklist Template)"
+					subtitle={subtitle}
+					rows={rows}
+					columns={columns}
+					rowCount={totalRows}
+					paginationModel={paginationModel}
+					onPaginationModelChange={setPaginationModel}
+					loading={loading}
+					showLoadingUntilLoaded
+					search={{
+						value: searchQuery,
+						onChange: handleSearchChange,
+						placeholder: "Search task description",
+						debounceDelayMs: 500,
+					}}
+					toolbarContent={
+						<>
+							<SearchableOptionSelect<number>
+								label="Machine Type"
+								placeholder="All machine types"
+								options={machineTypeOptions}
+								value={machineTypeFilter}
+								onChange={handleMachineTypeFilter}
+								sx={{ minWidth: 220 }}
+							/>
+							<SearchableOptionSelect<string>
+								label="Frequency"
+								placeholder="All frequencies"
+								options={frequencyOptions}
+								value={frequencyFilter}
+								onChange={handleFrequencyFilter}
+								sx={{ minWidth: 200 }}
+							/>
+						</>
+					}
+					createAction={{ label: "Create PM Task", onClick: handleCreate }}
+					onEdit={handleEdit}
+					onView={handleView}
+				/>
+			</Box>
+
+			<Box sx={MOBILE_ONLY_SX}>
+				<MasterMobileList
+					title="PM Schedule (Checklist Template)"
+					subtitle={subtitle}
+					search={{
+						value: searchQuery,
+						onChange: handleSearchChange,
+						placeholder: "Search task description",
+						debounceDelayMs: 500,
+					}}
+					filters={
+						<>
+							<SearchableOptionSelect<number>
+								label="Machine Type"
+								placeholder="All machine types"
+								options={machineTypeOptions}
+								value={machineTypeFilter}
+								onChange={handleMachineTypeFilter}
+							/>
+							<SearchableOptionSelect<string>
+								label="Frequency"
+								placeholder="All frequencies"
+								options={frequencyOptions}
+								value={frequencyFilter}
+								onChange={handleFrequencyFilter}
+							/>
+						</>
+					}
+					createAction={{ label: "Create PM Task", onClick: handleCreate }}
+					loading={loading}
+					visibleCount={rows.length}
+					rowCount={totalRows}
+					paginationModel={paginationModel}
+					onPaginationModelChange={setPaginationModel}
+					emptyMessage="No PM tasks match the current filters."
+				>
+					{rows.map((row) => (
+						<MobileCard
+							key={row.id}
+							header={
+								<>
+									{/* The task text is the identity here and it runs long — it wraps
+									    rather than being clipped the way the grid cell clips it. */}
+									<Typography
+										variant="subtitle2"
+										sx={{
+											fontWeight: 700,
+											flex: 1,
+											minWidth: 0,
+											wordBreak: "break-word",
+										}}
+									>
+										{row.task_desc}
+									</Typography>
+									<MasterCardAction row={row} onEdit={handleEdit} onView={handleView} />
+								</>
+							}
+						>
+							<CardStat label="Frequency" value={frequencyLabel(row)} />
+							<CardStat label="Seq. No." value={row.seq_no === null ? "—" : String(row.seq_no)} />
+							<Box sx={{ gridColumn: "1 / -1" }}>
+								<CardStat label="Applies To" value={scopeLabel(row)} />
+							</Box>
+							<CardStat
+								label="Status"
+								value={
+									<Chip
+										component="span"
+										label={row.active === 1 ? "Active" : "Inactive"}
+										size="small"
+										color={row.active === 1 ? "success" : "default"}
+										variant={row.active === 1 ? "filled" : "outlined"}
+									/>
+								}
+							/>
+						</MobileCard>
+					))}
+				</MasterMobileList>
+			</Box>
+
 			<CreatePmSchedulePage
 				open={dialogOpen}
 				onClose={handleDialogClose}
@@ -362,6 +478,6 @@ export default function MechPmSchedulePage() {
 					{snackbar.message}
 				</Alert>
 			</Snackbar>
-		</IndexWrapper>
+		</>
 	);
 }

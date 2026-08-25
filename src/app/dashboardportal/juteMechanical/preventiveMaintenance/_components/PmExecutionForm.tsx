@@ -5,6 +5,11 @@ import { Alert, Box, Button, Chip, Divider, TextField, Typography } from "@mui/m
 import { Save as SaveIcon, X as CancelIcon } from "lucide-react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import {
+	FORM_GRID_SX,
+	STICKY_ACTIONS_SX,
+	TOUCH_TARGET,
+} from "@/components/ui/responsiveEntry";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import type { MechPmSetup } from "@/utils/juteMechanicalService";
 import type { PmEnumLike, PmExecutionFormValues } from "../types/pmTypes";
@@ -129,17 +134,7 @@ export default function PmExecutionForm({
 				{editing ? "Edit PM execution" : "Record a PM round"}
 			</Typography>
 
-			<Box
-				sx={{
-					display: "grid",
-					gap: 2,
-					gridTemplateColumns: {
-						xs: "1fr",
-						sm: "repeat(2, minmax(0, 1fr))",
-						md: "repeat(3, minmax(0, 1fr))",
-					},
-				}}
-			>
+			<Box sx={FORM_GRID_SX}>
 				<Controller
 					control={control}
 					name="machine_id"
@@ -264,27 +259,21 @@ export default function PmExecutionForm({
 
 			{children}
 
-			{blockingMessage ? <Alert severity="warning">{blockingMessage}</Alert> : null}
+			{blockingMessage ? (
+				<Alert severity="warning" sx={{ overflowWrap: "anywhere" }}>
+					{blockingMessage}
+				</Alert>
+			) : null}
 			{submitError ? <Alert severity="error">{submitError}</Alert> : null}
 
-			<Box
-				sx={{
-					position: { xs: "sticky", md: "static" },
-					bottom: 0,
-					bgcolor: "background.paper",
-					py: 1,
-					display: "flex",
-					gap: 1,
-					justifyContent: { xs: "stretch", md: "flex-end" },
-				}}
-			>
+			<Box sx={STICKY_ACTIONS_SX} justifyContent={{ xs: "stretch", sm: "flex-end" }}>
 				{editing ? (
 					<Button
 						variant="outlined"
 						startIcon={<CancelIcon size={18} />}
 						onClick={onCancelEdit}
 						disabled={submitting}
-						sx={{ minHeight: 44 }}
+						sx={{ minHeight: TOUCH_TARGET }}
 					>
 						Cancel edit
 					</Button>
@@ -294,7 +283,7 @@ export default function PmExecutionForm({
 					variant="contained"
 					startIcon={<SaveIcon size={18} />}
 					disabled={submitting || Boolean(blockingMessage)}
-					sx={{ minHeight: 44, width: { xs: "100%", md: "auto" } }}
+					sx={{ minHeight: TOUCH_TARGET }}
 				>
 					{submitting ? "Saving…" : editing ? "Update PM" : "Save PM"}
 				</Button>

@@ -33,6 +33,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import {
+	DIALOG_ACTIONS_SX,
+	FORM_GRID_2_SX,
+	MOBILE_FULL_BLEED_PAPER,
+} from "@/components/ui/responsiveEntry";
+import { DIALOG_FORM_SCROLL_SX } from "../_components/responsiveDialog";
+import {
 	createMechMachineAttr,
 	fetchMechMachineAttrById,
 	updateMechMachineAttr,
@@ -327,7 +333,14 @@ export default function CreateMachineAttributePage({
 	const machineLocked = disabled || machineId !== undefined;
 
 	return (
-		<Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+		<Dialog
+			open={open}
+			onClose={onClose}
+			fullWidth
+			maxWidth="md"
+			PaperProps={MOBILE_FULL_BLEED_PAPER}
+			sx={DIALOG_FORM_SCROLL_SX}
+		>
 			<form onSubmit={handleSubmit(onSubmit)} noValidate>
 				<DialogTitle
 					sx={{
@@ -369,13 +382,7 @@ export default function CreateMachineAttributePage({
 								</Alert>
 							) : null}
 
-							<Box
-								sx={{
-									display: "grid",
-									gap: 2,
-									gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
-								}}
-							>
+							<Box sx={FORM_GRID_2_SX}>
 								<Box sx={{ gridColumn: { xs: "auto", sm: "1 / -1" } }}>
 									<Controller
 										name="machine_id"
@@ -514,13 +521,7 @@ export default function CreateMachineAttributePage({
 								</Typography>
 							</Divider>
 
-							<Box
-								sx={{
-									display: "grid",
-									gap: 2,
-									gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
-								}}
-							>
+							<Box sx={FORM_GRID_2_SX}>
 								<Controller
 									name="last_overhaul_date"
 									control={control}
@@ -624,7 +625,12 @@ export default function CreateMachineAttributePage({
 								</Box>
 							</Box>
 
-							<Alert severity={nextPmPreview || nextOverhaulPreview ? "info" : "warning"}>
+							<Alert
+								severity={nextPmPreview || nextOverhaulPreview ? "info" : "warning"}
+								// The preview names two dates and an explanation; at 360px it has to
+								// wrap inside the alert rather than push the dialog sideways.
+								sx={{ "& .MuiAlert-message": { minWidth: 0, overflowWrap: "anywhere" } }}
+							>
 								{nextPmPreview || nextOverhaulPreview ? (
 									<>
 										Due dates are computed on save:{" "}
@@ -645,7 +651,7 @@ export default function CreateMachineAttributePage({
 					)}
 				</DialogContent>
 
-				<DialogActions sx={{ px: 3, py: 2 }}>
+				<DialogActions sx={DIALOG_ACTIONS_SX}>
 					<Button type="button" variant="outline" onClick={onClose}>
 						{readOnly ? "Close" : "Cancel"}
 					</Button>
