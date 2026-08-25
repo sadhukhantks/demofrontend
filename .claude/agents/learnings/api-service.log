@@ -58,3 +58,50 @@
   assumptions above FIRST — they are the only guesses in the file. Also: this repo has no
   shared `Option`/`mapToOptions` utility despite ~24 service files each rolling their own
   dropdown shapes; extracting `src/utils/optionMappers.ts` would pay for itself.
+
+## 2026-08-24 (follow-up) - Jute Mechanical report types corrected against real routers
+
+The routers landed after the first pass. Both assumptions flagged last run were WRONG in
+ways worth remembering, and several row types I inferred from the spec disagreed with the
+handlers. Correcting at the source removed the need for `unknown` workarounds in pages.
+
+- **[LESSON — biggest one]** Do NOT type a report row from a spec document. The spec named
+  metrics in PROSE ("count, total duration, % share") and I turned that prose into
+  `breakdown_count / total_downtime_min / share_pct`. The handler actually emits
+  `count / total_duration / pct_share`. A spec describes intent; only the dict literal in
+  the handler is the contract. When a router does not exist yet, say the type is
+  PROVISIONAL in its JSDoc and re-verify — do not let it quietly become load-bearing.
+- **[API-QUIRK]** `/reason-pareto` is the ONLY report using `count` / `total_duration`;
+  every other report uses `breakdown_count` / `total_downtime_min`. Same concept, two
+  vocabularies, in one router. Never generalize a key name across these endpoints.
+- **[API-QUIRK]** Two endpoints return `data` as an OBJECT, not an array:
+  `/top-problem-machines` -> `{by_downtime, by_count, repeat_failures}` and
+  `/machine-history` -> `{machine, breakdowns, pm_executions, overhauls, spares}`.
+  A generic `requestList` helper that assumes `T[]` will hand callers an array type they
+  can `.map()` and crash on at runtime. Check EVERY endpoint's `return` before reusing a
+  list helper — a uniform-looking contract ("all reports return {data,total}") is not
+  uniform in practice.
+- **[API-QUIRK]** `/pm_checklist` likewise wraps: `{data: {machine_id, machine_name,
+  machine_type_id, branch_id, frequency, tasks: [...]}}`, not a bare task array.
+- **[API-QUIRK]** `/reason-trend` rows arrive ALREADY PIVOTED: one row per reason with
+  dynamic `<YYYY-MM>_count` / `<YYYY-MM>_duration` keys, and the ordered `months` array
+  lives at the top level of the response. Same dynamic-key pattern as `/date-machine-grid`.
+- **[API-QUIRK]** `/maintenance-due` emits ONE ROW PER DUE ITEM with a `due_type`
+  ('PM'|'OVERHAUL') discriminator — a machine with both due appears twice. I had modelled
+  PM and overhaul as side-by-side columns on one machine row, which cannot represent it.
+- **[FIELD-MAPPING]** `/department-summary`: `pct_of_mill_downtime` (not `share_pct`).
+  `/reliability`: `downtime_per_1000_running_hrs` (not `downtime_per_1000_hrs`).
+  `/spares-consumption`: split pairs `breakdown_qty|value`, `overhaul_qty|value`,
+  `total_qty|value`, `line_count` — there is no `qty`/`value`/`source`.
+- **[ENVELOPE]** Every report carries `summary` and most carry a top-level
+  `unattributed_pct` (the 'NR' share). A list helper that keeps only `{data,total}` DROPS
+  the module's headline safety metric and forces each page to re-derive it from the rows
+  currently on screen — i.e. from one page of data, which is wrong. Report envelopes now
+  preserve `summary` + `unattributed_pct`, plus per-report extras (`months`, `columns`,
+  `machine_cost`).
+- **Resolved from last run:** enum dropdowns as `{value,label}[]` — CORRECT, no change.
+  `top-problem-machines` as a flat list with a `rank_type` discriminator — WRONG, it is
+  three named lists.
+- **What should change:** when a service is written ahead of its backend, keep a checklist
+  of every inferred shape and re-verify each one the moment the routers exist, rather than
+  waiting for page authors to discover the drift and work around it downstream.
