@@ -1314,6 +1314,81 @@ const apiRoutesPortalMasters = {
     WEAVING_PROCESS_STATUS: `${API_URL}/weavingProd/process_status`,
     // Sync = recompute + store derived rows WITHOUT locking (warnings, never 400-blocks).
     WEAVING_SYNC: `${API_URL}/weavingProd/sync`,
+    // ============================================================
+    // Jute Mechanical & Maintenance
+    // Engineering breakdown log + overhaul/PM register + analytics. NO approval
+    // workflow — direct save; `status` (OPEN/UNDER_REPAIR/CLOSED) tracks the repair,
+    // not a document lifecycle. Independent of Stoppage Hours (jute_prod_stoppage_hours).
+    // Service layer: src/utils/juteMechanicalService.ts
+    // ============================================================
+    // Masters (router prefix /api/mechMaintMasters) — every *_BY_ID / *_EDIT / *_DELETE
+    // is a PATH-PARAMETER route: the constant ends at the base and the CALLER appends
+    // /${id} (plus ?co_id=...). MECH_PM_SCHEDULE_* is the PM checklist TEMPLATE master;
+    // the MECH_PM_* keys further down are PM EXECUTIONS on the /api/mechPM router.
+    MECH_MASTERS_SETUP: `${API_URL}/mechMaintMasters/masters_setup`,
+    MECH_REASON_TABLE: `${API_URL}/mechMaintMasters/reason_table`,
+    MECH_REASON_BY_ID: `${API_URL}/mechMaintMasters/reason_by_id`,
+    MECH_REASON_CREATE: `${API_URL}/mechMaintMasters/reason_create`,
+    MECH_REASON_EDIT: `${API_URL}/mechMaintMasters/reason_edit`,
+    MECH_REASON_DELETE: `${API_URL}/mechMaintMasters/reason_delete`,
+    MECH_COMPONENT_TABLE: `${API_URL}/mechMaintMasters/component_table`,
+    MECH_COMPONENT_BY_ID: `${API_URL}/mechMaintMasters/component_by_id`,
+    MECH_COMPONENT_CREATE: `${API_URL}/mechMaintMasters/component_create`,
+    MECH_COMPONENT_EDIT: `${API_URL}/mechMaintMasters/component_edit`,
+    MECH_COMPONENT_DELETE: `${API_URL}/mechMaintMasters/component_delete`,
+    MECH_MACHINE_ATTR_TABLE: `${API_URL}/mechMaintMasters/machine_attr_table`,
+    MECH_MACHINE_ATTR_BY_ID: `${API_URL}/mechMaintMasters/machine_attr_by_id`,
+    MECH_MACHINE_ATTR_CREATE: `${API_URL}/mechMaintMasters/machine_attr_create`,
+    MECH_MACHINE_ATTR_EDIT: `${API_URL}/mechMaintMasters/machine_attr_edit`,
+    MECH_MACHINE_ATTR_DELETE: `${API_URL}/mechMaintMasters/machine_attr_delete`,
+    MECH_PM_SCHEDULE_TABLE: `${API_URL}/mechMaintMasters/pm_schedule_table`,
+    MECH_PM_SCHEDULE_BY_ID: `${API_URL}/mechMaintMasters/pm_schedule_by_id`,
+    MECH_PM_SCHEDULE_CREATE: `${API_URL}/mechMaintMasters/pm_schedule_create`,
+    MECH_PM_SCHEDULE_EDIT: `${API_URL}/mechMaintMasters/pm_schedule_edit`,
+    MECH_PM_SCHEDULE_DELETE: `${API_URL}/mechMaintMasters/pm_schedule_delete`,
+    // Breakdown entry (router prefix /api/mechBreakdown) — MECH_BD_BY_ID / _EDIT /
+    // _DELETE / _CLOSE are base paths; caller appends /${breakdown_id}.
+    MECH_BD_SETUP: `${API_URL}/mechBreakdown/entry_create_setup`,
+    MECH_BD_REASONS_BY_MACHINE: `${API_URL}/mechBreakdown/reasons_by_machine`,
+    MECH_BD_ENTRIES: `${API_URL}/mechBreakdown/entries`,
+    MECH_BD_BY_ID: `${API_URL}/mechBreakdown/entry_by_id`,
+    MECH_BD_CREATE: `${API_URL}/mechBreakdown/entry_create`,
+    MECH_BD_EDIT: `${API_URL}/mechBreakdown/entry_edit`,
+    MECH_BD_DELETE: `${API_URL}/mechBreakdown/entry_delete`,
+    MECH_BD_CLOSE: `${API_URL}/mechBreakdown/entry_close`,
+    MECH_BD_OPEN_LIST: `${API_URL}/mechBreakdown/open_breakdowns`,
+    // Overhaul register (router prefix /api/mechOverhaul) — MECH_OVERHAUL_BY_ID /
+    // _EDIT / _DELETE are base paths; caller appends /${overhaul_id}.
+    MECH_OVERHAUL_SETUP: `${API_URL}/mechOverhaul/overhaul_create_setup`,
+    MECH_OVERHAUL_TABLE: `${API_URL}/mechOverhaul/overhaul_table`,
+    MECH_OVERHAUL_BY_ID: `${API_URL}/mechOverhaul/overhaul_by_id`,
+    MECH_OVERHAUL_CREATE: `${API_URL}/mechOverhaul/overhaul_create`,
+    MECH_OVERHAUL_EDIT: `${API_URL}/mechOverhaul/overhaul_edit`,
+    MECH_OVERHAUL_DELETE: `${API_URL}/mechOverhaul/overhaul_delete`,
+    // Preventive-maintenance EXECUTION (router prefix /api/mechPM) — MECH_PM_BY_ID /
+    // _EDIT / _DELETE are base paths; caller appends /${pm_exec_id}.
+    MECH_PM_SETUP: `${API_URL}/mechPM/pm_create_setup`,
+    MECH_PM_CHECKLIST: `${API_URL}/mechPM/pm_checklist`,
+    MECH_PM_TABLE: `${API_URL}/mechPM/pm_execution_table`,
+    MECH_PM_BY_ID: `${API_URL}/mechPM/pm_execution_by_id`,
+    MECH_PM_CREATE: `${API_URL}/mechPM/pm_execution_create`,
+    MECH_PM_EDIT: `${API_URL}/mechPM/pm_execution_edit`,
+    MECH_PM_DELETE: `${API_URL}/mechPM/pm_execution_delete`,
+    // Reports (router prefix /api/mechMaintReports) — kebab-case paths, house reports
+    // convention. All take co_id (required) + branch_id/date_from/date_to/machine_type_id/
+    // machine_id/discipline/page/limit (limit capped 10000) and return { data, total }.
+    MECH_RPT_BREAKDOWN_REGISTER: `${API_URL}/mechMaintReports/breakdown-register`,
+    MECH_RPT_MACHINE_SUMMARY: `${API_URL}/mechMaintReports/machine-summary`,
+    MECH_RPT_REASON_PARETO: `${API_URL}/mechMaintReports/reason-pareto`,
+    MECH_RPT_DATE_MACHINE_GRID: `${API_URL}/mechMaintReports/date-machine-grid`,
+    MECH_RPT_DEPARTMENT_SUMMARY: `${API_URL}/mechMaintReports/department-summary`,
+    MECH_RPT_RELIABILITY: `${API_URL}/mechMaintReports/reliability`,
+    MECH_RPT_REASON_TREND: `${API_URL}/mechMaintReports/reason-trend`,
+    MECH_RPT_MAINTENANCE_DUE: `${API_URL}/mechMaintReports/maintenance-due`,
+    MECH_RPT_SPARES_CONSUMPTION: `${API_URL}/mechMaintReports/spares-consumption`,
+    MECH_RPT_TOP_PROBLEM_MACHINES: `${API_URL}/mechMaintReports/top-problem-machines`,
+    MECH_RPT_MACHINE_HISTORY: `${API_URL}/mechMaintReports/machine-history`,
+    MECH_RPT_OPEN_BOARD: `${API_URL}/mechMaintReports/open-breakdown-board`,
 };
 
 // Support tickets (Zendesk-style). Raised from Portal/Tenant Admin widgets,
