@@ -3,21 +3,7 @@
 import * as React from "react";
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Alert,
-  Box,
-  Button,
-  Checkbox,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  FormControlLabel,
-  MenuItem,
-  Snackbar,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Checkbox, CircularProgress, Dialog, DialogActions, DialogContent, FormControlLabel, Snackbar, Typography } from "@mui/material";
 import { ArrowLeft, Copy, Printer, Save } from "lucide-react";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
@@ -36,6 +22,7 @@ import { buildDefaultDoc } from "./utils/planningFactories";
 import { uiToSaveRequest, validateSaveRequest } from "./utils/planningMappers";
 import type { PlanningMode } from "./types/productionPlanningTypes";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 const LIST_ROUTE = "/dashboardportal/juteProduction/productionPlanning";
 
 function todayISO(): string {
@@ -289,26 +276,20 @@ function CreateProductionPlanningInner() {
 
       {/* Branch picker when several sidebar branches (create only) */}
       {mode === "create" && sidebarBranchIds.length > 1 ? (
-        <TextField
-          select
-          size="small"
+        <SearchableOptionSelect
           label="Working Branch"
+          size="small"
+          options={branchOptions.map((b) => ({ value: b.branch_id, label: b.branch_name }))}
           value={pageBranchId}
-          onChange={(e) => {
-            const v = e.target.value === "" ? "" : Number(e.target.value);
+          onChange={(selectedValue) => {
+            const v = selectedValue === "" ? "" : Number(selectedValue);
             setPageBranchId(v);
             // Keep the document in step — pageBranchId alone never flows back
             // into an already-created doc (the default-doc effect runs once).
             if (doc) calc.patchHeader({ branch_id: v === "" ? null : v });
           }}
           sx={{ maxWidth: 260 }}
-        >
-          {branchOptions.map((b) => (
-            <MenuItem key={b.branch_id} value={b.branch_id}>
-              {b.branch_name}
-            </MenuItem>
-          ))}
-        </TextField>
+        />
       ) : null}
 
       {setupError ? <Alert severity="error">{setupError}</Alert> : null}

@@ -1,18 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Autocomplete,
-	Box,
-	Button,
-	IconButton,
-	MenuItem,
-	Paper,
-	Snackbar,
-	TextField,
-	Typography,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, Button, IconButton, Paper, Snackbar, TextField, Typography } from "@mui/material";
 import { Save as SaveIcon, Plus as PlusIcon, X as RemoveIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -27,6 +16,7 @@ import {
 } from "../types/beamMrTypes";
 import { computeBeamMrPreview, stdMrForGroup } from "../utils/beamMrCalc";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type Props = {
 	coId: string;
 	branchId: number;
@@ -161,20 +151,14 @@ export default function BeamMrForm({ coId, branchId, entryDate, setup, onSaved }
 					gap: 2,
 				}}
 			>
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Quality group"
-					value={qualityGroup}
-					onChange={(e) => setQualityGroup(e.target.value as QualityGroup)}
+					size="small"
 					fullWidth
-				>
-					{QUALITY_GROUPS.map((g) => (
-						<MenuItem key={g} value={g}>
-							{g}
-						</MenuItem>
-					))}
-				</TextField>
+					options={QUALITY_GROUPS.map((g) => ({ value: g, label: g }))}
+					value={qualityGroup}
+					onChange={(selectedValue) => setQualityGroup(selectedValue as QualityGroup)}
+				/>
 
 				<Autocomplete
 					options={setup.cloth_qualities}
@@ -214,23 +198,15 @@ export default function BeamMrForm({ coId, branchId, entryDate, setup, onSaved }
 					)}
 				/>
 
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Spell"
-					value={spellId}
-					onChange={(e) => setSpellId(e.target.value === "" ? "" : Number(e.target.value))}
+					size="small"
 					fullWidth
-				>
-					<MenuItem value="">
-						<em>None</em>
-					</MenuItem>
-					{setup.spells.map((s) => (
-						<MenuItem key={s.spell_id} value={s.spell_id}>
-							{s.spell_code} — {s.spell_name}
-						</MenuItem>
-					))}
-				</TextField>
+					placeholder="None"
+					options={setup.spells.map((s) => ({ value: s.spell_id, label: `${s.spell_code} — ${s.spell_name}` }))}
+					value={spellId}
+					onChange={(selectedValue) => setSpellId(selectedValue === "" ? "" : Number(selectedValue))}
+				/>
 
 				<TextField
 					type="number"

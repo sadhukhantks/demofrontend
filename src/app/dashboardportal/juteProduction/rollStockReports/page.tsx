@@ -13,14 +13,28 @@ import {
 	TextField,
 	Typography,
 } from "@mui/material";
+import { SearchableMultiSelect } from "@/components/ui/SearchableSelect";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayISO } from "../spreader/utils/shift";
+import { useRollStock } from "../spreader/hooks/useRollStock";
+import RollStockTable from "../spreader/_components/RollStockTable";
 import { useMaturityReport, useProductionSummary } from "./hooks/useReports";
 import MaturityReportTable from "./_components/MaturityReportTable";
 import PivotTable from "./_components/PivotTable";
 
-const TABS = ["Maturity Time", "Spreader Production"] as const;
+const TABS = ["Maturity Time", "Spreader Production", "Stock As At"] as const;
 const SHIFTS = ["A1", "B1", "A2", "B2", "C"] as const;
+const SHIFT_OPTIONS: string[] = [...SHIFTS];
+// Spell end boundaries (see spreader/utils/shift.ts buckets: A1 06-10, B1 11-13, A2 14-16, B2 17-21, C 22-05).
+// Selecting a spell = "stock at end of that spell"; C ends 06:00 the NEXT day.
+const SPELL_END: Record<string, { hour: number; nextDay?: boolean }> = {
+	A1: { hour: 11 },
+	B1: { hour: 14 },
+	A2: { hour: 17 },
+	B2: { hour: 22 },
+	C: { hour: 6, nextDay: true },
+};
 
 export default function RollStockReportsPage() {
 	const { coId } = useSelectedCompanyCoId();
@@ -37,9 +51,52 @@ export default function RollStockReportsPage() {
 	const [selShifts, setSelShifts] = React.useState<string[]>([]);
 	const summary = useProductionSummary(coId, reportDate, selSpreaders, selItems, selShifts);
 
+	// Tab 3 — branch resolution: 1 sidebar branch → auto-use it; several → user must pick one.
+	const { selectedBranches, selectedCompany } = useSidebarContext();
+	const sidebarBranchIds = React.useMemo(() => selectedBranches.map(Number), [selectedBranches]);
+	const [pageBranchId, setPageBranchId] = React.useState<number | "">("");
+	React.useEffect(() => {
+		if (sidebarBranchIds.length === 1) {
+			setPageBranchId(sidebarBranchIds[0]);
+		} else if (sidebarBranchIds.length === 0) {
+			setPageBranchId("");
+		} else {
+			setPageBranchId((prev) =>
+				prev !== "" && sidebarBranchIds.includes(prev as number) ? prev : ""
+			);
+		}
+	}, [sidebarBranchIds]);
+	const branchId = pageBranchId === "" ? null : (pageBranchId as number);
+	const branchOptions = React.useMemo(
+		() => (selectedCompany?.branches ?? []).filter((b) => sidebarBranchIds.includes(Number(b.branch_id))),
+		[selectedCompany, sidebarBranchIds]
+	);
+	const [asOfDate, setAsOfDate] = React.useState<string>("");
+	const [asOfHour, setAsOfHour] = React.useState<number>(0);
+	const [spell, setSpell] = React.useState<string>("");
+	// hour-precision cutoff — minutes deliberately not exposed
+	const asOfDt = asOfDate ? `${asOfDate}T${String(asOfHour).padStart(2, "0")}:00` : "";
+	const applySpell = (sp: string) => {
+		setSpell(sp);
+		if (!sp || !asOfDate) return;
+		const end = SPELL_END[sp];
+		if (end.nextDay) {
+			const d = new Date(`${asOfDate}T00:00`);
+			d.setDate(d.getDate() + 1);
+			setAsOfDate(
+				`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+			);
+		}
+		setAsOfHour(end.hour);
+	};
+	const stockAsAt = useRollStock(tab === 2 ? coId : null, branchId, asOfDt);
+
 	const [mounted, setMounted] = React.useState(false);
 	React.useEffect(() => {
 		setMounted(true);
+		// local "now" (date + current hour) — set after mount so SSR/CSR markup match
+		setAsOfDate(todayISO());
+		setAsOfHour(new Date().getHours());
 	}, []);
 
 	const availableSpreaders = React.useMemo(() => {
@@ -77,7 +134,7 @@ export default function RollStockReportsPage() {
 				Roll Stock Reports
 			</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-				Maturity time by issue & spreader production summary.
+				Maturity time by issue, spreader production summary, and roll stock as at any date &amp; time.
 			</Typography>
 
 			<Tabs
@@ -133,42 +190,37 @@ export default function RollStockReportsPage() {
 							onChange={(e) => setReportDate(e.target.value)}
 							InputLabelProps={{ shrink: true }}
 						/>
-						<TextField
-							select
+						<SearchableMultiSelect
+							variant="outlined"
 							size="small"
 							label="Spreaders"
-							SelectProps={{ multiple: true, value: selSpreaders, onChange: (e) => setSelSpreaders(e.target.value as unknown as number[]) }}
-						>
-							{availableSpreaders.map((s) => (
-								<MenuItem key={s.id} value={s.id}>
-									{s.name}
-								</MenuItem>
-							))}
-						</TextField>
-						<TextField
-							select
+							options={availableSpreaders}
+							value={availableSpreaders.filter((s) => selSpreaders.includes(s.id))}
+							onChange={(picked) => setSelSpreaders(picked.map((s) => s.id))}
+							getOptionLabel={(s) => s.name}
+							getOptionKey={(s) => s.id}
+							isOptionEqualToValue={(s, selected) => s.id === selected.id}
+						/>
+						<SearchableMultiSelect
+							variant="outlined"
 							size="small"
 							label="Items"
-							SelectProps={{ multiple: true, value: selItems, onChange: (e) => setSelItems(e.target.value as unknown as number[]) }}
-						>
-							{availableItems.map((i) => (
-								<MenuItem key={i.id} value={i.id}>
-									{i.name}
-								</MenuItem>
-							))}
-						</TextField>
-						<TextField
-							select
+							options={availableItems}
+							value={availableItems.filter((i) => selItems.includes(i.id))}
+							onChange={(picked) => setSelItems(picked.map((i) => i.id))}
+							getOptionLabel={(i) => i.name}
+							getOptionKey={(i) => i.id}
+							isOptionEqualToValue={(i, selected) => i.id === selected.id}
+						/>
+						<SearchableMultiSelect<string>
+							variant="outlined"
 							size="small"
 							label="Shifts"
-							SelectProps={{ multiple: true, value: selShifts, onChange: (e) => setSelShifts(e.target.value as unknown as string[]) }}
-						>
-							{SHIFTS.map((s) => (
-								<MenuItem key={s} value={s}>
-									{s}
-								</MenuItem>
-							))}
-						</TextField>
+							options={SHIFT_OPTIONS}
+							value={selShifts}
+							onChange={(picked) => setSelShifts(picked)}
+							getOptionLabel={(shift) => shift}
+						/>
 					</Box>
 
 					{summary.error ? <Alert severity="error">{summary.error}</Alert> : null}
@@ -221,6 +273,91 @@ export default function RollStockReportsPage() {
 							/>
 						</>
 					) : null}
+				</Box>
+			) : null}
+
+			{tab === 2 ? (
+				<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+					<Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+						{branchOptions.length > 1 ? (
+							<TextField
+								select
+								size="small"
+								label="Branch"
+								value={pageBranchId}
+								onChange={(e) => setPageBranchId(e.target.value === "" ? "" : Number(e.target.value))}
+								sx={{ minWidth: 240 }}
+							>
+								{branchOptions.map((b) => (
+									<MenuItem key={b.branch_id} value={Number(b.branch_id)}>
+										{b.branch_name}
+									</MenuItem>
+								))}
+							</TextField>
+						) : null}
+						<TextField
+							type="date"
+							size="small"
+							label="As At Date"
+							value={asOfDate}
+							onChange={(e) => {
+								setAsOfDate(e.target.value);
+								setSpell("");
+							}}
+							InputLabelProps={{ shrink: true }}
+							sx={{ minWidth: 170 }}
+						/>
+						<TextField
+							select
+							size="small"
+							label="Spell"
+							value={spell}
+							onChange={(e) => applySpell(e.target.value)}
+							helperText={spell ? "End of spell" + (spell === "C" ? " (next day)" : "") : undefined}
+							sx={{ minWidth: 120 }}
+						>
+							<MenuItem value="">Manual</MenuItem>
+							{SHIFTS.map((s) => (
+								<MenuItem key={s} value={s}>
+									{s}
+								</MenuItem>
+							))}
+						</TextField>
+						<TextField
+							select
+							size="small"
+							label="Hour"
+							value={asOfHour}
+							onChange={(e) => {
+								setAsOfHour(Number(e.target.value));
+								setSpell("");
+							}}
+							sx={{ minWidth: 110 }}
+						>
+							{Array.from({ length: 24 }, (_, h) => (
+								<MenuItem key={h} value={h}>
+									{String(h).padStart(2, "0")}:00
+								</MenuItem>
+							))}
+						</TextField>
+					</Stack>
+
+					{sidebarBranchIds.length === 0 ? (
+						<Alert severity="warning">Select at least one branch in the sidebar to continue.</Alert>
+					) : branchId == null ? (
+						<Alert severity="info">Select a branch to load spreader data.</Alert>
+					) : (
+						<>
+							{stockAsAt.error ? <Alert severity="error">{stockAsAt.error}</Alert> : null}
+							<RollStockTable
+								rows={stockAsAt.rows}
+								summary={stockAsAt.summary}
+								loading={stockAsAt.loading}
+								summaryFirst
+								detailTitle={`Bin-wise Stock as at ${asOfDt ? new Date(asOfDt).toLocaleString() : "-"}`}
+							/>
+						</>
+					)}
 				</Box>
 			) : null}
 		</Box>

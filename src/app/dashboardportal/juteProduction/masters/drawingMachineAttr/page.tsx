@@ -1,27 +1,14 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Box,
-	Button,
-	Dialog,
-	DialogActions,
-	DialogContent,
-	DialogTitle,
-	IconButton,
-	MenuItem,
-	Switch,
-	TextField,
-	Tooltip,
-	Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Switch, TextField, Tooltip, Typography } from "@mui/material";
 import { Pencil as EditOutlinedIcon, Plus as AddIcon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 // One row per Drawing machine: attr columns are null when not yet configured.
 type AttrRow = {
 	drawing_machine_attr_id: number | null;
@@ -227,22 +214,14 @@ export default function DrawingMachineAttrPage() {
 				<DialogTitle>{editing ? "Edit Drawing Attributes" : "Configure Drawing Machine"}</DialogTitle>
 				<DialogContent>
 					<Box sx={{ display: "grid", gap: 2, mt: 1 }}>
-						<TextField
-							select
+						<SearchableOptionSelect
 							label="Machine"
-							value={form.machine_id}
-							onChange={(e) =>
-								setForm({ ...form, machine_id: e.target.value === "" ? "" : Number(e.target.value) })
-							}
 							size="small"
 							disabled={!!editing}
-						>
-							{machineOptions.map((m) => (
-								<MenuItem key={m.machine_id} value={m.machine_id}>
-									{m.mech_code} — {m.machine_name}
-								</MenuItem>
-							))}
-						</TextField>
+							options={machineOptions.map((m) => ({ value: m.machine_id, label: `${m.mech_code} — ${m.machine_name}` }))}
+							value={form.machine_id}
+							onChange={(selectedValue) => setForm({ ...form, machine_id: selectedValue === "" ? "" : Number(selectedValue) })}
+						/>
 						<TextField
 							type="number"
 							label="Const Meter (m per 8h @100%)"

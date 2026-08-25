@@ -3,17 +3,11 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
-import {
-  Snackbar,
-  Alert,
-  Chip,
-  TextField,
-  MenuItem,
-  Stack,
-} from "@mui/material";
+import { Snackbar, Alert, Chip, TextField, Stack } from "@mui/material";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { useSelectedCompanyCoId } from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import {
   fetchLeaveRequestList,
   fetchLeaveTypeOptions,
@@ -262,39 +256,24 @@ export default function LeaveRequestPage() {
         toolbarContent={
           <Stack direction="row" spacing={1.5} alignItems="center">
             {branchOptions.length > 1 ? (
-              <TextField
-                select
-                size="small"
+              <SearchableOptionSelect
                 label="Branch"
+                size="small"
+                options={branchOptions.map((b) => ({ value: String(b.branch_id), label: b.branch_name }))}
                 value={branchId}
-                onChange={(e) => setBranchId(e.target.value)}
+                onChange={(selectedValue) => setBranchId(selectedValue)}
                 sx={{ minWidth: 160 }}
-              >
-                {branchOptions.map((b) => (
-                  <MenuItem key={b.branch_id} value={String(b.branch_id)}>
-                    {b.branch_name}
-                  </MenuItem>
-                ))}
-              </TextField>
+              />
             ) : null}
-            <TextField
-              select
-              size="small"
+            <SearchableOptionSelect
               label="Leave Type"
+              size="small"
+              placeholder="All"
+              options={leaveTypeOptions.map((opt) => ({ value: String(opt.leave_type_id), label: opt.leave_type_description || opt.leave_type_code }))}
               value={leaveTypeId}
-              onChange={(e) => setLeaveTypeId(e.target.value)}
+              onChange={(selectedValue) => setLeaveTypeId(selectedValue)}
               sx={{ minWidth: 160 }}
-            >
-              <MenuItem value="">All</MenuItem>
-              {leaveTypeOptions.map((opt) => (
-                <MenuItem
-                  key={opt.leave_type_id}
-                  value={String(opt.leave_type_id)}
-                >
-                  {opt.leave_type_description || opt.leave_type_code}
-                </MenuItem>
-              ))}
-            </TextField>
+            />
             <TextField
               size="small"
               label="Employee Code"
@@ -302,21 +281,15 @@ export default function LeaveRequestPage() {
               onChange={(e) => setEbNo(e.target.value)}
               sx={{ minWidth: 140 }}
             />
-            <TextField
-              select
-              size="small"
+            <SearchableOptionSelect
               label="Status"
+              size="small"
+              placeholder="All"
+              options={STATUS_FILTER_OPTIONS.map((s) => ({ value: String(s.id), label: s.label }))}
               value={statusId}
-              onChange={(e) => setStatusId(e.target.value)}
+              onChange={(selectedValue) => setStatusId(selectedValue)}
               sx={{ minWidth: 160 }}
-            >
-              <MenuItem value="">All</MenuItem>
-              {STATUS_FILTER_OPTIONS.map((s) => (
-                <MenuItem key={s.id} value={String(s.id)}>
-                  {s.label}
-                </MenuItem>
-              ))}
-            </TextField>
+            />
           </Stack>
         }
       />

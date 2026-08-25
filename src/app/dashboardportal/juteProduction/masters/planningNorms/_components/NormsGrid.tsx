@@ -1,24 +1,10 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Box,
-	Button,
-	CircularProgress,
-	IconButton,
-	MenuItem,
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableRow,
-	TextField,
-	Tooltip,
-	Typography,
-} from "@mui/material";
+import { Alert, Box, Button, CircularProgress, IconButton, Table, TableBody, TableCell, TableHead, TableRow, TextField, Tooltip, Typography } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
 import { History as HistoryIcon, Save as SaveIcon } from "lucide-react";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import type {
 	NormsBulkSaveEntry,
 	NormsGridResponse,
@@ -197,22 +183,14 @@ export default function NormsGrid({
 									if (YARN_SELECT_PARAMS.has(p)) {
 										return (
 											<TableCell key={p} align="right">
-												<TextField
-													select
+												<SearchableOptionSelect
 													size="small"
+													placeholder="\u2014"
+													options={yarnOptions.map((y) => ({ value: String(y.item_id), label: y.item_name }))}
 													value={raw}
-													onChange={(ev) => setCell(r.ref_id, p, ev.target.value)}
+													onChange={(selectedValue) => setCell(r.ref_id, p, selectedValue)}
 													sx={{ width: 170, bgcolor: dirtyBg }}
-												>
-													<MenuItem value="">
-														<em>—</em>
-													</MenuItem>
-													{yarnOptions.map((y) => (
-														<MenuItem key={y.item_id} value={String(y.item_id)}>
-															{y.item_name}
-														</MenuItem>
-													))}
-												</TextField>
+												/>
 											</TableCell>
 										);
 									}

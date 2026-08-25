@@ -205,6 +205,7 @@ useEffect(() => {
 
 ## Critical Rules
 
+- **Dropdowns are ALWAYS searchable** — use `SearchableSelect`/`SearchableMultiSelect` from `@/components/ui/SearchableSelect` with type-ahead autofill. NEVER emit a raw MUI `<Select>` + `<MenuItem>`, a `<TextField select>`, a native `<select>`, or the shadcn `Select` primitive. This holds for short lists too (Active/Inactive, Yes/No). Use `variant="outlined"` for labelled form fields and `variant="bare"` inside DataGrid cells. Never disable typing to make a field read-only — use `disabled`.
 - **NEVER use `any`** — define proper types for form values and API responses
 - **Zod validation** — use with `zodResolver` in React Hook Form or MuiForm built-in validation
 - **Dialog pattern** — master pages use Dialog, NOT full page navigation (for portal)

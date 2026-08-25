@@ -261,6 +261,90 @@ export interface JuteMrOptionRow {
 /** Generic row shape for the tally-download CSV endpoint */
 export type TallyRow = Record<string, string | number | null>;
 
+/** Summary block from GET /api/juteReports/issue-planner */
+export interface IssuePlannerSummary {
+  report_date: string;
+  production_date: string;
+  window_from: string;
+  window_to: string;
+  snapshot_at: string;
+  co_id: number;
+  branch_id: number;
+  total_reference_production_kg: number;
+  total_required_issue_mt: number;
+  total_required_issue_bales: number;
+}
+
+/** Previous-day production per yarn (issue planner) */
+export interface IssuePlannerReferenceRow {
+  item_id: number | null;
+  jute_yarn_id: number | null;
+  yarn_name: string | null;
+  production_kg: number;
+  reference_kg: number;
+  reference_source: "actual" | "default";
+  planned: boolean;
+}
+
+/** One batch daily assign in the plan window (issue planner) */
+export interface IssuePlannerBatchPlanRow {
+  assign_date: string;
+  jute_yarn_id: number;
+  yarn_name: string | null;
+  batch_plan_id: number;
+  plan_name: string | null;
+  status_id: number;
+}
+
+/** Per-date per-quality requirement (issue planner) */
+export interface IssuePlannerRequirementRow {
+  assign_date: string;
+  item_id: number;
+  quality_name: string | null;
+  requirement_kg: number;
+  requirement_mt: number;
+}
+
+/** Required-issue line per jute quality (issue planner) */
+export interface IssuePlannerRequiredIssueRow {
+  item_id: number;
+  quality_name: string | null;
+  maturity_hours: number;
+  maturity_source: "master" | "default";
+  target_stock_date: string;
+  target_date_clamped: boolean;
+  target_stock_mt: number;
+  current_roll_stock_mt: number;
+  plan_issue_mt: number;
+  required_issue_mt: number;
+  required_issue_bales: number;
+}
+
+/** Godown stock coverage per quality (issue planner) */
+export interface IssuePlannerCoverageRow {
+  item_id: number;
+  quality_name: string | null;
+  godown_stock_kg: number;
+  godown_stock_mt: number;
+  avg_daily_requirement_mt: number;
+  days_of_stock: number | null;
+}
+
+/** Full payload from GET /api/juteReports/issue-planner */
+export interface IssuePlannerReport {
+  summary: IssuePlannerSummary;
+  reference_production: IssuePlannerReferenceRow[];
+  batch_plan: IssuePlannerBatchPlanRow[];
+  quality_requirement: IssuePlannerRequirementRow[];
+  required_issue: IssuePlannerRequiredIssueRow[];
+  stock_coverage: IssuePlannerCoverageRow[];
+}
+
+/** API response wrapper for the issue planner (object payload, not rows) */
+export interface IssuePlannerApiResponse {
+  data: IssuePlannerReport;
+}
+
 /** API response wrapper */
 export interface ReportApiResponse<T> {
   data: T[];

@@ -3,8 +3,6 @@ import {
 	Box,
 	Grid,
 	TextField,
-	MenuItem,
-	Select,
 	Typography,
 	FormHelperText,
 	Table,
@@ -14,10 +12,18 @@ import {
 	TableCell,
 } from "@mui/material";
 import MuiForm, { type Schema, type MuiFormMode } from "@/components/ui/muiform";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { hasTypeSpecificHeader, isRawJuteInvoice, isGovtSkgInvoice } from "../utils/salesInvoiceConstants";
 
 type FormRef = React.MutableRefObject<{ submit: () => Promise<void>; isDirty: () => boolean; setValue: (name: string, value: unknown) => void } | null>;
 type TypeSpecificFormRef = React.MutableRefObject<{ submit: () => Promise<void>; isDirty: () => boolean; setValue: (name: string, value: unknown) => void } | null>;
+
+/** A transporter's branch address, as supplied by the party-branch master. */
+export interface TransporterBranchOption {
+	id: number;
+	address: string;
+	gst_no: string;
+}
 
 function getTypeSpecificSectionTitle(invoiceTypeId?: string): string {
 	if (isRawJuteInvoice(invoiceTypeId)) return "Raw Jute Details";
@@ -39,8 +45,8 @@ type SalesInvoiceHeaderFormProps = {
 	formValues?: Record<string, any>;
 	errors?: Record<string, any>;
 	isView?: boolean;
-	transporterBranchOptions?: Array<{ id: number; address: string; gst_no: string }>;
-	onTransporterBranchChange?: (branchId: number, selectedBranch?: { id: number; address: string; gst_no: string }) => void;
+	transporterBranchOptions?: TransporterBranchOption[];
+	onTransporterBranchChange?: (branchId: number, selectedBranch?: TransporterBranchOption) => void;
 };
 
 export function SalesInvoiceHeaderForm({
@@ -84,13 +90,17 @@ export function SalesInvoiceHeaderForm({
 		onValuesChange(updatedValues);
 	};
 
-	const handleTransporterBranchChange = (branchId: number, selectedBranch?: any) => {
+	const handleTransporterBranchChange = (branchId: number, selectedBranch?: TransporterBranchOption) => {
 		handleFieldChange("transporter_branch_id", branchId);
 		if (selectedBranch?.gst_no) {
 			handleFieldChange("transporter_gst_no", selectedBranch.gst_no);
 		}
 		onTransporterBranchChange?.(branchId, selectedBranch);
 	};
+
+	const selectedTransporterBranchId = Number(localFormValues.transporter_branch_id);
+	const selectedTransporterBranch =
+		transporterBranchOptions.find((branch) => branch.id === selectedTransporterBranchId) ?? null;
 
 	return (
 		<div className="space-y-6">
@@ -112,24 +122,21 @@ export function SalesInvoiceHeaderForm({
 				{localFormValues.transporter && transporterBranchOptions.length > 0 && (
 					<Grid container spacing={2} sx={{ mb: 2 }}>
 						<Grid size={{ xs: 12, sm: 6 }}>
-							<Select
-								value={localFormValues.transporter_branch_id || ""}
-								onChange={(e) => {
-									const branchId = Number(e.target.value);
-									const selectedBranch = transporterBranchOptions.find((b) => b.id === branchId);
-									handleTransporterBranchChange(branchId, selectedBranch);
+							<SearchableSelect<TransporterBranchOption>
+								variant="outlined"
+								placeholder="-- Select Branch --"
+								options={transporterBranchOptions}
+								value={selectedTransporterBranch}
+								onChange={(branch) => {
+									// Clearing maps to 0, matching the previous "-- Select Branch --" entry.
+									handleTransporterBranchChange(branch?.id ?? 0, branch ?? undefined);
 								}}
+								getOptionLabel={(branch) => `${branch.address} (GST: ${branch.gst_no})`}
+								getOptionKey={(branch) => branch.id}
+								isOptionEqualToValue={(branch, selected) => branch.id === selected.id}
 								disabled={isView}
-								fullWidth
-								displayEmpty
-							>
-								<MenuItem value="">-- Select Branch --</MenuItem>
-								{transporterBranchOptions.map((branch) => (
-									<MenuItem key={branch.id} value={branch.id}>
-										{branch.address} (GST: {branch.gst_no})
-									</MenuItem>
-								))}
-							</Select>
+								error={!!errors.transporter_branch_id}
+							/>
 							{errors.transporter_branch_id && (
 								<FormHelperText error>{errors.transporter_branch_id}</FormHelperText>
 							)}

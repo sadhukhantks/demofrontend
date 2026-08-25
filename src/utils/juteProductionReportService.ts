@@ -404,9 +404,12 @@ export async function fetchWindingQualityGroupWise(params: {
 export interface LoomChecklistRow {
   weaving_daily_id: number;
   tran_date: string;
+  spell_id: number;
   spell_code: string | null;
+  branch_id: number | null;
   mech_code: string | null;
   machine_name: string | null;
+  weaving_quality_id: number | null;
   weaving_quality_code: string | null;
   weaving_quality_name: string | null;
   eb_id: number | null;
@@ -417,29 +420,159 @@ export interface LoomChecklistRow {
   jugar: number;
   production_yds: number;
   production_kg: number;
+  less_production: number;
   efficiency: number;
+  std_eff: number;
   working_hours: number;
+  sync_state: "not_synced" | "synced" | "locked" | "stale";
   remarks: string;
 }
 
-/** Loom Checklist — rtype "chk" = anomalous rows only, "all" = every entry. */
-export async function fetchLoomChecklist(params: {
+/** Shared filters of every checklist report. */
+interface ChecklistParams {
   coId: number;
   branchId: number;
   dateFrom: string;
   dateTo: string;
-  rtype: string;
-}): Promise<LoomChecklistRow[]> {
+  /** "chk" = anomalous rows only, "all" = every entry. Attendance has none. */
+  rtype?: string;
+  /** Winding only: which side of the sheet to check. */
+  direction?: "attendance" | "production";
+}
+
+/** All checklist endpoints share the same query string and {data: Row[]} shape. */
+async function fetchChecklist<TRow>(
+  base: string,
+  params: ChecklistParams,
+  label: string,
+): Promise<TRow[]> {
   const qs = new URLSearchParams();
   qs.set("co_id", String(params.coId));
   qs.set("branch_id", String(params.branchId));
   qs.set("date_from", params.dateFrom);
   qs.set("date_to", params.dateTo);
-  qs.set("rtype", params.rtype);
-  const url = `${apiRoutesPortalMasters.LOOM_CHECKLIST}?${qs.toString()}`;
-  const res = await fetchWithCookie<{ data: LoomChecklistRow[] }>(url);
+  if (params.rtype) qs.set("rtype", params.rtype);
+  if (params.direction) qs.set("direction", params.direction);
+  const res = await fetchWithCookie<{ data: TRow[] }>(`${base}?${qs.toString()}`);
   if (res.error || !res.data) {
-    throw new Error(res.error ?? "Failed to fetch the loom checklist");
+    throw new Error(res.error ?? `Failed to fetch the ${label}`);
   }
   return res.data.data;
+}
+
+/** Loom Checklist — rtype "chk" = anomalous rows only, "all" = every entry. */
+export function fetchLoomChecklist(
+  params: ChecklistParams,
+): Promise<LoomChecklistRow[]> {
+  return fetchChecklist(
+    apiRoutesPortalMasters.LOOM_CHECKLIST,
+    params,
+    "loom checklist",
+  );
+}
+
+/** One winder-spell row of the Winding Checklist, with its anomaly remarks. */
+export interface WindingChecklistRow {
+  row_id: string;
+  tran_date: string;
+  spell_id: number;
+  spell_code: string | null;
+  eb_id: number | null;
+  eb_no: string | null;
+  worker_name: string | null;
+  designation: string | null;
+  net_hours: number;
+  doff_count: number;
+  production_qty: number;
+  remarks: string;
+}
+
+/** Winding Checklist — direction "attendance" (who was present) vs "production". */
+export function fetchWindingChecklist(
+  params: ChecklistParams & { direction: "attendance" | "production" },
+): Promise<WindingChecklistRow[]> {
+  return fetchChecklist(
+    apiRoutesPortalMasters.WINDING_CHECKLIST,
+    params,
+    "winding checklist",
+  );
+}
+
+/** One beaming machine-spell row, with its anomaly remarks. */
+export interface BeamingChecklistRow {
+  row_id: string;
+  tran_date: string;
+  spell_id: number;
+  spell_code: string | null;
+  machine_id: number | null;
+  mech_code: string | null;
+  machine_name: string | null;
+  workers: string | null;
+  net_hours: number;
+  cuts: number;
+  remarks: string;
+}
+
+export function fetchBeamingChecklist(
+  params: ChecklistParams,
+): Promise<BeamingChecklistRow[]> {
+  return fetchChecklist(
+    apiRoutesPortalMasters.BEAMING_CHECKLIST,
+    params,
+    "beaming checklist",
+  );
+}
+
+/** One finishing worker-spell row, with its anomaly remarks. */
+export interface FinishingChecklistRow {
+  row_id: string;
+  tran_date: string;
+  spell_id: number;
+  spell_code: string | null;
+  eb_id: number | null;
+  eb_no: string | null;
+  worker_name: string | null;
+  designation: string | null;
+  process: string | null;
+  net_hours: number;
+  prod_qty: number;
+  prod_wt_kg: number;
+  remarks: string;
+}
+
+export function fetchFinishingChecklist(
+  params: ChecklistParams,
+): Promise<FinishingChecklistRow[]> {
+  return fetchChecklist(
+    apiRoutesPortalMasters.FINISHING_CHECKLIST,
+    params,
+    "finishing checklist",
+  );
+}
+
+/** One attendance row (no remarks — this sheet is the raw attendance list). */
+export interface AttendanceChecklistRow {
+  row_id: string;
+  tran_date: string;
+  spell_id: number;
+  spell_code: string | null;
+  eb_id: number | null;
+  eb_no: string | null;
+  worker_name: string | null;
+  department: string | null;
+  designation: string | null;
+  attendance_type: string | null;
+  net_hours: number;
+  machines: string | null;
+}
+
+/** Attendance Checklist — server caps the date range at 31 days. */
+export function fetchAttendanceChecklist(
+  params: ChecklistParams,
+): Promise<AttendanceChecklistRow[]> {
+  return fetchChecklist(
+    apiRoutesPortalMasters.ATTENDANCE_CHECKLIST,
+    params,
+    "attendance checklist",
+  );
 }

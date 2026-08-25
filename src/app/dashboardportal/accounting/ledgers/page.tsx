@@ -9,10 +9,6 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Autocomplete,
 } from "@mui/material";
 import { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
@@ -21,6 +17,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Swal from "sweetalert2";
 import IndexWrapper from "@/components/ui/IndexWrapper";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import {
   fetchLedgers,
@@ -66,11 +63,22 @@ type LedgerFormData = z.infer<typeof ledgerSchema>;
 // Constants
 // ---------------------------------------------------------------------------
 
-const LEDGER_TYPE_OPTIONS: { value: LedgerType; label: string }[] = [
+/** Option shape shared by the searchable ledger-type dropdowns. */
+type LedgerTypeOption = { value: LedgerType; label: string };
+
+const LEDGER_TYPE_OPTIONS: LedgerTypeOption[] = [
   { value: "G", label: "General" },
   { value: "P", label: "Party" },
   { value: "B", label: "Bank" },
   { value: "C", label: "Cash" },
+];
+
+/** Option shape for the searchable opening-balance Dr/Cr dropdown. */
+type BalanceTypeOption = { value: "D" | "C"; label: string };
+
+const BALANCE_TYPE_OPTIONS: BalanceTypeOption[] = [
+  { value: "D", label: "Debit" },
+  { value: "C", label: "Credit" },
 ];
 
 const LEDGER_TYPE_LABELS: Record<string, string> = {
@@ -391,24 +399,22 @@ export default function LedgersPage() {
 
   const toolbarContent = useMemo(
     () => (
-      <FormControl size="small" sx={{ minWidth: 140 }}>
-        <InputLabel>Type</InputLabel>
-        <Select
-          value={typeFilter}
-          label="Type"
-          onChange={(e) => {
-            setTypeFilter(e.target.value);
-            setPaginationModel((prev) => ({ ...prev, page: 0 }));
-          }}
-        >
-          <MenuItem value="">All</MenuItem>
-          {LEDGER_TYPE_OPTIONS.map((o) => (
-            <MenuItem key={o.value} value={o.value}>
-              {o.label}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      <SearchableSelect<LedgerTypeOption>
+        variant="outlined"
+        label="Type"
+        placeholder="All"
+        options={LEDGER_TYPE_OPTIONS}
+        value={LEDGER_TYPE_OPTIONS.find((o) => o.value === typeFilter) ?? null}
+        onChange={(option) => {
+          setTypeFilter(option?.value ?? "");
+          setPaginationModel((prev) => ({ ...prev, page: 0 }));
+        }}
+        getOptionLabel={(o) => o.label}
+        getOptionKey={(o) => o.value}
+        isOptionEqualToValue={(o, v) => o.value === v.value}
+        fullWidth={false}
+        className="min-w-[160px]"
+      />
     ),
     [typeFilter]
   );
@@ -495,21 +501,32 @@ export default function LedgersPage() {
               name="acc_ledger_group_id"
               control={control}
               render={({ field }) => (
-                <FormControl fullWidth margin="dense" error={!!errors.acc_ledger_group_id}>
-                  <InputLabel>Group</InputLabel>
-                  <Select
-                    {...field}
-                    value={field.value ?? ""}
-                    label="Group"
-                    onChange={(e) => field.onChange(Number(e.target.value))}
-                  >
-                    {groups.map((g) => (
-                      <MenuItem key={g.acc_ledger_group_id} value={g.acc_ledger_group_id}>
-                        {g.group_name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <SearchableSelect<LedgerGroup>
+                  variant="outlined"
+                  label="Group"
+                  options={groups}
+                  value={
+                    groups.find(
+                      (g) => g.acc_ledger_group_id === field.value
+                    ) ?? null
+                  }
+                  onChange={(option) =>
+                    field.onChange(option?.acc_ledger_group_id ?? undefined)
+                  }
+                  getOptionLabel={(g) => g.group_name}
+                  getOptionKey={(g) => g.acc_ledger_group_id}
+                  isOptionEqualToValue={(g, v) =>
+                    g.acc_ledger_group_id === v.acc_ledger_group_id
+                  }
+                  error={!!errors.acc_ledger_group_id}
+                  helperText={errors.acc_ledger_group_id?.message}
+                  textFieldProps={{
+                    margin: "dense",
+                    name: field.name,
+                    onBlur: field.onBlur,
+                    inputRef: field.ref,
+                  }}
+                />
               )}
             />
 
@@ -517,16 +534,27 @@ export default function LedgersPage() {
               name="ledger_type"
               control={control}
               render={({ field }) => (
-                <FormControl fullWidth margin="dense" error={!!errors.ledger_type}>
-                  <InputLabel>Ledger Type</InputLabel>
-                  <Select {...field} value={field.value ?? ""} label="Ledger Type">
-                    {LEDGER_TYPE_OPTIONS.map((o) => (
-                      <MenuItem key={o.value} value={o.value}>
-                        {o.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <SearchableSelect<LedgerTypeOption>
+                  variant="outlined"
+                  label="Ledger Type"
+                  options={LEDGER_TYPE_OPTIONS}
+                  value={
+                    LEDGER_TYPE_OPTIONS.find((o) => o.value === field.value) ??
+                    null
+                  }
+                  onChange={(option) => field.onChange(option?.value)}
+                  getOptionLabel={(o) => o.label}
+                  getOptionKey={(o) => o.value}
+                  isOptionEqualToValue={(o, v) => o.value === v.value}
+                  error={!!errors.ledger_type}
+                  helperText={errors.ledger_type?.message}
+                  textFieldProps={{
+                    margin: "dense",
+                    name: field.name,
+                    onBlur: field.onBlur,
+                    inputRef: field.ref,
+                  }}
+                />
               )}
             />
 
@@ -616,13 +644,29 @@ export default function LedgersPage() {
               name="opening_balance_type"
               control={control}
               render={({ field }) => (
-                <FormControl fullWidth margin="dense">
-                  <InputLabel>Balance Type</InputLabel>
-                  <Select {...field} value={field.value ?? "D"} label="Balance Type">
-                    <MenuItem value="D">Debit</MenuItem>
-                    <MenuItem value="C">Credit</MenuItem>
-                  </Select>
-                </FormControl>
+                <SearchableSelect<BalanceTypeOption>
+                  variant="outlined"
+                  label="Balance Type"
+                  options={BALANCE_TYPE_OPTIONS}
+                  value={
+                    BALANCE_TYPE_OPTIONS.find(
+                      (o) => o.value === (field.value ?? "D")
+                    ) ?? null
+                  }
+                  onChange={(option) => field.onChange(option?.value ?? "D")}
+                  getOptionLabel={(o) => o.label}
+                  getOptionKey={(o) => o.value}
+                  isOptionEqualToValue={(o, v) => o.value === v.value}
+                  clearable={false}
+                  error={!!errors.opening_balance_type}
+                  helperText={errors.opening_balance_type?.message}
+                  textFieldProps={{
+                    margin: "dense",
+                    name: field.name,
+                    onBlur: field.onBlur,
+                    inputRef: field.ref,
+                  }}
+                />
               )}
             />
           </DialogContent>

@@ -157,7 +157,11 @@ export default function SpreaderPage() {
 								type="date"
 								size="small"
 								value={entryDate}
-								onChange={(e) => setEntryDate(e.target.value)}
+								onChange={(e) => {
+									const v = e.target.value;
+									setEntryDate(v && v > todayISO() ? todayISO() : v);
+								}}
+								inputProps={{ max: todayISO() }}
 								InputLabelProps={{ shrink: true }}
 							/>
 						</Box>
@@ -189,7 +193,11 @@ export default function SpreaderPage() {
 								type="date"
 								size="small"
 								value={issueDate}
-								onChange={(e) => setIssueDate(e.target.value)}
+								onChange={(e) => {
+									const v = e.target.value;
+									setIssueDate(v && v > todayISO() ? todayISO() : v);
+								}}
+								inputProps={{ max: todayISO() }}
 								InputLabelProps={{ shrink: true }}
 							/>
 						</Box>

@@ -186,6 +186,7 @@ export default function DashboardPage() {
 
 ## Critical Rules
 
+- **Dropdowns are ALWAYS searchable** — use `SearchableSelect`/`SearchableMultiSelect` from `@/components/ui/SearchableSelect` with type-ahead autofill. NEVER emit a raw MUI `<Select>` + `<MenuItem>`, a `<TextField select>`, a native `<select>`, or the shadcn `Select` primitive. This holds for short lists too (Active/Inactive, Yes/No). Use `variant="outlined"` for labelled form fields and `variant="bare"` inside DataGrid cells. Never disable typing to make a field read-only — use `disabled`.
 - **NEVER use `any`** — type all API responses and widget data
 - **NEVER hardcode colors** — use `tokens` from `@/styles/tokens`
 - **Cleanup effects** — always use `cancelled` flag pattern in useEffect to prevent state updates on unmounted components

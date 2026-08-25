@@ -1,20 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  Autocomplete,
-  Box,
-  Button,
-  IconButton,
-  MenuItem,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Autocomplete, Box, Button, IconButton, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
 import { alpha, type Theme } from "@mui/material/styles";
 import { Plus, Trash2 } from "lucide-react";
 import type { YarnItemOption } from "@/utils/juteProductionPlanningService";
@@ -26,6 +13,7 @@ import type {
 import { YARN_SECTIONS } from "../utils/planningConstants";
 import { round1, saleDailyCommitment } from "../utils/planningCalc";
 import { CalcCell, NumCell, SectionHeader, TextCell, compactTableSx } from "./PlanningCells";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 
 export type YarnPlanSectionProps = {
   lines: readonly YarnLineUI[];
@@ -170,21 +158,17 @@ export default function YarnPlanSection({
             {clothLines.map((line) => (
               <TableRow key={line.uid} sx={rowSx(line.uid)}>
                 <TableCell>
-                  <TextField
-                    select
+                  <SearchableOptionSelect
                     size="small"
+                    options={YARN_SECTIONS.map((s) => ({ value: s, label: s }))}
                     value={line.section}
-                    onChange={(e) => onPatchLine(line.uid, { section: e.target.value as YarnSection })}
+                    onChange={(selectedValue) => onPatchLine(line.uid, { section: selectedValue as YarnSection })}
                     disabled={disabled || line.warp_weft != null}
-                    sx={{ width: 104 }}
-                    inputProps={{ style: { fontSize: "0.75rem", padding: "3px 6px" } }}
-                  >
-                    {YARN_SECTIONS.map((s) => (
-                      <MenuItem key={s} value={s}>
-                        {s}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                    sx={{
+                      width: 104,
+                      "& .MuiOutlinedInput-input": { fontSize: "0.75rem", padding: "3px 6px" },
+                    }}
+                  />
                 </TableCell>
                 <TableCell>{renderYarnCell(line)}</TableCell>
                 <TableCell>

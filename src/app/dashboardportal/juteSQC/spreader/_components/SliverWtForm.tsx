@@ -1,19 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-	Alert,
-	Autocomplete,
-	Box,
-	Button,
-	IconButton,
-	MenuItem,
-	Paper,
-	Snackbar,
-	TextField,
-	Tooltip,
-	Typography,
-} from "@mui/material";
+import { Alert, Autocomplete, Box, Button, IconButton, Paper, Snackbar, TextField, Tooltip, Typography } from "@mui/material";
 import { Plus as AddIcon, Trash2 as DeleteIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -26,6 +14,7 @@ import {
 } from "../types/sqcSpreaderTypes";
 import { computePreview } from "../utils/spreaderSliverCalc";
 
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type Props = {
 	coId: string;
 	branchId: number;
@@ -159,23 +148,15 @@ export default function SliverWtForm({ coId, branchId, entryDate, setup, onSaved
 					},
 				}}
 			>
-				<TextField
-					select
+				<SearchableOptionSelect
 					label="Spell (optional)"
-					value={spellId}
-					onChange={(e) => setSpellId(e.target.value === "" ? "" : Number(e.target.value))}
 					size="small"
 					fullWidth
-				>
-					<MenuItem value="">
-						<em>None</em>
-					</MenuItem>
-					{setup.spells.map((s) => (
-						<MenuItem key={s.spell_id} value={s.spell_id}>
-							{s.spell_name} ({s.spell_code})
-						</MenuItem>
-					))}
-				</TextField>
+					placeholder="None"
+					options={setup.spells.map((s) => ({ value: s.spell_id, label: `${s.spell_name} (${s.spell_code})` }))}
+					value={spellId}
+					onChange={(selectedValue) => setSpellId(selectedValue === "" ? "" : Number(selectedValue))}
+				/>
 				<Autocomplete
 					options={setup.machines}
 					getOptionLabel={(opt) =>

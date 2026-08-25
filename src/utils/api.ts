@@ -383,6 +383,7 @@ const apiRoutesPortalMasters = {
     JUTE_REPORT_MR_MOVEMENT_DETAIL: `${API_URL}/juteReports/mr-movement-detail`,
     JUTE_REPORT_MR_OPTIONS: `${API_URL}/juteReports/mr-options`,
     JUTE_REPORT_TALLY_DOWNLOAD: `${API_URL}/juteReports/tally-download`,
+    JUTE_REPORT_ISSUE_PLANNER: `${API_URL}/juteReports/issue-planner`,
     SALES_REPORT_JUTE_TALLY_DOWNLOAD: `${API_URL}/salesReports/jute-tally-download`,
     SALES_REPORT_JUTE_MR_SUMMARY: `${API_URL}/salesReports/jute-mr-summary`,
     SALES_REPORT_SALES_ORDER_LIST: `${API_URL}/salesReports/sales-order-list`,
@@ -1025,6 +1026,10 @@ const apiRoutesPortalMasters = {
     JUTE_PROD_DPR: `${API_URL}/juteProductionReports/daily_production_report`,
     WINDING_WEAVING_DIFFERENCE: `${API_URL}/juteProductionReports/winding_weaving_difference`,
     LOOM_CHECKLIST: `${API_URL}/juteProductionReports/loom_checklist`,
+    WINDING_CHECKLIST: `${API_URL}/juteProductionReports/winding_checklist`,
+    BEAMING_CHECKLIST: `${API_URL}/juteProductionReports/beaming_checklist`,
+    FINISHING_CHECKLIST: `${API_URL}/juteProductionReports/finishing_checklist`,
+    ATTENDANCE_CHECKLIST: `${API_URL}/juteProductionReports/attendance_checklist`,
     // Spinning standards master (router prefix /api/spngTargetMap) — *_EDIT/*_DELETE are base paths; caller appends /${id}
     SPNG_TARGET_MAP_SETUP: `${API_URL}/spngTargetMap/target_map_setup`,
     SPNG_TARGET_MAP_LIST: `${API_URL}/spngTargetMap/target_map_list`,

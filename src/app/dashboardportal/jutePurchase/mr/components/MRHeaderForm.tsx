@@ -1,13 +1,17 @@
 import * as React from "react";
-import { Card, CardContent, Grid, TextField, Typography, MenuItem, FormControl, InputLabel, Select, FormHelperText, Alert } from "@mui/material";
+import { Card, CardContent, Grid, TextField, Typography, Alert } from "@mui/material";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import type { JuteMRHeader, PartyBranchOption } from "../types/mrTypes";
+
+/** Party dropdown option shape supplied by the MR page. */
+type PartyOption = { value: string; label: string };
 
 type MRHeaderFormProps = {
 	header: JuteMRHeader;
 	mode: "edit" | "view";
 	onHeaderChange?: (field: keyof JuteMRHeader, value: string | number | null) => void;
 	/** Parties available for the MR's supplier; empty renders Party read-only */
-	partyOptions?: Array<{ value: string; label: string }>;
+	partyOptions?: PartyOption[];
 	partyBranchOptions?: PartyBranchOption[];
 	partyBranchLoading?: boolean;
 	/** True once party branches have been fetched (to distinguish empty from loading) */
@@ -28,6 +32,17 @@ export function MRHeaderForm({ header, mode, onHeaderChange, partyOptions = [], 
 	
 	// Check if party has no branches at all (after loading completed)
 	const partyHasNoBranches = Boolean(partyBranchesLoaded && !partyBranchLoading && header.party_id && partyBranchOptions.length === 0);
+
+	// Map the stored ids back to option objects for the searchable dropdowns.
+	const selectedParty = React.useMemo(
+		() => partyOptions.find((option) => option.value === String(header.party_id ?? "")) ?? null,
+		[partyOptions, header.party_id],
+	);
+
+	const selectedPartyBranch = React.useMemo(
+		() => partyBranchOptions.find((option) => option.party_mst_branch_id === header.party_branch_id) ?? null,
+		[partyBranchOptions, header.party_branch_id],
+	);
 
 	return (
 		<Card variant="outlined">
@@ -66,21 +81,17 @@ export function MRHeaderForm({ header, mode, onHeaderChange, partyOptions = [], 
 								InputProps={{ readOnly: true }}
 							/>
 						) : (
-							<FormControl fullWidth>
-								<InputLabel id="party-label">Party</InputLabel>
-								<Select
-									labelId="party-label"
-									label="Party"
-									value={header.party_id ?? ""}
-									onChange={(e) => onHeaderChange?.("party_id", e.target.value ? String(e.target.value) : null)}
-								>
-									{partyOptions.map((party) => (
-										<MenuItem key={party.value} value={party.value}>
-											{party.label}
-										</MenuItem>
-									))}
-								</Select>
-							</FormControl>
+							<SearchableSelect<PartyOption>
+								variant="outlined"
+								size="medium"
+								label="Party"
+								options={partyOptions}
+								value={selectedParty}
+								onChange={(option) => onHeaderChange?.("party_id", option ? option.value : null)}
+								getOptionLabel={(option) => option.label}
+								getOptionKey={(option) => option.value}
+								isOptionEqualToValue={(option, selected) => option.value === selected.value}
+							/>
 						)}
 					</Grid>
 					<Grid size={{ xs: 12, md: 4 }}>
@@ -94,23 +105,22 @@ export function MRHeaderForm({ header, mode, onHeaderChange, partyOptions = [], 
 								helperText={partyHasNoBranches ? "Please add a branch for this party" : undefined}
 							/>
 						) : (
-							<FormControl fullWidth error={!!partyBranchError}>
-								<InputLabel id="party-branch-label">Party Branch *</InputLabel>
-								<Select
-									labelId="party-branch-label"
-									label="Party Branch *"
-									value={header.party_branch_id ?? ""}
-									onChange={(e) => onHeaderChange?.("party_branch_id", e.target.value ? Number(e.target.value) : null)}
-									disabled={partyBranchLoading}
-								>
-									{partyBranchOptions.map((branch) => (
-										<MenuItem key={branch.party_mst_branch_id} value={branch.party_mst_branch_id}>
-											{branch.display}
-										</MenuItem>
-									))}
-								</Select>
-								{partyBranchError && <FormHelperText>Party Branch is required</FormHelperText>}
-							</FormControl>
+							<SearchableSelect<PartyBranchOption>
+								variant="outlined"
+								size="medium"
+								label="Party Branch"
+								required
+								error={!!partyBranchError}
+								helperText={partyBranchError ? "Party Branch is required" : undefined}
+								disabled={partyBranchLoading}
+								loading={partyBranchLoading}
+								options={partyBranchOptions}
+								value={selectedPartyBranch}
+								onChange={(option) => onHeaderChange?.("party_branch_id", option ? option.party_mst_branch_id : null)}
+								getOptionLabel={(option) => option.display}
+								getOptionKey={(option) => String(option.party_mst_branch_id)}
+								isOptionEqualToValue={(option, selected) => option.party_mst_branch_id === selected.party_mst_branch_id}
+							/>
 						)}
 					</Grid>
 					<Grid size={{ xs: 12, md: 4 }}>

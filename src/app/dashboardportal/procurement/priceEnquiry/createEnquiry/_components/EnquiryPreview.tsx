@@ -1,26 +1,10 @@
 "use client";
 
 import React from "react";
-import {
-	Box,
-	Button,
-	Dialog,
-	DialogActions,
-	DialogContent,
-	DialogTitle,
-	Divider,
-	MenuItem,
-	Stack,
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableRow,
-	TextField,
-	Typography,
-} from "@mui/material";
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@mui/material";
 import { Printer as PrinterIcon } from "lucide-react";
 import { openStyledPrintWindow } from "@/utils/printUtils";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import type {
 	EnquiryLineItem,
 	EnquirySupplierInfo,
@@ -107,22 +91,14 @@ export function EnquiryPreview({
 		<Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
 			<DialogTitle>Request for Quotation</DialogTitle>
 			<DialogContent dividers>
-				<TextField
-					select
-					size="small"
+				<SearchableOptionSelect
 					label="Address to"
+					size="small"
+					options={[{ value: ALL_SUPPLIERS, label: "All invited suppliers" }, ...suppliers.map((s) => ({ value: String(s.supplier_id), label: `${s.supp_name} ${s.supp_code ? ` (${s.supp_code})` : ""}` }))]}
 					value={supplierSel}
-					onChange={(e) => setSupplierSel(e.target.value)}
+					onChange={(selectedValue) => setSupplierSel(selectedValue)}
 					sx={{ mb: 2, minWidth: 280 }}
-				>
-					<MenuItem value={ALL_SUPPLIERS}>All invited suppliers</MenuItem>
-					{suppliers.map((s) => (
-						<MenuItem key={s.supplier_id} value={String(s.supplier_id)}>
-							{s.supp_name}
-							{s.supp_code ? ` (${s.supp_code})` : ""}
-						</MenuItem>
-					))}
-				</TextField>
+				/>
 
 				{/* Printable document */}
 				<Box
