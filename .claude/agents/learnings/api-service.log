@@ -1,0 +1,107 @@
+# api-service agent — learnings log
+
+## 2026-08-24 - Jute Mechanical & Maintenance Service Layer
+
+- **Route naming conflicts:** none. `MECH_` prefix was unused across all of `src/` before
+  this run (verified by grep). One near-collision worth knowing: `/api/mechMaster`
+  (machine master, `src/masters/mechineMaster.py`) already exists and is UNRELATED to
+  `/api/mechMaintMasters`. Also `MECH_PM_SCHEDULE_*` (checklist TEMPLATE master, router
+  `/api/mechMaintMasters`) vs `MECH_PM_*` (PM EXECUTIONS, router `/api/mechPM`) — two
+  different routers, near-identical key prefixes. Commented inline so nobody binds the
+  wrong one.
+- **Mapper edge cases:** no mapper file was needed — the backend already returns
+  display-name columns from its SQL (`dept_desc AS dept_name`, `machine_type_name`,
+  `component_name`), so the FE consumes rows directly. Null handling is in the TYPES
+  instead: every LEFT-JOINed display name is `string | null`, and `machine_attr_id` +
+  every attribute column on `MechMachineAttr` are nullable because that table endpoint
+  LEFT JOINs *from* `machine_mst` (machines with no attr row still appear).
+- **Shared utilities reused:** `fetchWithCookie` only. There is no shared `mapToOptions`
+  helper in `src/utils/` — each service defines its own local helpers. Followed
+  `inventoryReportService.ts` (camelCase param objects + `URLSearchParams`) and
+  `accountingService.ts` (`${ROUTE}/${id}` path-param append, `if (error) throw`).
+- **Backend response quirks:**
+  - `{ data, total }` on list/report endpoints; bare `{ data }` on setup/by-id/write.
+    Wrote `requestList` to tolerate a missing `total` (falls back to `data.length`).
+  - `machine_mst` has NO `co_id` and NO `branch_id`. `branch_id` everywhere is DERIVED
+    via `machine_mst -> dept_mst.branch_id` and is therefore nullable in every row type.
+  - `spell_mst` keys activity by `status = 1`, not `active = 1`.
+  - `dept_mst` and `sub_dept_mst` have NO `active` column at all.
+  - No approval workflow on this module — `status` is OPEN/UNDER_REPAIR/CLOSED (a repair
+    state), NOT the 21/1/20/3/4/6 document lifecycle. Do not wire ApprovalActionsBar.
+- **[FIELD-MAPPING]** backend -> UI, non-obvious ones:
+  - `dept_mst.dept_desc` -> `dept_name` (aliased in SQL, so the FE row key is `dept_name`)
+  - `sub_dept_mst.sub_dept_desc` -> `sub_dept_name`
+  - `machine_type_mst.machine_type_name` == the Excel workbook's "section"
+  - `mech_code` is the machine's short code on `machine_mst` (not a module prefix)
+  - PM detail rows snapshot `task_desc` from `jute_mech_pm_schedule` at execution time —
+    `pm_schedule_id` may be null for an ad-hoc task.
+- **[API-QUIRK]** Report paths on `/api/mechMaintReports` are KEBAB-CASE
+  (`/breakdown-register`, `/top-problem-machines`) while every other router in this module
+  is snake_case (`/entry_create`, `/pm_schedule_table`). That is the house reports
+  convention — do not "normalize" it.
+- **[API-QUIRK]** `date-machine-grid` does not return a plain row list: it returns
+  `{ data: [{tran_date, "<machine_id>": "RF/DRJ", ...}], columns: [{machine_id, machine_name}] }`
+  with DYNAMIC machine-id keys. Typed as `{ tran_date: string } & Record<string, unknown>`
+  and given its own non-generic fetch function.
+- **Assumptions to verify once the backend routers land** (`masters.py`,
+  `breakdown_entry.py`, `overhaul.py`, `pm.py`, `reports.py` did not exist at this run —
+  only `constants.py`, `models.py`, `masters_query.py` did):
+  1. Enum dropdowns (`disciplines`, `downtime_types`, `criticalities`, `pm_frequencies`,
+     `pm_results`, `overhaul_types`, `done_by_options`, `statuses`) are typed as
+     `{ value, label }[]`, the natural serialization of the `*_LABELS` dicts in
+     `constants.py`. If the backend emits bare string arrays instead, `MechEnumOption`
+     must change.
+  2. `top-problem-machines` is typed as one flat row list with a `rank_type`
+     (DOWNTIME|COUNT|REPEAT) discriminator, to fit the spec's uniform `{data, total}`
+     contract. If it instead returns three named arrays, retype it.
+- **What should change:** when the backend author writes `masters.py`, cross-check the two
+  assumptions above FIRST — they are the only guesses in the file. Also: this repo has no
+  shared `Option`/`mapToOptions` utility despite ~24 service files each rolling their own
+  dropdown shapes; extracting `src/utils/optionMappers.ts` would pay for itself.
+
+## 2026-08-24 (follow-up) - Jute Mechanical report types corrected against real routers
+
+The routers landed after the first pass. Both assumptions flagged last run were WRONG in
+ways worth remembering, and several row types I inferred from the spec disagreed with the
+handlers. Correcting at the source removed the need for `unknown` workarounds in pages.
+
+- **[LESSON — biggest one]** Do NOT type a report row from a spec document. The spec named
+  metrics in PROSE ("count, total duration, % share") and I turned that prose into
+  `breakdown_count / total_downtime_min / share_pct`. The handler actually emits
+  `count / total_duration / pct_share`. A spec describes intent; only the dict literal in
+  the handler is the contract. When a router does not exist yet, say the type is
+  PROVISIONAL in its JSDoc and re-verify — do not let it quietly become load-bearing.
+- **[API-QUIRK]** `/reason-pareto` is the ONLY report using `count` / `total_duration`;
+  every other report uses `breakdown_count` / `total_downtime_min`. Same concept, two
+  vocabularies, in one router. Never generalize a key name across these endpoints.
+- **[API-QUIRK]** Two endpoints return `data` as an OBJECT, not an array:
+  `/top-problem-machines` -> `{by_downtime, by_count, repeat_failures}` and
+  `/machine-history` -> `{machine, breakdowns, pm_executions, overhauls, spares}`.
+  A generic `requestList` helper that assumes `T[]` will hand callers an array type they
+  can `.map()` and crash on at runtime. Check EVERY endpoint's `return` before reusing a
+  list helper — a uniform-looking contract ("all reports return {data,total}") is not
+  uniform in practice.
+- **[API-QUIRK]** `/pm_checklist` likewise wraps: `{data: {machine_id, machine_name,
+  machine_type_id, branch_id, frequency, tasks: [...]}}`, not a bare task array.
+- **[API-QUIRK]** `/reason-trend` rows arrive ALREADY PIVOTED: one row per reason with
+  dynamic `<YYYY-MM>_count` / `<YYYY-MM>_duration` keys, and the ordered `months` array
+  lives at the top level of the response. Same dynamic-key pattern as `/date-machine-grid`.
+- **[API-QUIRK]** `/maintenance-due` emits ONE ROW PER DUE ITEM with a `due_type`
+  ('PM'|'OVERHAUL') discriminator — a machine with both due appears twice. I had modelled
+  PM and overhaul as side-by-side columns on one machine row, which cannot represent it.
+- **[FIELD-MAPPING]** `/department-summary`: `pct_of_mill_downtime` (not `share_pct`).
+  `/reliability`: `downtime_per_1000_running_hrs` (not `downtime_per_1000_hrs`).
+  `/spares-consumption`: split pairs `breakdown_qty|value`, `overhaul_qty|value`,
+  `total_qty|value`, `line_count` — there is no `qty`/`value`/`source`.
+- **[ENVELOPE]** Every report carries `summary` and most carry a top-level
+  `unattributed_pct` (the 'NR' share). A list helper that keeps only `{data,total}` DROPS
+  the module's headline safety metric and forces each page to re-derive it from the rows
+  currently on screen — i.e. from one page of data, which is wrong. Report envelopes now
+  preserve `summary` + `unattributed_pct`, plus per-report extras (`months`, `columns`,
+  `machine_cost`).
+- **Resolved from last run:** enum dropdowns as `{value,label}[]` — CORRECT, no change.
+  `top-problem-machines` as a flat list with a `rank_type` discriminator — WRONG, it is
+  three named lists.
+- **What should change:** when a service is written ahead of its backend, keep a checklist
+  of every inferred shape and re-verify each one the moment the routers exist, rather than
+  waiting for page authors to discover the drift and work around it downstream.
