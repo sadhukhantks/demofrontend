@@ -12,6 +12,13 @@ const surfaceDefault = "#FFFFFF";
 const surfaceMuted = "#F9FAFB";
 const surfaceDark = "#0A0A0A";
 
+// Navy used for report headings and report action buttons. It predates this file
+// and is currently repeated as a literal in ~68 places, including the shared
+// report kit (ReportPanel, StubReport). Exposed here so new code has a token to
+// reference; existing literals can migrate to it incrementally.
+const reportHeader = "#0C3C60";
+const reportHeaderHover = "#092D47";
+
 export const palette: Record<"light" | "dark", PaletteOptions> = {
   light: {
     mode: "light",
@@ -135,5 +142,9 @@ export const tokens = {
     default: surfaceDefault,
     muted: surfaceMuted,
     dark: surfaceDark,
+  },
+  report: {
+    header: reportHeader,
+    headerHover: reportHeaderHover,
   },
 };
