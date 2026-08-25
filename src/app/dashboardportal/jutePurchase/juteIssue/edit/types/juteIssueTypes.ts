@@ -81,6 +81,8 @@ export type JuteIssueLineItem = {
   waste_date?: string | null;
   jute_mr_id: number | null;
   jute_gate_entry_no?: number | null;
+  /** Formatted gate entry number, e.g. "LCPL/JGE/25-26/00393" — MR rows only. */
+  gate_entry_num?: string | null;
   branch_mr_no: number | null;
   mr_num?: string | null;
   item_grp_id?: number;
@@ -125,6 +127,8 @@ export type EditableLineItem = {
   status_id?: number; // Item-level status for approval workflow
   // Display fields (from stock outstanding)
   jute_gate_entry_no?: number | null;
+  /** Formatted gate entry number, e.g. "LCPL/JGE/25-26/00393" — MR rows only. */
+  gate_entry_num?: string | null;
   branch_mr_no?: number | null;
   mr_num?: string | null;
   dept_name?: string | null;

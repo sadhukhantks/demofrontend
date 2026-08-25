@@ -40,7 +40,9 @@ export const useSalesOrderHeaderSchema = ({
 				disabled: mode !== "create",
 				grid: { xs: 12, md: 4 },
 			},
-			{ name: "date", label: "Order Date", type: "date", required: true, disabled: mode === "view", grid: { xs: 12, md: 4 } },
+			// headerFieldsDisabled also covers the approved (rate-only) edit, where an
+			// editable date would be silently dropped by the rate-only save.
+			{ name: "date", label: "Order Date", type: "date", required: true, disabled: mode === "view" || headerFieldsDisabled, grid: { xs: 12, md: 4 } },
 			{ name: "invoice_type", label: "Invoice Type", type: "select", options: invoiceTypeOptions, disabled: headerFieldsDisabled || invoiceTypeLocked, grid: { xs: 12, md: 4 } },
 			{ name: "expiry_date", label: "Expiry Date", type: "date", disabled: headerFieldsDisabled, grid: { xs: 12, md: 4 } },
 			{

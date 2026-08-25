@@ -72,6 +72,7 @@ import {
 	EMPTY_TRANSPORTERS,
 	isHessianOrder,
 	isGovtSkgOrder,
+	SO_STATUS_IDS,
 } from "./utils/salesOrderConstants";
 import { computeGovtskgTransportCharges, mergeTransportCharges } from "../../utils/govtskgTransportCharges";
 import { computeSalesOrderTotals } from "./utils/salesOrderTotals";
@@ -144,6 +145,14 @@ function SalesOrderTransactionPageContent() {
 	const [pageError, setPageError] = React.useState<string | null>(null);
 	const [additionalCharges, setAdditionalCharges] = React.useState<AdditionalChargeRow[]>([]);
 
+	// An approved order opened with mode=edit is frozen: the only thing that may
+	// still move is the rate, and only for Govt Sacking (see rateOnlyEdit below).
+	const isApprovedEdit = React.useMemo(() => {
+		if (mode !== "edit" || !soDetails) return false;
+		if (soDetails.statusId != null) return Number(soDetails.statusId) === SO_STATUS_IDS.APPROVED;
+		return String(soDetails.status ?? "").toLowerCase() === "approved";
+	}, [mode, soDetails]);
+
 	// Branch value resolution
 	const branchValue = React.useMemo(() => {
 		if (lockedBranchId) return lockedBranchId;
@@ -204,9 +213,10 @@ function SalesOrderTransactionPageContent() {
 
 	const headerFieldsDisabled = React.useMemo(() => {
 		if (mode === "view") return true;
-		if (mode === "edit") return false;
+		// Approved orders stay frozen even in edit mode — only line rates may change.
+		if (mode === "edit") return isApprovedEdit;
 		return !branchIdForSetup;
-	}, [mode, branchIdForSetup]);
+	}, [mode, branchIdForSetup, isApprovedEdit]);
 
 	// Extract setup data
 	const customers = setupData?.customers ?? EMPTY_CUSTOMERS;
@@ -291,6 +301,10 @@ function SalesOrderTransactionPageContent() {
 		return found?.typeCode ?? "";
 	}, [formValues.invoice_type, invoiceTypes]);
 
+	// Govt Sacking rates are notified after approval, so an approved Govt Sacking
+	// order reopens for a rate-only edit. Every other invoice type stays locked.
+	const rateOnlyEdit = isApprovedEdit && isGovtSkgOrder(invoiceTypeCode);
+
 	// Lock invoice type dropdown when type-specific header fields have data
 	const hasTypeSpecificHeaderData = React.useMemo(() => {
 		const v = formValues;
@@ -366,6 +380,7 @@ function SalesOrderTransactionPageContent() {
 		itemGroups,
 		invoiceTypeCode,
 		brokeragePercent: formValues.broker_commission_percent ? Number(formValues.broker_commission_percent) : undefined,
+		rateOnly: rateOnlyEdit,
 	});
 
 	// Unsaved changes detection for unified action bar
@@ -731,6 +746,7 @@ function SalesOrderTransactionPageContent() {
 
 	const lineItemColumns = useSalesOrderLineItemColumns({
 		canEdit,
+		rateOnly: rateOnlyEdit,
 		invoiceTypeCode,
 		itemGroupOptions,
 		itemGroupLoading,
@@ -905,6 +921,7 @@ function SalesOrderTransactionPageContent() {
 	const {
 		saving,
 		handleFormSubmit,
+		handleRateOnlySubmit,
 	} = useSalesOrderFormSubmission({
 		mode,
 		pageError,
@@ -915,6 +932,7 @@ function SalesOrderTransactionPageContent() {
 		formValues,
 		invoiceTypeCode,
 		salesEnquiryId,
+		orderTotals: totals,
 	});
 
 	// Prefill customer/branch from the source enquiry (direct/tender path) and
@@ -973,6 +991,18 @@ function SalesOrderTransactionPageContent() {
 		// No SO details yet (still loading)
 		if (!soDetails) return undefined;
 
+		// Approved Govt Sacking order → rate-only save (no full update)
+		if (rateOnlyEdit && hasUnsavedChanges) {
+			return [
+				{
+					label: "Save Rates",
+					onClick: () => { void handleRateOnlySubmit(); },
+					disabled: saving || !lineItemsValid || setupLoading,
+					loading: saving,
+				},
+			];
+		}
+
 		// Edit mode with unsaved changes → Save button
 		if (mode === "edit" && approvalPermissions.canSave && hasUnsavedChanges) {
 			return [
@@ -1006,6 +1036,7 @@ function SalesOrderTransactionPageContent() {
 	}, [
 		mode, pageError, setupError, saving, lineItemsValid, setupLoading,
 		formRef, soDetails, approvalPermissions, hasUnsavedChanges,
+		rateOnlyEdit, handleRateOnlySubmit,
 		approvalInfo, approvalLoading, loading,
 		handleOpen, handleCancelDraft, handleReopen, handleSendForApproval,
 		handleApprove, openRejectDialog, handleViewApprovalLog,
@@ -1080,8 +1111,10 @@ function SalesOrderTransactionPageContent() {
 				columns: lineItemColumns,
 				placeholder: "Add line items to the sales order",
 				selectionColumnWidth: "28px",
-				onRemoveSelected: canEdit ? removeLineItems : undefined,
-				headerAction: canEdit ? (
+				// Approved edit: lines may not be added or removed, only re-rated.
+				selectable: !isApprovedEdit,
+				onRemoveSelected: canEdit && !isApprovedEdit ? removeLineItems : undefined,
+				headerAction: canEdit && !isApprovedEdit ? (
 					<Button
 						type="button"
 						size="sm"
@@ -1098,7 +1131,7 @@ function SalesOrderTransactionPageContent() {
 							charges={additionalCharges}
 							chargeOptions={chargeOptions}
 							onChange={setAdditionalCharges}
-							disabled={mode === "view"}
+							disabled={mode === "view" || isApprovedEdit}
 							billingToState={billingToState}
 							shippingToState={shippingToState}
 							indiaGst={Boolean(coConfig?.india_gst)}
@@ -1120,7 +1153,7 @@ function SalesOrderTransactionPageContent() {
 								size="small"
 								value={String(formValues.footer_note ?? "")}
 								onChange={(e) => setFormValues((prev) => ({ ...prev, footer_note: e.target.value }))}
-								disabled={mode === "view"}
+								disabled={mode === "view" || isApprovedEdit}
 							/>
 							<TextField
 								label="Internal Note"
@@ -1130,7 +1163,7 @@ function SalesOrderTransactionPageContent() {
 								size="small"
 								value={String(formValues.internal_note ?? "")}
 								onChange={(e) => setFormValues((prev) => ({ ...prev, internal_note: e.target.value }))}
-								disabled={mode === "view"}
+								disabled={mode === "view" || isApprovedEdit}
 							/>
 							<TextField
 								label="Terms and Conditions"
@@ -1140,7 +1173,7 @@ function SalesOrderTransactionPageContent() {
 								size="small"
 								value={String(formValues.terms_conditions ?? "")}
 								onChange={(e) => setFormValues((prev) => ({ ...prev, terms_conditions: e.target.value }))}
-								disabled={mode === "view"}
+								disabled={mode === "view" || isApprovedEdit}
 							/>
 						</div>
 					</div>
@@ -1152,9 +1185,11 @@ function SalesOrderTransactionPageContent() {
 				initialValues={initialValues}
 				mode={mode}
 				formRef={formRef}
-				onSubmit={handleFormSubmitWithNotes}
+				// An approved Govt Sacking order must never reach the full-update
+				// endpoint, whichever way the form gets submitted.
+				onSubmit={rateOnlyEdit ? handleRateOnlySubmit : handleFormSubmitWithNotes}
 				onValuesChange={handleFormValuesChange}
-				showQuotationButton={quotationRequired && mode !== "view"}
+				showQuotationButton={quotationRequired && mode !== "view" && !isApprovedEdit}
 				onQuotationSelect={handleQuotationSelect}
 				quotationButtonDisabled={!isMounted || !formValues.quotation}
 				govtskgSchema={govtskgSchema}

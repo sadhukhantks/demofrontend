@@ -8,6 +8,11 @@ import { isHessianOrder, isGovtSkgOrder, isJuteOrder, isJuteYarnOrder } from "..
 
 type UseSalesOrderLineItemColumnsParams = {
 	canEdit: boolean;
+	/**
+	 * Post-approval Govt Sacking edit: the rate cell stays editable, every other
+	 * cell renders read-only.
+	 */
+	rateOnly?: boolean;
 	invoiceTypeCode?: string;
 	itemGroupOptions: Option[];
 	itemGroupLoading: Partial<Record<string, boolean>>;
@@ -22,6 +27,7 @@ type UseSalesOrderLineItemColumnsParams = {
 
 export const useSalesOrderLineItemColumns = ({
 	canEdit,
+	rateOnly = false,
 	invoiceTypeCode,
 	itemGroupOptions,
 	itemGroupLoading,
@@ -32,8 +38,10 @@ export const useSalesOrderLineItemColumns = ({
 	getItemGroupLabel,
 	getItemFullCode,
 	handleLineFieldChange,
-}: UseSalesOrderLineItemColumnsParams): TransactionLineColumn<EditableLineItem>[] =>
-	React.useMemo(
+}: UseSalesOrderLineItemColumnsParams): TransactionLineColumn<EditableLineItem>[] => {
+	// Every column except "rate" honours this; the rate column keeps using canEdit.
+	const canEditField = canEdit && !rateOnly;
+	return React.useMemo(
 		() => [
 			{
 				id: "itemCode",
@@ -69,7 +77,7 @@ export const useSalesOrderLineItemColumns = ({
 				renderCell: ({ item }) => {
 					const options = getMakeOptions(item.itemGroup);
 					const label = options.find((o) => o.value === item.itemMake)?.label ?? item.itemMake ?? "-";
-					if (!canEdit) {
+					if (!canEditField) {
 						return <span className="block truncate text-sm">{label}</span>;
 					}
 					const value = options.find((o) => o.value === item.itemMake) ?? null;
@@ -118,7 +126,7 @@ export const useSalesOrderLineItemColumns = ({
 						: displayValue;
 					const annotation = mtAnnotation || govtSkgAnnotation;
 
-					if (canEdit) {
+					if (canEditField) {
 						return (
 							<div className="flex flex-col gap-0.5">
 								<Input
@@ -168,7 +176,7 @@ export const useSalesOrderLineItemColumns = ({
 				renderCell: ({ item }) => {
 					const options = getUomOptions(item.itemGroup, item.item);
 					const label = options.find((o) => o.value === item.uom)?.label ?? item.uom ?? "-";
-					if (!canEdit) {
+					if (!canEditField) {
 						return <span className="block truncate text-sm">{label || "-"}</span>;
 					}
 					const value = options.find((o) => o.value === item.uom) ?? null;
@@ -378,7 +386,7 @@ export const useSalesOrderLineItemColumns = ({
 				width: "1fr",
 				minWidth: "100px",
 				renderCell: ({ item }) =>
-					canEdit ? (
+					canEditField ? (
 						<Input
 							type="text"
 							value={item.remarks}
@@ -397,7 +405,7 @@ export const useSalesOrderLineItemColumns = ({
 					width: "0.7fr",
 					minWidth: "80px",
 					renderCell: ({ item }: { item: EditableLineItem }) =>
-						canEdit ? (
+						canEditField ? (
 							<Input
 								type="text"
 								value={item.juteClaimRate ?? ""}
@@ -415,7 +423,7 @@ export const useSalesOrderLineItemColumns = ({
 					width: "0.7fr",
 					minWidth: "80px",
 					renderCell: ({ item }: { item: EditableLineItem }) =>
-						canEdit ? (
+						canEditField ? (
 							<Input
 								type="text"
 								value={item.juteClaimAmountDtl ?? ""}
@@ -433,7 +441,7 @@ export const useSalesOrderLineItemColumns = ({
 					width: "1fr",
 					minWidth: "100px",
 					renderCell: ({ item }: { item: EditableLineItem }) =>
-						canEdit ? (
+						canEditField ? (
 							<Input
 								type="text"
 								value={item.juteClaimDesc ?? ""}
@@ -451,7 +459,7 @@ export const useSalesOrderLineItemColumns = ({
 					width: "0.7fr",
 					minWidth: "80px",
 					renderCell: ({ item }: { item: EditableLineItem }) =>
-						canEdit ? (
+						canEditField ? (
 							<Input
 								type="text"
 								value={item.juteUnitConversion ?? ""}
@@ -469,7 +477,7 @@ export const useSalesOrderLineItemColumns = ({
 					width: "0.7fr",
 					minWidth: "80px",
 					renderCell: ({ item }: { item: EditableLineItem }) =>
-						canEdit ? (
+						canEditField ? (
 							<Input
 								type="text"
 								value={item.juteQtyUnitConversion ?? ""}
@@ -483,5 +491,6 @@ export const useSalesOrderLineItemColumns = ({
 				},
 			] as TransactionLineColumn<EditableLineItem>[] : []),
 		],
-		[canEdit, invoiceTypeCode, itemGroupOptions, itemGroupLoading, getItemOptions, getMakeOptions, getUomOptions, getUomConversions, getItemGroupLabel, getItemFullCode, handleLineFieldChange],
+		[canEdit, canEditField, invoiceTypeCode, itemGroupOptions, itemGroupLoading, getItemOptions, getMakeOptions, getUomOptions, getUomConversions, getItemGroupLabel, getItemFullCode, handleLineFieldChange],
 	);
+};

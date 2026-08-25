@@ -34,6 +34,10 @@ interface ReportGridProps<T extends GridValidRowModel> {
   /** Row drill-down. Never fired for total rows — they have no detail behind
    * them. When set, data rows get a pointer cursor to advertise it. */
   onRowDoubleClick?: (row: T) => void;
+  /** Extra class for data rows (total rows keep their own class). The shared
+   * styles ship two: "report-perf-low" (red tint) and "report-perf-watch"
+   * (amber tint) for performance-highlight reports. */
+  getRowClass?: (row: T) => string;
 }
 
 const TOTAL_ROW_RE = /^(grand\s+total|total|opening\s+balance|closing)$/i;
@@ -85,6 +89,7 @@ export default function ReportGrid<T extends GridValidRowModel>({
   sortDir = "asc",
   isTotalRow = isReportTotalRow,
   onRowDoubleClick,
+  getRowClass,
 }: ReportGridProps<T>) {
   // Same content-width + hover-tooltip treatment the list grids get. While no branch
   // is selected the previous branch's rows may still be held, so don't size from them.
@@ -153,7 +158,7 @@ export default function ReportGrid<T extends GridValidRowModel>({
               : undefined
           }
           getRowClassName={(params) => {
-            if (!isTotalRow(params.row)) return "";
+            if (!isTotalRow(params.row)) return getRowClass?.(params.row as T) ?? "";
             const level =
               reportTotalLevel(params.row, String(columns[0]?.field ?? "")) ??
               "grand";
@@ -220,6 +225,15 @@ export default function ReportGrid<T extends GridValidRowModel>({
               fontWeight: 700,
               borderRightColor: "rgba(12,60,96,0.2)",
             },
+            // Performance-highlight tints (see getRowClass).
+            "& .report-perf-low, & .report-perf-low:hover, & .report-perf-low.Mui-hovered":
+              {
+                backgroundColor: "#fdecea",
+              },
+            "& .report-perf-watch, & .report-perf-watch:hover, & .report-perf-watch.Mui-hovered":
+              {
+                backgroundColor: "#fff8e1",
+              },
           }}
         />
       </Box>

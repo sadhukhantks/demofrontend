@@ -522,6 +522,7 @@ const apiRoutesPortalMasters = {
     ITEM_MONTHWISE_REPORT: `${API_URL}/inventoryReports/item-monthwise`,
     ISSUE_CONSUMPTION_REPORT: `${API_URL}/inventoryReports/issue-consumption`,
     ISSUE_MACHINEWISE_REPORT: `${API_URL}/inventoryReports/issue-machinewise`,
+    SR_EXCEPTION_REPORT: `${API_URL}/inventoryReports/sr-exception`,
 
     // Sales Enquiry endpoints (AMCL enquiry flow Phase 1)
     SALES_ENQUIRY_TABLE: `${API_URL}/salesEnquiry/get_enquiry_table`,
@@ -618,6 +619,8 @@ const apiRoutesPortalMasters = {
     SALES_ORDER_QUOTATION_LINES: `${API_URL}/salesOrder/get_quotation_lines`,
     SALES_ORDER_CREATE: `${API_URL}/salesOrder/create_sales_order`,
     SALES_ORDER_UPDATE: `${API_URL}/salesOrder/update_sales_order`,
+    // Post-approval rate edit — Govt Sacking orders only (backend enforces both).
+    SALES_ORDER_UPDATE_RATES: `${API_URL}/salesOrder/update_sales_order_rates`,
     SALES_ORDER_OPEN: `${API_URL}/salesOrder/open_sales_order`,
     SALES_ORDER_CANCEL_DRAFT: `${API_URL}/salesOrder/cancel_draft_sales_order`,
     SALES_ORDER_SEND_FOR_APPROVAL: `${API_URL}/salesOrder/send_sales_order_for_approval`,
@@ -1030,6 +1033,12 @@ const apiRoutesPortalMasters = {
     BEAMING_CHECKLIST: `${API_URL}/juteProductionReports/beaming_checklist`,
     FINISHING_CHECKLIST: `${API_URL}/juteProductionReports/finishing_checklist`,
     ATTENDANCE_CHECKLIST: `${API_URL}/juteProductionReports/attendance_checklist`,
+    // MIS port — low producer / doff / hands reports
+    JP_WEAVING_LOW_PRODUCER: `${API_URL}/juteProductionReports/weaving_low_producer`,
+    JP_SPINNING_LOW_PRODUCER: `${API_URL}/juteProductionReports/spinning_low_producer`,
+    JP_WINDING_LOW_PRODUCER: `${API_URL}/juteProductionReports/winding_low_producer`,
+    JP_DOFF_ANALYSIS: `${API_URL}/juteProductionReports/doff_analysis`,
+    JP_HANDS_REPORT: `${API_URL}/juteProductionReports/hands_report`,
     // Spinning standards master (router prefix /api/spngTargetMap) — *_EDIT/*_DELETE are base paths; caller appends /${id}
     SPNG_TARGET_MAP_SETUP: `${API_URL}/spngTargetMap/target_map_setup`,
     SPNG_TARGET_MAP_LIST: `${API_URL}/spngTargetMap/target_map_list`,
@@ -1257,6 +1266,8 @@ const apiRoutesPortalMasters = {
     FINISHING_PROD_ENTRY_DELETE: `${API_URL}/finishingProd/entry_delete`,
     // Labour processes (sacksewing): resolve emp_code -> eb_id + name, branch-scoped.
     FINISHING_PROD_EMPLOYEE_LOOKUP: `${API_URL}/finishingProd/employee_lookup`,
+    // hemming/herackle: stamp eb_id onto the day+spell's rows from attendance.
+    FINISHING_PROD_ENTRY_SYNC_EB: `${API_URL}/finishingProd/entry_sync_eb`,
     // Finishing SQC — ACTUALS ONLY (router prefix /api/juteSQC, shared with Spinning/Beaming SQC).
     // Proxies to finishingTargetMap with value_role='actual'.
     FINISHING_SQC_SETUP: `${API_URL}/juteSQC/finishing_sqc_setup`,

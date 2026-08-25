@@ -55,3 +55,20 @@ export const isHessianOrder = (typeCode?: string | null): boolean => typeCode ==
 export const isJuteYarnOrder = (typeCode?: string | null): boolean => typeCode === "jute_yarn";
 export const isJuteOrder = (typeCode?: string | null): boolean => typeCode === "jute";
 export const isGovtSkgOrder = (typeCode?: string | null): boolean => typeCode === "govt_skg";
+
+/**
+ * List-row edit rule: approved orders are frozen — except Govt Sacking, whose
+ * rates the government notifies after approval, so those reopen for a rate-only
+ * edit (enforced by the create page and by the backend).
+ *
+ * When the row carries no invoice type name we cannot tell, so we keep the old
+ * "approved = locked" behaviour.
+ */
+export const isSalesOrderRowEditable = (row: {
+	status_id?: number | null;
+	invoice_type_name?: string | null;
+}): boolean => {
+	if (Number(row.status_id) !== SO_STATUS_IDS.APPROVED) return true;
+	const name = row.invoice_type_name?.trim();
+	return Boolean(name) && isGovtSkgOrder(resolveInvoiceTypeCode(name as string));
+};

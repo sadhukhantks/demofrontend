@@ -20,20 +20,26 @@ export function useReportBranches(): {
   const searchParams = useSearchParams();
   const { selectedCompany, selectedBranches } = useSidebarContext();
 
-  const branches: BranchOption[] = useMemo(
-    () =>
-      (selectedCompany?.branches ?? []).map((b) => ({
-        branch_id: b.branch_id,
-        branch_name: b.branch_name,
-      })),
-    [selectedCompany?.branches],
-  );
+  const branches: BranchOption[] = useMemo(() => {
+    const all = (selectedCompany?.branches ?? []).map((b) => ({
+      branch_id: b.branch_id,
+      branch_name: b.branch_name,
+    }));
+    // Norm: report pages follow the sidebar's branch scope — when the user has
+    // narrowed the sidebar to specific branches, only those are offered here.
+    // Pages should render a branch picker only when branches.length > 1.
+    const scoped = selectedBranches.length
+      ? all.filter((b) => selectedBranches.includes(b.branch_id))
+      : all;
+    return scoped.length ? scoped : all;
+  }, [selectedCompany?.branches, selectedBranches]);
 
   const urlBranch = searchParams.get("branch_id");
   const parsedUrlBranch = urlBranch ? Number(urlBranch) : null;
   const initialBranchId = Number.isFinite(parsedUrlBranch as number)
     ? (parsedUrlBranch as number)
-    : (selectedBranches[0] ?? null);
+    : (selectedBranches[0] ??
+      (branches.length === 1 ? branches[0].branch_id : null));
 
   return {
     branches,

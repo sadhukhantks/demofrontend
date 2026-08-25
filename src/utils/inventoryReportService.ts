@@ -352,6 +352,41 @@ export async function fetchIssueMachinewise(p: {
   return result.data.data;
 }
 
+/** Row from GET /inventoryReports/sr-exception (SRs with negative stock). */
+export interface SrExceptionRow {
+  inward_dtl_id: number;
+  sr_no: string | null;
+  inward_date: string | null;
+  branch_name: string | null;
+  item_code: string | null;
+  item_name: string | null;
+  item_grp_name: string | null;
+  uom_name: string | null;
+  received_qty: number;
+  issued_qty: number;
+  /** Qty returned to the supplier on an approved debit note. */
+  return_qty: number;
+  /** received - issued - returned; always negative on this report. */
+  balance_qty: number;
+}
+
+/** SR exception report: SR lines where issues + returns exceed the receipt. */
+export async function fetchSrExceptionReport(p: {
+  coId: number;
+  branchId?: number | null;
+  search?: string;
+}): Promise<SrExceptionRow[]> {
+  const qs = new URLSearchParams({ co_id: String(p.coId) });
+  if (p.branchId != null) qs.set("branch_id", String(p.branchId));
+  if (p.search) qs.set("search", p.search);
+  const url = `${apiRoutesPortalMasters.SR_EXCEPTION_REPORT}?${qs.toString()}`;
+  const result = await fetchWithCookie<{ data: SrExceptionRow[] }>(url);
+  if (result.error || !result.data) {
+    throw new Error(result.error ?? "Failed to fetch SR exception report");
+  }
+  return result.data.data;
+}
+
 /** Minimal item shape for the ledger's item picker. */
 export interface ItemOption {
   item_id: number;
