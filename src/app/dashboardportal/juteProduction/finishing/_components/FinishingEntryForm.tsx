@@ -64,6 +64,10 @@ export default function FinishingEntryForm({
 	const editing = editingEntry != null;
 	// Labour process (sacksewing): keyed by a worker (emp_code -> eb_id), no machine.
 	const usesEmployee = config.usesEmployee === true;
+	// hemming/herackle: machine AND/OR worker — both fields shown, at least one required.
+	// The EB field stays editable while editing so sync-ambiguous rows can be completed by hand.
+	const allowsEmployee = config.allowsEmployee === true;
+	const showEmpField = usesEmployee || allowsEmployee;
 
 	const {
 		control,
@@ -79,6 +83,7 @@ export default function FinishingEntryForm({
 	});
 
 	const [error, setError] = React.useState<string | null>(null);
+	const [warning, setWarning] = React.useState<string | null>(null);
 	const [snack, setSnack] = React.useState<string | null>(null);
 	// Resolved worker display ("emp_code first middle last") + lookup spinner state.
 	const [empName, setEmpName] = React.useState<string | null>(null);
@@ -86,15 +91,16 @@ export default function FinishingEntryForm({
 
 	// Resolve an emp_code to its worker (eb_id), branch-scoped. Clears the resolved
 	// eb_id/name first so a stale id can't be saved if the new code is invalid.
-	const lookupEmployee = async (rawCode: string) => {
+	// Returns the resolved eb_id (as a string) so submit can await it inline.
+	const lookupEmployee = async (rawCode: string): Promise<string | null> => {
 		const code = rawCode.trim();
 		setError(null);
 		setEmpName(null);
 		setValue("ebId", "");
-		if (!code) return;
+		if (!code) return null;
 		if (branchId == null) {
 			setError("Select a branch first.");
-			return;
+			return null;
 		}
 		setEmpLoading(true);
 		const url = `${apiRoutesPortalMasters.FINISHING_PROD_EMPLOYEE_LOOKUP}?co_id=${coId}&branch_id=${branchId}&emp_code=${encodeURIComponent(code)}`;
@@ -105,15 +111,16 @@ export default function FinishingEntryForm({
 		setEmpLoading(false);
 		if (err) {
 			setError(err);
-			return;
+			return null;
 		}
 		const res = data?.data ?? null;
 		if (!res) {
 			setError("Emp code not found");
-			return;
+			return null;
 		}
 		setValue("ebId", String(res.eb_id));
 		setEmpName(res.employee_name);
+		return String(res.eb_id);
 	};
 
 	// Keep the hidden spellId field in sync with the shared spell selector.
@@ -146,6 +153,7 @@ export default function FinishingEntryForm({
 
 	const onSubmit = async (values: FinishingFormValues) => {
 		setError(null);
+		setWarning(null);
 		if (!date) {
 			setError("Select a date.");
 			return;
@@ -155,6 +163,16 @@ export default function FinishingEntryForm({
 		if (resolvedSpellId == null) {
 			setError("Select a spell.");
 			return;
+		}
+
+		// Blur-then-save race: clicking Save fires the field's blur, which clears
+		// ebId and re-resolves it asynchronously — so a perfectly valid typed code
+		// reaches submit unresolved. Resolve it inline and only reject if the
+		// lookup itself fails (it surfaces the reason).
+		let ebId = values.ebId;
+		if (values.empCode.trim() && !ebId) {
+			ebId = (await lookupEmployee(values.empCode)) ?? "";
+			if (!ebId) return;
 		}
 
 		const body: FinishingEntrySaveBody = {
@@ -168,11 +186,18 @@ export default function FinishingEntryForm({
 			prod_uom: config.prodUom,
 		};
 		if (usesEmployee) {
-			if (!values.ebId) {
+			if (!ebId) {
 				setError("Enter a valid emp code (look it up first).");
 				return;
 			}
-			body.eb_id = Number(values.ebId);
+			body.eb_id = Number(ebId);
+		} else if (allowsEmployee) {
+			if (!values.machineId && !ebId) {
+				setError("Select a machine or enter an EB no.");
+				return;
+			}
+			body.machine_id = values.machineId ? Number(values.machineId) : null;
+			body.eb_id = ebId ? Number(ebId) : null;
 		} else {
 			if (!values.machineId) {
 				setError("Select a machine.");
@@ -180,6 +205,8 @@ export default function FinishingEntryForm({
 			}
 			body.machine_id = Number(values.machineId);
 		}
+		// In-place edit: name the exact row so the BE updates rather than upserts.
+		if (editingEntry) body.entry_id = editingEntry.finishing_daily_id;
 
 		const { data, error: err } = await fetchWithCookie<{ data: FinishingSaveResult }>(
 			apiRoutesPortalMasters.FINISHING_PROD_ENTRY_SAVE,
@@ -191,6 +218,8 @@ export default function FinishingEntryForm({
 			return;
 		}
 		const result = data?.data ?? null;
+		// Non-blocking BE advisory (e.g. an EB-stamped sibling row already exists).
+		setWarning(result?.warning ?? null);
 		setSnack(
 			editing
 				? `Updated ${config.title} entry #${result?.finishing_daily_id}`
@@ -232,42 +261,9 @@ export default function FinishingEntryForm({
 					},
 				}}
 			>
-				{/* Worker (labour processes — sacksewing) OR Machine (all others) */}
-				{usesEmployee ? (
-					<Controller
-						control={control}
-						name="empCode"
-						render={({ field }) => (
-							<Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
-								<TextField
-									label="Emp Code"
-									value={field.value}
-									onChange={(e) => {
-										field.onChange(e.target.value);
-										setEmpName(null);
-										setValue("ebId", "");
-									}}
-									onBlur={() => lookupEmployee(field.value)}
-									size="small"
-									fullWidth
-									disabled={editing}
-									error={!!errors.empCode}
-									helperText={empName ?? "Enter emp code, then Tab or Find"}
-								/>
-								<Button
-									type="button"
-									variant="outlined"
-									size="small"
-									onClick={() => lookupEmployee(field.value)}
-									disabled={editing || empLoading}
-									sx={{ minHeight: 40 }}
-								>
-									Find
-								</Button>
-							</Box>
-						)}
-					/>
-				) : (
+				{/* Machine — every process except the labour-only one (sacksewing).
+				    Optional (but not hidden) on the machine-and/or-worker processes. */}
+				{usesEmployee ? null : (
 					<Controller
 						control={control}
 						name="machineId"
@@ -289,15 +285,56 @@ export default function FinishingEntryForm({
 								renderInput={(params) => (
 									<TextField
 										{...params}
-										label="Machine"
+										label={allowsEmployee ? "Machine (optional)" : "Machine"}
 										error={!!errors.machineId}
-										helperText={errors.machineId?.message}
+										helperText={
+											errors.machineId?.message ??
+											(allowsEmployee ? "Machine and/or EB no." : undefined)
+										}
 									/>
 								)}
 							/>
 						)}
 					/>
 				)}
+
+				{/* Worker — labour process (sacksewing) and the machine-and/or-worker
+				    processes (hemming/herackle), where it stays editable while editing. */}
+				{showEmpField ? (
+					<Controller
+						control={control}
+						name="empCode"
+						render={({ field }) => (
+							<Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+								<TextField
+									label={allowsEmployee ? "EB No. (optional)" : "Emp Code"}
+									value={field.value}
+									onChange={(e) => {
+										field.onChange(e.target.value);
+										setEmpName(null);
+										setValue("ebId", "");
+									}}
+									onBlur={() => lookupEmployee(field.value)}
+									size="small"
+									fullWidth
+									disabled={editing && !allowsEmployee}
+									error={!!errors.empCode}
+									helperText={empName ?? "Enter emp code, then Tab or Find"}
+								/>
+								<Button
+									type="button"
+									variant="outlined"
+									size="small"
+									onClick={() => lookupEmployee(field.value)}
+									disabled={(editing && !allowsEmployee) || empLoading}
+									sx={{ minHeight: 40 }}
+								>
+									Find
+								</Button>
+							</Box>
+						)}
+					/>
+				) : null}
 
 				{/* Quality */}
 				<Controller
@@ -359,6 +396,12 @@ export default function FinishingEntryForm({
 			{error ? (
 				<Alert severity="error" onClose={() => setError(null)}>
 					{error}
+				</Alert>
+			) : null}
+
+			{warning ? (
+				<Alert severity="info" onClose={() => setWarning(null)}>
+					{warning}
 				</Alert>
 			) : null}
 

@@ -194,7 +194,8 @@ export type CreateSalesOrderRequest = {
     hsn_code?: string | null;
     quantity?: string | number;
     qty_uom?: string;
-    rate?: string | number;
+    /** null = rate not entered (Govt Sacking); backend stores NULL, never 0. */
+    rate?: string | number | null;
     discount_type?: number | null;
     discounted_rate?: number | null;
     discount_amount?: number | null;
@@ -456,6 +457,43 @@ export async function updateSalesOrder(
   if (error) throw new Error(error);
   if (!data) throw new Error("Empty response from update API");
   return data;
+}
+
+/**
+ * Post-approval rate edit — Govt Sacking sales orders only.
+ *
+ * Govt Sacking rates are notified by the government after the order is
+ * approved, so only the rate/amount columns (and their GST) may move. The
+ * backend rejects any other invoice type or a non-approved order with a 400.
+ */
+export async function updateSalesOrderRates(payload: {
+  sales_order_id: number | string;
+  items: Array<{
+    sales_order_dtl_id: number | string;
+    rate?: string | number | null;
+    discounted_rate?: number | null;
+    discount_amount?: number | null;
+    net_amount?: number | null;
+    total_amount?: number | null;
+    gst?: CreateSalesOrderRequest["items"][number]["gst"];
+  }>;
+  gross_amount?: number | null;
+  net_amount?: number | null;
+}): Promise<{ sales_order_id: number; updated_lines: number }> {
+  if (!payload.sales_order_id) {
+    throw new Error("Sales order ID is required for a rate update");
+  }
+  if (!payload.items?.length) {
+    throw new Error("At least one line is required for a rate update");
+  }
+
+  const { data, error } = await fetchWithCookie<{
+    data?: { sales_order_id: number; updated_lines: number };
+  }>(apiRoutesPortalMasters.SALES_ORDER_UPDATE_RATES, "PUT", payload);
+
+  if (error) throw new Error(error);
+  if (!data?.data) throw new Error("Empty response from rate update API");
+  return data.data;
 }
 
 // ---------------------------------------------------------------------------

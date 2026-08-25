@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { renderHook } from "@testing-library/react";
 
-import { useSalesOrderLineItems } from "./useSalesOrderLineItems";
+import { lineIsComplete, useSalesOrderLineItems } from "./useSalesOrderLineItems";
+import type { EditableLineItem } from "../types/salesOrderTypes";
 import type { SalesOrderLine } from "@/utils/salesOrderService";
 
 const emptyHookParams = {
@@ -92,5 +93,58 @@ describe("useSalesOrderLineItems → mapLineToEditable", () => {
 		// The sum `amount + taxAmount` should equal totalAmount, which is the
 		// invariant the totals card relies on.
 		expect((mapped.amount ?? 0) + (mapped.taxAmount ?? 0)).toBe(590);
+	});
+});
+
+describe("lineIsComplete → rate optional for Govt Sacking", () => {
+	const makeLine = (overrides: Partial<EditableLineItem> = {}): EditableLineItem => ({
+		id: "line-1",
+		itemGroup: "10",
+		item: "100",
+		itemMake: "",
+		quantity: "5",
+		rate: "20",
+		uom: "1",
+		discountValue: "",
+		remarks: "",
+		...overrides,
+	});
+
+	it("accepts a filled rate for every invoice type", () => {
+		expect(lineIsComplete(makeLine())).toBe(true);
+		expect(lineIsComplete(makeLine(), true)).toBe(true);
+	});
+
+	// Regression: Number("") is 0, so a blank rate used to slip through as a
+	// valid 0 for every invoice type.
+	it("rejects a blank rate when rate is mandatory", () => {
+		expect(lineIsComplete(makeLine({ rate: "" }))).toBe(false);
+		expect(lineIsComplete(makeLine({ rate: "   " }))).toBe(false);
+	});
+
+	it("accepts a blank rate for Govt Sacking (notified after the order)", () => {
+		expect(lineIsComplete(makeLine({ rate: "" }), true)).toBe(true);
+	});
+
+	it("accepts an explicit zero rate for both (preserves the >= 0 rule)", () => {
+		expect(lineIsComplete(makeLine({ rate: "0" }))).toBe(true);
+		expect(lineIsComplete(makeLine({ rate: "0" }), true)).toBe(true);
+	});
+
+	it("rejects a filled-but-unparseable rate for both", () => {
+		expect(lineIsComplete(makeLine({ rate: "abc" }))).toBe(false);
+		expect(lineIsComplete(makeLine({ rate: "abc" }), true)).toBe(false);
+	});
+
+	it("rejects a negative rate for both", () => {
+		expect(lineIsComplete(makeLine({ rate: "-1" }))).toBe(false);
+		expect(lineIsComplete(makeLine({ rate: "-1" }), true)).toBe(false);
+	});
+
+	it("still requires item, group, uom and a positive quantity", () => {
+		expect(lineIsComplete(makeLine({ quantity: "0" }), true)).toBe(false);
+		expect(lineIsComplete(makeLine({ uom: "" }), true)).toBe(false);
+		expect(lineIsComplete(makeLine({ item: "" }), true)).toBe(false);
+		expect(lineIsComplete(makeLine({ itemGroup: "" }), true)).toBe(false);
 	});
 });

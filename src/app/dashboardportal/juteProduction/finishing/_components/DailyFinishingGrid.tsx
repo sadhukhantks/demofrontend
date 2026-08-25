@@ -93,15 +93,41 @@ export default function DailyFinishingGrid({
 			{ field: "finishing_daily_id", headerName: "ID", width: 70 },
 			{ field: "tran_date", headerName: "Date", width: 110 },
 			{ field: "spell_code", headerName: "Spell", width: 80 },
+			// Machine columns on every process except the labour-only one (sacksewing);
+			// worker columns whenever a worker can key the row. Machine-and/or-worker
+			// processes show both, dashed where the row has no machine.
 			...(config.usesEmployee
-				? [
-						{ field: "emp_code", headerName: "Emp Code", width: 110 },
-						{ field: "emp_name", headerName: "Employee", width: 180 },
-					]
+				? []
 				: [
-						{ field: "mech_code", headerName: "Mc Code", width: 100 },
-						{ field: "machine_name", headerName: "Machine", width: 150 },
+						{
+							field: "mech_code",
+							headerName: "Mc Code",
+							width: 100,
+							valueFormatter: (v: string | null) => v ?? "—",
+						},
+						{
+							field: "machine_name",
+							headerName: "Machine",
+							width: 150,
+							valueFormatter: (v: string | null) => v ?? "—",
+						},
 					]),
+			...(config.usesEmployee || config.allowsEmployee
+				? [
+						{
+							field: "emp_code",
+							headerName: "Emp Code",
+							width: 110,
+							valueFormatter: (v: string | null) => v ?? "—",
+						},
+						{
+							field: "emp_name",
+							headerName: "Employee",
+							width: 180,
+							valueFormatter: (v: string | null) => v ?? "—",
+						},
+					]
+				: []),
 			{ field: "fin_quality_code", headerName: "Quality", width: 120 },
 			{ field: "fin_quality_name", headerName: "Quality Name", width: 150 },
 			{
@@ -111,7 +137,7 @@ export default function DailyFinishingGrid({
 				type: "number",
 			},
 		],
-		[handleDelete, onEdit, config.prodUom, config.usesEmployee]
+		[handleDelete, onEdit, config.prodUom, config.usesEmployee, config.allowsEmployee]
 	);
 
 	return (

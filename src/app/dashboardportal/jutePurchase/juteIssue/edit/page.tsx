@@ -979,7 +979,7 @@ function JuteIssueEditPage() {
                     <TableCell>
                       {line.source === "WASTE"
                         ? line.dept_name || "-"
-                        : line.jute_gate_entry_no ?? "-"}
+                        : line.gate_entry_num ?? line.jute_gate_entry_no ?? "-"}
                     </TableCell>
                     <TableCell>{line.unit_conversion}</TableCell>
                     <TableCell>{line.jute_group_name || getJuteItemLabel(line.item_grp_id)}</TableCell>
@@ -1060,7 +1060,7 @@ function JuteIssueEditPage() {
                     {getYarnTypeLabel(line.yarn_type_id)} ·{" "}
                     {line.source === "WASTE"
                       ? line.dept_name || "-"
-                      : line.jute_gate_entry_no ?? "-"}
+                      : line.gate_entry_num ?? line.jute_gate_entry_no ?? "-"}
                   </Typography>
 
                   <Box
