@@ -54,11 +54,18 @@ export interface MechWriteResult {
 /**
  * An app-level enum served as a dropdown payload (disciplines, downtime types,
  * criticalities, PM frequencies, PM results, overhaul types, done-by, statuses).
- * `value` is the code stored in the DB, `label` the human label.
+ * `code` is the value stored in the DB, `label` the human label.
+ *
+ * The key is `code`, matching the house shape used by the jute-production
+ * stoppage setup endpoint and by every setup endpoint in this module.
+ *
+ * `pm_frequencies` additionally carries `freq_days`, the day count the frequency
+ * resolves to, so the PM form can default `next_due_date` without a round trip.
  */
 export interface MechEnumOption {
-  value: string;
+  code: string;
   label: string;
+  freq_days?: number | null;
 }
 
 /**

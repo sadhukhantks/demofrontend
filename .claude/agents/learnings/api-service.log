@@ -1,0 +1,60 @@
+# api-service agent — learnings log
+
+## 2026-08-24 - Jute Mechanical & Maintenance Service Layer
+
+- **Route naming conflicts:** none. `MECH_` prefix was unused across all of `src/` before
+  this run (verified by grep). One near-collision worth knowing: `/api/mechMaster`
+  (machine master, `src/masters/mechineMaster.py`) already exists and is UNRELATED to
+  `/api/mechMaintMasters`. Also `MECH_PM_SCHEDULE_*` (checklist TEMPLATE master, router
+  `/api/mechMaintMasters`) vs `MECH_PM_*` (PM EXECUTIONS, router `/api/mechPM`) — two
+  different routers, near-identical key prefixes. Commented inline so nobody binds the
+  wrong one.
+- **Mapper edge cases:** no mapper file was needed — the backend already returns
+  display-name columns from its SQL (`dept_desc AS dept_name`, `machine_type_name`,
+  `component_name`), so the FE consumes rows directly. Null handling is in the TYPES
+  instead: every LEFT-JOINed display name is `string | null`, and `machine_attr_id` +
+  every attribute column on `MechMachineAttr` are nullable because that table endpoint
+  LEFT JOINs *from* `machine_mst` (machines with no attr row still appear).
+- **Shared utilities reused:** `fetchWithCookie` only. There is no shared `mapToOptions`
+  helper in `src/utils/` — each service defines its own local helpers. Followed
+  `inventoryReportService.ts` (camelCase param objects + `URLSearchParams`) and
+  `accountingService.ts` (`${ROUTE}/${id}` path-param append, `if (error) throw`).
+- **Backend response quirks:**
+  - `{ data, total }` on list/report endpoints; bare `{ data }` on setup/by-id/write.
+    Wrote `requestList` to tolerate a missing `total` (falls back to `data.length`).
+  - `machine_mst` has NO `co_id` and NO `branch_id`. `branch_id` everywhere is DERIVED
+    via `machine_mst -> dept_mst.branch_id` and is therefore nullable in every row type.
+  - `spell_mst` keys activity by `status = 1`, not `active = 1`.
+  - `dept_mst` and `sub_dept_mst` have NO `active` column at all.
+  - No approval workflow on this module — `status` is OPEN/UNDER_REPAIR/CLOSED (a repair
+    state), NOT the 21/1/20/3/4/6 document lifecycle. Do not wire ApprovalActionsBar.
+- **[FIELD-MAPPING]** backend -> UI, non-obvious ones:
+  - `dept_mst.dept_desc` -> `dept_name` (aliased in SQL, so the FE row key is `dept_name`)
+  - `sub_dept_mst.sub_dept_desc` -> `sub_dept_name`
+  - `machine_type_mst.machine_type_name` == the Excel workbook's "section"
+  - `mech_code` is the machine's short code on `machine_mst` (not a module prefix)
+  - PM detail rows snapshot `task_desc` from `jute_mech_pm_schedule` at execution time —
+    `pm_schedule_id` may be null for an ad-hoc task.
+- **[API-QUIRK]** Report paths on `/api/mechMaintReports` are KEBAB-CASE
+  (`/breakdown-register`, `/top-problem-machines`) while every other router in this module
+  is snake_case (`/entry_create`, `/pm_schedule_table`). That is the house reports
+  convention — do not "normalize" it.
+- **[API-QUIRK]** `date-machine-grid` does not return a plain row list: it returns
+  `{ data: [{tran_date, "<machine_id>": "RF/DRJ", ...}], columns: [{machine_id, machine_name}] }`
+  with DYNAMIC machine-id keys. Typed as `{ tran_date: string } & Record<string, unknown>`
+  and given its own non-generic fetch function.
+- **Assumptions to verify once the backend routers land** (`masters.py`,
+  `breakdown_entry.py`, `overhaul.py`, `pm.py`, `reports.py` did not exist at this run —
+  only `constants.py`, `models.py`, `masters_query.py` did):
+  1. Enum dropdowns (`disciplines`, `downtime_types`, `criticalities`, `pm_frequencies`,
+     `pm_results`, `overhaul_types`, `done_by_options`, `statuses`) are typed as
+     `{ value, label }[]`, the natural serialization of the `*_LABELS` dicts in
+     `constants.py`. If the backend emits bare string arrays instead, `MechEnumOption`
+     must change.
+  2. `top-problem-machines` is typed as one flat row list with a `rank_type`
+     (DOWNTIME|COUNT|REPEAT) discriminator, to fit the spec's uniform `{data, total}`
+     contract. If it instead returns three named arrays, retype it.
+- **What should change:** when the backend author writes `masters.py`, cross-check the two
+  assumptions above FIRST — they are the only guesses in the file. Also: this repo has no
+  shared `Option`/`mapToOptions` utility despite ~24 service files each rolling their own
+  dropdown shapes; extracting `src/utils/optionMappers.ts` would pay for itself.
