@@ -27,6 +27,7 @@ import {
 	nowDateTimeLocal,
 	responseMinutes,
 	statusFallbackLabel,
+	toNumberOrNull,
 } from "../utils/breakdownCalc";
 
 export interface BreakdownEntryFormProps {
@@ -102,6 +103,7 @@ export default function BreakdownEntryForm({
 	const stopDateTime = useWatch({ control, name: "stop_datetime" });
 	const attendedDateTime = useWatch({ control, name: "attended_datetime" });
 	const restartDateTime = useWatch({ control, name: "restart_datetime" });
+	const durationValue = useWatch({ control, name: "duration_min" });
 	const machineIdValue = useWatch({ control, name: "machine_id" });
 
 	// ---------------------------------------------------------------- options
@@ -172,9 +174,16 @@ export default function BreakdownEntryForm({
 	}, [setup.statuses]);
 
 	// ------------------------------------------------------- derived preview
+	// A keyed duration WINS over restart − stop, exactly as it does server-side.
+	// ponytail: display only — nothing here ever writes back into a field.
+	const keyedDurationMin = React.useMemo(
+		() => toNumberOrNull(durationValue),
+		[durationValue]
+	);
+
 	const downtimeMin = React.useMemo(
-		() => durationMinutes(stopDateTime, restartDateTime),
-		[stopDateTime, restartDateTime]
+		() => keyedDurationMin ?? durationMinutes(stopDateTime, restartDateTime),
+		[keyedDurationMin, stopDateTime, restartDateTime]
 	);
 
 	const responseMin = React.useMemo(
@@ -182,9 +191,13 @@ export default function BreakdownEntryForm({
 		[stopDateTime, attendedDateTime]
 	);
 
+	// A duration-only incident (no restart) still saves as CLOSED server-side.
 	const derivedStatus = React.useMemo(
-		() => deriveStatus(stopDateTime, attendedDateTime, restartDateTime),
-		[stopDateTime, attendedDateTime, restartDateTime]
+		() =>
+			keyedDurationMin != null
+				? BREAKDOWN_STATUS.CLOSED
+				: deriveStatus(stopDateTime, attendedDateTime, restartDateTime),
+		[keyedDurationMin, stopDateTime, attendedDateTime, restartDateTime]
 	);
 
 	const derivedStatusLabel =
@@ -481,6 +494,26 @@ export default function BreakdownEntryForm({
 							helperText={
 								errors.restart_datetime?.message ??
 								"Leave blank if the machine is still down"
+							}
+						/>
+					)}
+				/>
+
+				<Controller
+					name="duration_min"
+					control={control}
+					render={({ field }) => (
+						<TextField
+							{...field}
+							type="number"
+							label="Duration (min)"
+							size="small"
+							fullWidth
+							inputProps={{ step: 1, min: 1 }}
+							error={!!errors.duration_min}
+							helperText={
+								errors.duration_min?.message ??
+								"Optional — overrides the time-based duration"
 							}
 						/>
 					)}

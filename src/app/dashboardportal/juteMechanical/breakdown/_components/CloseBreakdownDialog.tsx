@@ -24,6 +24,7 @@ import {
 	formatMinutes,
 	isFutureDateTime,
 	nowDateTimeLocal,
+	toNumberOrNull,
 } from "../utils/breakdownCalc";
 
 export interface CloseBreakdownDialogProps {
@@ -34,8 +35,11 @@ export interface CloseBreakdownDialogProps {
 	/** Server-side failure from the last attempt. */
 	error: string | null;
 	onCancel: () => void;
-	/** Restart datetime is the `datetime-local` value; action taken may be blank. */
-	onConfirm: (restartDateTime: string, actionTaken: string) => void;
+	/**
+	 * Restart datetime is the `datetime-local` value; action taken and the keyed
+	 * duration (whole minutes, blank = let the backend compute it) may be blank.
+	 */
+	onConfirm: (restartDateTime: string, actionTaken: string, durationMin: string) => void;
 }
 
 /**
@@ -55,32 +59,50 @@ export default function CloseBreakdownDialog({
 }: CloseBreakdownDialogProps) {
 	const [restartDateTime, setRestartDateTime] = React.useState<string>("");
 	const [actionTaken, setActionTaken] = React.useState<string>("");
+	const [durationMin, setDurationMin] = React.useState<string>("");
 
 	// Reset the fields each time a different incident is opened.
 	React.useEffect(() => {
 		if (!entry) return;
 		setRestartDateTime(nowDateTimeLocal());
 		setActionTaken("");
+		setDurationMin("");
 	}, [entry]);
 
-	const downtimeMin = React.useMemo(
+	const computedDowntimeMin = React.useMemo(
 		() => (entry ? durationMinutes(entry.stop_datetime, restartDateTime) : null),
 		[entry, restartDateTime]
 	);
 
-	const validationMessage = React.useMemo(() => {
+	const keyedDurationMin = React.useMemo(() => toNumberOrNull(durationMin), [durationMin]);
+
+	const restartMessage = React.useMemo(() => {
 		if (restartDateTime.trim() === "") return "Restart date & time is required";
 		if (isFutureDateTime(restartDateTime)) return "Restart time cannot be in the future";
-		if (downtimeMin != null && downtimeMin < 0) {
+		if (computedDowntimeMin != null && computedDowntimeMin < 0) {
 			return "Restart cannot be before the stop time";
 		}
 		return null;
-	}, [restartDateTime, downtimeMin]);
+	}, [restartDateTime, computedDowntimeMin]);
+
+	const durationMessage = React.useMemo(() => {
+		if (durationMin.trim() === "") return null;
+		if (keyedDurationMin == null || !Number.isInteger(keyedDurationMin)) {
+			return "Duration must be a whole number of minutes";
+		}
+		if (keyedDurationMin < 1) return "Duration must be at least 1 minute";
+		return null;
+	}, [durationMin, keyedDurationMin]);
+
+	// A keyed duration WINS over restart − stop, exactly as it does server-side.
+	const downtimeMin = durationMessage == null && keyedDurationMin != null
+		? keyedDurationMin
+		: computedDowntimeMin;
 
 	const handleConfirm = React.useCallback(() => {
-		if (validationMessage) return;
-		onConfirm(restartDateTime, actionTaken);
-	}, [actionTaken, onConfirm, restartDateTime, validationMessage]);
+		if (restartMessage || durationMessage) return;
+		onConfirm(restartDateTime, actionTaken, durationMin);
+	}, [actionTaken, durationMessage, durationMin, onConfirm, restartDateTime, restartMessage]);
 
 	return (
 		<Dialog
@@ -118,8 +140,22 @@ export default function CloseBreakdownDialog({
 							value={restartDateTime}
 							onChange={(event) => setRestartDateTime(event.target.value)}
 							InputLabelProps={{ shrink: true }}
-							error={validationMessage != null}
-							helperText={validationMessage ?? "Defaults to now"}
+							error={restartMessage != null}
+							helperText={restartMessage ?? "Defaults to now"}
+						/>
+
+						<TextField
+							type="number"
+							label="Duration (min)"
+							size="small"
+							fullWidth
+							value={durationMin}
+							onChange={(event) => setDurationMin(event.target.value)}
+							inputProps={{ step: 1, min: 1 }}
+							error={durationMessage != null}
+							helperText={
+								durationMessage ?? "Optional — overrides the time-based duration"
+							}
 						/>
 
 						<TextField
@@ -158,7 +194,7 @@ export default function CloseBreakdownDialog({
 					variant="contained"
 					startIcon={<CloseIcon size={16} />}
 					onClick={handleConfirm}
-					disabled={closing || validationMessage != null}
+					disabled={closing || restartMessage != null || durationMessage != null}
 				>
 					{closing ? "Closing…" : "Close breakdown"}
 				</Button>

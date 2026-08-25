@@ -733,6 +733,13 @@ export interface MechBreakdownCreate {
   action_taken?: string | null;
   preventive_action?: string | null;
   production_loss_qty?: number | null;
+  /**
+   * Downtime minutes AS KEYED by the operator. Independent of the datetimes: the
+   * backend stores it verbatim and it WINS over its own restart − stop figure.
+   * A duration with no restart still closes the incident. Send null to clear it
+   * and fall back to the computed value.
+   */
+  duration_min?: number | null;
   remarks?: string | null;
   spares?: MechBreakdownSpareInput[];
 }
@@ -751,6 +758,8 @@ export interface MechBreakdownClosePayload {
   co_id: number;
   restart_datetime: string;
   action_taken?: string | null;
+  /** Operator-keyed downtime minutes; overrides restart − stop when supplied. */
+  duration_min?: number | null;
 }
 
 /**

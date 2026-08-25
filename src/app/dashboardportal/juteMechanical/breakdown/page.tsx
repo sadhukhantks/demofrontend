@@ -30,7 +30,7 @@ import {
 	type BreakdownFormValues,
 	type EditingBreakdown,
 } from "./types/breakdownTypes";
-import { toApiDateTime, todayISO } from "./utils/breakdownCalc";
+import { toApiDateTime, toNumberOrNull, todayISO } from "./utils/breakdownCalc";
 
 /**
  * Breakdown Entry — the daily log of mill machine downtime.
@@ -248,7 +248,7 @@ export default function BreakdownEntryPage() {
 	}, []);
 
 	const handleConfirmClose = React.useCallback(
-		async (restartDateTime: string, actionTaken: string) => {
+		async (restartDateTime: string, actionTaken: string, durationMin: string) => {
 			if (!closingEntry || !coId) return;
 			setCloseError(null);
 
@@ -258,6 +258,8 @@ export default function BreakdownEntryPage() {
 				co_id: Number(coId),
 				restart_datetime: toApiDateTime(restartDateTime) ?? restartDateTime,
 				action_taken: actionTaken.trim() === "" ? null : actionTaken.trim(),
+				// Blank stays null — the backend then derives restart − stop itself.
+				duration_min: toNumberOrNull(durationMin),
 			};
 
 			const result = await closeEntry(closingEntry.breakdown_id, body);

@@ -105,6 +105,12 @@ export const breakdownFormSchema = z
 		attended_datetime: z.string(),
 		/** Blank is normal and MEANS "still down" — never validate it as missing. */
 		restart_datetime: z.string(),
+		/**
+		 * Operator-keyed downtime, INDEPENDENT of the datetimes: it is never
+		 * derived from restart and never feeds it back. Blank = let the backend
+		 * compute restart − stop.
+		 */
+		duration_min: z.string(),
 		spell_id: z.string(),
 		reason_id: z.string().min(1, "Reason is required"),
 		component_id: z.string(),
@@ -161,6 +167,24 @@ export const breakdownFormSchema = z
 				path: ["attended_datetime"],
 				message: "Attended cannot be after the restart time",
 			});
+		}
+
+		// Backend: duration_min is a positive whole number of minutes.
+		if (values.duration_min.trim() !== "") {
+			const duration = toNumberOrNull(values.duration_min);
+			if (duration == null || !Number.isInteger(duration)) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["duration_min"],
+					message: "Duration must be a whole number of minutes",
+				});
+			} else if (duration < 1) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["duration_min"],
+					message: "Duration must be at least 1 minute",
+				});
+			}
 		}
 
 		// Production loss is a quantity, so it must be a non-negative number.
@@ -257,6 +281,7 @@ export function buildDefaultFormValues(nowLocal: string): BreakdownFormValues {
 		stop_datetime: nowLocal,
 		attended_datetime: "",
 		restart_datetime: "",
+		duration_min: "",
 		spell_id: "",
 		reason_id: "",
 		component_id: "",
@@ -288,6 +313,7 @@ export function buildFormValuesFromEntry(entry: MechBreakdownDetail): BreakdownF
 		stop_datetime: toDateTimeLocalInput(entry.stop_datetime),
 		attended_datetime: toDateTimeLocalInput(entry.attended_datetime),
 		restart_datetime: toDateTimeLocalInput(entry.restart_datetime),
+		duration_min: entry.duration_min == null ? "" : String(entry.duration_min),
 		spell_id: entry.spell_id == null ? "" : String(entry.spell_id),
 		reason_id: String(entry.reason_id),
 		component_id: entry.component_id == null ? "" : String(entry.component_id),
@@ -369,6 +395,9 @@ export function buildBreakdownPayload(
 		spell_id: idOrNull(values.spell_id),
 		attended_datetime: toApiDateTime(values.attended_datetime),
 		restart_datetime: toApiDateTime(values.restart_datetime),
+		// Explicit null clears a previously keyed duration; the backend then falls
+		// back to its own restart − stop figure.
+		duration_min: toNumberOrNull(values.duration_min),
 		component_id: idOrNull(values.component_id),
 		discipline: textOrNull(values.discipline),
 		downtime_type: values.downtime_type,

@@ -59,8 +59,12 @@ const SCOPE_MACHINE = "MACHINE";
 const pmScheduleFormSchema = z
 	.object({
 		scope: z.enum([SCOPE_MACHINE_TYPE, SCOPE_MACHINE] as const),
-		machine_type_id: z.number().int().positive().nullable(),
-		machine_id: z.number().int().positive().nullable(),
+		// nullish, not nullable: the scope toggle unmounts one of the two Controllers
+		// and react-hook-form then reports that field as `undefined`, which a
+		// nullable-only schema rejects — on a field that isn't rendered, so the
+		// Save button silently did nothing.
+		machine_type_id: z.number().int().positive().nullish(),
+		machine_id: z.number().int().positive().nullish(),
 		task_desc: z
 			.string()
 			.min(1, "Task description is required")
@@ -82,14 +86,14 @@ const pmScheduleFormSchema = z
 		active: z.union([z.literal(0), z.literal(1)]),
 	})
 	.superRefine((values, ctx) => {
-		if (values.scope === SCOPE_MACHINE_TYPE && values.machine_type_id === null) {
+		if (values.scope === SCOPE_MACHINE_TYPE && values.machine_type_id == null) {
 			ctx.addIssue({
 				code: "custom",
 				path: ["machine_type_id"],
 				message: "Pick the machine type this template covers",
 			});
 		}
-		if (values.scope === SCOPE_MACHINE && values.machine_id === null) {
+		if (values.scope === SCOPE_MACHINE && values.machine_id == null) {
 			ctx.addIssue({
 				code: "custom",
 				path: ["machine_id"],
@@ -261,8 +265,9 @@ export default function CreatePmSchedulePage({
 			const remarks = values.remarks.trim();
 			const payload: PmScheduleSavePayload = {
 				co_id: coId,
-				machine_type_id: values.scope === SCOPE_MACHINE_TYPE ? values.machine_type_id : null,
-				machine_id: values.scope === SCOPE_MACHINE ? values.machine_id : null,
+				machine_type_id:
+					values.scope === SCOPE_MACHINE_TYPE ? (values.machine_type_id ?? null) : null,
+				machine_id: values.scope === SCOPE_MACHINE ? (values.machine_id ?? null) : null,
 				task_desc: values.task_desc.trim(),
 				frequency: values.frequency,
 				freq_days: values.freq_days,
