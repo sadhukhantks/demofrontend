@@ -269,7 +269,7 @@ export function MasterMobileList({
 					<Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
 						<Button
 							variant="outline"
-							size="lg"
+							className="min-h-11"
 							disabled={!hasPrev || loading}
 							onClick={() => onPaginationModelChange({ ...paginationModel, page: page - 1 })}
 						>
@@ -280,7 +280,7 @@ export function MasterMobileList({
 						</Typography>
 						<Button
 							variant="outline"
-							size="lg"
+							className="min-h-11"
 							disabled={!hasNext || loading}
 							onClick={() => onPaginationModelChange({ ...paginationModel, page: page + 1 })}
 						>
