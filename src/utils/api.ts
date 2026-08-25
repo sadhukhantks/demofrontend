@@ -1025,6 +1025,8 @@ const apiRoutesPortalMasters = {
     JUTE_GAIN_LOSS_LOCK: `${API_URL}/juteGainLoss/lock`,
     JUTE_GAIN_LOSS_UNLOCK: `${API_URL}/juteGainLoss/unlock`,
     JUTE_GAIN_LOSS_REPORT: `${API_URL}/juteGainLoss/report`,
+    // Daily wastage report — derived from waste entries + production figures
+    JUTE_WASTAGE_REPORT: `${API_URL}/juteProductionReports/wastage_report`,
     // Winding reports (router prefix /api/juteProductionReports)
     WINDING_SPELL_REPORT: `${API_URL}/juteProductionReports/winding_spell_report`,
     WINDING_QUALITY_WISE_REPORT: `${API_URL}/juteProductionReports/winding_quality_wise`,
