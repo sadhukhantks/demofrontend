@@ -202,6 +202,16 @@ can only scroll a list -- are not permitted anywhere, in any of the three dashbo
 
 > For a before/after conversion example, see `docs/claude/code-examples.md`.
 
+### Branch selector (follow the sidebar scope — NORM for all pages)
+
+- A page's branch filter must offer only the branches the user has in scope in the **sidebar**
+  (their selected branches; all company branches only when the sidebar has no selection).
+  Report pages get this from `useReportBranches` (`src/components/reports/useReportBranches.ts`),
+  which already applies the scoping.
+- **Render the branch picker only when more than one branch is in scope.** With a single branch,
+  auto-select it and show the branch name as plain text — never a one-option dropdown.
+- This is a standing norm for all new pages and retrofits, in every dashboard.
+
 ### Styling (Three Layers)
 - **Tailwind CSS** for layout and spacing
 - **MUI components** for complex interactions (DataGrid, Autocomplete, Dialog)

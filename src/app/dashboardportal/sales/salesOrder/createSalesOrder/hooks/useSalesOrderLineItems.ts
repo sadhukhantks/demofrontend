@@ -11,10 +11,22 @@ import { isGovtSkgOrder, isJuteYarnOrder } from "../utils/salesOrderConstants";
 export const lineHasAnyData = (line: EditableLineItem) =>
 	Boolean(line.itemGroup || line.item || line.itemMake || line.quantity || line.rate || line.uom || line.remarks);
 
-export const lineIsComplete = (line: EditableLineItem) => {
+/**
+ * A line is complete when item/group/uom are chosen, qty > 0 and rate is a
+ * finite number >= 0.
+ *
+ * `rateOptional` (Govt Sacking) relaxes ONLY the blank case: the government
+ * notifies the rate after the order is placed, so a blank rate means
+ * "not yet known". A filled-but-unparseable rate still fails for everyone.
+ * Note `Number("")` is 0, so the blank case must be checked before coercion.
+ */
+export const lineIsComplete = (line: EditableLineItem, rateOptional = false) => {
 	const qty = Number(line.quantity);
-	const rate = Number(line.rate);
-	return Boolean(line.itemGroup && line.item && line.uom && Number.isFinite(qty) && qty > 0 && Number.isFinite(rate) && rate >= 0);
+	if (!(line.itemGroup && line.item && line.uom && Number.isFinite(qty) && qty > 0)) return false;
+	const rawRate = typeof line.rate === "string" ? line.rate.trim() : line.rate;
+	if (rawRate == null || rawRate === "") return rateOptional;
+	const rate = Number(rawRate);
+	return Number.isFinite(rate) && rate >= 0;
 };
 
 let lineIdCounter = 0;
@@ -36,6 +48,11 @@ type UseSalesOrderLineItemsParams = {
 	invoiceTypeCode?: string;
 	/** Broker commission percent from form header */
 	brokeragePercent?: number;
+	/**
+	 * Post-approval Govt Sacking edit: only the rate cell may change.
+	 * Every other line field is frozen (see useIssueLineItems for the precedent).
+	 */
+	rateOnly?: boolean;
 };
 
 export const useSalesOrderLineItems = ({
@@ -49,6 +66,7 @@ export const useSalesOrderLineItems = ({
 	itemGroups,
 	invoiceTypeCode,
 	brokeragePercent,
+	rateOnly = false,
 }: UseSalesOrderLineItemsParams) => {
 	const {
 		items: lineItems,
@@ -402,6 +420,8 @@ export const useSalesOrderLineItems = ({
 	const handleLineFieldChange = React.useCallback(
 		(id: string, field: keyof EditableLineItem, rawValue: string | number) => {
 			if (mode === "view") return;
+			// Post-approval Govt Sacking edit: rate is the only mutable field.
+			if (rateOnly && field !== "rate") return;
 			const value = typeof rawValue === "number" ? String(rawValue) : rawValue;
 
 			if (field === "itemGroup") {
@@ -689,7 +709,7 @@ export const useSalesOrderLineItems = ({
 				prev.map((item) => (item.id === id ? { ...item, [field]: value } as EditableLineItem : item)),
 			);
 		},
-		[mode, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, isHessian, isGovtSkg, isJuteYarn, getConversionFactor, getGovtSkgBalesConversion, applyHessianToLine, applyJuteYarnToLine, calculateLineTax, calculateLineAmount, resolveQtyRounding, resolveRateRounding, roundTo],
+		[mode, rateOnly, setLineItems, itemGroupCache, itemGroupLoading, ensureItemGroupData, isHessian, isGovtSkg, isJuteYarn, getConversionFactor, getGovtSkgBalesConversion, applyHessianToLine, applyJuteYarnToLine, calculateLineTax, calculateLineAmount, resolveQtyRounding, resolveRateRounding, roundTo],
 	);
 
 	const handleQuotationItemsConfirm = React.useCallback(
@@ -734,8 +754,9 @@ export const useSalesOrderLineItems = ({
 	const lineItemsValid = React.useMemo(() => {
 		if (mode === "view") return true;
 		if (!filledLineItems.length) return false;
-		return filledLineItems.every(lineIsComplete);
-	}, [filledLineItems, mode]);
+		// Govt Sacking: a blank rate is legal (notified later by the government).
+		return filledLineItems.every((line) => lineIsComplete(line, isGovtSkg));
+	}, [filledLineItems, mode, isGovtSkg]);
 
 	const itemGroupsFromLineItems: ItemGroupRecord[] = React.useMemo(() => {
 		const groups = new Map<string, { id: string; label: string }>();
