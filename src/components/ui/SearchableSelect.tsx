@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import type { FilterOptionsState } from "@mui/material";
 import Autocomplete, {
   createFilterOptions,
   type AutocompleteProps,
@@ -30,15 +31,61 @@ const OPTION_RENDER_LIMIT = 200;
 
 const limitedFilter = createFilterOptions<unknown>({ limit: OPTION_RENDER_LIMIT });
 
-/** Shared filter that searches the option label and caps the rendered result set. */
-function useLimitedFilter<TOption>() {
-  return React.useMemo(
+/**
+ * Shared filter plus the type-ahead autofill behaviour every dropdown gets.
+ *
+ * Two MUI props do the autofilling, and neither is on by default:
+ *
+ *   `autoComplete`  completes the typed text inline with the first match, so the
+ *                   rest of "SPREADER 3" appears as you type "SPR".
+ *   `autoHighlight` highlights that first match, which is what lets Enter commit
+ *                   it without arrowing down first.
+ *
+ * `autoHighlight` alone is unsafe for this app: it makes Enter accept the first
+ * of SEVERAL matches, so typing "FRAME 1" and hitting Enter silently picks
+ * "FRAME 12" when the operator meant "FRAME 13". A mis-keyed machine on a
+ * production or breakdown entry is a genuinely costly mistake and an invisible
+ * one.
+ *
+ * So Enter is swallowed unless the filter left EXACTLY ONE option. One match is
+ * unambiguous and commits instantly; zero or several fall back to the previous
+ * behaviour, where Enter does nothing and the operator picks deliberately. This
+ * is the guard the spinning doff-entry form arrived at (`useEnterOnSingleMatch`);
+ * it belongs here so all ~310 dropdowns share it rather than one screen having it.
+ *
+ * `selectOnFocus` and `handleHomeEndKeys` are already MUI defaults for
+ * non-freeSolo Autocompletes, so they need no wiring.
+ */
+function useTypeAheadFilter<TOption>() {
+  // Live count of what the last filter pass left, read by the Enter guard.
+  // A ref, not state: it is written during render-time filtering and only read
+  // in an event handler, so it must never itself trigger a re-render.
+  const matchCount = React.useRef(0);
+
+  const filterOptions = React.useMemo(
     () =>
-      limitedFilter as unknown as NonNullable<
+      ((options: unknown[], state: FilterOptionsState<unknown>) => {
+        const result = limitedFilter(options, state);
+        matchCount.current = result.length;
+        return result;
+      }) as unknown as NonNullable<
         AutocompleteProps<TOption, boolean, false, false>["filterOptions"]
       >,
     [],
   );
+
+  const onKeyDown = React.useCallback(
+    (event: React.KeyboardEvent & { defaultMuiPrevented?: boolean }) => {
+      if (event.key === "Enter" && matchCount.current !== 1) {
+        // MUI checks `defaultMuiPrevented`, not `defaultPrevented`, to bail out
+        // of its own key handling (useAutocomplete calls our handler first).
+        event.defaultMuiPrevented = true;
+      }
+    },
+    [],
+  );
+
+  return { filterOptions, onKeyDown };
 }
 
 /** Input styling shared by both the single- and multi-select variants. */
@@ -152,7 +199,7 @@ export function SearchableSelect<TOption>({
     placeholder: overridePlaceholder,
     ...restTextFieldProps
   } = textFieldProps ?? {};
-  const filterOptions = useLimitedFilter<TOption>();
+  const { filterOptions, onKeyDown: typeAheadKeyDown } = useTypeAheadFilter<TOption>();
 
   return (
     <Autocomplete<TOption, false, boolean, false>
@@ -173,6 +220,9 @@ export function SearchableSelect<TOption>({
       fullWidth={fullWidth}
       size={size ?? textFieldSize ?? "small"}
       openOnFocus
+      autoComplete
+      autoHighlight
+      onKeyDown={typeAheadKeyDown}
       renderInput={(params) => (
         <TextField
           {...params}
@@ -236,7 +286,7 @@ export function SearchableMultiSelect<TOption>({
     placeholder: overridePlaceholder,
     ...restTextFieldProps
   } = textFieldProps ?? {};
-  const filterOptions = useLimitedFilter<TOption>();
+  const { filterOptions, onKeyDown: typeAheadKeyDown } = useTypeAheadFilter<TOption>();
 
   return (
     <Autocomplete<TOption, true, false, false>
@@ -259,6 +309,9 @@ export function SearchableMultiSelect<TOption>({
       fullWidth={fullWidth}
       size={size ?? textFieldSize ?? "small"}
       openOnFocus
+      autoComplete
+      autoHighlight
+      onKeyDown={typeAheadKeyDown}
       renderOption={(props, option, { selected }) => {
         const { key, ...optionProps } = props as React.HTMLAttributes<HTMLLIElement> & {
           key: React.Key;
