@@ -1,10 +1,20 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, Button, IconButton, TextField, Tooltip, Typography } from "@mui/material";
+import {
+	Alert,
+	Box,
+	Button,
+	IconButton,
+	Paper,
+	TextField,
+	Tooltip,
+	Typography,
+} from "@mui/material";
 import { Plus as PlusIcon, Trash2 as Trash2Icon } from "lucide-react";
 import { Controller, useWatch, type Control, type FieldErrors } from "react-hook-form";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
+import { TOUCH_ICON_BUTTON_SX, TOUCH_TARGET } from "@/components/ui/responsiveEntry";
 import type {
 	BreakdownFormValues,
 	SpareItemOption,
@@ -99,49 +109,59 @@ export default function SpareLinesEditor({
 				const lineErrors = errors.spares?.[index];
 
 				return (
-					<Box
+					// Below md each line is its own card: the item on a full-width
+					// row, then qty/uom and rate/amount paired underneath. A
+					// six-column line squeezed into 360px leaves every numeric
+					// field about four characters wide. From md the card border
+					// and padding fall away and the original row returns.
+					<Paper
 						key={field.id}
+						variant="outlined"
 						sx={{
 							display: "grid",
 							gap: 1.5,
 							alignItems: "start",
+							p: { xs: 1.5, md: 0 },
+							border: { md: "none" },
+							bgcolor: { md: "transparent" },
 							gridTemplateColumns: {
-								xs: "1fr",
-								sm: "repeat(2, minmax(0, 1fr))",
+								xs: "repeat(2, minmax(0, 1fr))",
 								md: "minmax(0, 3fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) 48px",
 							},
 						}}
 					>
-						<Controller
-							name={`spares.${index}.item_id` as const}
-							control={control}
-							render={({ field: itemField }) => (
-								<SearchableOptionSelect
-									label="Item"
-									size="small"
-									fullWidth
-									disabled={disabled || itemOptions.length === 0}
-									options={itemOptions}
-									value={itemField.value === "" ? "" : Number(itemField.value)}
-									onChange={(selectedValue) => {
-										const next = selectedValue === "" ? "" : String(selectedValue);
-										itemField.onChange(next);
-										onPickItem(
-											index,
-											selectedValue === ""
-												? null
-												: (spareItems.find((i) => i.item_id === Number(selectedValue)) ??
-														null)
-										);
-									}}
-									error={!!lineErrors?.item_id}
-									helperText={lineErrors?.item_id?.message}
-									noOptionsText={
-										itemOptions.length === 0 ? "No items loaded" : "No matching item"
-									}
-								/>
-							)}
-						/>
+						<Box sx={{ gridColumn: { xs: "1 / -1", md: "auto" } }}>
+							<Controller
+								name={`spares.${index}.item_id` as const}
+								control={control}
+								render={({ field: itemField }) => (
+									<SearchableOptionSelect
+										label="Item"
+										size="small"
+										fullWidth
+										disabled={disabled || itemOptions.length === 0}
+										options={itemOptions}
+										value={itemField.value === "" ? "" : Number(itemField.value)}
+										onChange={(selectedValue) => {
+											const next = selectedValue === "" ? "" : String(selectedValue);
+											itemField.onChange(next);
+											onPickItem(
+												index,
+												selectedValue === ""
+													? null
+													: (spareItems.find((i) => i.item_id === Number(selectedValue)) ??
+															null)
+											);
+										}}
+										error={!!lineErrors?.item_id}
+										helperText={lineErrors?.item_id?.message}
+										noOptionsText={
+											itemOptions.length === 0 ? "No items loaded" : "No matching item"
+										}
+									/>
+								)}
+							/>
+						</Box>
 
 						<Controller
 							name={`spares.${index}.qty` as const}
@@ -208,22 +228,30 @@ export default function SpareLinesEditor({
 							helperText="Qty x Rate"
 						/>
 
-						<Box sx={{ display: "flex", justifyContent: "center", pt: 0.5 }}>
+						<Box
+							sx={{
+								display: "flex",
+								justifyContent: { xs: "flex-end", md: "center" },
+								gridColumn: { xs: "1 / -1", md: "auto" },
+								pt: 0.5,
+							}}
+						>
 							<Tooltip title="Remove line">
 								<span>
 									<IconButton
 										size="small"
 										color="error"
+										aria-label="Remove spare line"
 										disabled={disabled || fields.length <= 1}
 										onClick={() => onRemoveLine(index)}
-										sx={{ minWidth: 40, minHeight: 40 }}
+										sx={TOUCH_ICON_BUTTON_SX}
 									>
-										<Trash2Icon size={16} />
+										<Trash2Icon size={18} />
 									</IconButton>
 								</span>
 							</Tooltip>
 						</Box>
-					</Box>
+					</Paper>
 				);
 			})}
 
@@ -235,7 +263,7 @@ export default function SpareLinesEditor({
 					startIcon={<PlusIcon size={16} />}
 					onClick={onAddLine}
 					disabled={disabled}
-					sx={{ minHeight: 40 }}
+					sx={{ minHeight: TOUCH_TARGET }}
 				>
 					Add spare
 				</Button>

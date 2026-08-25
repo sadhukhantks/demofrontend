@@ -14,6 +14,7 @@ import {
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
+import { PAGE_PADDING_SX } from "@/components/ui/responsiveEntry";
 import type { MechBreakdown } from "@/utils/juteMechanicalService";
 import BreakdownEntryForm from "./_components/BreakdownEntryForm";
 import DailyBreakdownGrid from "./_components/DailyBreakdownGrid";
@@ -297,7 +298,7 @@ export default function BreakdownEntryPage() {
 	}
 
 	return (
-		<Box sx={{ p: { xs: 1.5, md: 3 } }}>
+		<Box sx={PAGE_PADDING_SX}>
 			<Typography variant="h5" sx={{ fontWeight: 600 }}>
 				Breakdown Entry
 			</Typography>

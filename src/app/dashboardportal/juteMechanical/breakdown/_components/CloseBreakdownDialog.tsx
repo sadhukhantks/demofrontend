@@ -13,6 +13,10 @@ import {
 	Typography,
 } from "@mui/material";
 import { CheckCircle2 as CloseIcon } from "lucide-react";
+import {
+	DIALOG_ACTIONS_SX,
+	MOBILE_FULL_BLEED_PAPER,
+} from "@/components/ui/responsiveEntry";
 import type { OpenBreakdownRow } from "../hooks/useOpenBreakdowns";
 import {
 	durationMinutes,
@@ -79,7 +83,13 @@ export default function CloseBreakdownDialog({
 	}, [actionTaken, onConfirm, restartDateTime, validationMessage]);
 
 	return (
-		<Dialog open={entry != null} onClose={closing ? undefined : onCancel} fullWidth maxWidth="sm">
+		<Dialog
+			open={entry != null}
+			onClose={closing ? undefined : onCancel}
+			fullWidth
+			maxWidth="sm"
+			PaperProps={MOBILE_FULL_BLEED_PAPER}
+		>
 			<DialogTitle>Close breakdown</DialogTitle>
 			<DialogContent dividers>
 				{entry ? (
@@ -139,8 +149,8 @@ export default function CloseBreakdownDialog({
 					</Box>
 				) : null}
 			</DialogContent>
-			<DialogActions>
-				<Button type="button" onClick={onCancel} disabled={closing} sx={{ minHeight: 40 }}>
+			<DialogActions sx={DIALOG_ACTIONS_SX}>
+				<Button type="button" onClick={onCancel} disabled={closing}>
 					Cancel
 				</Button>
 				<Button
@@ -149,7 +159,6 @@ export default function CloseBreakdownDialog({
 					startIcon={<CloseIcon size={16} />}
 					onClick={handleConfirm}
 					disabled={closing || validationMessage != null}
-					sx={{ minHeight: 40 }}
 				>
 					{closing ? "Closing…" : "Close breakdown"}
 				</Button>

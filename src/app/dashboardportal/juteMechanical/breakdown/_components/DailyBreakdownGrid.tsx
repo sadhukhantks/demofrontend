@@ -1,10 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { Box, Chip, IconButton, Tooltip } from "@mui/material";
+import { Box, Chip, IconButton, Tooltip, Typography } from "@mui/material";
 import { Pencil as EditIcon, Trash2 as Trash2Icon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import type { MechBreakdown } from "@/utils/juteMechanicalService";
+import {
+	CardStat,
+	DESKTOP_ONLY_SX,
+	MOBILE_ONLY_SX,
+	MobileCard,
+	TOUCH_ICON_BUTTON_SX,
+} from "@/components/ui/responsiveEntry";
 import {
 	BREAKDOWN_STATUS,
 	formatDateTimeDisplay,
@@ -172,18 +179,116 @@ export default function DailyBreakdownGrid({
 
 	return (
 		<Box sx={{ width: "100%" }}>
-			<DataGrid
-				autoHeight
-				rows={rows as MechBreakdown[]}
-				getRowId={(row) => row.breakdown_id}
-				columns={columns}
-				loading={loading}
-				disableRowSelectionOnClick
-				density="comfortable"
-				pageSizeOptions={[10, 25, 50, 100]}
-				initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
-				sx={{ width: "100%" }}
-			/>
+			{/* Desktop: the full 17-column log. */}
+			<Box sx={DESKTOP_ONLY_SX}>
+				<DataGrid
+					autoHeight
+					rows={rows as MechBreakdown[]}
+					getRowId={(row) => row.breakdown_id}
+					columns={columns}
+					loading={loading}
+					disableRowSelectionOnClick
+					density="comfortable"
+					pageSizeOptions={[10, 25, 50, 100]}
+					initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
+					sx={{ width: "100%" }}
+				/>
+			</Box>
+
+			{/* Phone: the same `rows`, as cards. A DataGrid does not reflow — at
+			    360px it simply clips, and a fitter standing at a stopped machine
+			    cannot scroll 17 columns sideways one-handed. Only the fields that
+			    identify an incident are carried over; the rest stay on the desktop
+			    grid and in the edit form. Both branches render; CSS picks one, so
+			    there is no width check and nothing to hydrate-mismatch. */}
+			<Box sx={MOBILE_ONLY_SX}>
+				{loading ? (
+					<Typography variant="body2" color="text.secondary">
+						Loading incidents…
+					</Typography>
+				) : null}
+
+				{!loading && rows.length === 0 ? (
+					<Typography variant="body2" color="text.secondary">
+						No incidents logged for this date range.
+					</Typography>
+				) : null}
+
+				{rows.map((row) => {
+					const code = String(row.status ?? "");
+					return (
+						<MobileCard
+							key={row.breakdown_id}
+							header={
+								<>
+									<Box sx={{ flexGrow: 1, minWidth: 0 }}>
+										<Typography variant="subtitle2" fontWeight={700}>
+											{row.mech_code ? `${row.mech_code} — ` : ""}
+											{row.machine_name ?? `Machine #${row.machine_id}`}
+										</Typography>
+										<Typography
+											variant="caption"
+											color="text.secondary"
+											display="block"
+										>
+											#{row.breakdown_id} · {row.tran_date}
+											{row.machine_type_name ? ` · ${row.machine_type_name}` : ""}
+										</Typography>
+									</Box>
+									<Chip
+										size="small"
+										color={statusColor(code)}
+										label={statusLabels.get(code) ?? statusFallbackLabel(code)}
+									/>
+									<IconButton
+										size="small"
+										color="primary"
+										aria-label="Edit incident"
+										disabled={busy}
+										onClick={() => onEdit(row)}
+										sx={TOUCH_ICON_BUTTON_SX}
+									>
+										<EditIcon size={18} />
+									</IconButton>
+									<IconButton
+										size="small"
+										color="error"
+										aria-label="Delete incident"
+										disabled={busy}
+										onClick={() => onDelete(row)}
+										sx={TOUCH_ICON_BUTTON_SX}
+									>
+										<Trash2Icon size={18} />
+									</IconButton>
+								</>
+							}
+						>
+							<CardStat
+								label="Stopped"
+								value={formatDateTimeDisplay(row.stop_datetime)}
+							/>
+							<CardStat
+								label="Downtime"
+								value={
+									row.duration_min == null
+										? "still down"
+										: formatMinutes(Number(row.duration_min))
+								}
+								align="right"
+							/>
+							<CardStat
+								label="Reason"
+								value={
+									row.reason_code
+										? `${row.reason_code}${row.reason_desc ? ` — ${row.reason_desc}` : ""}`
+										: "—"
+								}
+							/>
+							<CardStat label="Spell" value={row.spell_code ?? "—"} align="right" />
+						</MobileCard>
+					);
+				})}
+			</Box>
 		</Box>
 	);
 }

@@ -14,6 +14,10 @@ import {
 	Typography,
 } from "@mui/material";
 import { CheckCircle2 as CloseIcon, RefreshCw as RefreshIcon } from "lucide-react";
+import {
+	TOUCH_ICON_BUTTON_SX,
+	TOUCH_TARGET,
+} from "@/components/ui/responsiveEntry";
 import type { OpenBreakdownRow } from "../hooks/useOpenBreakdowns";
 import {
 	BREAKDOWN_STATUS,
@@ -77,7 +81,7 @@ export default function OpenBreakdownBoard({
 				<Box sx={{ flexGrow: 1 }} />
 				<Tooltip title="Refresh the board">
 					<span>
-						<IconButton size="small" onClick={onRefresh} sx={{ minWidth: 40, minHeight: 40 }}>
+						<IconButton size="small" onClick={onRefresh} sx={TOUCH_ICON_BUTTON_SX}>
 							<RefreshIcon size={16} />
 						</IconButton>
 					</span>
@@ -104,21 +108,26 @@ export default function OpenBreakdownBoard({
 
 					return (
 						<React.Fragment key={row.breakdown_id}>
+							{/* One row on a desktop; on a phone it wraps into three bands —
+							    the two chips, then the detail block, then a full-width
+							    Close. `order` does the re-sequencing in CSS so the DOM
+							    order (and the desktop layout) is untouched. */}
 							<Box
 								sx={{
 									display: "flex",
-									alignItems: { xs: "stretch", md: "center" },
-									flexDirection: { xs: "column", md: "row" },
+									alignItems: "center",
+									flexWrap: { xs: "wrap", md: "nowrap" },
 									gap: 1.5,
 									py: 1,
 								}}
 							>
 								<Box
 									sx={{
-										minWidth: 108,
+										minWidth: { xs: 0, md: 108 },
 										display: "flex",
 										alignItems: "center",
 										gap: 1,
+										order: { xs: 1, md: 0 },
 									}}
 								>
 									<Chip
@@ -128,7 +137,14 @@ export default function OpenBreakdownBoard({
 									/>
 								</Box>
 
-								<Box sx={{ flexGrow: 1, minWidth: 0 }}>
+								<Box
+									sx={{
+										flexGrow: 1,
+										minWidth: 0,
+										flexBasis: { xs: "100%", md: "auto" },
+										order: { xs: 3, md: 0 },
+									}}
+								>
 									<Typography variant="body2" sx={{ fontWeight: 600 }}>
 										{row.mech_code ? `${row.mech_code} — ` : ""}
 										{row.machine_name ?? `Machine #${row.machine_id}`}
@@ -148,7 +164,12 @@ export default function OpenBreakdownBoard({
 									</Typography>
 								</Box>
 
-								<Chip size="small" variant="outlined" label={statusLabel} />
+								<Chip
+									size="small"
+									variant="outlined"
+									label={statusLabel}
+									sx={{ order: { xs: 2, md: 0 } }}
+								/>
 
 								<Button
 									size="small"
@@ -156,7 +177,12 @@ export default function OpenBreakdownBoard({
 									startIcon={<CloseIcon size={16} />}
 									disabled={closing}
 									onClick={() => onClose(row)}
-									sx={{ minHeight: 40, whiteSpace: "nowrap" }}
+									sx={{
+										minHeight: TOUCH_TARGET,
+										whiteSpace: "nowrap",
+										width: { xs: "100%", md: "auto" },
+										order: { xs: 4, md: 0 },
+									}}
 								>
 									Close
 								</Button>

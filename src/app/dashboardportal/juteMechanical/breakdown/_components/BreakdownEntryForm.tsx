@@ -6,6 +6,7 @@ import { Save as SaveIcon, X as CancelIcon } from "lucide-react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
+import { FORM_GRID_SX, STICKY_ACTIONS_SX } from "@/components/ui/responsiveEntry";
 import type { MechBreakdownSetup, MechReason } from "@/utils/juteMechanicalService";
 import SpareLinesEditor from "./SpareLinesEditor";
 import {
@@ -288,17 +289,7 @@ export default function BreakdownEntryForm({
 			sx={{ display: "flex", flexDirection: "column", gap: 2 }}
 		>
 			<Typography variant="subtitle2">Incident</Typography>
-			<Box
-				sx={{
-					display: "grid",
-					gap: 2,
-					gridTemplateColumns: {
-						xs: "1fr",
-						sm: "repeat(2, minmax(0, 1fr))",
-						md: "repeat(3, minmax(0, 1fr))",
-					},
-				}}
-			>
+			<Box sx={FORM_GRID_SX}>
 				<Controller
 					name="machine_id"
 					control={control}
@@ -455,17 +446,7 @@ export default function BreakdownEntryForm({
 			<Divider />
 
 			<Typography variant="subtitle2">Response &amp; restart</Typography>
-			<Box
-				sx={{
-					display: "grid",
-					gap: 2,
-					gridTemplateColumns: {
-						xs: "1fr",
-						sm: "repeat(2, minmax(0, 1fr))",
-						md: "repeat(3, minmax(0, 1fr))",
-					},
-				}}
-			>
+			<Box sx={FORM_GRID_SX}>
 				<Controller
 					name="attended_datetime"
 					control={control}
@@ -601,7 +582,11 @@ export default function BreakdownEntryForm({
 					</Typography>
 				</Typography>
 				{downtimeMin == null ? (
-					<Typography variant="caption" color="text.secondary">
+					<Typography
+						variant="caption"
+						color="text.secondary"
+						sx={{ flexBasis: { xs: "100%", md: "auto" }, minWidth: 0 }}
+					>
 						No restart time — this incident stays on the open board until it is closed.
 					</Typography>
 				) : null}
@@ -610,16 +595,7 @@ export default function BreakdownEntryForm({
 			<Divider />
 
 			<Typography variant="subtitle2">Analysis</Typography>
-			<Box
-				sx={{
-					display: "grid",
-					gap: 2,
-					gridTemplateColumns: {
-						xs: "1fr",
-						md: "repeat(3, minmax(0, 1fr))",
-					},
-				}}
-			>
+			<Box sx={FORM_GRID_SX}>
 				<Controller
 					name="root_cause"
 					control={control}
@@ -708,24 +684,21 @@ export default function BreakdownEntryForm({
 
 			{submitError ? <Alert severity="error">{submitError}</Alert> : null}
 
-			<Box
-				sx={{
-					position: { xs: "sticky", md: "static" },
-					bottom: 0,
-					bgcolor: "background.paper",
-					py: 1,
-					display: "flex",
-					gap: 1,
-					justifyContent: { xs: "stretch", md: "flex-end" },
-				}}
-			>
+			{/* The form runs well past a phone's fold and the entry is keyed with a
+			    machine stopped, so Save pins to the bottom of the viewport on xs
+			    and returns to normal flow from sm up. STICKY_ACTIONS_SX also
+			    stretches both buttons to a 44px thumb target on a phone. */}
+			<Box sx={STICKY_ACTIONS_SX}>
+				{/* Spacer, not `justifyContent`: on xs the buttons are flex:1 and
+				    fill the bar, so there is nothing to align; from sm up this
+				    pushes them back to the right edge. */}
+				<Box sx={{ flexGrow: 1, display: { xs: "none", sm: "block" } }} />
 				{editing ? (
 					<Button
 						type="button"
 						variant="outlined"
 						startIcon={<CancelIcon size={18} />}
 						onClick={onCancelEdit}
-						sx={{ minHeight: 44 }}
 					>
 						Cancel Edit
 					</Button>
@@ -735,7 +708,6 @@ export default function BreakdownEntryForm({
 					variant="contained"
 					startIcon={<SaveIcon size={18} />}
 					disabled={submitting}
-					sx={{ minHeight: 44, width: { xs: "100%", md: "auto" } }}
 				>
 					{submitting ? "Saving…" : editing ? "Update incident" : "Save incident"}
 				</Button>
