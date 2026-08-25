@@ -33,7 +33,7 @@ import {
  * labelled by its `downtime_type`. The unattributed caption is computed over the
  * BREAKDOWN rows only, so it matches the analytic reports.
  */
-interface RegisterGridRow {
+type RegisterGridRow = {
   id: number;
   tran_date: string;
   machine_name: string;
@@ -60,7 +60,7 @@ interface RegisterGridRow {
   production_loss_qty: number | null;
   status: string;
   remarks: string;
-}
+};
 
 const columns: GridColDef<RegisterGridRow>[] = [
   { field: "tran_date", headerName: "Date", width: 105 },

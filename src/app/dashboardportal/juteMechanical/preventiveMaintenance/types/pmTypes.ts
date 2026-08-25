@@ -32,18 +32,29 @@ export const PM_RESULT_NA = "NA";
 export const PM_RESULT_CODES = Object.freeze([PM_RESULT_OK, PM_RESULT_NOT_OK, PM_RESULT_NA]);
 
 /**
+ * The shape both the server's enum payload and the local fallbacks satisfy.
+ * Annotating the fallbacks with it keeps `serverList.length > 0 ? serverList : FALLBACK`
+ * a single array type instead of a union TypeScript refuses to `.map()`.
+ */
+export interface PmEnumLike {
+	code: string;
+	label: string;
+	freq_days?: number | null;
+}
+
+/**
  * Fallback result options, used only if `/pm_create_setup` returns an empty
  * `pm_results` list — the checklist is unusable without them. The server payload
  * always wins when present.
  */
-export const FALLBACK_PM_RESULTS = Object.freeze([
+export const FALLBACK_PM_RESULTS: ReadonlyArray<PmEnumLike> = Object.freeze([
 	{ code: PM_RESULT_OK, label: "OK" },
 	{ code: PM_RESULT_NOT_OK, label: "Not OK" },
 	{ code: PM_RESULT_NA, label: "N/A" },
 ]);
 
 /** Fallback frequency options, same reasoning as above. */
-export const FALLBACK_PM_FREQUENCIES = Object.freeze([
+export const FALLBACK_PM_FREQUENCIES: ReadonlyArray<PmEnumLike> = Object.freeze([
 	{ code: "DAILY", label: "Daily", freq_days: 1 },
 	{ code: "WEEKLY", label: "Weekly", freq_days: 7 },
 	{ code: "MONTHLY", label: "Monthly", freq_days: 30 },

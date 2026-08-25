@@ -34,7 +34,7 @@ import {
  *
  * A Grand Total row closes the sheet, as it does in the workbook.
  */
-interface MachineSummaryGridRow {
+type MachineSummaryGridRow = {
   id: string;
   machine_name: string;
   mech_code: string;
@@ -53,7 +53,7 @@ interface MachineSummaryGridRow {
   unattributed_pct: number | null;
   production_loss_qty: number | null;
   days_in_range: number | null;
-}
+};
 
 const columns: GridColDef<MachineSummaryGridRow>[] = [
   { field: "machine_name", headerName: "Machine", minWidth: 170 },

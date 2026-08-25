@@ -753,7 +753,10 @@ export interface MechBreakdownClosePayload {
   action_taken?: string | null;
 }
 
-/** A currently-open incident, with minutes elapsed so far. */
+/**
+ * A currently-open incident from `GET /mechBreakdown/open_breakdowns`, with
+ * minutes elapsed so far. Keys mirror `get_open_breakdowns_query()` exactly.
+ */
 export interface MechOpenBreakdown {
   breakdown_id: number;
   co_id: number;
@@ -761,9 +764,13 @@ export interface MechOpenBreakdown {
   machine_id: number;
   machine_name: string | null;
   mech_code: string | null;
+  machine_type_id: number | null;
   machine_type_name: string | null;
+  dept_id: number | null;
   dept_name: string | null;
   tran_date: string;
+  spell_id: number | null;
+  spell_code: string | null;
   stop_datetime: string;
   attended_datetime: string | null;
   /** Minutes since stop_datetime, computed by the backend at read time. */
@@ -772,12 +779,16 @@ export interface MechOpenBreakdown {
   reason_id: number;
   reason_code: string | null;
   reason_desc: string | null;
+  component_id: number | null;
   component_name: string | null;
   discipline: string;
   downtime_type: string;
+  attended_dept_id: number | null;
+  attended_dept_name: string | null;
   attended_by: string | null;
   reported_by: string | null;
   status: string;
+  remarks: string | null;
 }
 
 /** Dropdowns for the breakdown entry screen. */
@@ -1181,12 +1192,31 @@ export interface MechPmExecutionCreate {
 /** A template task returned by `pm_checklist`, used to seed the detail grid. */
 export interface MechPmChecklistTask {
   pm_schedule_id: number;
+  co_id: number;
   machine_type_id: number | null;
+  machine_type_name: string | null;
   machine_id: number | null;
   task_desc: string;
   frequency: string;
   freq_days: number | null;
   seq_no: number | null;
+  remarks: string | null;
+}
+
+/**
+ * `pm_checklist` payload. The endpoint does NOT return a bare task array: it wraps
+ * the tasks in the resolved machine context, which the entry screen displays
+ * (machine type and the frequency actually applied).
+ */
+export interface MechPmChecklistResult {
+  machine_id: number;
+  machine_name: string | null;
+  machine_type_id: number | null;
+  /** Derived via machine_mst -> dept_mst.branch_id. */
+  branch_id: number | null;
+  /** The frequency filter that was applied, or null when unfiltered. */
+  frequency: string | null;
+  tasks: MechPmChecklistTask[];
 }
 
 /** Dropdowns for the PM execution screen. */
@@ -1211,18 +1241,29 @@ export async function fetchPmSetup(p: {
 /**
  * GET /mechPM/pm_checklist — schedule tasks matching this machine OR its machine
  * type, ordered by seq_no. Seeds the PM execution detail grid.
+ *
+ * Returns the machine CONTEXT plus `tasks`, not a bare array — the caller needs
+ * the resolved machine type and applied frequency to label the grid.
  */
 export async function fetchPmChecklist(p: {
   coId: number;
   machineId: number;
   frequency?: string | null;
-}): Promise<MechPmChecklistTask[]> {
+}): Promise<MechPmChecklistResult> {
   const url = `${apiRoutesPortalMasters.MECH_PM_CHECKLIST}?${buildQuery({
     co_id: p.coId,
     machine_id: p.machineId,
     frequency: p.frequency,
   })}`;
-  return requestData<MechPmChecklistTask[]>(url);
+  const result = await requestData<Partial<MechPmChecklistResult>>(url);
+  return {
+    machine_id: result.machine_id ?? p.machineId,
+    machine_name: result.machine_name ?? null,
+    machine_type_id: result.machine_type_id ?? null,
+    branch_id: result.branch_id ?? null,
+    frequency: result.frequency ?? null,
+    tasks: result.tasks ?? [],
+  };
 }
 
 export interface MechPmExecutionTableParams extends MechPagingParams {
@@ -1297,6 +1338,91 @@ export async function deletePmExecution(
 // =============================================================================
 // 5. Reports — /api/mechMaintReports
 // =============================================================================
+//
+// Every row interface below mirrors the dict literal the matching handler in
+// `src/juteMechanical/reports.py` builds. That file is the authority on response
+// keys — not the spec document, which is less precise. Two endpoints
+// (`/top-problem-machines`, `/machine-history`) return `data` as an OBJECT of
+// named lists rather than an array and therefore have their own result types and
+// their own request path; routing them through `requestReport` would hand callers
+// an array type they could `.map()` and blow up on at runtime.
+
+/**
+ * The `summary` block that accompanies a report.
+ *
+ * Every field is optional because the blocks differ by report: the failure-metric
+ * reports share the `_metrics()` set, while `/maintenance-due`,
+ * `/spares-consumption` and `/open-breakdown-board` each return their own
+ * counters. This is the honest union of all of them.
+ */
+export interface MechReportSummary {
+  // --- shared failure metrics (_metrics + _fetch_summary) -------------------
+  breakdown_count?: number;
+  total_downtime_min?: number | null;
+  nr_downtime_min?: number | null;
+  days_in_range?: number | null;
+  available_min?: number | null;
+  mttr_min?: number | null;
+  mtbf_min?: number | null;
+  availability_pct?: number | null;
+  /** Share of downtime logged against reason code 'NR' ("No Reason mentioned"). */
+  unattributed_pct?: number | null;
+  downtime_per_1000_running_hrs?: number | null;
+  nr_count?: number;
+  machine_count?: number;
+  open_count?: number;
+  avg_response_min?: number | null;
+  production_loss_qty?: number | null;
+  first_breakdown_date?: string | null;
+  last_breakdown_date?: string | null;
+  // --- /maintenance-due ----------------------------------------------------
+  as_on_date?: string;
+  due_within_days?: number;
+  due_cutoff?: string;
+  pm_due_count?: number;
+  pm_overdue_count?: number;
+  overhaul_due_count?: number;
+  overhaul_overdue_count?: number;
+  critical_count?: number;
+  // --- /spares-consumption -------------------------------------------------
+  page_total_qty?: number | null;
+  page_total_value?: number | null;
+  total_maintenance_cost?: number | null;
+  // --- /top-problem-machines -----------------------------------------------
+  top_n?: number;
+  repeat_failure_window_days?: number;
+  repeat_failure_count?: number;
+  // --- /machine-history ----------------------------------------------------
+  breakdown_row_count?: number;
+  pm_execution_count?: number;
+  overhaul_count?: number;
+  spare_line_count?: number;
+  spare_value?: number | null;
+  overhaul_cost?: number | null;
+  // --- /open-breakdown-board -----------------------------------------------
+  total_elapsed_min?: number | null;
+  max_elapsed_min?: number | null;
+  avg_elapsed_min?: number | null;
+}
+
+/**
+ * A report response: the rows plus the envelope the backend sends around them.
+ *
+ * `unattributed_pct` is carried here deliberately. It is the share of downtime
+ * booked to 'NR', and surfacing it on every summary report is what stops "No
+ * Reason mentioned" quietly absorbing real causes — so the envelope preserves the
+ * backend's figure instead of leaving each page to re-derive it from the rows on
+ * screen (which would only ever see the current page of data).
+ */
+export interface MechReportResult<T> extends MechListResult<T> {
+  summary: MechReportSummary | null;
+  /**
+   * Mill-level unattributed share for the whole filter set. Null on the three
+   * reports that do not compute it (`/maintenance-due`, `/spares-consumption`,
+   * `/open-breakdown-board`).
+   */
+  unattributed_pct: number | null;
+}
 
 /**
  * Filters accepted by every report endpoint. Only `coId` is required; the rest
@@ -1329,10 +1455,90 @@ function reportQuery(p: MechReportParams): string {
   });
 }
 
-/** R1 breakdown-register: the raw filterable incident log. */
-export type MechBreakdownRegisterRow = MechBreakdown;
+/** The raw report envelope, before defaults are applied. */
+interface MechReportEnvelope<T> {
+  data?: T[];
+  total?: number;
+  summary?: MechReportSummary;
+  unattributed_pct?: number | null;
+}
 
-/** R2 machine-summary: the workbook's main sheet. */
+/**
+ * Fetch an array-shaped report, preserving `summary` and `unattributed_pct`.
+ * Falls back to the summary's own `unattributed_pct` when the top-level copy is
+ * absent, and to null when neither is present.
+ */
+async function requestReport<T>(url: string): Promise<MechReportResult<T>> {
+  const envelope = await request<MechReportEnvelope<T>>(url);
+  const rows = envelope.data ?? [];
+  const summary = envelope.summary ?? null;
+  return {
+    data: rows,
+    total: envelope.total ?? rows.length,
+    summary,
+    unattributed_pct: envelope.unattributed_pct ?? summary?.unattributed_pct ?? null,
+  };
+}
+
+// --- R1 /breakdown-register --------------------------------------------------
+
+/**
+ * One row of the raw incident log.
+ *
+ * NOT limited to `downtime_type = 'BREAKDOWN'`: the register is the audit trail
+ * and shows planned PM / no-material / changeover rows too. The handler projects
+ * a narrower row than the entry-screen `MechBreakdown` — no `co_id`, no
+ * `branch_name`, no audit columns — so this is its own interface.
+ */
+export interface MechBreakdownRegisterRow {
+  breakdown_id: number;
+  tran_date: string | null;
+  machine_id: number;
+  machine_name: string | null;
+  mech_code: string | null;
+  machine_type_id: number | null;
+  machine_type_name: string | null;
+  dept_id: number | null;
+  dept_name: string | null;
+  branch_id: number | null;
+  spell_id: number | null;
+  spell_code: string | null;
+  stop_datetime: string | null;
+  attended_datetime: string | null;
+  restart_datetime: string | null;
+  duration_min: number | null;
+  response_min: number | null;
+  reason_id: number | null;
+  reason_code: string | null;
+  reason_desc: string | null;
+  component_id: number | null;
+  component_name: string | null;
+  component_group: string | null;
+  discipline: string | null;
+  downtime_type: string | null;
+  attended_dept_id: number | null;
+  attended_dept_name: string | null;
+  attended_by: string | null;
+  reported_by: string | null;
+  root_cause: string | null;
+  action_taken: string | null;
+  preventive_action: string | null;
+  production_loss_qty: number | null;
+  status: string | null;
+  remarks: string | null;
+}
+
+/** GET /mechMaintReports/breakdown-register */
+export async function fetchBreakdownRegisterReport(
+  p: MechReportParams,
+): Promise<MechReportResult<MechBreakdownRegisterRow>> {
+  const url = `${apiRoutesPortalMasters.MECH_RPT_BREAKDOWN_REGISTER}?${reportQuery(p)}`;
+  return requestReport<MechBreakdownRegisterRow>(url);
+}
+
+// --- R2 /machine-summary -----------------------------------------------------
+
+/** Per machine: the workbook's main sheet, plus the MTBF/availability it cannot compute. */
 export interface MechMachineSummaryRow {
   machine_id: number;
   machine_name: string | null;
@@ -1342,264 +1548,666 @@ export interface MechMachineSummaryRow {
   dept_id: number | null;
   dept_name: string | null;
   branch_id: number | null;
-  breakdown_count: number;
-  total_downtime_min: number;
-  /** SUM(duration_min) / COUNT(*) */
-  mttr_min: number | null;
-  production_loss_qty: number | null;
-  /** Downtime on reason code 'NR' as a share of this machine's downtime. */
-  unattributed_pct: number | null;
-}
-
-/** R3 reason-pareto: the workbook's reason block. */
-export interface MechReasonParetoRow {
-  reason_id: number;
-  reason_code: string | null;
-  reason_desc: string | null;
-  component_id: number | null;
-  component_name: string | null;
-  discipline: string | null;
-  breakdown_count: number;
-  total_downtime_min: number;
-  duration_per_breakdown: number | null;
-  share_pct: number | null;
-  cumulative_pct: number | null;
-}
-
-/** One machine column of the date x machine grid. */
-export interface MechDateMachineGridColumn {
-  machine_id: number;
-  machine_name: string;
-}
-
-/**
- * R4 date-machine-grid row: `tran_date` plus one key per machine id (stringified),
- * whose value is the reason code(s) for that cell, e.g. `"RF/DRJ"`. The machine keys
- * are dynamic, so cell values are `unknown` — narrow them at the render site.
- */
-export type MechDateMachineGridRow = { tran_date: string } & Record<string, unknown>;
-
-/** R4 date-machine-grid response: rows plus the machine columns to render. */
-export interface MechDateMachineGridResult {
-  data: MechDateMachineGridRow[];
-  columns: MechDateMachineGridColumn[];
-}
-
-/** R5 department-summary. */
-export interface MechDepartmentSummaryRow {
-  dept_id: number | null;
-  dept_name: string | null;
-  machine_type_id: number | null;
-  machine_type_name: string | null;
-  branch_id: number | null;
-  breakdown_count: number;
-  total_downtime_min: number;
-  /** Share of total mill downtime in the range. */
-  share_pct: number | null;
-  unattributed_pct: number | null;
-}
-
-/** R6 reliability: MTBF / MTTR / availability per machine. */
-export interface MechReliabilityRow {
-  machine_id: number;
-  machine_name: string | null;
-  mech_code: string | null;
-  machine_type_name: string | null;
-  dept_name: string | null;
-  breakdown_count: number;
-  total_downtime_min: number;
-  available_min: number | null;
-  mtbf_min: number | null;
-  mttr_min: number | null;
-  availability_pct: number | null;
-  downtime_per_1000_hrs: number | null;
-}
-
-/** R7 reason-trend: month x reason, the workbook's Summary sheets. */
-export interface MechReasonTrendRow {
-  /** YYYY-MM */
-  month: string;
-  reason_id: number | null;
-  reason_code: string | null;
-  reason_desc: string | null;
-  breakdown_count: number;
-  total_downtime_min: number;
-}
-
-/** R8 maintenance-due: PM due/overdue + overhaul due, ordered by criticality. */
-export interface MechMaintenanceDueRow {
-  machine_id: number;
-  machine_name: string | null;
-  mech_code: string | null;
-  machine_type_name: string | null;
-  dept_name: string | null;
-  branch_id: number | null;
   criticality: string | null;
-  last_pm_date: string | null;
-  next_pm_due: string | null;
-  pm_days_overdue: number | null;
-  last_overhaul_date: string | null;
-  next_overhaul_due: string | null;
-  overhaul_days_overdue: number | null;
-}
-
-/** R9 spares-consumption: qty and value per machine/item. */
-export interface MechSparesConsumptionRow {
-  machine_id: number | null;
-  machine_name: string | null;
-  item_id: number;
-  item_code: string | null;
-  item_name: string | null;
-  uom_name: string | null;
-  qty: number | null;
-  value: number | null;
-  /** BREAKDOWN | OVERHAUL — which register the spare was booked on. */
-  source: string | null;
-}
-
-/**
- * R10 top-problem-machines. Rows arrive in the uniform `{ data, total }` envelope;
- * `rank_type` says which list a row belongs to (top-N by downtime, top-N by count,
- * or the repeat-failure list — same machine + component inside the repeat window).
- */
-export interface MechTopProblemMachineRow {
-  machine_id: number;
-  machine_name: string | null;
-  mech_code: string | null;
-  machine_type_name: string | null;
-  dept_name: string | null;
-  component_id: number | null;
-  component_name: string | null;
   breakdown_count: number;
-  total_downtime_min: number;
+  total_downtime_min: number | null;
+  /** What the workbook calls "duration per breakdown". */
   mttr_min: number | null;
-  repeat_failure_count: number | null;
-  /** DOWNTIME | COUNT | REPEAT */
-  rank_type: string | null;
-  rank_no: number | null;
-}
-
-/** R11 machine-history: one interleaved event stream for a single machine. */
-export interface MechMachineHistoryRow {
-  /** BREAKDOWN | PM | OVERHAUL | SPARE */
-  event_type: string;
-  event_date: string | null;
-  /** Primary key of the source row (breakdown_id / pm_exec_id / overhaul_id). */
-  ref_id: number | null;
-  machine_id: number;
-  machine_name: string | null;
-  reason_code: string | null;
-  component_name: string | null;
-  discipline: string | null;
-  description: string | null;
-  duration_min: number | null;
-  cost: number | null;
-  done_by: string | null;
-  remarks: string | null;
-}
-
-/** R12 open-breakdown-board: same shape as the live board, longest-first. */
-export type MechOpenBoardRow = MechOpenBreakdown;
-
-/** GET /mechMaintReports/breakdown-register */
-export async function fetchBreakdownRegisterReport(
-  p: MechReportParams,
-): Promise<MechListResult<MechBreakdownRegisterRow>> {
-  const url = `${apiRoutesPortalMasters.MECH_RPT_BREAKDOWN_REGISTER}?${reportQuery(p)}`;
-  return requestList<MechBreakdownRegisterRow>(url);
+  mtbf_min: number | null;
+  availability_pct: number | null;
+  available_min: number | null;
+  days_in_range: number | null;
+  nr_downtime_min: number | null;
+  unattributed_pct: number | null;
+  nr_count: number;
+  avg_response_min: number | null;
+  open_count: number;
+  production_loss_qty: number | null;
+  pct_of_mill_downtime: number | null;
+  first_breakdown_date: string | null;
+  last_breakdown_date: string | null;
 }
 
 /** GET /mechMaintReports/machine-summary */
 export async function fetchMachineSummaryReport(
   p: MechReportParams,
-): Promise<MechListResult<MechMachineSummaryRow>> {
+): Promise<MechReportResult<MechMachineSummaryRow>> {
   const url = `${apiRoutesPortalMasters.MECH_RPT_MACHINE_SUMMARY}?${reportQuery(p)}`;
-  return requestList<MechMachineSummaryRow>(url);
+  return requestReport<MechMachineSummaryRow>(url);
+}
+
+// --- R3 /reason-pareto -------------------------------------------------------
+
+/**
+ * Per reason: the workbook's reason block turned into a real Pareto.
+ *
+ * NOTE the key names — this handler does NOT use the `breakdown_count` /
+ * `total_downtime_min` names the other reports use. It emits `count`,
+ * `total_duration` and `pct_share`.
+ */
+export interface MechReasonParetoRow {
+  reason_id: number | null;
+  reason_code: string | null;
+  reason_desc: string | null;
+  discipline: string | null;
+  component_id: number | null;
+  component_name: string | null;
+  /** Distinct machines that hit this reason. */
+  machine_count: number;
+  /** Breakdown count for this reason (NOT `breakdown_count`). */
+  count: number;
+  /** Total downtime minutes for this reason (NOT `total_downtime_min`). */
+  total_duration: number | null;
+  duration_per_breakdown: number | null;
+  /** Share of mill downtime (NOT `share_pct`). */
+  pct_share: number | null;
+  cumulative_duration: number | null;
+  cumulative_pct: number | null;
 }
 
 /** GET /mechMaintReports/reason-pareto */
 export async function fetchReasonParetoReport(
   p: MechReportParams,
-): Promise<MechListResult<MechReasonParetoRow>> {
+): Promise<MechReportResult<MechReasonParetoRow>> {
   const url = `${apiRoutesPortalMasters.MECH_RPT_REASON_PARETO}?${reportQuery(p)}`;
-  return requestList<MechReasonParetoRow>(url);
+  return requestReport<MechReasonParetoRow>(url);
+}
+
+// --- R4 /date-machine-grid ---------------------------------------------------
+
+/** One machine column of the date x machine grid. */
+export interface MechDateMachineGridColumn {
+  machine_id: number;
+  machine_name: string | null;
+  mech_code: string | null;
+  machine_type_id: number | null;
+  machine_type_name: string | null;
 }
 
 /**
- * GET /mechMaintReports/date-machine-grid — the exact replica of the sheet the mill
- * keys today. Returns dynamic machine columns alongside the rows.
+ * One grid row: a date, its daily totals, and one key per machine id
+ * (stringified) holding that cell's reason codes joined with "/" — exactly how
+ * the mill writes them into a single Excel cell today ("RF/DRJ", "DRJ/PB/BJ").
+ *
+ * The machine keys are dynamic, so cell values arrive as `unknown`; narrow them
+ * at the render site.
+ */
+export type MechDateMachineGridRow = {
+  tran_date: string | null;
+  breakdown_count: number;
+  total_downtime_min: number | null;
+} & Record<string, unknown>;
+
+/** The grid response: rows, the machine columns to render, and the envelope. */
+export interface MechDateMachineGridResult
+  extends MechReportResult<MechDateMachineGridRow> {
+  columns: MechDateMachineGridColumn[];
+}
+
+/**
+ * GET /mechMaintReports/date-machine-grid — the exact replica of the sheet the
+ * mill keys today. Paging is on the DATE axis: one row per date.
  */
 export async function fetchDateMachineGridReport(
   p: MechReportParams,
 ): Promise<MechDateMachineGridResult> {
   const url = `${apiRoutesPortalMasters.MECH_RPT_DATE_MACHINE_GRID}?${reportQuery(p)}`;
-  const result = await request<Partial<MechDateMachineGridResult>>(url);
-  return { data: result.data ?? [], columns: result.columns ?? [] };
+  const envelope = await request<
+    MechReportEnvelope<MechDateMachineGridRow> & {
+      columns?: MechDateMachineGridColumn[];
+    }
+  >(url);
+  const rows = envelope.data ?? [];
+  const summary = envelope.summary ?? null;
+  return {
+    data: rows,
+    total: envelope.total ?? rows.length,
+    summary,
+    unattributed_pct: envelope.unattributed_pct ?? summary?.unattributed_pct ?? null,
+    columns: envelope.columns ?? [],
+  };
+}
+
+// --- R5 /department-summary --------------------------------------------------
+
+/** Per department + machine type. */
+export interface MechDepartmentSummaryRow {
+  dept_id: number | null;
+  dept_name: string | null;
+  branch_id: number | null;
+  machine_type_id: number | null;
+  machine_type_name: string | null;
+  machine_count: number;
+  breakdown_count: number;
+  total_downtime_min: number | null;
+  mttr_min: number | null;
+  mtbf_min: number | null;
+  availability_pct: number | null;
+  nr_downtime_min: number | null;
+  unattributed_pct: number | null;
+  nr_count: number;
+  production_loss_qty: number | null;
+  /** Share of total mill downtime (NOT `share_pct`). */
+  pct_of_mill_downtime: number | null;
 }
 
 /** GET /mechMaintReports/department-summary */
 export async function fetchDepartmentSummaryReport(
   p: MechReportParams,
-): Promise<MechListResult<MechDepartmentSummaryRow>> {
+): Promise<MechReportResult<MechDepartmentSummaryRow>> {
   const url = `${apiRoutesPortalMasters.MECH_RPT_DEPARTMENT_SUMMARY}?${reportQuery(p)}`;
-  return requestList<MechDepartmentSummaryRow>(url);
+  return requestReport<MechDepartmentSummaryRow>(url);
+}
+
+// --- R6 /reliability ---------------------------------------------------------
+
+/** Per machine: MTBF, MTTR, availability %, downtime per 1000 running hours. */
+export interface MechReliabilityRow {
+  machine_id: number;
+  machine_name: string | null;
+  mech_code: string | null;
+  machine_type_id: number | null;
+  machine_type_name: string | null;
+  dept_id: number | null;
+  dept_name: string | null;
+  branch_id: number | null;
+  criticality: string | null;
+  breakdown_count: number;
+  total_downtime_min: number | null;
+  days_in_range: number | null;
+  available_min: number | null;
+  /** (available_min - downtime) / 60 — time the machine was able to run. */
+  running_hrs: number | null;
+  mtbf_min: number | null;
+  mtbf_hrs: number | null;
+  mttr_min: number | null;
+  availability_pct: number | null;
+  /** Note the full key name — NOT `downtime_per_1000_hrs`. */
+  downtime_per_1000_running_hrs: number | null;
+  avg_response_min: number | null;
+  nr_downtime_min: number | null;
+  unattributed_pct: number | null;
+  open_count: number;
 }
 
 /** GET /mechMaintReports/reliability */
 export async function fetchReliabilityReport(
   p: MechReportParams,
-): Promise<MechListResult<MechReliabilityRow>> {
+): Promise<MechReportResult<MechReliabilityRow>> {
   const url = `${apiRoutesPortalMasters.MECH_RPT_RELIABILITY}?${reportQuery(p)}`;
-  return requestList<MechReliabilityRow>(url);
+  return requestReport<MechReliabilityRow>(url);
+}
+
+// --- R7 /reason-trend --------------------------------------------------------
+
+/**
+ * The workbook's Summary sheets: ONE ROW PER REASON, already pivoted by month.
+ *
+ * Besides the fixed fields, each row carries a `"<YYYY-MM>_count"` and a
+ * `"<YYYY-MM>_duration"` key for every month in the response's `months` array —
+ * dynamic keys, hence the index signature. Read them via `months`, not by
+ * guessing at column names.
+ */
+export type MechReasonTrendRow = {
+  reason_id: number | null;
+  reason_code: string | null;
+  reason_desc: string | null;
+  discipline: string | null;
+  component_name: string | null;
+  total_count: number;
+  total_duration: number | null;
+  duration_per_breakdown: number | null;
+} & Record<string, unknown>;
+
+/** The trend response: rows plus the ordered YYYY-MM columns they are keyed by. */
+export interface MechReasonTrendResult extends MechReportResult<MechReasonTrendRow> {
+  /** Ordered YYYY-MM keys present on every row; drives the dynamic columns. */
+  months: string[];
 }
 
 /** GET /mechMaintReports/reason-trend */
 export async function fetchReasonTrendReport(
   p: MechReportParams,
-): Promise<MechListResult<MechReasonTrendRow>> {
+): Promise<MechReasonTrendResult> {
   const url = `${apiRoutesPortalMasters.MECH_RPT_REASON_TREND}?${reportQuery(p)}`;
-  return requestList<MechReasonTrendRow>(url);
+  const envelope = await request<
+    MechReportEnvelope<MechReasonTrendRow> & { months?: string[] }
+  >(url);
+  const rows = envelope.data ?? [];
+  const summary = envelope.summary ?? null;
+  return {
+    data: rows,
+    total: envelope.total ?? rows.length,
+    summary,
+    unattributed_pct: envelope.unattributed_pct ?? summary?.unattributed_pct ?? null,
+    months: envelope.months ?? [],
+  };
+}
+
+// --- R8 /maintenance-due -----------------------------------------------------
+
+/**
+ * ONE ROW PER DUE ITEM — not PM and overhaul side by side.
+ *
+ * A machine with both a PM and an overhaul due appears TWICE; `due_type` says
+ * which. `days_overdue` is positive once the date has passed and negative while
+ * the item is merely upcoming inside the `due_within_days` window (default 30).
+ */
+export interface MechMaintenanceDueRow {
+  /** 'PM' | 'OVERHAUL' */
+  due_type: string;
+  machine_attr_id: number | null;
+  machine_id: number;
+  machine_name: string | null;
+  mech_code: string | null;
+  machine_type_id: number | null;
+  machine_type_name: string | null;
+  dept_id: number | null;
+  dept_name: string | null;
+  branch_id: number | null;
+  criticality: string | null;
+  make: string | null;
+  model: string | null;
+  due_date: string | null;
+  last_done_date: string | null;
+  /** Set on a PM row. */
+  freq_days: number | null;
+  /** Set on an OVERHAUL row. */
+  freq_months: number | null;
+  days_overdue: number | null;
+  is_overdue: boolean;
 }
 
 /** GET /mechMaintReports/maintenance-due */
 export async function fetchMaintenanceDueReport(
   p: MechReportParams,
-): Promise<MechListResult<MechMaintenanceDueRow>> {
+): Promise<MechReportResult<MechMaintenanceDueRow>> {
   const url = `${apiRoutesPortalMasters.MECH_RPT_MAINTENANCE_DUE}?${reportQuery(p)}`;
-  return requestList<MechMaintenanceDueRow>(url);
+  return requestReport<MechMaintenanceDueRow>(url);
+}
+
+// --- R9 /spares-consumption --------------------------------------------------
+
+/**
+ * Per machine + item spares. Quantities and values arrive SPLIT by source —
+ * breakdown vs overhaul — with the pair totalled; there is no single `qty`,
+ * `value` or `source` field on this row.
+ */
+export interface MechSparesConsumptionRow {
+  machine_id: number | null;
+  machine_name: string | null;
+  mech_code: string | null;
+  machine_type_id: number | null;
+  machine_type_name: string | null;
+  dept_id: number | null;
+  dept_name: string | null;
+  branch_id: number | null;
+  item_id: number;
+  item_code: string | null;
+  item_name: string | null;
+  uom_name: string | null;
+  breakdown_qty: number | null;
+  breakdown_value: number | null;
+  overhaul_qty: number | null;
+  overhaul_value: number | null;
+  total_qty: number | null;
+  total_value: number | null;
+  line_count: number;
+}
+
+/**
+ * Maintenance cost per machine, returned alongside the spare lines. Folds in
+ * overhaul labour, so this is the real maintenance spend rather than only the
+ * parts bill.
+ */
+export interface MechSparesMachineCostRow {
+  machine_id: number | null;
+  machine_name: string | null;
+  mech_code: string | null;
+  machine_type_id: number | null;
+  machine_type_name: string | null;
+  dept_id: number | null;
+  dept_name: string | null;
+  branch_id: number | null;
+  breakdown_spare_value: number | null;
+  overhaul_spare_value: number | null;
+  overhaul_labour_cost: number | null;
+  total_maintenance_cost: number | null;
+}
+
+/** The spares response: item lines plus the per-machine cost roll-up. */
+export interface MechSparesConsumptionResult
+  extends MechReportResult<MechSparesConsumptionRow> {
+  machine_cost: MechSparesMachineCostRow[];
 }
 
 /** GET /mechMaintReports/spares-consumption */
 export async function fetchSparesConsumptionReport(
   p: MechReportParams,
-): Promise<MechListResult<MechSparesConsumptionRow>> {
+): Promise<MechSparesConsumptionResult> {
   const url = `${apiRoutesPortalMasters.MECH_RPT_SPARES_CONSUMPTION}?${reportQuery(p)}`;
-  return requestList<MechSparesConsumptionRow>(url);
+  const envelope = await request<
+    MechReportEnvelope<MechSparesConsumptionRow> & {
+      machine_cost?: MechSparesMachineCostRow[];
+    }
+  >(url);
+  const rows = envelope.data ?? [];
+  const summary = envelope.summary ?? null;
+  return {
+    data: rows,
+    total: envelope.total ?? rows.length,
+    summary,
+    unattributed_pct: envelope.unattributed_pct ?? summary?.unattributed_pct ?? null,
+    machine_cost: envelope.machine_cost ?? [],
+  };
+}
+
+// --- R10 /top-problem-machines ----------------------------------------------
+
+/** A machine in one of the two top-N blocks. */
+export interface MechTopMachineRow {
+  machine_id: number;
+  machine_name: string | null;
+  mech_code: string | null;
+  machine_type_id: number | null;
+  machine_type_name: string | null;
+  dept_id: number | null;
+  dept_name: string | null;
+  branch_id: number | null;
+  criticality: string | null;
+  breakdown_count: number;
+  total_downtime_min: number | null;
+  mttr_min: number | null;
+  mtbf_min: number | null;
+  availability_pct: number | null;
+  nr_downtime_min: number | null;
+  unattributed_pct: number | null;
+  pct_of_mill_downtime: number | null;
+  first_breakdown_date: string | null;
+  last_breakdown_date: string | null;
+}
+
+/**
+ * The same machine + component failing again inside
+ * REPEAT_FAILURE_WINDOW_DAYS — the sharpest signal this module produces, since it
+ * separates "we fixed it" from "we patched it". Incidents with no component
+ * tagged cannot be paired and are excluded rather than guessed at.
+ */
+export interface MechRepeatFailureRow {
+  breakdown_id: number;
+  machine_id: number;
+  machine_name: string | null;
+  mech_code: string | null;
+  machine_type_id: number | null;
+  machine_type_name: string | null;
+  dept_id: number | null;
+  dept_name: string | null;
+  branch_id: number | null;
+  component_id: number | null;
+  component_name: string | null;
+  component_group: string | null;
+  reason_id: number | null;
+  reason_code: string | null;
+  reason_desc: string | null;
+  tran_date: string | null;
+  stop_datetime: string | null;
+  duration_min: number | null;
+  prev_breakdown_id: number | null;
+  prev_tran_date: string | null;
+  prev_duration_min: number | null;
+  prev_reason_code: string | null;
+  days_since_previous: number;
+}
+
+/** `data` for /top-problem-machines: three named lists, NOT an array. */
+export interface MechTopProblemMachinesData {
+  by_downtime: MechTopMachineRow[];
+  by_count: MechTopMachineRow[];
+  repeat_failures: MechRepeatFailureRow[];
+}
+
+/**
+ * /top-problem-machines does not fit the array-shaped report envelope, so it gets
+ * its own result type. `data` is an OBJECT — never call `.map()` on it.
+ */
+export interface MechTopProblemMachinesResult {
+  data: MechTopProblemMachinesData;
+  /** Length of `by_downtime`, per the backend. */
+  total: number;
+  summary: MechReportSummary | null;
+  unattributed_pct: number | null;
 }
 
 /** GET /mechMaintReports/top-problem-machines */
 export async function fetchTopProblemMachinesReport(
   p: MechReportParams,
-): Promise<MechListResult<MechTopProblemMachineRow>> {
+): Promise<MechTopProblemMachinesResult> {
   const url = `${apiRoutesPortalMasters.MECH_RPT_TOP_PROBLEM_MACHINES}?${reportQuery(p)}`;
-  return requestList<MechTopProblemMachineRow>(url);
+  const envelope = await request<{
+    data?: Partial<MechTopProblemMachinesData>;
+    total?: number;
+    summary?: MechReportSummary;
+    unattributed_pct?: number | null;
+  }>(url);
+  const summary = envelope.summary ?? null;
+  const data: MechTopProblemMachinesData = {
+    by_downtime: envelope.data?.by_downtime ?? [],
+    by_count: envelope.data?.by_count ?? [],
+    repeat_failures: envelope.data?.repeat_failures ?? [],
+  };
+  return {
+    data,
+    total: envelope.total ?? data.by_downtime.length,
+    summary,
+    unattributed_pct: envelope.unattributed_pct ?? summary?.unattributed_pct ?? null,
+  };
+}
+
+// --- R11 /machine-history ----------------------------------------------------
+
+/** The machine header of the history card: identity + maintenance attributes. */
+export interface MechMachineHistoryMachine {
+  machine_id: number;
+  machine_name: string | null;
+  mech_code: string | null;
+  machine_type_id: number | null;
+  machine_type_name: string | null;
+  dept_id: number | null;
+  dept_name: string | null;
+  branch_id: number | null;
+  machine_attr_id: number | null;
+  make: string | null;
+  model: string | null;
+  serial_no: string | null;
+  commissioning_date: string | null;
+  criticality: string | null;
+  last_overhaul_date: string | null;
+  overhaul_freq_months: number | null;
+  next_overhaul_due: string | null;
+  last_pm_date: string | null;
+  pm_freq_days: number | null;
+  next_pm_due: string | null;
+  remarks: string | null;
+}
+
+/** A breakdown in the history panel — ALL downtime types, not failures only. */
+export interface MechMachineHistoryBreakdown {
+  breakdown_id: number;
+  tran_date: string | null;
+  spell_id: number | null;
+  spell_code: string | null;
+  stop_datetime: string | null;
+  attended_datetime: string | null;
+  restart_datetime: string | null;
+  duration_min: number | null;
+  response_min: number | null;
+  reason_id: number | null;
+  reason_code: string | null;
+  reason_desc: string | null;
+  component_id: number | null;
+  component_name: string | null;
+  discipline: string | null;
+  downtime_type: string | null;
+  attended_dept_name: string | null;
+  attended_by: string | null;
+  reported_by: string | null;
+  root_cause: string | null;
+  action_taken: string | null;
+  preventive_action: string | null;
+  production_loss_qty: number | null;
+  status: string | null;
+  remarks: string | null;
+}
+
+/** A PM visit in the history panel. */
+export interface MechMachineHistoryPmExecution {
+  pm_exec_id: number;
+  pm_date: string | null;
+  frequency: string | null;
+  done_by: string | null;
+  downtime_min: number | null;
+  next_due_date: string | null;
+  task_count: number;
+  /** Checklist tasks that came back NOT_OK. */
+  not_ok_count: number;
+  remarks: string | null;
+}
+
+/** An overhaul in the history panel. */
+export interface MechMachineHistoryOverhaul {
+  overhaul_id: number;
+  overhaul_type: string | null;
+  from_date: string | null;
+  to_date: string | null;
+  downtime_days: number | null;
+  work_done: string | null;
+  done_by: string | null;
+  party_id: number | null;
+  party_name: string | null;
+  labour_cost: number | null;
+  spare_cost: number | null;
+  total_cost: number | null;
+  next_due_date: string | null;
+  remarks: string | null;
+}
+
+/** A spare line in the history panel, from either register. */
+export interface MechMachineHistorySpare {
+  /** 'BREAKDOWN' | 'OVERHAUL' — which register the line came from. */
+  source: string | null;
+  /** breakdown_id or overhaul_id, per `source`. */
+  document_id: number | null;
+  document_date: string | null;
+  item_id: number;
+  item_code: string | null;
+  item_name: string | null;
+  uom_name: string | null;
+  qty: number | null;
+  rate: number | null;
+  amount: number | null;
+  remarks: string | null;
+}
+
+/** `data` for /machine-history: five named parts, NOT an array. */
+export interface MechMachineHistoryData {
+  machine: MechMachineHistoryMachine | null;
+  breakdowns: MechMachineHistoryBreakdown[];
+  pm_executions: MechMachineHistoryPmExecution[];
+  overhauls: MechMachineHistoryOverhaul[];
+  spares: MechMachineHistorySpare[];
+}
+
+/**
+ * /machine-history does not fit the array-shaped report envelope either.
+ * `data` is an OBJECT — never call `.map()` on it.
+ */
+export interface MechMachineHistoryResult {
+  data: MechMachineHistoryData;
+  /** Breakdown row count for the filter set. */
+  total: number;
+  summary: MechReportSummary | null;
+  unattributed_pct: number | null;
 }
 
 /**
  * GET /mechMaintReports/machine-history — every breakdown, PM, overhaul and spare
- * for ONE machine. `machineId` is required by this report.
+ * for ONE machine. `machineId` is required; the backend 400s without it.
  */
 export async function fetchMachineHistoryReport(
   p: MechReportParams & { machineId: number },
-): Promise<MechListResult<MechMachineHistoryRow>> {
+): Promise<MechMachineHistoryResult> {
   const url = `${apiRoutesPortalMasters.MECH_RPT_MACHINE_HISTORY}?${reportQuery(p)}`;
-  return requestList<MechMachineHistoryRow>(url);
+  const envelope = await request<{
+    data?: Partial<MechMachineHistoryData>;
+    total?: number;
+    summary?: MechReportSummary;
+    unattributed_pct?: number | null;
+  }>(url);
+  const summary = envelope.summary ?? null;
+  const data: MechMachineHistoryData = {
+    machine: envelope.data?.machine ?? null,
+    breakdowns: envelope.data?.breakdowns ?? [],
+    pm_executions: envelope.data?.pm_executions ?? [],
+    overhauls: envelope.data?.overhauls ?? [],
+    spares: envelope.data?.spares ?? [],
+  };
+  return {
+    data,
+    total: envelope.total ?? data.breakdowns.length,
+    summary,
+    unattributed_pct: envelope.unattributed_pct ?? summary?.unattributed_pct ?? null,
+  };
+}
+
+// --- R12 /open-breakdown-board -----------------------------------------------
+
+/**
+ * A live-board row. Distinct from `MechOpenBreakdown` (the entry module's
+ * `/open_breakdowns`): this one adds `criticality` and `elapsed_hrs` and carries
+ * no `co_id`.
+ *
+ * Not failure-filtered — a machine stopped for a planned PM that has not
+ * restarted is still a stopped machine the board must show, so `downtime_type`
+ * travels with each row.
+ */
+export interface MechOpenBoardRow {
+  breakdown_id: number;
+  tran_date: string | null;
+  machine_id: number;
+  machine_name: string | null;
+  mech_code: string | null;
+  machine_type_id: number | null;
+  machine_type_name: string | null;
+  dept_id: number | null;
+  dept_name: string | null;
+  branch_id: number | null;
+  criticality: string | null;
+  spell_id: number | null;
+  spell_code: string | null;
+  stop_datetime: string | null;
+  attended_datetime: string | null;
+  response_min: number | null;
+  reason_id: number | null;
+  reason_code: string | null;
+  reason_desc: string | null;
+  component_id: number | null;
+  component_name: string | null;
+  discipline: string | null;
+  downtime_type: string | null;
+  attended_dept_name: string | null;
+  attended_by: string | null;
+  reported_by: string | null;
+  status: string | null;
+  remarks: string | null;
+  /** Minutes since stop_datetime, against the server clock at read time. */
+  elapsed_min: number | null;
+  elapsed_hrs: number | null;
 }
 
 /** GET /mechMaintReports/open-breakdown-board — open incidents, longest-first. */
 export async function fetchOpenBreakdownBoardReport(
   p: MechReportParams,
-): Promise<MechListResult<MechOpenBoardRow>> {
+): Promise<MechReportResult<MechOpenBoardRow>> {
   const url = `${apiRoutesPortalMasters.MECH_RPT_OPEN_BOARD}?${reportQuery(p)}`;
-  return requestList<MechOpenBoardRow>(url);
+  return requestReport<MechOpenBoardRow>(url);
 }

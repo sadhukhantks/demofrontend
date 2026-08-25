@@ -7,7 +7,7 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import type { MechPmSetup } from "@/utils/juteMechanicalService";
-import type { PmExecutionFormValues } from "../types/pmTypes";
+import type { PmEnumLike, PmExecutionFormValues } from "../types/pmTypes";
 import {
 	FALLBACK_PM_FREQUENCIES,
 	buildDefaultPmFormValues,
@@ -100,22 +100,26 @@ export default function PmExecutionForm({
 		[setup.machines],
 	);
 
-	const frequencyOptions = React.useMemo(() => {
-		const source =
-			setup.pm_frequencies.length > 0 ? setup.pm_frequencies : FALLBACK_PM_FREQUENCIES;
-		return source.map((option) => ({
-			value: option.code,
-			label: option.freq_days ? `${option.label} (${option.freq_days} d)` : option.label,
-		}));
-	}, [setup.pm_frequencies]);
+	const frequencySource = React.useMemo<ReadonlyArray<PmEnumLike>>(
+		() => (setup.pm_frequencies.length > 0 ? setup.pm_frequencies : FALLBACK_PM_FREQUENCIES),
+		[setup.pm_frequencies],
+	);
+
+	const frequencyOptions = React.useMemo(
+		() =>
+			frequencySource.map((option) => ({
+				value: option.code,
+				label: option.freq_days ? `${option.label} (${option.freq_days} d)` : option.label,
+			})),
+		[frequencySource],
+	);
 
 	// The day count the chosen frequency resolves to — one input into the server's
 	// next_pm_due, shown so the fitter knows when the machine is due back.
-	const freqDays = React.useMemo(() => {
-		const source =
-			setup.pm_frequencies.length > 0 ? setup.pm_frequencies : FALLBACK_PM_FREQUENCIES;
-		return source.find((option) => option.code === frequencyValue)?.freq_days ?? null;
-	}, [setup.pm_frequencies, frequencyValue]);
+	const freqDays = React.useMemo(
+		() => frequencySource.find((option) => option.code === frequencyValue)?.freq_days ?? null,
+		[frequencySource, frequencyValue],
+	);
 
 	const submit = handleSubmit((formValues) => onSubmit(formValues));
 

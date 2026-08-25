@@ -178,10 +178,6 @@ export function useMechReportFilters(): MechReportFilters {
     [coId, branchId, dateFrom, dateTo, machineTypeId, machineId, discipline],
   );
 
-  const handleSetMachineType = useCallback((value: number | null) => {
-    setMachineTypeId(value);
-  }, []);
-
   return {
     branches,
     coId,
@@ -196,7 +192,7 @@ export function useMechReportFilters(): MechReportFilters {
     machineId,
     setMachineId,
     machineTypeId,
-    setMachineTypeId: handleSetMachineType,
+    setMachineTypeId,
     discipline,
     setDiscipline,
     machines,

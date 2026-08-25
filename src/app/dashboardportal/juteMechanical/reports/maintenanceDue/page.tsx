@@ -46,7 +46,7 @@ function criticalityRank(value: string): number {
   return CRITICALITY_ORDER[value] ?? 4;
 }
 
-interface MaintenanceDueGridRow {
+type MaintenanceDueGridRow = {
   id: string;
   due_type: string;
   machine_name: string;
@@ -66,7 +66,7 @@ interface MaintenanceDueGridRow {
   _criticalityRank: number;
   _daysOverdue: number;
   _isOverdue: boolean;
-}
+};
 
 /** Overdue / upcoming badge, coloured from the palette. */
 function DueStatusCell({ row }: { row: MaintenanceDueGridRow }) {

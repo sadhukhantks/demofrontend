@@ -16,7 +16,11 @@ import OverhaulEntryForm from "./_components/OverhaulEntryForm";
 import OverhaulGrid from "./_components/OverhaulGrid";
 import { useOverhaulSetup } from "./hooks/useOverhaulSetup";
 import { useOverhaulTable, type OverhaulTableFilters } from "./hooks/useOverhaulTable";
-import type { EditableOverhaulSpare, OverhaulFormValues } from "./types/overhaulTypes";
+import type {
+	EditableOverhaulSpare,
+	OverhaulEnumLike,
+	OverhaulFormValues,
+} from "./types/overhaulTypes";
 import {
 	EMPTY_SPARES,
 	FALLBACK_OVERHAUL_TYPES,
@@ -126,7 +130,7 @@ export default function OverhaulRegisterPage() {
 	);
 
 	const typeFilterOptions = React.useMemo(() => {
-		const source =
+		const source: ReadonlyArray<OverhaulEnumLike> =
 			setup && setup.overhaul_types.length > 0 ? setup.overhaul_types : FALLBACK_OVERHAUL_TYPES;
 		return source.map((option) => ({ value: option.code, label: option.label }));
 	}, [setup]);

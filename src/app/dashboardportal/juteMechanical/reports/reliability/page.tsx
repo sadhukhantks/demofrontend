@@ -33,7 +33,7 @@ import {
  *
  * Note the backend key is `downtime_per_1000_running_hrs`.
  */
-interface ReliabilityGridRow {
+type ReliabilityGridRow = {
   id: string;
   machine_name: string;
   mech_code: string;
@@ -53,7 +53,7 @@ interface ReliabilityGridRow {
   avg_response_min: number | null;
   unattributed_pct: number | null;
   open_count: number | null;
-}
+};
 
 const columns: GridColDef<ReliabilityGridRow>[] = [
   { field: "machine_name", headerName: "Machine", minWidth: 170 },

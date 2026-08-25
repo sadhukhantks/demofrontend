@@ -23,7 +23,7 @@ import {
 import { Plus as PlusIcon, RotateCcw as ReseedIcon, Trash2 as TrashIcon } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import type { MechEnumOption } from "@/utils/juteMechanicalService";
-import type { EditablePmTask } from "../types/pmTypes";
+import type { EditablePmTask, PmEnumLike } from "../types/pmTypes";
 import { FALLBACK_PM_RESULTS, PM_RESULT_NOT_OK, countNotOk } from "../types/pmTypes";
 
 export interface PmChecklistGridProps {
@@ -75,7 +75,8 @@ export default function PmChecklistGrid({
 	disabled = false,
 }: PmChecklistGridProps) {
 	const options = React.useMemo<ResultOption[]>(() => {
-		const source = resultOptions.length > 0 ? resultOptions : FALLBACK_PM_RESULTS;
+		const source: ReadonlyArray<PmEnumLike> =
+			resultOptions.length > 0 ? resultOptions : FALLBACK_PM_RESULTS;
 		return source.map((option) => ({ value: option.code, label: option.label }));
 	}, [resultOptions]);
 

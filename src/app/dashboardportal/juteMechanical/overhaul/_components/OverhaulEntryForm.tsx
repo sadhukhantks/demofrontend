@@ -8,7 +8,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import type { MechMachineAttr, MechOverhaulSetup } from "@/utils/juteMechanicalService";
 import OverhaulSpareLinesEditor from "./OverhaulSpareLinesEditor";
-import type { EditableOverhaulSpare, OverhaulFormValues } from "../types/overhaulTypes";
+import type {
+	EditableOverhaulSpare,
+	OverhaulEnumLike,
+	OverhaulFormValues,
+} from "../types/overhaulTypes";
 import {
 	DONE_BY_VENDOR,
 	FALLBACK_DONE_BY_OPTIONS,
@@ -121,13 +125,13 @@ export default function OverhaulEntryForm({
 	);
 
 	const overhaulTypeOptions = React.useMemo(() => {
-		const source =
+		const source: ReadonlyArray<OverhaulEnumLike> =
 			setup.overhaul_types.length > 0 ? setup.overhaul_types : FALLBACK_OVERHAUL_TYPES;
 		return source.map((option) => ({ value: option.code, label: option.label }));
 	}, [setup.overhaul_types]);
 
 	const doneByOptions = React.useMemo(() => {
-		const source =
+		const source: ReadonlyArray<OverhaulEnumLike> =
 			setup.done_by_options.length > 0 ? setup.done_by_options : FALLBACK_DONE_BY_OPTIONS;
 		return source.map((option) => ({ value: option.code, label: option.label }));
 	}, [setup.done_by_options]);

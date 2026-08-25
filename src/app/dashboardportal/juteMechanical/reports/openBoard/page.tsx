@@ -41,7 +41,7 @@ import {
 /** Minutes after which a stoppage is called out in the error colour. */
 const LONG_STOPPAGE_MIN = 240;
 
-interface OpenBoardGridRow {
+type OpenBoardGridRow = {
   id: number;
   machine_name: string;
   mech_code: string;
@@ -66,7 +66,7 @@ interface OpenBoardGridRow {
   reported_by: string;
   status: string;
   remarks: string;
-}
+};
 
 /** Elapsed time, escalated to the error colour past the long-stoppage mark. */
 function ElapsedCell({ row }: { row: OpenBoardGridRow }) {

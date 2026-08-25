@@ -34,7 +34,7 @@ import {
  * envelope in juteMechanicalService drops it, so this page shows the item rows;
  * per-machine cost needs that envelope widened before it can be surfaced.
  */
-interface SparesGridRow {
+type SparesGridRow = {
   id: string;
   machine_name: string;
   mech_code: string;
@@ -50,7 +50,7 @@ interface SparesGridRow {
   total_qty: number | null;
   total_value: number | null;
   line_count: number | null;
-}
+};
 
 const columns: GridColDef<SparesGridRow>[] = [
   { field: "machine_name", headerName: "Machine", minWidth: 170 },

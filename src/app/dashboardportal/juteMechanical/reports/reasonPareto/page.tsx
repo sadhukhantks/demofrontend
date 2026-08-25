@@ -37,7 +37,7 @@ import {
  */
 const PARETO_CUTOFF_PCT = 80;
 
-interface ParetoGridRow {
+type ParetoGridRow = {
   id: string;
   rank: number;
   reason_code: string;
@@ -52,7 +52,7 @@ interface ParetoGridRow {
   cumulative_pct: number | null;
   /** Inside the 80% cumulative cut — the reasons worth fixing first. */
   vital_few: string;
-}
+};
 
 /**
  * Cumulative % rendered as a value plus a proportional bar, so the point where

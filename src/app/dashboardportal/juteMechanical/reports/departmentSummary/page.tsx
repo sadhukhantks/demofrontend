@@ -30,7 +30,7 @@ import {
  *
  * The share column is the backend's `pct_of_mill_downtime` (NOT `share_pct`).
  */
-interface DepartmentSummaryGridRow {
+type DepartmentSummaryGridRow = {
   id: string;
   dept_name: string;
   machine_type_name: string;
@@ -44,7 +44,7 @@ interface DepartmentSummaryGridRow {
   nr_downtime_min: number | null;
   unattributed_pct: number | null;
   production_loss_qty: number | null;
-}
+};
 
 const columns: GridColDef<DepartmentSummaryGridRow>[] = [
   { field: "dept_name", headerName: "Department", minWidth: 170 },

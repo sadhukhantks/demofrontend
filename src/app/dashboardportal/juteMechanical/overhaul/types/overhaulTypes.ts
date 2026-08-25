@@ -37,15 +37,25 @@ export const OVERHAUL_TYPE_MAJOR = "MAJOR";
 export const OVERHAUL_TYPE_MINOR = "MINOR";
 
 /**
+ * The shape both the server's enum payload and the local fallbacks satisfy.
+ * Annotating the fallbacks with it keeps `serverList.length > 0 ? serverList : FALLBACK`
+ * a single array type instead of a union TypeScript refuses to `.map()`.
+ */
+export interface OverhaulEnumLike {
+	code: string;
+	label: string;
+}
+
+/**
  * Fallbacks used only if `overhaul_create_setup` returns an empty enum list, so the
  * two dropdowns are never empty. The server payload always wins when present.
  */
-export const FALLBACK_OVERHAUL_TYPES = Object.freeze([
+export const FALLBACK_OVERHAUL_TYPES: ReadonlyArray<OverhaulEnumLike> = Object.freeze([
 	{ code: OVERHAUL_TYPE_MAJOR, label: "Major" },
 	{ code: OVERHAUL_TYPE_MINOR, label: "Minor" },
 ]);
 
-export const FALLBACK_DONE_BY_OPTIONS = Object.freeze([
+export const FALLBACK_DONE_BY_OPTIONS: ReadonlyArray<OverhaulEnumLike> = Object.freeze([
 	{ code: DONE_BY_INHOUSE, label: "In-house" },
 	{ code: DONE_BY_VENDOR, label: "Vendor" },
 ]);
