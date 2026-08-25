@@ -133,7 +133,20 @@ export default function FinishingEntryForm({
 
 	// Prefill the form when a grid row is lifted into edit mode.
 	React.useEffect(() => {
-		if (!editingEntry) return;
+		if (!editingEntry) {
+			// Edit cancelled from OUTSIDE (date/spell change in the header): drop the
+			// edit row's values, or a stale hidden ebId from the prefill would ride
+			// into the next save while the visible EB field shows empty. Keep the
+			// hidden spellId (schema-required); its sync effect only runs when the
+			// header spell CHANGES, so a plain reset would leave it empty and make
+			// every later Save fail validation invisibly.
+			reset({
+				...EMPTY_VALUES,
+				spellId: spellId != null ? String(spellId) : "",
+			});
+			setEmpName(null);
+			return;
+		}
 		reset({
 			machineId: editingEntry.machine_id != null ? String(editingEntry.machine_id) : "",
 			empCode: editingEntry.emp_code ?? "",

@@ -847,7 +847,7 @@ function JuteIssueEditPage() {
               variant="outlined"
               size="medium"
               label="Branch"
-              className="sm:min-w-[200px]"
+              className="min-w-50"
               fullWidth={false}
               clearable={false}
               disabled={!isCreateMode}
