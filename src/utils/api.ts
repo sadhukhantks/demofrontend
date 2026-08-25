@@ -1018,6 +1018,13 @@ const apiRoutesPortalMasters = {
     WINDING_STOCK_COPY_PREVIOUS_DAY: `${API_URL}/windingStock/copy_previous_day`,
     WINDING_STOCK_LOCK: `${API_URL}/windingStock/lock`,
     WINDING_STOCK_UNLOCK: `${API_URL}/windingStock/unlock`,
+    // Jute Gain/Loss sheet — monthly manual statement (router prefix /api/juteGainLoss)
+    JUTE_GAIN_LOSS_SETUP: `${API_URL}/juteGainLoss/setup`,
+    JUTE_GAIN_LOSS_SHEET: `${API_URL}/juteGainLoss/sheet`,
+    JUTE_GAIN_LOSS_SAVE: `${API_URL}/juteGainLoss/save`,
+    JUTE_GAIN_LOSS_LOCK: `${API_URL}/juteGainLoss/lock`,
+    JUTE_GAIN_LOSS_UNLOCK: `${API_URL}/juteGainLoss/unlock`,
+    JUTE_GAIN_LOSS_REPORT: `${API_URL}/juteGainLoss/report`,
     // Winding reports (router prefix /api/juteProductionReports)
     WINDING_SPELL_REPORT: `${API_URL}/juteProductionReports/winding_spell_report`,
     WINDING_QUALITY_WISE_REPORT: `${API_URL}/juteProductionReports/winding_quality_wise`,
