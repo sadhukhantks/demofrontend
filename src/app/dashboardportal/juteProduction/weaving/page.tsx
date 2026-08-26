@@ -82,6 +82,11 @@ export default function WeavingPage() {
 
 	const [reloadKey, setReloadKey] = React.useState(0);
 
+	// TKT-000120: draft filters differ from what the grids are actually showing —
+	// freeze entry until the user presses Search, so nothing is keyed against the
+	// previously-searched date/spell by mistake.
+	const filtersDirty = tranDate !== appliedDate || spellId !== appliedSpellId;
+
 	const handleSearch = () => {
 		setAppliedDate(tranDate);
 		setAppliedSpellId(spellId);
@@ -201,11 +206,33 @@ export default function WeavingPage() {
 										sx={{ minWidth: 160 }}
 									/>
 								) : null}
-								<Button variant="contained" size="small" onClick={handleSearch}>
+								<Button
+									variant="contained"
+									size="small"
+									color={filtersDirty ? "warning" : "primary"}
+									onClick={handleSearch}
+								>
 									Search
 								</Button>
 							</Box>
 
+							{filtersDirty ? (
+								<Alert severity="warning">
+									Date / Spell changed but not applied — the sections below still show{" "}
+									{appliedDate}. Entry is disabled until you press Search.
+								</Alert>
+							) : null}
+
+							{/* inert freezes pointer + keyboard + focus while filters are dirty (TKT-000120). */}
+							<Box
+								inert={filtersDirty}
+								sx={{
+									display: "flex",
+									flexDirection: "column",
+									gap: 2,
+									opacity: filtersDirty ? 0.5 : 1,
+								}}
+							>
 							{branchId != null && appliedSpellId !== "" ? (
 								<WeavingProcessBar
 									coId={coId}
@@ -266,6 +293,7 @@ export default function WeavingPage() {
 									refreshKey={reloadKey}
 								/>
 							) : null}
+							</Box>
 						</>
 					)}
 				</Box>

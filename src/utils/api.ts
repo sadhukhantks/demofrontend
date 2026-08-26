@@ -1323,7 +1323,6 @@ const apiRoutesPortalMasters = {
     // Cheap saved-mapping-only read (no carry-forward) — used by the entry grid.
     WEAVING_QUALITY_MAP_SAVED: `${API_URL}/weavingProd/quality_map_saved`,
     WEAVING_QUALITY_MAP_SAVE: `${API_URL}/weavingProd/quality_map_save`,
-    WEAVING_QUALITY_MAP_MAPPED: `${API_URL}/weavingProd/quality_map_mapped`,
     // Beam-change tab (router prefix /api/weavingProd)
     WEAVING_BEAM_MAP_GET: `${API_URL}/weavingProd/beam_map_get`,
     WEAVING_BEAM_MAP_SAVE: `${API_URL}/weavingProd/beam_map_save`,

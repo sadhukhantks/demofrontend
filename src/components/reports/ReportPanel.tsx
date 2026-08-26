@@ -17,6 +17,7 @@ import { resolveReportMenuId } from "@/utils/reportMenuService";
 import ReportGrid from "./ReportGrid";
 import { useMounted } from "./useMounted";
 import { exportRowsToExcel, type ReportExportHeader } from "./exportExcel";
+import { exportRowsToPdf } from "./exportPdf";
 import type { BranchOption } from "./types";
 
 /** Options rendered at once by the async picker. MUI's listbox is not
@@ -83,6 +84,10 @@ interface ReportPanelProps<TRow extends GridValidRowModel> {
     header: ReportExportHeader,
     filters: ReportFilters,
   ) => Promise<void>;
+  /** Adds a "PDF" button next to Export to Excel — a print-ready A4 landscape
+   * sheet of the loaded rows. Off by default: only reports whose columns fit a
+   * landscape page opt in. */
+  pdfExport?: boolean;
   /** Optional row drill-down (see ReportGrid); not fired for total rows. */
   onRowDoubleClick?: (row: TRow) => void;
 }
@@ -113,6 +118,7 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
   sortDir,
   exportName,
   exportOverride,
+  pdfExport = false,
   onRowDoubleClick,
 }: ReportPanelProps<TRow>) {
   // Draft filters — bound to the inputs.
@@ -197,21 +203,33 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
   const branch = branches.find((b) => b.branch_id === branchId) ?? null;
 
   // Company / branch / report / period block written above the column headers
-  // in the exported sheet.
-  const handleExport = useCallback(async () => {
+  // in the exported sheet (and in the PDF's title block).
+  const buildHeader = useCallback(async (): Promise<ReportExportHeader> => {
     const reportFor =
       dates === "range"
         ? [dateFrom, dateTo].filter(Boolean).join(" To ")
         : dates === "single"
           ? dateTo
           : "";
-    const header = {
+    return {
       companyName: selectedCompany?.co_name,
       branchName: branch?.branch_name,
       reportName: title,
       reportNo: await resolveReportMenuId(pathname),
       reportFor,
     };
+  }, [
+    dates,
+    dateFrom,
+    dateTo,
+    selectedCompany?.co_name,
+    branch?.branch_name,
+    title,
+    pathname,
+  ]);
+
+  const handleExport = useCallback(async () => {
+    const header = await buildHeader();
     if (exportOverride) {
       await exportOverride(rows, header, {
         branchId: branchId as number,
@@ -223,20 +241,20 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
     }
     await exportRowsToExcel(columns, rows, exportName, header);
   }, [
-    dates,
-    dateFrom,
-    dateTo,
+    buildHeader,
     columns,
     rows,
     exportName,
-    selectedCompany?.co_name,
-    branch?.branch_name,
-    title,
-    pathname,
     exportOverride,
     branchId,
+    dateFrom,
+    dateTo,
     extraValue,
   ]);
+
+  const handleExportPdf = useCallback(async () => {
+    await exportRowsToPdf(columns, rows, exportName, await buildHeader());
+  }, [buildHeader, columns, rows, exportName]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -400,6 +418,19 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
               >
                 Export to Excel
               </Button>
+
+              {pdfExport && (
+                <Button
+                  variant="outlined"
+                  disabled={branchId == null || rows.length === 0}
+                  onClick={() => {
+                    void handleExportPdf();
+                  }}
+                  sx={{ textTransform: "none" }}
+                >
+                  PDF
+                </Button>
+              )}
             </Box>
           </Paper>
 
