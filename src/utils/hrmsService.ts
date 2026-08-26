@@ -418,6 +418,32 @@ export const exportBankSheet = (
     `${apiRoutesPortalMasters.HRMS_PAY_REGISTER_BANK_SHEET}?co_id=${coId}&pay_period_id=${payPeriodId}`,
   );
 
+/** Dot-matrix .txt print for the EJM Wages Data Preparation selects — the
+ *  legacy screens' "Print" (register) and text "Payslip" buttons. `list` is
+ *  which select the code belongs to. */
+export const downloadEjmTextPrint = (p: {
+  list: "action" | "payreg" | "ot";
+  kind: "register" | "payslip" | "statement";
+  report: string;
+  coId: string;
+  branchId: number;
+  dateFrom: string;
+  dateTo: string;
+  paySchemeId: string | number;
+}): Promise<Blob> =>
+  fetchHrmsBlob(
+    `${apiRoutesPortalMasters.EJM_TEXT_PRINT}?${new URLSearchParams({
+      list: p.list,
+      kind: p.kind,
+      report: p.report,
+      co_id: p.coId,
+      branch_id: String(p.branchId),
+      date_from: p.dateFrom,
+      date_to: p.dateTo,
+      pay_scheme_id: String(p.paySchemeId),
+    })}`,
+  );
+
 // ─── Pay Register Display Setup (tbl_payslip_print_component) ───────
 
 export const fetchPayslipPrintComponentList = async (
