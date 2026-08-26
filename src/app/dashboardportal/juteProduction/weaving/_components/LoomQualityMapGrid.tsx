@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Alert, Autocomplete, Box, Button, Chip, CircularProgress, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
-import { Save as SaveIcon, Stamp as StampIcon } from "lucide-react";
+import { Save as SaveIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WeavingSetup, LoomQualityMapRow } from "../types/weavingTypes";
@@ -35,7 +35,6 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spellI
 	const { rows, lastUpdated, loading, carryForwardLoading, error, refresh } = map;
 	const [edits, setEdits] = React.useState<Record<number, number | "">>({});
 	const [saving, setSaving] = React.useState(false);
-	const [busy, setBusy] = React.useState(false);
 	const [snack, setSnack] = React.useState<string | null>(null);
 	const [lineFilter, setLineFilter] = React.useState<string>("");
 
@@ -128,24 +127,6 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spellI
 		refresh();
 	};
 
-	const handleMapped = async () => {
-		setBusy(true);
-		const body = { co_id: Number(coId), branch_id: Number(branchId), tran_date: date, spell_id: spellId };
-		const { data, error: err } = await fetchWithCookie<{
-			data: { quality_stamped: number; operator_stamped: number };
-		}>(apiRoutesPortalMasters.WEAVING_QUALITY_MAP_MAPPED, "POST", body);
-		setBusy(false);
-		if (err) {
-			setSnack(err);
-			return;
-		}
-		const d = data?.data;
-		setSnack(
-			`Quality stamped: ${d?.quality_stamped ?? 0}, Operator stamped: ${d?.operator_stamped ?? 0}`
-		);
-		refresh();
-	};
-
 	if (spellId == null) {
 		return <Alert severity="info">Select a spell to load loom → quality mapping.</Alert>;
 	}
@@ -174,15 +155,6 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spellI
 					disabled={saving || loading || rows.length === 0}
 				>
 					{saving ? "Saving…" : dirtyCount > 0 ? `Save Map (${dirtyCount} unsaved)` : "Save Map"}
-				</Button>
-				<Button
-					variant="outlined"
-					size="small"
-					startIcon={<StampIcon size={16} />}
-					onClick={handleMapped}
-					disabled={busy || loading}
-				>
-					Mapped
 				</Button>
 				<Autocomplete
 					size="small"
