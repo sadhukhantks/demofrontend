@@ -15,9 +15,10 @@ const nonNegativeNumericString = numericString.refine(
 	{ message: "Required and must be 0 or more" }
 );
 
-// machineId / empCode are mutually exclusive by process (machine processes vs labour
-// processes like sacksewing), so both are optional here; the form enforces the right one
-// per process at submit time. ebId is the resolved worker id for labour processes.
+// machineId / empCode requiredness varies by process — machine-only, labour-only
+// (sacksewing), or machine-and/or-worker (hemming/herackle, at least one) — so both are
+// unconstrained here and the form enforces the right rule per process at submit time.
+// ebId is the resolved worker id.
 export const finishingFormSchema = z.object({
 	machineId: z.string(),
 	empCode: z.string(),

@@ -76,3 +76,49 @@
   wrappers from being rediscovered. Also, ESLint is currently unrunnable in this repo
   (`next lint` / `eslint` both crash on the flat-config: "Converting circular structure to JSON"),
   so only `tsc --noEmit` and `vitest` can gate a sweep this size.
+
+## 2026-08-25 - Breakdown entry screen responsive pass (juteMechanical/breakdown)
+- **Similar components found:** `src/components/ui/responsiveEntry.tsx` already existed and was the
+  correct home for every constant needed — nothing new was declared. The house pattern in practice
+  is `jutePurchase/juteIssue/edit/page.tsx` (DESKTOP_ONLY_SX table + MOBILE_ONLY_SX card list).
+- **Pattern used:** MUI + CSS-only `sx` breakpoints. No `useMediaQuery`, no width check — both
+  layouts render, CSS picks one, so the pages' `mounted` hydration guards stay meaningful.
+- **Theme tokens used:** none added. Colors stayed on palette keys (`success`/`warning`/`error`,
+  `background.paper`, `text.secondary`, `divider`, `action.hover`).
+- **Export pattern:** default export per `_components/*` file (page-local), named exports from
+  `@/components/ui/responsiveEntry`. Still no barrel in `src/components/ui/`.
+- **[PATTERN-CHANGE]** `sx={[SHARED_SX, { ...override }]}` does NOT typecheck on MUI `Box`: the
+  shared constant is typed `SxProps<Theme>` (a union that already includes the array form) and
+  `Box`'s array element type rejects it (TS2769). Compose instead — here a
+  `<Box sx={{ flexGrow: 1, display: { xs: "none", sm: "block" } }} />` spacer replaced the
+  `justifyContent: flex-end` that STICKY_ACTIONS_SX does not carry. Reuse the spacer trick rather
+  than casting.
+- **[PATTERN-CHANGE]** To turn a line-item grid row into a card only below `md`, keep ONE DOM node:
+  `<Paper variant="outlined" sx={{ p: {xs:1.5, md:0}, border: {md:"none"}, bgcolor: {md:"transparent"},
+  gridTemplateColumns: { xs: "repeat(2, minmax(0,1fr))", md: "<the real row>" } }}`, then span the
+  wide fields with `gridColumn: { xs: "1 / -1", md: "auto" }`. A breakpoint object with only an
+  `md` key leaves the `xs` value coming from the MUI variant class, and sx out-specifies it.
+- **[PATTERN-CHANGE]** CSS `order` with breakpoints (`order: { xs: 3, md: 0 }`) re-sequences a
+  wrapping flex row on a phone without touching DOM order, so the desktop layout is provably
+  unchanged. Used on OpenBreakdownBoard to get chips / detail / full-width Close on three bands.
+- **[REUSE]** `MobileCard` + `CardStat` absorbed the whole mobile branch of a 17-column DataGrid.
+  Any other juteMechanical grid (overhaul, PM execution, reports) can take the same shape: pick the
+  4 fields that identify the record, leave the rest on the desktop grid.
+- **Gotcha:** `SearchableOptionSelect` is a plain function component, so grid placement (`gridColumn`)
+  belongs on a wrapping `<Box>`, not on the select itself.
+- **What should change:** `responsiveEntry.tsx` has no `MOBILE_CARD_ROW_SX` for the
+  "grid row below md, card above" line-item case — the Paper sx above was hand-written twice in this
+  module. Lifting it would be the next useful addition. Gate stays `npx tsc --noEmit` +
+  `npx vitest run --project unit` (ESLint is still unrunnable in this repo).
+
+## 2026-08-25 - juteMechanical overhaul + preventiveMaintenance mobile pass (360px)
+- **Similar components found:** none new. `src/components/ui/responsiveEntry.tsx` (the shared kit) had ZERO consumers before this run — the only prior implementation was the page-local `DESKTOP_ONLY_SX` const inlined at `jutePurchase/juteIssue/edit/page.tsx:114`.
+- **Pattern used:** MUI, CSS-only breakpoints via `sx`. DataGrid wrapped in `DESKTOP_ONLY_SX` with a parallel `MOBILE_ONLY_SX` card list fed from the SAME rows prop; no `useMediaQuery` anywhere (these pages have `mounted` hydration guards that a JS width check would defeat).
+- **Theme tokens used:** none added. Colors come from the MUI palette (`error.main` via `alpha()`, `divider`, `background.paper`, Chip `color` props).
+- **Export pattern:** named exports from `@/components/ui/responsiveEntry` (no barrel in `src/components/ui/`).
+- **[REUSE]** `jutePurchase/juteIssue/edit/page.tsx` still declares its own local `DESKTOP_ONLY_SX`; it should import the shared one and delete the local const.
+- **[REUSE]** The mobile pager (Prev / "n / m" / Next driving the same server-side `page` state) had to be hand-rolled in BOTH `OverhaulGrid` and `PmExecutionGrid` — the DataGrid footer lives inside the grid and so vanishes with it below `md`. This is now duplicated twice and will be duplicated again by every grid that gets this treatment. It belongs in `responsiveEntry.tsx` as a `MobilePager` component.
+- **[PATTERN-CHANGE]** `STICKY_ACTIONS_SX` does not set `justifyContent`, and spreading an `SxProps<Theme>` union does not typecheck. Merge extra layout via Box SYSTEM PROPS instead: `<Box sx={STICKY_ACTIONS_SX} justifyContent={{ xs: "stretch", sm: "flex-end" }}>`. sx wins over system props, and since the constant omits the key there is no conflict.
+- **[PATTERN-CHANGE]** `STICKY_ACTIONS_SX` already sizes its children via `& .MuiButton-root` (flex + minHeight), so per-button `sx={{ minHeight: 44, width: {xs:"100%"} }}` must be dropped or it fights the container. Use the exported `TOUCH_TARGET` rather than a literal 44.
+- **[PATTERN-CHANGE]** For a small FIXED enum (<= 3 codes) on a phone, a `ToggleButtonGroup` (exclusive, fullWidth, `& .MuiToggleButton-root { minHeight: TOUCH_TARGET, flex: 1 }`) beats any dropdown for one-handed use. It is NOT a dropdown, so it does not violate the searchable-dropdown rule — but gate it on `options.length <= 3` and fall back to `SearchableSelect variant="outlined" size="medium"` when the server returns more codes, so a longer enum never degrades into unreachable segments.
+- **What should change:** `MobileCard` was not usable in the grid cards here — its children slot is hardcoded to a 2-column `CardStat` grid, so a card needing a wrapped free-text tail (work_done / remarks) below the stats has to hand-roll the Paper. Give `MobileCard` a `footer` slot, or let the caller opt out of the built-in grid.

@@ -238,7 +238,7 @@ export function ItemSelectionDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-5xl max-h-[85vh] flex flex-col p-0 gap-0">
+			<DialogContent className="max-w-5xl max-h-[85vh] flex flex-col p-0 gap-0 max-sm:max-w-none max-sm:w-full max-sm:h-full max-sm:max-h-full max-sm:rounded-none">
 				{/* Header */}
 				<DialogHeader className="p-4 pb-3 border-b border-gray-200">
 					<DialogTitle>{title}</DialogTitle>
@@ -248,7 +248,7 @@ export function ItemSelectionDialog({
 				</DialogHeader>
 
 				{/* Search & Actions */}
-				<div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between gap-3">
+				<div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex flex-wrap items-center justify-between gap-3">
 					<TextField
 						size="small"
 						placeholder="Search by item code, name, group, or HSN..."
@@ -263,7 +263,7 @@ export function ItemSelectionDialog({
 								),
 							},
 						}}
-						sx={{ width: 340 }}
+						sx={{ width: { xs: "100%", sm: 340 } }}
 					/>
 					<span className="text-sm text-gray-500">
 						{selectedIds.size > 0

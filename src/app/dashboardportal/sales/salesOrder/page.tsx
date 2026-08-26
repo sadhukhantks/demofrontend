@@ -9,7 +9,6 @@ import IndexWrapper from "@/components/ui/IndexWrapper";
 import { useRouter } from "next/navigation";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import {
-	SALES_STATUS_IDS,
 	SalesStatusChip,
 	SalesStatusFilter,
 	asNumberOrNull,
@@ -19,6 +18,7 @@ import {
 	formatListDate,
 	parseListResponse,
 } from "../utils/salesListShared";
+import { isSalesOrderRowEditable } from "./createSalesOrder/utils/salesOrderConstants";
 
 type SORow = {
 	id: string | number;
@@ -32,6 +32,8 @@ type SORow = {
 	quotation_no: string | null;
 	status: string;
 	status_id?: number | null;
+	/** Resolved by name (invoice_type ids differ per deployment) — drives the post-approval rate edit. */
+	invoice_type_name?: string;
 };
 
 export default function SalesOrderIndexPage() {
@@ -148,6 +150,7 @@ export default function SalesOrderIndexPage() {
 					quotation_no: asString(row.quotation_no ?? row.quotationNo) || null,
 					status: asString(row.status ?? row.status_name ?? row.current_status) || "Pending",
 					status_id: asNumberOrNull(row.status_id ?? row.statusId),
+					invoice_type_name: asString(row.invoice_type_name ?? row.invoiceTypeName),
 				};
 			});
 
@@ -222,7 +225,7 @@ export default function SalesOrderIndexPage() {
 			toolbarContent={<SalesStatusFilter value={statusFilter} onChange={handleStatusFilterChange} />}
 			onView={handleView}
 			onEdit={handleEdit}
-			isRowEditable={(row) => Number(row.status_id) !== SALES_STATUS_IDS.APPROVED}
+			isRowEditable={isSalesOrderRowEditable}
 		>
 			{errorMessage ? (
 				<Alert severity="error" sx={{ mt: 2 }}>

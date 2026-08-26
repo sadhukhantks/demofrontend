@@ -1,7 +1,7 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
-import { createSalesOrder, updateSalesOrder, type CreateSalesOrderRequest } from "@/utils/salesOrderService";
+import { createSalesOrder, updateSalesOrder, updateSalesOrderRates, type CreateSalesOrderRequest } from "@/utils/salesOrderService";
 import { roundAmount, roundAmountOrUndefined, roundRateOrUndefined } from "@/utils/numberRounding";
 import type { EditableLineItem } from "../types/salesOrderTypes";
 import { isHessianOrder, isJuteOrder, isGovtSkgOrder, isJuteYarnOrder } from "../utils/salesOrderConstants";
@@ -17,6 +17,8 @@ type UseSalesOrderFormSubmissionParams = {
 	invoiceTypeCode: string;
 	/** Source enquiry id (AMCL enquiry flow) — persisted on the order header when set (tender path). */
 	salesEnquiryId?: string | null;
+	/** Header totals, used by the post-approval rate-only save. */
+	orderTotals?: { grossAmount: number; netAmount: number };
 };
 
 export const useSalesOrderFormSubmission = ({
@@ -29,6 +31,7 @@ export const useSalesOrderFormSubmission = ({
 	formValues,
 	invoiceTypeCode,
 	salesEnquiryId,
+	orderTotals,
 }: UseSalesOrderFormSubmissionParams) => {
 	const [saving, setSaving] = React.useState(false);
 	const router = useRouter();
@@ -46,7 +49,13 @@ export const useSalesOrderFormSubmission = ({
 			}
 
 			if (!isLineItemsReady) {
-				toast({ variant: "destructive", title: "Line items incomplete", description: "Add at least one item with valid quantity and rate." });
+				toast({
+					variant: "destructive",
+					title: "Line items incomplete",
+					description: isGovtSkgOrder(invoiceTypeCode)
+						? "Add at least one item with a valid quantity. Rate is optional for Govt Sacking."
+						: "Add at least one item with valid quantity and rate.",
+				});
 				return;
 			}
 
@@ -67,7 +76,9 @@ export const useSalesOrderFormSubmission = ({
 				hsn_code: item.hsnCode || undefined,
 				quantity: item.quantity || undefined,
 				qty_uom: item.uom || undefined,
-				rate: roundedRate != null ? String(roundedRate) : (item.rate || undefined),
+				// Explicit null (not undefined) so a blank Govt Sacking rate reaches the
+				// backend as NULL instead of the key being dropped from the JSON body.
+				rate: roundedRate != null ? String(roundedRate) : (item.rate || null),
 				discount_type: item.discountType ?? undefined,
 				discounted_rate: roundedDiscountedRate,
 				discount_amount: roundAmountOrUndefined(item.discountAmount),
@@ -259,5 +270,65 @@ export const useSalesOrderFormSubmission = ({
 		[mode, pageError, setupError, filledLineItems, isLineItemsReady, requestedId, formValues, invoiceTypeCode, salesEnquiryId, router],
 	);
 
-	return { saving, handleFormSubmit };
+	/**
+	 * Post-approval save for Govt Sacking orders: rates (and the amounts/GST the
+	 * hook recomputed from them) only. The header and every other line field are
+	 * frozen, so nothing else is sent.
+	 */
+	const handleRateOnlySubmit = React.useCallback(async () => {
+		if (!requestedId) return;
+
+		// Only lines that exist in the DB can be re-rated — their id is the
+		// sales_order_dtl_id returned by get_sales_order_by_id.
+		const items = filledLineItems
+			.filter((item) => /^\d+$/.test(item.id))
+			.map((item) => {
+				const rateNum = item.rate ? Number(item.rate) : undefined;
+				const roundedRate = rateNum != null && Number.isFinite(rateNum)
+					? roundRateOrUndefined(rateNum, item.rateRounding) : undefined;
+				const lineTotalRaw = (item.amount ?? 0) + (item.taxAmount ?? 0);
+				return {
+					sales_order_dtl_id: item.id,
+					rate: roundedRate != null ? String(roundedRate) : (item.rate || null),
+					// Mirrors the full-update mapping so the discount columns round-trip
+					// unchanged instead of being nulled out by the UPDATE.
+					discounted_rate: roundRateOrUndefined(item.discountAmount, item.rateRounding) ?? null,
+					discount_amount: roundAmountOrUndefined(item.discountAmount) ?? null,
+					net_amount: roundAmountOrUndefined(item.amount) ?? null,
+					total_amount: lineTotalRaw ? roundAmount(lineTotalRaw) : null,
+					gst: {
+						igst_amount: roundAmount(item.igstAmount ?? 0),
+						igst_percent: item.taxPercentage && item.igstAmount ? item.taxPercentage : 0,
+						cgst_amount: roundAmount(item.cgstAmount ?? 0),
+						cgst_percent: item.taxPercentage && item.cgstAmount ? item.taxPercentage / 2 : 0,
+						sgst_amount: roundAmount(item.sgstAmount ?? 0),
+						sgst_percent: item.taxPercentage && item.sgstAmount ? item.taxPercentage / 2 : 0,
+						gst_total: roundAmount(item.taxAmount ?? 0),
+					},
+				};
+			});
+
+		if (!items.length) {
+			toast({ variant: "destructive", title: "Nothing to update", description: "No saved line items were found on this order." });
+			return;
+		}
+
+		setSaving(true);
+		try {
+			await updateSalesOrderRates({
+				sales_order_id: requestedId,
+				items,
+				gross_amount: orderTotals?.grossAmount,
+				net_amount: orderTotals?.netAmount,
+			});
+			toast({ title: "Rates updated" });
+			router.replace(`/dashboardportal/sales/salesOrder/createSalesOrder?mode=view&id=${requestedId}`);
+		} catch (error) {
+			toast({ variant: "destructive", title: "Unable to update rates", description: error instanceof Error ? error.message : "Please try again." });
+		} finally {
+			setSaving(false);
+		}
+	}, [requestedId, filledLineItems, orderTotals, router]);
+
+	return { saving, handleFormSubmit, handleRateOnlySubmit };
 };

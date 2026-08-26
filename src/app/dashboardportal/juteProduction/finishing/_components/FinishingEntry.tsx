@@ -3,14 +3,20 @@
 import * as React from "react";
 import Link from "next/link";
 import { Alert, Box, Button, CircularProgress, TextField, Typography } from "@mui/material";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, RefreshCw } from "lucide-react";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import { fetchWithCookie } from "@/utils/apiClient2";
+import { apiRoutesPortalMasters } from "@/utils/api";
 import { useFinishingSetup } from "../hooks/useFinishingSetup";
 import FinishingEntryForm from "./FinishingEntryForm";
 import DailyFinishingGrid from "./DailyFinishingGrid";
-import type { FinishingEntryRow, FinishingProcess } from "../types/finishingTypes";
-import { FINISHING_PROCESS_CONFIG, todayISO } from "../_shared/finishingConfig";
+import type {
+	FinishingEntryRow,
+	FinishingProcess,
+	FinishingSyncEbResult,
+} from "../types/finishingTypes";
+import { FINISHING_PROCESS_CONFIG, syncSummary, todayISO } from "../_shared/finishingConfig";
 
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type Props = {
@@ -71,6 +77,10 @@ export default function FinishingEntry({ process }: Props) {
 	// Bumped after each successful save so the day grid below auto-refetches.
 	const [entriesRefresh, setEntriesRefresh] = React.useState(0);
 
+	// "Sync EB from Attendance" (hemming/herackle only).
+	const [syncing, setSyncing] = React.useState(false);
+	const [syncMsg, setSyncMsg] = React.useState<{ text: string; ok: boolean } | null>(null);
+
 	const { setup, loading: setupLoading, error: setupError } = useFinishingSetup(
 		coId,
 		process,
@@ -90,6 +100,38 @@ export default function FinishingEntry({ process }: Props) {
 		() => setup?.spells.find((s) => s.spell_code === spell)?.spell_id ?? null,
 		[setup, spell]
 	);
+
+	// Date/spell are part of a row's identity: an in-flight edit belongs to the old
+	// pair, so switching either drops the edit (the BE 400s identity-mismatched
+	// edits) and clears the now-stale sync banner.
+	const resetForHeaderChange = () => {
+		setEditingEntry(null);
+		setSyncMsg(null);
+	};
+
+	const handleSyncEb = async () => {
+		if (spellId == null || syncing) return;
+		setSyncing(true);
+		setSyncMsg(null);
+		const { data, error: err } = await fetchWithCookie<{ data: FinishingSyncEbResult }>(
+			apiRoutesPortalMasters.FINISHING_PROD_ENTRY_SYNC_EB,
+			"POST",
+			{
+				co_id: Number(coId),
+				branch_id: branchId,
+				tran_date: tranDate,
+				spell_id: spellId,
+				process,
+			}
+		);
+		setSyncing(false);
+		if (err || !data?.data) {
+			setSyncMsg({ text: err ?? "Sync failed.", ok: false });
+			return;
+		}
+		setSyncMsg({ text: syncSummary(data.data), ok: true });
+		setEntriesRefresh((v) => v + 1);
+	};
 
 	if (!mounted) return null;
 
@@ -151,7 +193,7 @@ export default function FinishingEntry({ process }: Props) {
 						<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
 							<CircularProgress />
 						</Box>
-					) : !config.usesEmployee && setup.machines.length === 0 ? (
+					) : !config.usesEmployee && !config.allowsEmployee && setup.machines.length === 0 ? (
 						<Alert severity="info">
 							No machines found for this process/branch. Tag machines to the{" "}
 							{config.title.replace(" Production", "")} machine type, then set their
@@ -175,6 +217,7 @@ export default function FinishingEntry({ process }: Props) {
 									onChange={(e) => {
 										const v = e.target.value;
 										setTranDate(v && v > todayISO() ? todayISO() : v);
+										resetForHeaderChange();
 									}}
 									inputProps={{ max: todayISO() }}
 									InputLabelProps={{ shrink: true }}
@@ -184,10 +227,36 @@ export default function FinishingEntry({ process }: Props) {
 									size="small"
 									options={setup.spells.map((s) => ({ value: s.spell_code, label: `${s.spell_code} (${Number(s.working_hours)} hrs)` }))}
 									value={spell}
-									onChange={(selectedValue) => setSpell(selectedValue)}
+									onChange={(selectedValue) => {
+										setSpell(selectedValue);
+										resetForHeaderChange();
+									}}
 									sx={{ minWidth: 160 }}
 								/>
+								{config.allowsEmployee ? (
+									<Button
+										variant="outlined"
+										size="small"
+										startIcon={<RefreshCw size={16} />}
+										onClick={handleSyncEb}
+										// Syncing under an open edit would stamp an eb the pending
+										// save (eb_id null + entry_id) then wipes.
+										disabled={spellId == null || syncing || editingEntry != null}
+										sx={{ minHeight: 40 }}
+									>
+										{syncing ? "Syncing…" : "Sync EB from Attendance"}
+									</Button>
+								) : null}
 							</Box>
+
+							{syncMsg ? (
+								<Alert
+									severity={syncMsg.ok ? "info" : "error"}
+									onClose={() => setSyncMsg(null)}
+								>
+									{syncMsg.text}
+								</Alert>
+							) : null}
 
 							<Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
 								<FinishingEntryForm
