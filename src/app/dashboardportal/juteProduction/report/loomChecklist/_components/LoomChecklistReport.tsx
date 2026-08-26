@@ -28,9 +28,9 @@ const SYNC_STATE_LABEL: Record<string, string> = {
 
 const columns: GridColDef<LoomChecklistRow>[] = [
   { field: "tran_date", headerName: "Date", width: 100 },
+  // No Machine column: mech_code IS the machine, it was the same value twice.
   { field: "mech_code", headerName: "Loom", width: 90 },
-  { field: "machine_name", headerName: "Machine", flex: 1, minWidth: 130 },
-  { field: "spell_code", headerName: "Spell", width: 80 },
+  { field: "spell_code", headerName: "Spell", width: 70 },
   { field: "weaving_quality_code", headerName: "Quality", width: 110 },
   {
     field: "eb_no",
@@ -44,11 +44,11 @@ const columns: GridColDef<LoomChecklistRow>[] = [
     width: 100,
     valueGetter: (_, row) => SYNC_STATE_LABEL[row.sync_state] ?? "",
   },
-  numCol("open_jugar", "Opening Jugar", 120),
-  numCol("cuts", "Cuts", 90),
-  numCol("close_jugar", "Closing Jugar", 120),
+  numCol("open_jugar", "Op Jug", 85),
+  numCol("cuts", "Cuts", 70),
+  numCol("close_jugar", "Cl. Jug", 85),
   numCol("production_yds", "Production (yds)", 130),
-  numCol("efficiency", "Efficiency %", 110),
+  numCol("efficiency", "Eff%", 80),
   numCol("working_hours", "Loom Hrs", 100),
   { field: "remarks", headerName: "Remarks", flex: 1.5, minWidth: 260 },
 ];
@@ -87,6 +87,7 @@ export default function LoomChecklistReport() {
       getRowId={(r) => r.weaving_daily_id}
       sortField="tran_date"
       exportName="loom-checklist"
+      pdfExport
     />
   );
 }
