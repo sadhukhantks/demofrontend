@@ -761,6 +761,11 @@ const apiRoutesPortalMasters = {
     EJM_WAGES_DATA_BUILD: `${API_URL}/hrmsMasters/ejm_wages_data_build`,
     EJM_WAGES_DATA_LIST: `${API_URL}/hrmsMasters/ejm_wages_data_list`,
     EJM_WAGES_DATA_UPDATE: `${API_URL}/hrmsMasters/ejm_wages_data_update`,
+    // EJM Pay Register / OT Register grids (legacy pay_register_payslip.php / ot_register_payslip.php)
+    EJM_PAY_REGISTER_REPORT: `${API_URL}/hrmsMasters/ejm_pay_register_report`,
+    EJM_OT_REGISTER_REPORT: `${API_URL}/hrmsMasters/ejm_ot_register_report`,
+    // Dot-matrix .txt prints (legacy Print / Payslip buttons) for all three selects
+    EJM_TEXT_PRINT: `${API_URL}/hrmsMasters/ejm_text_print`,
 
     // Holiday & Attendance Incentive Eligibility (tbl_holiday_att_inc_eligibility)
     HOL_INC_ELIG_SETUP: `${API_URL}/hrmsMasters/hol_inc_elig_setup`,
