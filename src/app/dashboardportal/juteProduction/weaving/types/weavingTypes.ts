@@ -4,14 +4,6 @@
 // Loom → Quality tab (like spinning's frame → quality), NEVER selected inline on the
 // production grid.
 
-export type WeavingMachineOption = {
-	machine_id: number;
-	machine_name: string;
-	mech_code: string;
-	branch_id: number | null;
-	line_no: number | null;
-};
-
 export type WeavingSpellOption = {
 	spell_code: string;
 	spell_name: string;
@@ -29,8 +21,10 @@ export type WeavingQualityOption = {
 	weaving_quality_name: string | null;
 };
 
+// machines/eb_list were dropped from the setup response (TKT-000123): the loom set
+// arrives via /quality_map_saved and no weaving screen reads EB — together they were
+// 75% of the setup payload (~295KB on sls).
 export type WeavingSetup = {
-	machines: WeavingMachineOption[];
 	spells: WeavingSpellOption[];
 	qualities: WeavingQualityOption[];
 };

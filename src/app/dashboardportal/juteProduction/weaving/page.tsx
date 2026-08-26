@@ -64,12 +64,14 @@ export default function WeavingPage() {
 
 	// One Loom→Quality map fetch for the whole page — shared by the mapping editor and the
 	// Production Entry grid so switching between those tabs never refetches it. Phase 1 (saved
-	// mapping) is ~88ms; the editor's carry-forward (prev_quality_*) loads lazily after.
+	// mapping) is ~88ms; the editor's carry-forward (prev_quality_*) loads lazily and only
+	// while the mapping tab is visible (TKT-000123 — it is ~190KB the other tabs never read).
 	const qualityMap = useLoomQualityMap(
 		coId,
 		branchId,
 		appliedDate,
-		appliedSpellId === "" ? null : appliedSpellId
+		appliedSpellId === "" ? null : appliedSpellId,
+		tab === 0
 	);
 
 	// Default the shared spell selector to the first available spell once setup loads.
@@ -149,7 +151,19 @@ export default function WeavingPage() {
 						<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
 							<CircularProgress />
 						</Box>
-					) : setup.machines.length === 0 ? (
+					) : setup.spells.length === 0 ? (
+						<Alert severity="info">
+							No spells configured for this branch — add spells before making weaving entries.
+						</Alert>
+					) : qualityMap.error ? (
+						<Alert severity="error">{qualityMap.error}</Alert>
+					) : appliedSpellId === "" || (qualityMap.loading && qualityMap.rows.length === 0) ? (
+						// appliedSpellId defaults from setup in an effect one render later; the loom
+						// list (which replaced setup.machines, TKT-000123) arrives with the map fetch.
+						<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+							<CircularProgress />
+						</Box>
+					) : qualityMap.rows.length === 0 ? (
 						<Alert severity="info">
 							No weaving looms found for this branch. Tag machines to the Weaving machine type,
 							then set their standards (full length, jpc, speed, picks, eff) in Weaving Standards /
@@ -233,15 +247,15 @@ export default function WeavingPage() {
 									opacity: filtersDirty ? 0.5 : 1,
 								}}
 							>
-							{branchId != null && appliedSpellId !== "" ? (
-								<WeavingProcessBar
-									coId={coId}
-									branchId={branchId}
-									date={appliedDate}
-									spellId={appliedSpellId}
-									onProcessed={() => setReloadKey((k) => k + 1)}
-								/>
-							) : null}
+							{/* appliedSpellId is narrowed to number here — the render chain above
+							    already spinners while it is "" (pre-default). */}
+							<WeavingProcessBar
+								coId={coId}
+								branchId={branchId}
+								date={appliedDate}
+								spellId={appliedSpellId}
+								onProcessed={() => setReloadKey((k) => k + 1)}
+							/>
 
 							{tab === 0 ? (
 								<LoomQualityMapGrid
@@ -249,7 +263,7 @@ export default function WeavingPage() {
 									branchId={branchId}
 									setup={setup}
 									date={appliedDate}
-									spellId={appliedSpellId === "" ? null : appliedSpellId}
+									spellId={appliedSpellId}
 									map={qualityMap}
 								/>
 							) : null}
@@ -260,7 +274,7 @@ export default function WeavingPage() {
 									branchId={branchId}
 									setup={setup}
 									date={appliedDate}
-									spellId={appliedSpellId === "" ? null : appliedSpellId}
+									spellId={appliedSpellId}
 									map={qualityMap}
 									refreshKey={reloadKey}
 								/>
@@ -271,7 +285,7 @@ export default function WeavingPage() {
 									coId={coId}
 									branchId={branchId}
 									date={appliedDate}
-									spellId={appliedSpellId === "" ? null : appliedSpellId}
+									spellId={appliedSpellId}
 								/>
 							) : null}
 
@@ -280,7 +294,7 @@ export default function WeavingPage() {
 									coId={coId}
 									branchId={branchId}
 									date={appliedDate}
-									spellId={appliedSpellId === "" ? null : appliedSpellId}
+									spellId={appliedSpellId}
 								/>
 							) : null}
 
@@ -289,7 +303,7 @@ export default function WeavingPage() {
 									coId={coId}
 									branchId={branchId}
 									date={appliedDate}
-									spellId={appliedSpellId === "" ? null : appliedSpellId}
+									spellId={appliedSpellId}
 									refreshKey={reloadKey}
 								/>
 							) : null}
