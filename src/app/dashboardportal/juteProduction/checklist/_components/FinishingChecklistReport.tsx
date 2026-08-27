@@ -29,7 +29,7 @@ const columns: GridColDef<FinishingChecklistRow>[] = [
   },
   { field: "worker_name", headerName: "Worker", flex: 1, minWidth: 160 },
   { field: "designation", headerName: "Designation", width: 140 },
-  { field: "process", headerName: "Process", width: 130 },
+  { field: "quality", headerName: "Quality", flex: 1, minWidth: 150 },
   numCol("net_hours", "Net Hrs", 100),
   numCol("prod_qty", "Prod Qty", 110),
   numCol("prod_wt_kg", "Prod KG", 110),

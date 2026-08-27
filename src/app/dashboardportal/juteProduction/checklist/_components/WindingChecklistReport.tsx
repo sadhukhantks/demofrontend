@@ -31,6 +31,7 @@ const columns: GridColDef<WindingChecklistRow>[] = [
   },
   { field: "worker_name", headerName: "Worker", flex: 1, minWidth: 160 },
   { field: "designation", headerName: "Designation", width: 140 },
+  { field: "quality", headerName: "Quality", flex: 1, minWidth: 150 },
   numCol("net_hours", "Net Hrs", 100),
   numCol("doff_count", "Doffs", 90),
   numCol("production_qty", "Production KG", 130),

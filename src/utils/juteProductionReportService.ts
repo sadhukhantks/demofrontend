@@ -157,6 +157,10 @@ export interface DprHandsSection {
   shifts: DprHandsShiftRow[];
   total: { day_hours: number; day_hands: number; mtd_hours: number; mtd_hands: number };
   hands_per_mt: number;
+  /** The MT `hands_per_mt` was divided by, and what that MT is (TKT-000117) —
+   * without it the ratio can't be checked against the figures on the page. */
+  basis_mt: number;
+  basis_label: string;
 }
 
 export interface DprMachineRunRow {
@@ -182,6 +186,9 @@ export interface DprKpi {
   winding_kg: number | null;
   total_hands: number;
   hands_per_mt: number;
+  /** The MT the ratio was divided by (TKT-000117) — shown on the KPI card so
+   * hands ÷ MT reconciles without hunting for the basis further down the page. */
+  hands_basis_mt: number;
   /** Raw closing stock in the tenant's stored weight unit (kg on some
    * tenants, quintal on others) — deliberately NOT converted to MT. */
   jute_closing_weight: number | null;
@@ -481,6 +488,7 @@ export interface WindingChecklistRow {
   eb_no: string | null;
   worker_name: string | null;
   designation: string | null;
+  quality?: string | null;
   net_hours: number;
   doff_count: number;
   production_qty: number;
@@ -507,6 +515,7 @@ export interface BeamingChecklistRow {
   machine_id: number | null;
   mech_code: string | null;
   machine_name: string | null;
+  quality?: string | null;
   workers: string | null;
   net_hours: number;
   cuts: number;
@@ -533,7 +542,7 @@ export interface FinishingChecklistRow {
   eb_no: string | null;
   worker_name: string | null;
   designation: string | null;
-  process: string | null;
+  quality?: string | null;
   net_hours: number;
   prod_qty: number;
   prod_wt_kg: number;

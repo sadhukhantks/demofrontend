@@ -202,6 +202,9 @@ export interface InventoryMinMaxRow {
   reorder_qty: number | null;
   lead_time: number | null;
   current_qty: number;
+  /** How far current stock is below min; 0 when at/above min or no min set
+   * (TKT-000114). Also the server's primary sort key. */
+  below_min_qty: number;
   pending_indent_qty: number | null;
   pending_po_qty: number | null;
   qty_to_be_ordered: number | null;

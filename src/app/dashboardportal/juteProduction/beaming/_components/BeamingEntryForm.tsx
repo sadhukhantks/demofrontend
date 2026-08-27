@@ -166,6 +166,9 @@ export default function BeamingEntryForm({
 				// server-side (entry_edit preserves existing when the body sends null).
 				eb_id: null,
 				beam_no: null,
+				// Quality is editable on an existing entry (TKT-000109); the server
+				// re-resolves ends/std_count/standards and recomputes every column.
+				bm_quality_id: Number(qualityId),
 				act_cuts: Number(actCuts),
 				no_of_beam: Number(noOfBeam),
 			};
@@ -259,7 +262,7 @@ export default function BeamingEntryForm({
 					label="bm_quality"
 					size="small"
 					fullWidth
-					disabled={editing || !itemId}
+					disabled={!itemId}
 					helperText={!itemId ? "Select an item first." : ""}
 					options={qualitiesForItem.map((q) => ({ value: q.bm_quality_id, label: `${q.bm_quality_code} ${q.bm_quality_name ? ` (${q.bm_quality_name})` : ""} ${q.is_composite === 1 ? " — composite" : ""}` }))}
 					value={qualityId}
@@ -271,6 +274,7 @@ export default function BeamingEntryForm({
 					InputProps={{ readOnly: true }}
 					size="small"
 					fullWidth
+					helperText="From the bm_quality master — change the quality to change ends."
 				/>
 				<TextField
 					type="number"

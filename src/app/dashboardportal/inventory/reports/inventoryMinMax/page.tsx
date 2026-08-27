@@ -21,6 +21,8 @@ const columns: GridColDef<InventoryMinMaxRow>[] = [
   numCol("reorder_qty", "Reorder"),
   { field: "lead_time", headerName: "Lead Time", type: "number", width: 100 },
   numCol("current_qty", "Stock Qty"),
+  // Shortfall against min — 0 when at/above min (TKT-000114).
+  numCol("below_min_qty", "Below Min By", 130),
   numCol("pending_indent_qty", "Pending Indent"),
   numCol("pending_po_qty", "Pending PO"),
   numCol("qty_to_be_ordered", "Qty To Be Ordered", 150),
@@ -51,7 +53,10 @@ function InventoryMinMaxContent() {
       }
       columns={columns}
       getRowId={getRowId}
-      sortField="item_grp_name"
+      // Biggest shortfall first — same order the server returns (TKT-000114);
+      // the grid would otherwise re-sort the page by group and hide it.
+      sortField="below_min_qty"
+      sortDir="desc"
       exportName="stores-min-max"
     />
   );

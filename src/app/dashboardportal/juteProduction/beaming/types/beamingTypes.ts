@@ -71,6 +71,9 @@ export type BeamingEntryRow = {
 	beam_no: string | null;
 	act_cuts: number;
 	no_of_beam: number;
+	// Warp ends snapshotted onto the row from the quality master at save time
+	// (TKT-000109 — shown in the day grid so the operator can see what was used).
+	ends: number | null;
 	// rpm_roller and act_speed are READ-ONLY here — NOT entered on this production
 	// page. They are captured later on a future Beaming SQC tab (like Spinning SQC)
 	// and resolved server-side; the API returns them for display (0/blank until SQC
@@ -111,6 +114,10 @@ export type BeamingEntryEditBody = {
 	eb_id: number | null;
 	// Physical beam number (Q10).
 	beam_no: string | null;
+	// The quality IS editable on an existing entry (TKT-000109) — the server
+	// re-resolves ends/std_count and every derived column from it. Machine/item stay
+	// fixed (the quality must stay inside the row's item).
+	bm_quality_id: number;
 	act_cuts: number;
 	no_of_beam: number;
 	// rpm_roller is NO LONGER sent from production entry — captured on the future
