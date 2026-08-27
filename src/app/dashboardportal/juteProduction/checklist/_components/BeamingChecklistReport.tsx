@@ -23,6 +23,7 @@ const columns: GridColDef<BeamingChecklistRow>[] = [
   { field: "spell_code", headerName: "Spell", width: 80 },
   { field: "mech_code", headerName: "Machine Code", width: 120 },
   { field: "machine_name", headerName: "Machine", flex: 1, minWidth: 140 },
+  { field: "quality", headerName: "Quality", flex: 1, minWidth: 150 },
   { field: "workers", headerName: "Workers", flex: 1, minWidth: 160 },
   numCol("net_hours", "Net Hrs", 100),
   numCol("cuts", "Cuts", 90),

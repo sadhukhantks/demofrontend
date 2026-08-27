@@ -1026,6 +1026,15 @@ const apiRoutesPortalMasters = {
     WINDING_STOCK_COPY_PREVIOUS_DAY: `${API_URL}/windingStock/copy_previous_day`,
     WINDING_STOCK_LOCK: `${API_URL}/windingStock/lock`,
     WINDING_STOCK_UNLOCK: `${API_URL}/windingStock/unlock`,
+    // Jute Gain/Loss sheet — monthly manual statement (router prefix /api/juteGainLoss)
+    JUTE_GAIN_LOSS_SETUP: `${API_URL}/juteGainLoss/setup`,
+    JUTE_GAIN_LOSS_SHEET: `${API_URL}/juteGainLoss/sheet`,
+    JUTE_GAIN_LOSS_SAVE: `${API_URL}/juteGainLoss/save`,
+    JUTE_GAIN_LOSS_LOCK: `${API_URL}/juteGainLoss/lock`,
+    JUTE_GAIN_LOSS_UNLOCK: `${API_URL}/juteGainLoss/unlock`,
+    JUTE_GAIN_LOSS_REPORT: `${API_URL}/juteGainLoss/report`,
+    // Daily wastage report — derived from waste entries + production figures
+    JUTE_WASTAGE_REPORT: `${API_URL}/juteProductionReports/wastage_report`,
     // Winding reports (router prefix /api/juteProductionReports)
     WINDING_SPELL_REPORT: `${API_URL}/juteProductionReports/winding_spell_report`,
     WINDING_QUALITY_WISE_REPORT: `${API_URL}/juteProductionReports/winding_quality_wise`,
@@ -1323,7 +1332,6 @@ const apiRoutesPortalMasters = {
     // Cheap saved-mapping-only read (no carry-forward) — used by the entry grid.
     WEAVING_QUALITY_MAP_SAVED: `${API_URL}/weavingProd/quality_map_saved`,
     WEAVING_QUALITY_MAP_SAVE: `${API_URL}/weavingProd/quality_map_save`,
-    WEAVING_QUALITY_MAP_MAPPED: `${API_URL}/weavingProd/quality_map_mapped`,
     // Beam-change tab (router prefix /api/weavingProd)
     WEAVING_BEAM_MAP_GET: `${API_URL}/weavingProd/beam_map_get`,
     WEAVING_BEAM_MAP_SAVE: `${API_URL}/weavingProd/beam_map_save`,
