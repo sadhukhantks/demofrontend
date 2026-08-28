@@ -262,7 +262,10 @@ function Content() {
             <KpiCard
               label="Hands / MT"
               value={fmt(data.kpi.hands_per_mt, 1)}
-              sub={`${fmt(data.kpi.total_hands, 0)} hands`}
+              // Denominator on the card (TKT-000117): "396 hands" beside a spinning
+              // MT elsewhere on the page made the ratio look wrong — it divides by
+              // spinning + weaving, so show that MT here.
+              sub={`${fmt(data.kpi.total_hands, 0)} hands ÷ ${fmt(data.kpi.hands_basis_mt, 3)} MT`}
             />
             <KpiCard
               label="Jute Closing Stock"
@@ -599,8 +602,9 @@ function Content() {
               </Tr>
             </DprTable>
             <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-              Overall labour productivity: {fmt(data.hands.hands_per_mt, 1)} hands per MT
-              (spinning + weaving output).
+              Overall labour productivity: {fmt(data.hands.total.day_hands, 2)} hands ÷{" "}
+              {fmt(data.hands.basis_mt, 3)} MT ({data.hands.basis_label}) ={" "}
+              {fmt(data.hands.hands_per_mt, 1)} hands per MT.
             </Typography>
           </SectionCard>
 

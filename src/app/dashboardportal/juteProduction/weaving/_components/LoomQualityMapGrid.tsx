@@ -37,6 +37,7 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spellI
 	const [saving, setSaving] = React.useState(false);
 	const [snack, setSnack] = React.useState<string | null>(null);
 	const [lineFilter, setLineFilter] = React.useState<string>("");
+	const [query, setQuery] = React.useState<string>("");
 
 	// Reset local edits when the cell identity (date/spell) changes — a fresh grid.
 	React.useEffect(() => {
@@ -138,9 +139,19 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spellI
 			.map(String),
 		...(rows.some((r) => r.line_no == null) ? ["none"] : []),
 	];
+	const q = query.trim().toLowerCase();
 	const visibleRows = [...rows].sort(byLineThenCode).filter((r) => {
-		if (lineFilter === "") return false; // not defaulted yet — avoid the full-grid paint
-		return lineFilter === "none" ? r.line_no == null : r.line_no === Number(lineFilter);
+		// A search spans ALL lines (mirrors WeavingEntryGrid); otherwise show only the
+		// selected line — "" means not defaulted yet, render nothing.
+		if (q === "") {
+			if (lineFilter === "") return false; // not defaulted yet — avoid the full-grid paint
+			return lineFilter === "none" ? r.line_no == null : r.line_no === Number(lineFilter);
+		}
+		return (
+			String(r.mech_posting_code ?? "").toLowerCase().includes(q) ||
+			(r.mech_code ?? "").toLowerCase().includes(q) ||
+			(r.machine_name ?? "").toLowerCase().includes(q)
+		);
 	});
 
 	return (
@@ -156,6 +167,13 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spellI
 				>
 					{saving ? "Saving…" : dirtyCount > 0 ? `Save Map (${dirtyCount} unsaved)` : "Save Map"}
 				</Button>
+				<TextField
+					size="small"
+					label="Search loom / posting code"
+					value={query}
+					onChange={(e) => setQuery(e.target.value)}
+					sx={{ minWidth: 200 }}
+				/>
 				<Autocomplete
 					size="small"
 					options={lineOptions}

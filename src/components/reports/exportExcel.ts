@@ -91,6 +91,30 @@ export function styleHeaderRow(row: {
   });
 }
 
+/** Adds a bordered body row; `emphasis` styles it like the header band
+ * (subtotal / grand-total rows). For hand-laid sheets that bypass
+ * {@link buildReportSheet}. */
+export function addBodyRow(
+  ws: Worksheet,
+  values: unknown[],
+  emphasis: boolean,
+): void {
+  const r = ws.addRow(values);
+  r.eachCell({ includeEmpty: true }, (cell: Record<string, unknown>) => {
+    cell.border = {
+      top: GRID_LINE,
+      bottom: GRID_LINE,
+      left: emphasis ? HEADER_LINE : GRID_LINE,
+      right: emphasis ? HEADER_LINE : GRID_LINE,
+    };
+    cell.alignment = { vertical: "middle", wrapText: true };
+    if (emphasis) {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BLUE } };
+      cell.font = { bold: true, color: { argb: WHITE } };
+    }
+  });
+}
+
 /**
  * Export grid rows to a styled .xlsx file using the grid's own column defs,
  * matching the on-screen report look: blue header band with white bold text,

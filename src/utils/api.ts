@@ -777,6 +777,15 @@ const apiRoutesPortalMasters = {
     HOL_INC_ELIG_APPROVE: `${API_URL}/hrmsMasters/hol_inc_elig_approve`,
     HOL_INC_ELIG_REJECT: `${API_URL}/hrmsMasters/hol_inc_elig_reject`,
 
+    // Production Quality <-> Wages Quality link (link_prodquality_wagequality_mst)
+    PROD_WAGES_LINK_SETUP: `${API_URL}/hrmsMasters/prod_wages_link_setup`,
+    PROD_WAGES_LINK_QUALITIES: `${API_URL}/hrmsMasters/prod_wages_link_qualities`,
+    PROD_WAGES_LINK_TABLE: `${API_URL}/hrmsMasters/get_prod_wages_link_table`,
+    PROD_WAGES_LINK_BY_ID: `${API_URL}/hrmsMasters/get_prod_wages_link_by_id`,
+    PROD_WAGES_LINK_CREATE: `${API_URL}/hrmsMasters/prod_wages_link_create`,
+    PROD_WAGES_LINK_EDIT: `${API_URL}/hrmsMasters/prod_wages_link_edit`,
+    PROD_WAGES_LINK_DELETE: `${API_URL}/hrmsMasters/prod_wages_link_delete`,
+
     // Canteen Details (canteen_details)
     CANTEEN_SETUP: `${API_URL}/hrms/canteen_setup`,
     CANTEEN_TABLE: `${API_URL}/hrms/get_canteen_table`,
@@ -1026,6 +1035,15 @@ const apiRoutesPortalMasters = {
     WINDING_STOCK_COPY_PREVIOUS_DAY: `${API_URL}/windingStock/copy_previous_day`,
     WINDING_STOCK_LOCK: `${API_URL}/windingStock/lock`,
     WINDING_STOCK_UNLOCK: `${API_URL}/windingStock/unlock`,
+    // Jute Gain/Loss sheet — monthly manual statement (router prefix /api/juteGainLoss)
+    JUTE_GAIN_LOSS_SETUP: `${API_URL}/juteGainLoss/setup`,
+    JUTE_GAIN_LOSS_SHEET: `${API_URL}/juteGainLoss/sheet`,
+    JUTE_GAIN_LOSS_SAVE: `${API_URL}/juteGainLoss/save`,
+    JUTE_GAIN_LOSS_LOCK: `${API_URL}/juteGainLoss/lock`,
+    JUTE_GAIN_LOSS_UNLOCK: `${API_URL}/juteGainLoss/unlock`,
+    JUTE_GAIN_LOSS_REPORT: `${API_URL}/juteGainLoss/report`,
+    // Daily wastage report — derived from waste entries + production figures
+    JUTE_WASTAGE_REPORT: `${API_URL}/juteProductionReports/wastage_report`,
     // Winding reports (router prefix /api/juteProductionReports)
     WINDING_SPELL_REPORT: `${API_URL}/juteProductionReports/winding_spell_report`,
     WINDING_QUALITY_WISE_REPORT: `${API_URL}/juteProductionReports/winding_quality_wise`,
