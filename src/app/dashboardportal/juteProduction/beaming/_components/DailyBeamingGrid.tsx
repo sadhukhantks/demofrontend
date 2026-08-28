@@ -85,6 +85,8 @@ export default function DailyBeamingGrid({ coId, branchId, date, spellId, refres
 			{ field: "item_code", headerName: "Item", width: 110 },
 			{ field: "bm_quality_code", headerName: "bm_quality", width: 140 },
 			{ field: "beam_no", headerName: "Beam No", width: 110 },
+			// Ends snapshotted from the quality master at save time (TKT-000109).
+			{ field: "ends", headerName: "Ends", width: 80, type: "number" },
 			{ field: "act_cuts", headerName: "Act Cuts/Beam", width: 120, type: "number" },
 			{ field: "no_of_beam", headerName: "No. Beams", width: 100, type: "number" },
 			// RPM / Act Spd are read-only here — sourced from the server, resolved from

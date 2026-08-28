@@ -1,0 +1,11 @@
+- generic [active] [ref=f6e1]:
+  - generic [ref=f6e2]:
+    - generic [ref=f6e5]:
+      - img "Logo" [ref=f6e8]
+      - paragraph [ref=f6e11]
+      - generic [ref=f6e14] [cursor=pointer]
+    - main [ref=f6e21]
+    - button "Raise a support ticket" [ref=f6e22] [cursor=pointer]
+  - region "Notifications (F8)":
+    - list
+  - button "Open Next.js Dev Tools" [ref=f6e35] [cursor=pointer]

@@ -23,6 +23,31 @@ const columns: GridColDef<JuteStockReportRow>[] = [
 
 const getRowId = (r: JuteStockReportRow) => `${r.item_grp_id}-${r.item_id}`;
 
+/** Append a Grand Total row summing every weight column. */
+function withGrandTotal(rows: JuteStockReportRow[]): JuteStockReportRow[] {
+  if (rows.length === 0) return rows;
+  const sum = (f: keyof JuteStockReportRow) =>
+    Math.round(rows.reduce((acc, r) => acc + (Number(r[f]) || 0), 0) * 100) /
+    100;
+  return [
+    ...rows,
+    {
+      item_grp_id: -1,
+      // null (not "") so the grid's null-last sorting keeps this row at the bottom
+      item_group_name: null,
+      item_id: -1,
+      item_name: "Grand Total",
+      opening_weight: sum("opening_weight"),
+      receipt_weight: sum("receipt_weight"),
+      issue_weight: sum("issue_weight"),
+      sold_weight: sum("sold_weight"),
+      closing_weight: sum("closing_weight"),
+      mtd_receipt_weight: sum("mtd_receipt_weight"),
+      mtd_issue_weight: sum("mtd_issue_weight"),
+    },
+  ];
+}
+
 function JuteStockPageContent() {
   const { branches, initialBranchId, dateParam } = useReportBranches();
 
@@ -34,7 +59,7 @@ function JuteStockPageContent() {
       dates="single"
       singleLabel="As of Date"
       initialDateTo={dateParam || yesterdayIso()}
-      fetcher={(f) => fetchJuteStockReport(f.branchId, f.dateTo)}
+      fetcher={(f) => fetchJuteStockReport(f.branchId, f.dateTo).then(withGrandTotal)}
       columns={columns}
       getRowId={getRowId}
       sortField="item_group_name"

@@ -1,7 +1,8 @@
 /** Row from GET /api/juteReports/stock */
 export interface JuteStockReportRow {
   item_grp_id: number;
-  item_group_name: string;
+  /** null only on the client-added Grand Total row (sorts last in the grid) */
+  item_group_name: string | null;
   item_id: number;
   item_name: string;
   opening_weight: number;
