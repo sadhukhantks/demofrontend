@@ -165,6 +165,7 @@ export default function CreateYarnMaster({
           std_mr_pct: stdMrPct,
           item_grp_id: typeId,
           jute_yarn_remarks: remarks,
+          is_twisted: Boolean(details.is_twisted),
         };
         setInitialValues(vals);
         setFormValues(vals);
@@ -175,6 +176,7 @@ export default function CreateYarnMaster({
           std_mr_pct: "",
           item_grp_id: "",
           jute_yarn_remarks: "",
+          is_twisted: false,
         };
         setInitialValues(vals);
         setFormValues(vals);
@@ -254,6 +256,14 @@ export default function CreateYarnMaster({
           disabled: mode === "view",
           grid: { xs: 12, md: 4 },
         },
+        {
+          name: "is_twisted",
+          label: "Is Twisted (ply) Yarn",
+          type: "checkbox",
+          required: false,
+          disabled: mode === "view",
+          grid: { xs: 12, md: 4 },
+        },
       ],
     }),
     [editId, mode, yarnTypeOptions]
@@ -305,6 +315,7 @@ export default function CreateYarnMaster({
         std_mr_pct: parsedStdMrPct,
         item_grp_id: values.item_grp_id ? Number(values.item_grp_id) : null,
         jute_yarn_remarks: values.jute_yarn_remarks || null,
+        is_twisted: values.is_twisted ? 1 : 0,
         co_id,
       };
 

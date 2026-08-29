@@ -12,7 +12,7 @@ import { Save as SaveIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { IssueSetup } from "../types/spreaderTypes";
-import { spellFromHour, todayISO, currentHour } from "../utils/shift";
+import { spellFromHour, hourFromSpell, todayISO, currentHour } from "../utils/shift";
 import { useAvailableWeights } from "../hooks/useIssueSetup";
 import FormAutocomplete from "./FormAutocomplete";
 
@@ -152,7 +152,12 @@ export default function IssueEntryForm({ coId, branchId, setup, onSaved }: Props
 					value={spell}
 					options={setup.spells.map((s) => ({ value: s.code, label: s.label }))}
 					onChange={(v) => {
-						if (v !== "") setSpell(String(v));
+						if (v === "") return;
+						const s = String(v);
+						setSpell(s);
+						// Snap hour into the chosen spell's bucket (keep it if already inside).
+						const h = hourFromSpell(s);
+						if (h !== null && spellFromHour(Number(issueTime)) !== s) setIssueTime(h);
 					}}
 				/>
 				<TextField

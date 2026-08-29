@@ -56,6 +56,7 @@ import {
   buildLabelMap,
   createLabelResolver,
   buildItemFilterOptions,
+  createLineFromStock,
 } from "./utils/juteIssueMappers";
 import { JUTE_ISSUE_STATUS_IDS, JUTE_ISSUE_STATUS_LABELS } from "./utils/juteIssueConstants";
 import { calculateIssueValue } from "./utils/juteIssueFactories";
@@ -234,9 +235,7 @@ function JuteIssueEditPage() {
   // Line items management - must be before stockItems filter that uses lineItems
   const {
     lineItems,
-    addLineFromStock,
     removeLineItem,
-    updateLineItem,
     replaceItems,
     calculateTotals,
   } = useJuteIssueLineItems({ mode });
@@ -253,10 +252,11 @@ function JuteIssueEditPage() {
   // Keyed on stock_key, NOT jute_mr_li_id: waste lines have no MR line, so
   // keying on it would collapse every waste draft into one bucket and net them
   // against each other's balances.
+  //
+  // Only UNSAVED lines count here: the stock view already subtracts every saved
+  // issue (status <> 4), so netting a saved draft again would subtract it twice.
   const draftQuantityByStockKey = React.useMemo(() => {
-    const draftItems = lineItems.filter(
-      (l) => l.status_id === JUTE_ISSUE_STATUS_IDS.DRAFT || (l.status_id === undefined && !l.jute_issue_id)
-    );
+    const draftItems = lineItems.filter((l) => !l.jute_issue_id);
 
     const map = new Map<string, number>();
     draftItems.forEach((item) => {
@@ -533,7 +533,13 @@ function JuteIssueEditPage() {
     setSelectedStock(null);
   };
 
-  const handleAddItem = () => {
+  // Each entry saves to the backend the moment "Save" is pressed in the dialog.
+  // The old flow parked entries unsaved in React state until a separate Save
+  // button looped one POST per line and aborted on the first failure — every
+  // line after the failing one was silently lost (and any date/branch change
+  // wiped the unsaved drafts). The create endpoint is per-line anyway, so
+  // there is nothing to batch.
+  const handleAddItem = async () => {
     if (!selectedStock || !newYarnTypeId) return;
 
     const quantity = Number(newQuantity) || 0;
@@ -549,68 +555,32 @@ function JuteIssueEditPage() {
       return;
     }
 
-    addLineFromStock(selectedStock, newYarnTypeId, quantity, weight);
-    handleCloseAddDialog();
-    // Refetch stock to update available quantities
-    refetchStock();
-  };
-
-  // Handle save
-  const handleSave = async () => {
     if (!coId || !selectedBranchId || !issueDate) {
       setError("Please select branch and date");
       return;
     }
 
-    if (lineItems.length === 0) {
-      setError("Please add at least one issue line");
-      return;
-    }
-
     setSaving(true);
     setError(null);
-    setSuccessMessage(null);
-
     try {
-      // Create each line item
-      for (const line of lineItems) {
-        if (line.jute_issue_id) continue; // Skip existing items
+      const line = createLineFromStock(selectedStock, newYarnTypeId, quantity, weight);
+      const payload = mapEditableToCreatePayload(line, Number(selectedBranchId), issueDate);
+      const url = `${apiRoutesPortalMasters.JUTE_ISSUE_CREATE}?co_id=${coId}`;
+      const { error: createError } = await fetchWithCookie(url, "POST", payload);
 
-        const payload = mapEditableToCreatePayload(line, Number(selectedBranchId), issueDate);
-        const url = `${apiRoutesPortalMasters.JUTE_ISSUE_CREATE}?co_id=${coId}`;
-        const { error: createError } = await fetchWithCookie(url, "POST", payload);
-
-        if (createError) {
-          throw new Error(createError);
-        }
+      if (createError) {
+        throw new Error(createError);
       }
 
-      setSuccessMessage("Issues saved successfully");
-      
-      // Reload data to get saved issue IDs - stay in edit mode to allow adding more
-      const params = new URLSearchParams({
-        co_id: coId,
-        branch_id: selectedBranchId,
-        issue_date: issueDate,
-      });
-      const reloadUrl = `${apiRoutesPortalMasters.JUTE_ISSUES_BY_DATE}?${params.toString()}`;
-      const { data: reloadData, error: reloadError } = await fetchWithCookie(reloadUrl, "GET");
-      
-      if (!reloadError && reloadData) {
-        const response = reloadData as {
-          data: JuteIssueLineItem[];
-          summary: JuteIssueSummary;
-        };
-        const mapped = mapApiLineItemsToEditable(response.data || []);
-        replaceItems(mapped);
-        setSummary(response.summary || null);
-      }
-      
-      // Refetch stock to update available quantities
+      setSuccessMessage("Issue line saved");
+      handleCloseAddDialog();
+      // Reload saved lines and stock balances from the server (source of truth)
+      setRefreshCounter((c) => c + 1);
       refetchStock();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to save issues";
-      setError(message);
+      // Keep the dialog open so the entry is not lost — the error shows inside
+      // the dialog and the operator can correct and retry.
+      setError(err instanceof Error ? err.message : "Failed to save issue line");
     } finally {
       setSaving(false);
     }
@@ -764,11 +734,6 @@ function JuteIssueEditPage() {
   // Allow adding items in create mode OR edit mode (not view mode)
   const canAddItems = !isViewMode;
   const canEdit = !isViewMode && selectableDraftLines.length > 0;
-  // Check if there are unsaved items that need to be saved
-  const unsavedLines = lineItems.filter((l) => !l.jute_issue_id);
-  const hasUnsavedItems = unsavedLines.length > 0;
-  // Show Save button if there are unsaved items (in create or edit mode)
-  const canSave = !isViewMode && hasUnsavedItems;
   // Show Open button if there are any draft items that can be opened
   const canOpen = selectableDraftLines.length > 0;
   // Show Approve/Reject buttons if there are any open items that can be approved
@@ -1152,16 +1117,6 @@ function JuteIssueEditPage() {
             {selectedLineIds.size} item(s) selected
           </Typography>
         )}
-        {canSave && (
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleSave}
-            disabled={saving || lineItems.length === 0}
-          >
-            {saving ? <CircularProgress size={20} /> : "Save"}
-          </Button>
-        )}
         {canOpen && (
           <Button
             variant="contained"
@@ -1443,6 +1398,13 @@ function JuteIssueEditPage() {
         <DialogTitle>Add Issue Item</DialogTitle>
         <DialogContent sx={{ px: { xs: 2, sm: 3 } }}>
           <Box display="flex" flexDirection="column" gap={{ xs: 2, sm: 3 }} pt={2}>
+            {/* Save error — shown here because the page-level alert sits behind
+                the dialog; the entry stays in the form so nothing is lost. */}
+            {error && (
+              <Alert severity="error" onClose={() => setError(null)}>
+                {error}
+              </Alert>
+            )}
             {/* Quantity Error Alert */}
             {quantityExceedsBalance && (
               <Alert severity="error">
@@ -1543,13 +1505,13 @@ function JuteIssueEditPage() {
           </Box>
         </DialogContent>
         <DialogActions sx={DIALOG_ACTIONS_SX}>
-          <Button onClick={handleCloseAddDialog}>Cancel</Button>
+          <Button onClick={handleCloseAddDialog} disabled={saving}>Cancel</Button>
           <Button
             variant="contained"
             onClick={handleAddItem}
-            disabled={!selectedStock || !newYarnTypeId || !newQuantity || calculatedWeight <= 0 || quantityExceedsBalance}
+            disabled={!selectedStock || !newYarnTypeId || !newQuantity || calculatedWeight <= 0 || quantityExceedsBalance || saving}
           >
-            Add
+            {saving ? <CircularProgress size={20} /> : "Save"}
           </Button>
         </DialogActions>
       </Dialog>
