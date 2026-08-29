@@ -17,6 +17,7 @@ import {
   fetchFinishingChecklist,
   type FinishingChecklistRow,
 } from "@/utils/juteProductionReportService";
+import { exportFinishingChecklistWorkbook } from "./finishingChecklistExcel";
 
 const columns: GridColDef<FinishingChecklistRow>[] = [
   { field: "tran_date", headerName: "Date", width: 100 },
@@ -70,6 +71,35 @@ export default function FinishingChecklistReport() {
       getRowId={(r) => r.row_id}
       sortField="tran_date"
       exportName="finishing-checklist"
+      exportOverride={async (rows, header, f) => {
+        // Sheet 2 (production pivot) must cover every worker, so it always
+        // needs rtype=all even when the grid shows anomalies only.
+        let allRows = rows;
+        if (f.extra !== "all" && coId != null) {
+          try {
+            allRows = await fetchFinishingChecklist({
+              coId,
+              branchId: f.branchId,
+              dateFrom: f.dateFrom,
+              dateTo: f.dateTo,
+              rtype: "all",
+            });
+          } catch {
+            // ponytail: ReportPanel has no notify hook — fall back to the
+            // loaded rows rather than lose the export entirely.
+            allRows = rows;
+          }
+        }
+        await exportFinishingChecklistWorkbook(
+          columns,
+          rows,
+          allRows,
+          "finishing-checklist",
+          header,
+          f.dateFrom,
+          f.dateTo,
+        );
+      }}
     />
   );
 }

@@ -517,10 +517,13 @@ export interface BeamingChecklistRow {
   machine_id: number | null;
   mech_code: string | null;
   machine_name: string | null;
+  /** Aligned with `quality` — both comma lists are ordered by quality code. */
+  quality_code?: string | null;
   quality?: string | null;
   workers: string | null;
   net_hours: number;
   cuts: number;
+  beams: number;
   remarks: string;
 }
 

@@ -13,10 +13,7 @@
  */
 import { GridColDef, GridValidRowModel } from "@mui/x-data-grid";
 import {
-  BLUE,
-  GRID_LINE,
-  HEADER_LINE,
-  WHITE,
+  addBodyRow,
   buildReportSheet,
   styleHeaderRow,
   writeReportHeaderBlock,
@@ -40,24 +37,6 @@ const CATEGORY_LABELS = [
 /** Sl No, Attendance Date, Department, Designation + 4 shift + 8 category. */
 const TOTAL_COLS = 4 + SHIFT_LABELS.length + CATEGORY_LABELS.length;
 const COL_WIDTHS = [6, 14, 20, 30, ...Array(12).fill(11)];
-
-/** Bordered row; `emphasis` styles it like the header band (subtotals/grand). */
-function addBodyRow(ws: Worksheet, values: unknown[], emphasis: boolean): void {
-  const r = ws.addRow(values);
-  r.eachCell({ includeEmpty: true }, (cell: Record<string, unknown>) => {
-    cell.border = {
-      top: GRID_LINE,
-      bottom: GRID_LINE,
-      left: emphasis ? HEADER_LINE : GRID_LINE,
-      right: emphasis ? HEADER_LINE : GRID_LINE,
-    };
-    cell.alignment = { vertical: "middle", wrapText: true };
-    if (emphasis) {
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BLUE } };
-      cell.font = { bold: true, color: { argb: WHITE } };
-    }
-  });
-}
 
 /** Lays out the Hands Complement sheet, grouped by department with subtotals. */
 function buildHandsSheet(

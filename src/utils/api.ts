@@ -777,6 +777,15 @@ const apiRoutesPortalMasters = {
     HOL_INC_ELIG_APPROVE: `${API_URL}/hrmsMasters/hol_inc_elig_approve`,
     HOL_INC_ELIG_REJECT: `${API_URL}/hrmsMasters/hol_inc_elig_reject`,
 
+    // Production Quality <-> Wages Quality link (link_prodquality_wagequality_mst)
+    PROD_WAGES_LINK_SETUP: `${API_URL}/hrmsMasters/prod_wages_link_setup`,
+    PROD_WAGES_LINK_QUALITIES: `${API_URL}/hrmsMasters/prod_wages_link_qualities`,
+    PROD_WAGES_LINK_TABLE: `${API_URL}/hrmsMasters/get_prod_wages_link_table`,
+    PROD_WAGES_LINK_BY_ID: `${API_URL}/hrmsMasters/get_prod_wages_link_by_id`,
+    PROD_WAGES_LINK_CREATE: `${API_URL}/hrmsMasters/prod_wages_link_create`,
+    PROD_WAGES_LINK_EDIT: `${API_URL}/hrmsMasters/prod_wages_link_edit`,
+    PROD_WAGES_LINK_DELETE: `${API_URL}/hrmsMasters/prod_wages_link_delete`,
+
     // Canteen Details (canteen_details)
     CANTEEN_SETUP: `${API_URL}/hrms/canteen_setup`,
     CANTEEN_TABLE: `${API_URL}/hrms/get_canteen_table`,
