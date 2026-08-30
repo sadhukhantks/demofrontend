@@ -15,7 +15,7 @@ import {
 	type InterCardSavePayload,
 	type InterCardRow,
 } from "../types/interCardTypes";
-import { computeRowPreview } from "../utils/interCardCalc";
+import { computeRowPreview, gmsToLbs } from "../utils/interCardCalc";
 
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type Props = {
@@ -294,7 +294,7 @@ export default function InterCardForm({ coId, branchId, entryDate, setup, onSave
 			>
 				<Typography variant="subtitle2">
 					Reading rows — each row = one Section / Mc / Spell / Yarn Group with {CARD_SLIVER_READINGS} cut
-					weights (LB/5yds) + {CARD_SLIVER_READINGS} MR%
+					weights (gms per 5 yds) + {CARD_SLIVER_READINGS} MR%
 				</Typography>
 				<Button
 					variant="outlined"
@@ -330,8 +330,8 @@ export default function InterCardForm({ coId, branchId, entryDate, setup, onSave
 									MR% {i + 1}
 								</TableCell>
 							))}
-							<TableCell align="right" sx={{ minWidth: 90 }}>
-								Corr Wt
+							<TableCell align="right" sx={{ minWidth: 100 }}>
+								Corr Wt (lbs)
 							</TableCell>
 							<TableCell align="right" sx={{ minWidth: 90 }}>
 								CV %
@@ -376,7 +376,7 @@ export default function InterCardForm({ coId, branchId, entryDate, setup, onSave
 									))}
 									<TableCell align="right">
 										<Typography variant="body2" fontWeight={600}>
-											{preview?.corrWt != null ? preview.corrWt.toFixed(2) : "—"}
+											{preview?.corrWt != null ? gmsToLbs(preview.corrWt).toFixed(2) : "—"}
 										</Typography>
 									</TableCell>
 									<TableCell
@@ -473,7 +473,8 @@ export default function InterCardForm({ coId, branchId, entryDate, setup, onSave
 							))}
 							<Box sx={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
 								<Typography variant="body2" fontWeight={600}>
-									Corr Wt: {preview?.corrWt != null ? preview.corrWt.toFixed(2) : "—"}
+									Corr Wt (lbs):{" "}
+									{preview?.corrWt != null ? gmsToLbs(preview.corrWt).toFixed(2) : "—"}
 								</Typography>
 								<Typography
 									variant="body2"

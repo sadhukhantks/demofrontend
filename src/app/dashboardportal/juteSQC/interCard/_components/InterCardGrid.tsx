@@ -26,6 +26,11 @@ import type {
 	InterCardReadingRow,
 	SectionAverage,
 } from "../types/interCardTypes";
+import { gmsToLbs } from "../utils/interCardCalc";
+
+// Server calc_corr_wt is in the entered unit (grams); render it in lbs/100yds.
+const lbs = (value: unknown, digits = 2): string =>
+	value != null ? gmsToLbs(Number(value)).toFixed(digits) : "";
 
 type Props = {
 	coId: string;
@@ -175,10 +180,10 @@ export default function InterCardGrid({
 			},
 			{
 				field: "calc_corr_wt",
-				headerName: "Corr Wt",
-				width: 100,
+				headerName: "Corr Wt (lbs)",
+				width: 110,
 				type: "number",
-				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
+				valueFormatter: (value) => lbs(value),
 			},
 			{
 				field: "calc_sdev",
@@ -241,7 +246,7 @@ export default function InterCardGrid({
 									<TableCell align="right">ROWS</TableCell>
 									<TableCell align="right">OBS</TableCell>
 									<TableCell align="right">MR%</TableCell>
-									<TableCell align="right">CORR</TableCell>
+									<TableCell align="right">CORR (LBS)</TableCell>
 									<TableCell align="right">StDev</TableCell>
 									<TableCell align="right">CV %</TableCell>
 								</TableRow>
@@ -258,7 +263,7 @@ export default function InterCardGrid({
 											{s.avg_mr_pct != null ? Number(s.avg_mr_pct).toFixed(2) : "—"}
 										</TableCell>
 										<TableCell align="right">
-											{s.avg_corr_wt != null ? Number(s.avg_corr_wt).toFixed(2) : "—"}
+											{s.avg_corr_wt != null ? lbs(s.avg_corr_wt) : "—"}
 										</TableCell>
 										<TableCell align="right">
 											{s.avg_sdev != null ? Number(s.avg_sdev).toFixed(4) : "—"}
@@ -292,7 +297,7 @@ export default function InterCardGrid({
 									<TableCell align="right">ROWS</TableCell>
 									<TableCell align="right">OBS</TableCell>
 									<TableCell align="right">MR%</TableCell>
-									<TableCell align="right">CORR</TableCell>
+									<TableCell align="right">CORR (LBS)</TableCell>
 									<TableCell align="right">CV %</TableCell>
 								</TableRow>
 							</TableHead>
@@ -310,7 +315,7 @@ export default function InterCardGrid({
 												{g.grand_mr_pct != null ? Number(g.grand_mr_pct).toFixed(2) : "—"}
 											</TableCell>
 											<TableCell align="right">
-												{g.grand_corr_wt != null ? Number(g.grand_corr_wt).toFixed(2) : "—"}
+												{g.grand_corr_wt != null ? lbs(g.grand_corr_wt) : "—"}
 											</TableCell>
 											<TableCell
 												align="right"
