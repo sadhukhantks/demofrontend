@@ -49,6 +49,8 @@ type IndexWrapperProps<RowType extends GridValidRowModel & { id?: string | numbe
    * When not provided, all rows follow page-level permission (current behavior). */
   isRowEditable?: (row: RowType) => boolean;
   toolbarContent?: React.ReactNode;
+  /** Rendered between the title block and the toolbar row (e.g. summary cards) */
+  headerContent?: React.ReactNode;
   children?: React.ReactNode;
   className?: string;
   contentClassName?: string;
@@ -77,6 +79,7 @@ function IndexWrapper<RowType extends GridValidRowModel & { id?: string | number
   onEdit,
   isRowEditable,
   toolbarContent,
+  headerContent,
   children,
   className,
   contentClassName,
@@ -242,6 +245,8 @@ function IndexWrapper<RowType extends GridValidRowModel & { id?: string | number
             ) : null}
           </div>
         ) : null}
+
+        {headerContent}
 
         {(search || createAllowed || toolbarContent) && (
           <Box className="mb-6 flex flex-col-reverse gap-3 md:flex-row md:items-center md:justify-between">

@@ -15,7 +15,7 @@ import type {
   TicketAction,
   TicketComment,
   TicketDetailResponse,
-  TicketStat,
+  TicketStatsResponse,
   TicketSummary,
 } from "@/utils/supportTicketTypes";
 
@@ -152,9 +152,9 @@ export async function listManageTickets(
   return { data: data ?? null, error, status };
 }
 
-export async function getManageStats(): Promise<ServiceResult<TicketStat[]>> {
+export async function getManageStats(): Promise<ServiceResult<TicketStatsResponse>> {
   const { data, error, status } = await fetchWithCookie(apiRoutesSupport.MANAGE_STATS, "GET");
-  return { data: data?.data ?? null, error, status };
+  return { data: data ?? null, error, status };
 }
 
 export async function getAssignees(): Promise<ServiceResult<Assignee[]>> {
