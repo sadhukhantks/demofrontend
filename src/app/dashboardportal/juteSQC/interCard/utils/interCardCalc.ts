@@ -13,6 +13,15 @@
 // Standard moisture regain % used for every yarn group row (a yarn group has no per-row std).
 export const DEFAULT_STD_MR_PCT = 20;
 
+// The operator weighs each 5-yd cut in GRAMS (raw grams are what get stored); the
+// sheet reports corrected sliver weight as LBS per 100 yds. Display-only conversion —
+// the server keeps computing calc_* in the entered (gram) unit.
+export const GMS_PER_LB = 453.6;
+export const SAMPLE_LENGTH_YDS = 5;
+export function gmsToLbs(gms: number): number {
+	return (Number(gms) / GMS_PER_LB) * (100 / SAMPLE_LENGTH_YDS);
+}
+
 function round2(x: number): number {
 	return Math.round(x * 100) / 100;
 }
