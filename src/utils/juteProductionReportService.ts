@@ -236,6 +236,8 @@ export async function fetchDailyProductionReport(params: {
 export interface WwdReconciliation {
   opening_mt: number;
   winding_mt: number;
+  /** Twisted (3-ply) yarn consumed out of net winding — subtracted line. */
+  twisting_mt: number;
   weaving_mt: number;
   purchase_mt: number;
   sale_mt: number;

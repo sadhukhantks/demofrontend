@@ -64,6 +64,7 @@ const apiRoutesconsole = {
 
     EDIT_USER_CTRLDESK_MENU: `${API_URL}/ctrldskAdmin/edit_user_ctrldsk_admin`,
     
+    CTRLDSK_DASHBOARD_STATS: `${API_URL}/ctrldskAdmin/dashboard_stats`,
     GET_ORG_ALL: `${API_URL}/ctrldskAdmin/get_org_data_all`,
     GET_ORG_BY_ID: `${API_URL}/ctrldskAdmin/get_org_data_by_id`,
     CREATE_ORG_SETUP: `${API_URL}/ctrldskAdmin/create_org_setup_data`,

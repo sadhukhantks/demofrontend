@@ -233,6 +233,11 @@ describe("MRPreview", () => {
 		expect(screen.getByRole("button", { name: /print preview/i })).toBeInTheDocument();
 	});
 
+	it("renders a Download PDF button", () => {
+		render(<MRPreview header={mockHeader} lineItems={[]} totalAcceptedWeight={0} />);
+		expect(screen.getByRole("button", { name: /download pdf/i })).toBeInTheDocument();
+	});
+
 	// ── Null header ──
 	it("renders nothing when header is null", () => {
 		const { container } = render(
