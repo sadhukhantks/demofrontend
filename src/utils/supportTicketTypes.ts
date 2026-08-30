@@ -193,6 +193,23 @@ export interface TicketStat {
   count: number;
 }
 
+export interface AssigneeStat {
+  con_user_id: number;
+  name: string | null;
+  count: number;
+}
+
+export interface TicketStatsResponse {
+  data: TicketStat[];
+  total: number;
+  open: {
+    total: number;
+    assigned: number;
+    unassigned: number;
+    by_assignee: AssigneeStat[];
+  };
+}
+
 // ── Raise form (Zod is the single source of truth) ──────────────────────────────
 export const raiseTicketSchema = z.object({
   subject: z

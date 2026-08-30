@@ -15,7 +15,7 @@ import {
 	type FinDrawSavePayload,
 	type FinDrawRow,
 } from "../types/finDrawTypes";
-import { computeRowPreview } from "../utils/finDrawCalc";
+import { computeRowPreview, gmsToLbs } from "../utils/finDrawCalc";
 
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type Props = {
@@ -319,7 +319,7 @@ export default function FinDrawForm({ coId, branchId, entryDate, setup, onSaved 
 			>
 				<Typography variant="subtitle2">
 					Reading rows — each row = one Section / Mc / Spell / Yarn Group with {FIN_DRAW_READINGS} DLV
-					nos + {FIN_DRAW_READINGS} cut weights (LB/5yds) + {FIN_DRAW_READINGS} MR%
+					nos + {FIN_DRAW_READINGS} cut weights (gms per 50 yds) + {FIN_DRAW_READINGS} MR%
 				</Typography>
 				<Button
 					variant="outlined"
@@ -360,8 +360,8 @@ export default function FinDrawForm({ coId, branchId, entryDate, setup, onSaved 
 									MR% {i + 1}
 								</TableCell>
 							))}
-							<TableCell align="right" sx={{ minWidth: 90 }}>
-								Corr Wt
+							<TableCell align="right" sx={{ minWidth: 100 }}>
+								Corr Wt (lbs)
 							</TableCell>
 							<TableCell align="right" sx={{ minWidth: 90 }}>
 								CV %
@@ -418,7 +418,7 @@ export default function FinDrawForm({ coId, branchId, entryDate, setup, onSaved 
 									))}
 									<TableCell align="right">
 										<Typography variant="body2" fontWeight={600}>
-											{preview?.corrWt != null ? preview.corrWt.toFixed(2) : "—"}
+											{preview?.corrWt != null ? gmsToLbs(preview.corrWt).toFixed(2) : "—"}
 										</Typography>
 									</TableCell>
 									<TableCell
@@ -527,7 +527,8 @@ export default function FinDrawForm({ coId, branchId, entryDate, setup, onSaved 
 							))}
 							<Box sx={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
 								<Typography variant="body2" fontWeight={600}>
-									Corr Wt: {preview?.corrWt != null ? preview.corrWt.toFixed(2) : "—"}
+									Corr Wt (lbs):{" "}
+									{preview?.corrWt != null ? gmsToLbs(preview.corrWt).toFixed(2) : "—"}
 								</Typography>
 								<Typography
 									variant="body2"

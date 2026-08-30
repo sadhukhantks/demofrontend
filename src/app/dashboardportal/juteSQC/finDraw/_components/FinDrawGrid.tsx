@@ -26,6 +26,12 @@ import type {
 	FinDrawReadingRow,
 	SectionAverage,
 } from "../types/finDrawTypes";
+import { gmsToLbs } from "../utils/finDrawCalc";
+
+// Server corrected weights are in the entered unit (grams per 50 yds); render them
+// in lbs per spyndle (14,400 yds). Observed wt / MR% stay as entered.
+const lbs = (value: unknown, digits = 2): string =>
+	value != null ? gmsToLbs(Number(value)).toFixed(digits) : "";
 
 type Props = {
 	coId: string;
@@ -189,10 +195,10 @@ export default function FinDrawGrid({
 			},
 			{
 				field: "calc_corr_wt",
-				headerName: "Corr Wt",
-				width: 100,
+				headerName: "Corr Wt (lbs)",
+				width: 110,
 				type: "number",
-				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
+				valueFormatter: (value) => lbs(value),
 			},
 			{
 				field: "calc_sdev",
@@ -255,7 +261,7 @@ export default function FinDrawGrid({
 									<TableCell align="right">ROWS</TableCell>
 									<TableCell align="right">OBS</TableCell>
 									<TableCell align="right">MR%</TableCell>
-									<TableCell align="right">CORR</TableCell>
+									<TableCell align="right">CORR (lbs)</TableCell>
 									<TableCell align="right">StDev</TableCell>
 									<TableCell align="right">CV %</TableCell>
 								</TableRow>
@@ -272,7 +278,7 @@ export default function FinDrawGrid({
 											{s.avg_mr_pct != null ? Number(s.avg_mr_pct).toFixed(2) : "—"}
 										</TableCell>
 										<TableCell align="right">
-											{s.avg_corr_wt != null ? Number(s.avg_corr_wt).toFixed(2) : "—"}
+											{s.avg_corr_wt != null ? lbs(s.avg_corr_wt) : "—"}
 										</TableCell>
 										<TableCell align="right">
 											{s.avg_sdev != null ? Number(s.avg_sdev).toFixed(4) : "—"}
@@ -306,7 +312,7 @@ export default function FinDrawGrid({
 									<TableCell align="right">ROWS</TableCell>
 									<TableCell align="right">OBS</TableCell>
 									<TableCell align="right">MR%</TableCell>
-									<TableCell align="right">CORR</TableCell>
+									<TableCell align="right">CORR (lbs)</TableCell>
 									<TableCell align="right">CV %</TableCell>
 								</TableRow>
 							</TableHead>
@@ -324,7 +330,7 @@ export default function FinDrawGrid({
 												{g.grand_mr_pct != null ? Number(g.grand_mr_pct).toFixed(2) : "—"}
 											</TableCell>
 											<TableCell align="right">
-												{g.grand_corr_wt != null ? Number(g.grand_corr_wt).toFixed(2) : "—"}
+												{g.grand_corr_wt != null ? lbs(g.grand_corr_wt) : "—"}
 											</TableCell>
 											<TableCell
 												align="right"

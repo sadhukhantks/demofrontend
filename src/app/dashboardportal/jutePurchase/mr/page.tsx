@@ -465,7 +465,7 @@ export default function JuteMRIndexPage() {
 					<SearchableSelect<MRStatusFilterOption>
 						variant="outlined"
 						label="Status"
-						className="min-w-[160px]"
+						className="min-w-45"
 						fullWidth={false}
 						clearable={false}
 						options={statusFilterOptions}

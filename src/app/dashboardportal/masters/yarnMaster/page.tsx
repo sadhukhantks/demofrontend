@@ -23,6 +23,7 @@ type YarnMasterRow = {
   item_id?: number;
   item_code?: string;
   jute_yarn_remarks?: string;
+  is_twisted?: number;
   updated_by?: number;
   updated_date_time?: string;
   [key: string]: unknown;
@@ -98,6 +99,7 @@ export default function YarnMasterPage() {
         item_id: r.item_id as number | undefined,
         item_code: (r.item_code as string) ?? "-",
         jute_yarn_remarks: (r.jute_yarn_remarks as string) ?? "-",
+        is_twisted: r.is_twisted as number | undefined,
         updated_date_time: r.updated_date_time
           ? new Date(r.updated_date_time as string).toLocaleDateString()
           : "-",
@@ -222,6 +224,13 @@ export default function YarnMasterPage() {
         headerName: "Remarks",
         flex: 1.2,
         minWidth: 200,
+      },
+      {
+        field: "is_twisted",
+        headerName: "Twisted",
+        flex: 0.5,
+        minWidth: 90,
+        valueFormatter: (value: number | undefined) => (value ? "Yes" : "-"),
       },
       {
         field: "updated_date_time",

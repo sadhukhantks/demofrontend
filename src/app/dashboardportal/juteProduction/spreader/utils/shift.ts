@@ -12,6 +12,13 @@ export function spellFromHour(hour: number): string {
 	return "C";
 }
 
+const SPELL_START_HOUR: Record<string, number> = { A1: 6, B1: 11, A2: 14, B2: 17, C: 22 };
+
+/** Start hour of a spell's bucket, or null for unknown codes. */
+export function hourFromSpell(spell: string): number | null {
+	return SPELL_START_HOUR[spell] ?? null;
+}
+
 export function todayISO(): string {
 	const d = new Date();
 	const yyyy = d.getFullYear();
