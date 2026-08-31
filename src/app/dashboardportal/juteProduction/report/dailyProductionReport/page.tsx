@@ -65,6 +65,12 @@ function daysStockState(days: number | null): KpiState {
   return days >= JUTE_COVER_GOOD_DAYS ? "good" : days >= JUTE_COVER_WARN_DAYS ? "warn" : "bad";
 }
 
+/** Emulsion oil %: inside the std band is good, LOW and HIGH are both off-band. */
+function oilState(status: "OK" | "LOW" | "HIGH" | null): KpiState {
+  if (status === null) return undefined;
+  return status === "OK" ? "good" : "warn";
+}
+
 function Content() {
   const { branches, coId, companyName, initialBranchId, dateParam } = useReportBranches();
   // Branch/date come from the localStorage-backed sidebar context, so the
@@ -257,7 +263,17 @@ function Content() {
             <KpiCard
               label="Winding (kg)"
               value={fmt(data.kpi.winding_kg, 0)}
-              sub={data.kpi.winding_kg === null ? "select a branch" : undefined}
+              // Winding was the one card with no MTD line (TKT — "MTD winding
+              // production is not visible"); twisting is appended when split out.
+              sub={
+                data.kpi.winding_kg === null
+                  ? "select a branch"
+                  : `MTD ${fmt(data.kpi.winding_mtd_kg, 0)} kg${
+                      data.kpi.twisting_kg
+                        ? ` · twisting ${fmt(data.kpi.twisting_kg, 0)} kg`
+                        : ""
+                    }`
+              }
             />
             <KpiCard
               label="Hands / MT"
@@ -279,6 +295,14 @@ function Content() {
               }
               state={daysStockState(data.kpi.jute_days_stock)}
             />
+            {data.emulsion?.day ? (
+              <KpiCard
+                label="JBO / Oil %"
+                value={`${fmt(data.kpi.jbo_pct, 2)}%`}
+                sub={`std ${fmt(data.emulsion.day.std_low, 0)}–${fmt(data.emulsion.day.std_high, 0)}%`}
+                state={oilState(data.emulsion.day.status)}
+              />
+            ) : null}
           </Stack>
 
           {/* Spinning shift-wise */}
@@ -362,6 +386,20 @@ function Content() {
                   </Tr>
                 ))}
               </DprTable>
+              {spinning.standards_missing.length > 0 ? (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ mt: 0.5, display: "block" }}
+                >
+                  Eff % is blank for {spinning.standards_missing.length} qualit
+                  {spinning.standards_missing.length === 1 ? "y" : "ies"} with no spinning
+                  standard configured (TPI / efficiency):{" "}
+                  {spinning.standards_missing.slice(0, 6).join(", ")}
+                  {spinning.standards_missing.length > 6 ? " …" : ""}. Set them in Spinning
+                  Target Map to see efficiency.
+                </Typography>
+              ) : null}
             </SectionCard>
           ) : null}
 
@@ -369,7 +407,7 @@ function Content() {
           {data.winding ? (
             <SectionCard
               title="Winder Production — Quality Wise"
-              subtitle="Reconciled kg (doff − opening jugar + closing jugar) per winder"
+              subtitle={`Reconciled kg (doff − opening jugar + closing jugar) per winder · MTD ${fmt(data.winding.total.mtd_production_kg, 0)} kg`}
             >
               <DprTable
                 head={
@@ -385,7 +423,16 @@ function Content() {
               >
                 {data.winding.qualities.map((q) => (
                   <Tr key={q.item_id ?? "na"}>
-                    <Td>{q.item_name ?? q.item_code ?? "Unmapped"}</Td>
+                    <Td>
+                      {q.is_twisted === 1 ? (
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                          <span>{q.item_name ?? q.item_code ?? "Unmapped"}</span>
+                          <Chip label="Twisting" size="small" variant="outlined" />
+                        </Stack>
+                      ) : (
+                        (q.item_name ?? q.item_code ?? "Unmapped")
+                      )}
+                    </Td>
                     <NumTd value={q.production_kg} digits={0} />
                     <NumTd value={q.winders} digits={0} />
                     <NumTd value={q.kg_per_winder} digits={1} />
@@ -394,7 +441,9 @@ function Content() {
                   </Tr>
                 ))}
                 <Tr sx={totalRowSx()}>
-                  <Td>Total</Td>
+                  <Td>
+                    {data.winding.total.twisting_kg > 0 ? "Total (net of twisting)" : "Total"}
+                  </Td>
                   <NumTd value={data.winding.total.production_kg} digits={0} bold />
                   <NumTd value={data.winding.total.winders} digits={0} bold />
                   <NumTd value={data.winding.total.kg_per_winder} digits={1} bold />
@@ -402,6 +451,28 @@ function Content() {
                   <Td align="right">—</Td>
                 </Tr>
               </DprTable>
+              {data.winding.twisting_available === false ? (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ mt: 0.5, display: "block" }}
+                >
+                  Twisting is not split out on this tenant yet — the is_twisted yarn-master flag
+                  is missing, so any twisted (ply) yarn is still included in the winding total.
+                </Typography>
+              ) : data.winding.total.twisting_kg > 0 ? (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ mt: 0.5, display: "block" }}
+                >
+                  Gross winder output {fmt(data.winding.total.gross_production_kg, 0)} kg includes{" "}
+                  {fmt(data.winding.total.twisting_kg, 0)} kg of twisted (ply) yarn, which is
+                  re-wound single yarn — excluded from the winding total so it is not counted
+                  twice. MTD: gross {fmt(data.winding.total.mtd_gross_production_kg, 0)} kg,
+                  twisting {fmt(data.winding.total.mtd_twisting_kg, 0)} kg.
+                </Typography>
+              ) : null}
             </SectionCard>
           ) : null}
 
@@ -451,6 +522,19 @@ function Content() {
                   <NumTd value={weaving.total.mtd_production_mt} digits={1} bold />
                 </Tr>
               </DprTable>
+              {weaving.standards_missing.length > 0 ? (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ mt: 0.5, display: "block" }}
+                >
+                  Eff % is blank for {weaving.standards_missing.length} qualit
+                  {weaving.standards_missing.length === 1 ? "y" : "ies"} with no weaving standard
+                  configured: {weaving.standards_missing.slice(0, 6).join(", ")}
+                  {weaving.standards_missing.length > 6 ? " …" : ""}. Set them in Weaving Target
+                  Map to see efficiency.
+                </Typography>
+              ) : null}
             </SectionCard>
           ) : null}
 
@@ -485,6 +569,74 @@ function Content() {
                     <NumTd value={p.mtd_wt_kg} digits={0} />
                   </Tr>
                 ))}
+              </DprTable>
+            </SectionCard>
+          ) : null}
+
+          {/* Batching oil (emulsion) */}
+          {data.emulsion ? (
+            <SectionCard
+              title="Batching Oil (JBO / Ecofin)"
+              subtitle={
+                data.emulsion.day
+                  ? `Std band ${fmt(data.emulsion.day.std_low, 0)}–${fmt(data.emulsion.day.std_high, 0)}% · ${data.emulsion.mtd.days} day(s) logged`
+                  : `${data.emulsion.mtd.days} day(s) logged`
+              }
+            >
+              <DprTable
+                head={
+                  <Tr>
+                    <Td>Measure</Td>
+                    <Td align="right">Today</Td>
+                    <Td align="right">MTD</Td>
+                  </Tr>
+                }
+              >
+                <Tr>
+                  <Td>JBO (ltr)</Td>
+                  <NumTd value={data.emulsion.day?.jbo_ltr} digits={1} />
+                  <NumTd value={data.emulsion.mtd.jbo_ltr} digits={1} />
+                </Tr>
+                <Tr>
+                  <Td>Ecofin (ltr)</Td>
+                  <NumTd value={data.emulsion.day?.eco_fin_ltr} digits={1} />
+                  <NumTd value={data.emulsion.mtd.eco_fin_ltr} digits={1} />
+                </Tr>
+                <Tr>
+                  <Td>Oil used (ltr)</Td>
+                  <NumTd value={data.emulsion.day?.oil_used_ltr} digits={1} />
+                  <Td align="right">—</Td>
+                </Tr>
+                <Tr>
+                  <Td>Tank capacity (ltr)</Td>
+                  <NumTd value={data.emulsion.day?.tank_capacity_ltr} digits={1} />
+                  <Td align="right">—</Td>
+                </Tr>
+                <Tr>
+                  <Td>Oil % in emulsion</Td>
+                  <NumTd value={data.emulsion.day?.oil_pct} digits={2} />
+                  <NumTd value={data.emulsion.mtd.avg_oil_pct} digits={2} />
+                </Tr>
+                {data.emulsion.day?.status ? (
+                  <Tr>
+                    <Td>Status</Td>
+                    <Td align="right">
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={data.emulsion.day.status}
+                        color={
+                          data.emulsion.day.status === "OK"
+                            ? "success"
+                            : data.emulsion.day.status === "LOW"
+                              ? "warning"
+                              : "error"
+                        }
+                      />
+                    </Td>
+                    <Td align="right">—</Td>
+                  </Tr>
+                ) : null}
               </DprTable>
             </SectionCard>
           ) : null}
