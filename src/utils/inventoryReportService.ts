@@ -202,7 +202,12 @@ export interface InventoryMinMaxRow {
   reorder_qty: number | null;
   lead_time: number | null;
   current_qty: number;
-  /** How far current stock is below min; 0 when at/above min or no min set
+  /** Stock earmarked General/Production/Maintenance (+unclassified) — the
+   * bucket min/max is judged against server-side (TKT-000114). */
+  stock_gpm_qty: number;
+  /** Stock earmarked Overhauling/Capital (TKT-000114). */
+  stock_oc_qty: number;
+  /** How far stock_gpm_qty is below min; 0 when at/above min or no min set
    * (TKT-000114). Also the server's primary sort key. */
   below_min_qty: number;
   pending_indent_qty: number | null;

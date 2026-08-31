@@ -259,6 +259,79 @@ export interface JuteMrOptionRow {
   party_name: string | null;
 }
 
+/** Row from GET /api/juteReports/po-options — feeds the PO picker. */
+export interface JutePoOptionRow {
+  jute_po_id: number;
+  /** NULL when po_no or po_date is missing — never use it as the label. */
+  po_number: string | null;
+  /** Guaranteed non-null display label (po_number, else PO-<id>). */
+  po_label: string;
+  po_date: string | null;
+  party_name: string | null;
+  po_weight: number | null;
+  po_status: string | number | null;
+}
+
+/** Row from GET /api/juteReports/po-mr-receipt-detail. One row per
+ * (PO item x matched MR line); row_group 1 = a receipt whose item matches no
+ * PO item (ordered columns NULL). PO/ordered columns repeat across a PO's
+ * receipt rows — only the MR-side columns are summable. */
+export interface JutePoMrReceiptDetailRow {
+  row_group: 0 | 1;
+  jute_po_id: number;
+  po_label: string;
+  po_date: string | null;
+  po_status: string | number | null;
+  party_name: string | null;
+  mukam: string | null;
+  item_id: number | null;
+  item_name: string | null;
+  ordered_qty: number | null;
+  po_uom: string | null;
+  po_rate: number | null;
+  /** NULL on a PO item with no receipts. */
+  jute_mr_id: number | null;
+  jute_mr_li_id: number | null;
+  mr_label: string | null;
+  mr_date: string | null;
+  jute_gate_entry_no: string | number | null;
+  mr_status: string | number | null;
+  challan_qty: number | null;
+  challan_weight: number | null;
+  received_qty: number | null;
+  received_weight: number | null;
+  accepted_weight: number | null;
+  mr_rate: number | null;
+  shortage_kgs: number | null;
+}
+
+/** Row from GET /api/juteReports/po-pending — one row per PO item of a live,
+ * not-fully-received PO. The po_* columns repeat across a PO's item rows. */
+export interface JutePoPendingRow {
+  jute_po_id: number;
+  po_label: string;
+  po_date: string | null;
+  po_status: string | number | null;
+  party_name: string | null;
+  mukam: string | null;
+  delivery_days: number | null;
+  due_date: string | null;
+  vehicle_quantity: number | null;
+  received_lorries: number;
+  pending_lorries: number;
+  po_weight: number | null;
+  po_received_weight: number;
+  po_pending_weight: number;
+  item_id: number | null;
+  item_name: string | null;
+  po_uom: string | null;
+  po_rate: number | null;
+  ordered_qty: number | null;
+  received_qty: number;
+  pending_qty: number;
+  received_weight: number;
+}
+
 /** Generic row shape for the tally-download CSV endpoint */
 export type TallyRow = Record<string, string | number | null>;
 
