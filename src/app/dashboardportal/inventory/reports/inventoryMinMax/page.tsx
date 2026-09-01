@@ -20,8 +20,9 @@ const columns: GridColDef<InventoryMinMaxRow>[] = [
   numCol("max_qty", "Max"),
   numCol("reorder_qty", "Reorder"),
   { field: "lead_time", headerName: "Lead Time", type: "number", width: 100 },
-  numCol("current_qty", "Stock Qty"),
-  // Shortfall against min — 0 when at/above min (TKT-000114).
+  numCol("stock_gpm_qty", "Stock (Gen/Prod/Maint)", 170),
+  numCol("stock_oc_qty", "Stock (Ovh/Capital)", 150),
+  // Shortfall against min — 0 when at/above min, vs Gen/Prod/Maint stock only (TKT-000114).
   numCol("below_min_qty", "Below Min By", 130),
   numCol("pending_indent_qty", "Pending Indent"),
   numCol("pending_po_qty", "Pending PO"),
@@ -42,6 +43,13 @@ function InventoryMinMaxContent() {
       dates="single"
       singleLabel="As on Date"
       initialDateTo={dateParam || todayIso()}
+      extra={{
+        label: "Show",
+        options: [
+          { value: "", label: "Overall Position" },
+          { value: "below_min", label: "Below Min Only" },
+        ],
+      }}
       fetcher={(f) =>
         coId == null
           ? Promise.resolve([])
@@ -49,7 +57,13 @@ function InventoryMinMaxContent() {
               coId,
               branchId: f.branchId,
               dateTo: f.dateTo,
-            })
+              // Every row already carries below_min_qty (>0 = below the
+              // branch min), so the filter is applied client-side.
+            }).then((rows) =>
+              f.extra === "below_min"
+                ? rows.filter((r) => (r.below_min_qty ?? 0) > 0)
+                : rows,
+            )
       }
       columns={columns}
       getRowId={getRowId}

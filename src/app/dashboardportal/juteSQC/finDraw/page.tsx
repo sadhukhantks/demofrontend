@@ -4,7 +4,7 @@ import * as React from "react";
 import { Alert, Box, CircularProgress, Tab, Tabs, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
-import { todayISO } from "./utils/finDrawCalc";
+import { gmsToLbs, todayISO } from "./utils/finDrawCalc";
 import { useFinDrawSetup } from "./hooks/useFinDrawSetup";
 import { useFinDrawByDate } from "./hooks/useFinDrawByDate";
 import FinDrawForm from "./_components/FinDrawForm";
@@ -59,6 +59,10 @@ function dlvLabel(r: FinDrawReadingRow): string {
 
 const num = (v: number | null | undefined, digits = 2): string =>
 	v != null ? Number(v).toFixed(digits) : "";
+// Corrected weights come back in the entered unit (grams per 50 yds); print them
+// in lbs per spyndle (14,400 yds).
+const lbs = (v: number | null | undefined, digits = 2): string =>
+	v != null ? gmsToLbs(Number(v)).toFixed(digits) : "";
 const pct = (v: number | null | undefined): string =>
 	v != null ? `${(Number(v) * 100).toFixed(2)}%` : "";
 
@@ -76,7 +80,7 @@ const READING_COLUMNS: PrintColumn[] = [
 	...readingColumns("mr", "MR%", FIN_DRAW_READINGS),
 	{ key: "calc_wt", label: "Obs Wt", align: "right" },
 	{ key: "calc_mr_pct", label: "MR%", align: "right" },
-	{ key: "calc_corr_wt", label: "Corr Wt", align: "right" },
+	{ key: "calc_corr_wt", label: "Corr Wt (lbs)", align: "right" },
 	{ key: "calc_sdev", label: "StDev", align: "right" },
 	{ key: "calc_cv_pct", label: "CV %", align: "right" },
 	{ key: "band", label: "Band", align: "center" },
@@ -87,7 +91,7 @@ const SECTION_AVG_COLUMNS: PrintColumn[] = [
 	{ key: "row_count", label: "Rows", align: "right" },
 	{ key: "avg_obs", label: "Obs", align: "right" },
 	{ key: "avg_mr_pct", label: "MR%", align: "right" },
-	{ key: "avg_corr_wt", label: "Corr", align: "right" },
+	{ key: "avg_corr_wt", label: "Corr (lbs)", align: "right" },
 	{ key: "avg_sdev", label: "StDev", align: "right" },
 	{ key: "avg_cv_pct", label: "CV %", align: "right" },
 ];
@@ -97,7 +101,7 @@ const GRAND_AVG_COLUMNS: PrintColumn[] = [
 	{ key: "row_count", label: "Rows", align: "right" },
 	{ key: "grand_obs", label: "Obs", align: "right" },
 	{ key: "grand_mr_pct", label: "MR%", align: "right" },
-	{ key: "grand_corr_wt", label: "Corr", align: "right" },
+	{ key: "grand_corr_wt", label: "Corr (lbs)", align: "right" },
 	{ key: "grand_cv_pct", label: "CV %", align: "right" },
 ];
 
@@ -177,7 +181,7 @@ export default function FinDrawSqcPage() {
 			...readingCells("mr", r.mr_pcts, FIN_DRAW_READINGS, 2),
 			calc_wt: num(r.calc_wt),
 			calc_mr_pct: num(r.calc_mr_pct),
-			calc_corr_wt: num(r.calc_corr_wt),
+			calc_corr_wt: lbs(r.calc_corr_wt),
 			calc_sdev: num(r.calc_sdev, 4),
 			calc_cv_pct: pct(r.calc_cv_pct),
 			band: r.cv_within_band == null ? "—" : r.cv_within_band ? "PASS" : "FAIL",
@@ -191,7 +195,7 @@ export default function FinDrawSqcPage() {
 			row_count: s.row_count ?? "—",
 			avg_obs: num(s.avg_obs),
 			avg_mr_pct: num(s.avg_mr_pct),
-			avg_corr_wt: num(s.avg_corr_wt),
+			avg_corr_wt: lbs(s.avg_corr_wt),
 			avg_sdev: num(s.avg_sdev, 4),
 			avg_cv_pct: pct(s.avg_cv_pct),
 		}));
@@ -201,7 +205,7 @@ export default function FinDrawSqcPage() {
 			row_count: g.row_count ?? "—",
 			grand_obs: num(g.grand_obs),
 			grand_mr_pct: num(g.grand_mr_pct),
-			grand_corr_wt: num(g.grand_corr_wt),
+			grand_corr_wt: lbs(g.grand_corr_wt),
 			grand_cv_pct: pct(g.grand_cv_pct),
 		}));
 

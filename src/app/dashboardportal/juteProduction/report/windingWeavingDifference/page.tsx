@@ -75,6 +75,7 @@ const RECON_ROWS: { key: keyof WwdReconciliation; label: string }[] = [
   { key: "jute_issue_mt", label: "Jute Issue (MT)" },
   { key: "opening_mt", label: "Opening Stock (MT)" },
   { key: "winding_mt", label: "Winding Production (MT)" },
+  { key: "twisting_mt", label: "Twisting (Consumed) (MT)" },
   { key: "weaving_mt", label: "Weaving Production (MT)" },
   { key: "purchase_mt", label: "Purchase Yarn (MT)" },
   { key: "sale_mt", label: "Sale Yarn (MT)" },

@@ -1,18 +1,11 @@
-"use client"
+"use client";
 
-// ...existing code...
+import { ModuleMenuGrid } from "@/components/dashboard/ModuleMenuGrid";
 
-
-export default function DashboardPage() {
-  // no router needed here
-
-
-  return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Masters</h1>
-      </div>
-
-    </div>
-  )
+export default function Page() {
+	return (
+		<div className="p-6">
+			<ModuleMenuGrid modulePath="/dashboardportal/masters" />
+		</div>
+	);
 }

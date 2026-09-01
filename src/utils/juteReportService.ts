@@ -19,6 +19,9 @@ import type {
   JuteMrIssueDetailRow,
   JuteMrMovementDetailRow,
   JuteMrOptionRow,
+  JutePoOptionRow,
+  JutePoMrReceiptDetailRow,
+  JutePoPendingRow,
   PaginatedReportApiResponse,
   ReportApiResponse,
 } from "@/app/dashboardportal/jutePurchase/reports/types/reportTypes";
@@ -265,6 +268,68 @@ export function fetchJuteMrOptions(
   if (dateTo) qs.append("date_to", dateTo);
   const url = `${apiRoutesPortalMasters.JUTE_REPORT_MR_OPTIONS}?${qs.toString()}`;
   return fetchBranchReport<JuteMrOptionRow>(url, "Failed to fetch MR list");
+}
+
+/** PO picker options for one branch. Dates optional — the picker lists every
+ * live PO so a user can reach a PO outside the report period. */
+export function fetchJutePoOptions(
+  coId: number,
+  branchId: number,
+  dateFrom?: string,
+  dateTo?: string,
+): Promise<JutePoOptionRow[]> {
+  const qs = new URLSearchParams({
+    co_id: String(coId),
+    branch_id: String(branchId),
+  });
+  if (dateFrom) qs.append("date_from", dateFrom);
+  if (dateTo) qs.append("date_to", dateTo);
+  const url = `${apiRoutesPortalMasters.JUTE_REPORT_PO_OPTIONS}?${qs.toString()}`;
+  return fetchBranchReport<JutePoOptionRow>(url, "Failed to fetch PO list");
+}
+
+export interface FetchPoMrReceiptDetailParams {
+  coId: number;
+  branchId: number;
+  dateFrom: string;
+  dateTo: string;
+  /** Optional — when set the backend ignores the date range and returns every
+   * receipt of that PO. */
+  poId?: string;
+}
+
+/** PO-wise MR Receipt Detail — ordered vs received per PO item, one row per
+ * matched MR line. */
+export function fetchJutePoMrReceiptDetail(
+  p: FetchPoMrReceiptDetailParams,
+): Promise<JutePoMrReceiptDetailRow[]> {
+  const url =
+    dateRangeUrl(
+      apiRoutesPortalMasters.JUTE_REPORT_PO_MR_RECEIPT_DETAIL,
+      p.branchId,
+      p.dateFrom,
+      p.dateTo,
+    ) +
+    `&co_id=${p.coId}` +
+    (p.poId ? `&po_id=${encodeURIComponent(p.poId)}` : "");
+  return fetchBranchReport<JutePoMrReceiptDetailRow>(
+    url,
+    "Failed to fetch PO MR receipt detail report",
+  );
+}
+
+/** Pending PO report — current position, no dates. */
+export function fetchJutePoPending(
+  coId: number,
+  branchId: number,
+): Promise<JutePoPendingRow[]> {
+  const url =
+    `${apiRoutesPortalMasters.JUTE_REPORT_PO_PENDING}` +
+    `?co_id=${coId}&branch_id=${branchId}`;
+  return fetchBranchReport<JutePoPendingRow>(
+    url,
+    "Failed to fetch pending PO report",
+  );
 }
 
 export interface FetchMrListParams {

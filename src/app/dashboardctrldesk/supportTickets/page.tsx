@@ -9,18 +9,19 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Box, Chip, MenuItem, TextField, FormControlLabel, Switch } from "@mui/material";
+import { Box, Chip, MenuItem, Paper, TextField, FormControlLabel, Switch, Typography } from "@mui/material";
 import type { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui/x-data-grid";
 
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { handleAuthError } from "@/utils/auth";
-import { listManageTickets } from "@/utils/supportTicketService";
+import { getManageStats, listManageTickets } from "@/utils/supportTicketService";
 import {
   TICKET_PRIORITY_COLOR,
   TICKET_PRIORITY_LABELS,
   TICKET_STATUS_COLOR,
   TICKET_STATUS_LABELS,
   type ManageTicketRow,
+  type TicketStatsResponse,
 } from "@/utils/supportTicketTypes";
 import TicketManageDrawer from "./_components/TicketManageDrawer";
 
@@ -39,6 +40,19 @@ function formatDateTime(value: string | null | undefined): string {
   });
 }
 
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <Paper variant="outlined" sx={{ px: 2.5, py: 1.5, minWidth: 160 }}>
+      <Typography variant="body2" color="text.secondary">
+        {label}
+      </Typography>
+      <Typography variant="h5" sx={{ fontWeight: 600 }}>
+        {value}
+      </Typography>
+    </Paper>
+  );
+}
+
 export default function SupportTicketsPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState(0);
@@ -51,6 +65,17 @@ export default function SupportTicketsPage() {
 
   const [drawerTicketId, setDrawerTicketId] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [stats, setStats] = useState<TicketStatsResponse | null>(null);
+
+  const fetchStats = useCallback(async () => {
+    const { data, status } = await getManageStats();
+    if (handleAuthError(status)) return;
+    setStats(data);
+  }, []);
+
+  useEffect(() => {
+    void fetchStats();
+  }, [fetchStats]);
 
   const fetchRows = useCallback(async () => {
     setLoading(true);
@@ -175,11 +200,37 @@ export default function SupportTicketsPage() {
     </Box>
   );
 
+  const statsCards = stats ? (
+    <Box className="mb-6 flex flex-wrap items-stretch gap-3">
+      <StatCard label="Pending Resolution" value={stats.open.total} />
+      <StatCard label="Assigned" value={stats.open.assigned} />
+      <StatCard label="Pending Assignment" value={stats.open.unassigned} />
+      {stats.open.by_assignee.length > 0 && (
+        <Paper variant="outlined" sx={{ px: 2.5, py: 1.5, flex: 1, minWidth: 240 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Open by Assignee
+          </Typography>
+          <Box className="flex flex-wrap gap-1.5">
+            {stats.open.by_assignee.map((a) => (
+              <Chip
+                key={a.con_user_id}
+                size="small"
+                variant="outlined"
+                label={`${a.name ?? a.con_user_id}: ${a.count}`}
+              />
+            ))}
+          </Box>
+        </Paper>
+      )}
+    </Box>
+  ) : null;
+
   return (
     <>
       <IndexWrapper<Row>
         title="Support Tickets"
         subtitle="Tickets raised from the Portal and Tenant Admin dashboards"
+        headerContent={statsCards}
         rows={rows}
         columns={columns}
         rowCount={total}
@@ -205,7 +256,10 @@ export default function SupportTicketsPage() {
         ticketId={drawerTicketId}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        onChanged={() => void fetchRows()}
+        onChanged={() => {
+          void fetchRows();
+          void fetchStats();
+        }}
       />
     </>
   );
