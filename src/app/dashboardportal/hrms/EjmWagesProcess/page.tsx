@@ -36,6 +36,8 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 
 /** Legacy `hol_get` code for the Holiday Data process. */
 const ACTION_HOLIDAY_DATA = "1";
+/** Legacy oattprdprocess — rebuilds tbl_daily_cash_outsider_payment_production. */
+const ACTION_CASH_OUTSIDER = "14";
 /** Legacy `hol_get` code for Main Payroll FN Attendance Incentive. */
 const ACTION_ATT_INCENTIVE = "2";
 /** New (not a legacy code): browse/correct tbl_ejm_wages_data_collection. */
@@ -385,7 +387,15 @@ export default function EjmWagesProcessPage() {
    *  backend. All three buttons funnel through here — they differ only in
    *  which select supplies the code. */
   const run = useCallback(async (kind: RunKind) => {
-    const parsed = submitSchema.safeParse(filters);
+    // Cash/Outsider preparation is period-only — it never reads the pay
+    // scheme, so an empty selection must not block it. The placeholder only
+    // satisfies the schema; that branch never sends pay_scheme_id.
+    const cashOutsider = kind === "action" && filters.action === ACTION_CASH_OUTSIDER;
+    const parsed = submitSchema.safeParse(
+      cashOutsider && !filters.pay_scheme_id
+        ? { ...filters, pay_scheme_id: "-" }
+        : filters,
+    );
     if (!parsed.success) {
       notify(parsed.error.issues[0]?.message ?? "Invalid selection", "error");
       return;
@@ -516,6 +526,29 @@ export default function EjmWagesProcessPage() {
           return;
         }
         notify(data.message, "success");
+        return;
+      }
+
+      if (action === ACTION_CASH_OUTSIDER) {
+        // Rebuilds per branch per day, so the sidebar branch is required.
+        if (branchId == null) {
+          notify("Select a branch in the sidebar before processing", "error");
+          return;
+        }
+        const { data, error } = await fetchWithCookie<{ data: { message: string } }>(
+          apiRoutesPortalMasters.EJM_CASH_OUTSIDER_PROCESS,
+          "POST",
+          {
+            branch_id: branchId,
+            date_from: parsed.data.date_from,
+            date_to: parsed.data.date_to,
+          },
+        );
+        if (error || !data) {
+          notify(error || `"${label}" failed`, "error");
+          return;
+        }
+        notify(data.data.message, "success");
         return;
       }
 

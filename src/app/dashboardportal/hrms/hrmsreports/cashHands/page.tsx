@@ -31,7 +31,7 @@ import {
   type CashHandsRow,
   type CashHandsSummaryRow,
 } from "@/utils/hrmsReportService";
-import { exportCashHandsWorkbook } from "./cashHandsExcel";
+import { exportCashHandsPaysheet, exportCashHandsWorkbook } from "./cashHandsExcel";
 
 const columns: GridColDef<CashHandsRow>[] = [
   { field: "pay_date", headerName: "Date", width: 110 },
@@ -151,6 +151,37 @@ function Content() {
     }
   }, [coId, branchId, dateFrom, dateTo, load]);
 
+  // The shop-floor paysheet is a ONE-DAY document; the From Date is the day.
+  const handlePaysheet = useCallback(async () => {
+    if (coId == null || branchId == null) return;
+    setLoading(true);
+    try {
+      const dayRows = await fetchCashHands({
+        coId,
+        branchId: branchId,
+        dateFrom,
+        dateTo: dateFrom,
+      });
+      if (dayRows.length === 0) {
+        setSnackbar({
+          open: true,
+          message: `No processed cash payment rows for ${dateFrom} — run Process first`,
+          severity: "warning",
+        });
+        return;
+      }
+      await exportCashHandsPaysheet(dayRows, dateFrom);
+    } catch (err: unknown) {
+      setSnackbar({
+        open: true,
+        message: err instanceof Error ? err.message : "Paysheet export failed",
+        severity: "error",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [coId, branchId, dateFrom]);
+
   const handleExcel = useCallback(async () => {
     await exportCashHandsWorkbook(columns, rows, summaryColumns, summary, {
       companyName: selectedCompany?.co_name,
@@ -256,6 +287,14 @@ function Content() {
             sx={{ textTransform: "none" }}
           >
             Print PDF
+          </Button>
+          <Button
+            variant="outlined"
+            disabled={!ready || loading}
+            onClick={() => void handlePaysheet()}
+            sx={{ textTransform: "none" }}
+          >
+            Paysheet (From date)
           </Button>
         </Box>
 
