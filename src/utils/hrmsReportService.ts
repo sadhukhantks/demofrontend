@@ -538,7 +538,12 @@ export interface CashHandsRow {
   occupation: string | null;
   working_hours: number;
   rate: number;
+  /** Legacy's second rate column; unset until a process writes it. */
+  oth_rate: number;
   amount: number;
+  /** Parent department of the worked sub-department — the paysheet groups by it. */
+  master_department: string | null;
+  contractor: string | null;
 }
 
 /** Department x shift totals per pay date. */

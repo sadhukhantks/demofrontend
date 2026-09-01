@@ -157,13 +157,15 @@ const PRODUCTION_COLUMNS: GridColDef[] = [
   num("act_prod_amount", "Prod Amount", 140),
 ];
 
+// Headers keep the legacy sheet's column names verbatim.
 const FOOD_ALLOWANCE_COLUMNS: GridColDef[] = [
-  { field: "ticket_no", headerName: "Ticket No", width: 110 },
-  { field: "emp_name", headerName: "Employee", width: 200 },
-  num("da_rate", "DA Rate"),
-  num("fa_rate", "FA Rate"),
-  num("fa_days", "FA Days"),
-  num("amount", "Amount"),
+  { field: "sno", headerName: "sno", width: 80 },
+  { field: "ticket_no", headerName: "TICKET_NO", width: 110 },
+  { field: "emp_name", headerName: "empname", width: 200 },
+  num("da_rate", "da_rate"),
+  num("fa_rate", "fa_rate"),
+  num("fa_days", "fa_days"),
+  num("amount", "AMOUNT"),
 ];
 
 const ADVANCE_COLUMNS: GridColDef[] = [
@@ -180,19 +182,23 @@ const ADVANCE_COLUMNS: GridColDef[] = [
   num("balamt", "Balance", 120),
 ];
 
+// Headers are the payroll-upload column names, exactly as legacy's sheet had
+// them — the file is uploaded as-is, so the names are the contract.
 const CNT_WAGES_EXPORT_COLUMNS: GridColDef[] = [
-  { field: "emp_code", headerName: "EB No", width: 100 },
-  { field: "emp_name", headerName: "Employee", width: 200 },
-  { field: "pay_scheme", headerName: "Pay Scheme", width: 170 },
-  num("c_working_days", "Working Days", 140),
-  num("c_pwage_amt", "Piece Wage", 130),
-  num("c_exadvance", "Adv + Canteen", 150),
-  num("c_arramtplus", "Arrear +", 120),
-  num("c_arramtminus", "Arrear -", 120),
-  num("c_rate1otdays", "OT Days", 110),
-  num("c_rate1regdays", "Reg Days", 120),
-  num("c_canteen", "Canteen", 110),
-  num("c_esi_days", "ESI Days", 110),
+  { field: "emp_code", headerName: "Employee Id", width: 110 },
+  { field: "emp_name", headerName: "Employee_Name", width: 200 },
+  { field: "pay_scheme", headerName: "PayScheme", width: 170 },
+  num("c_working_days", "C_WORKING_DAYS_", 150),
+  num("c_pwage_amt", "C_Pwage_amt_", 140),
+  num("c_exadvance", "C_exadvance_", 140),
+  num("c_arramtplus", "C_ARRAMTPLUS_", 150),
+  num("c_arramtminus", "C_ARRAMTMINUS_", 150),
+  num("c_rate1otdays", "C_RATE1OTDAYS_", 150),
+  num("c_rate2otdays", "C_RATE2OTDAYS_", 150),
+  num("c_rate1regdays", "C_RATE1REGDAYS_", 160),
+  num("c_rate2regdays", "C_RATE2REGDAYS_", 160),
+  num("c_canteen", "C_canteen_", 120),
+  num("c_esi_days", "C_esi_days_", 120),
 ];
 
 const BREAKUP_COLUMNS: GridColDef[] = [
@@ -375,8 +381,8 @@ export default function NjmWagesProcessPage() {
       fields: [
         { name: "date_from", label: "From Date", type: "date", required: true, grid: { xs: 12, sm: 6, md: 3 } },
         { name: "date_to", label: "To Date", type: "date", required: true, grid: { xs: 12, sm: 6, md: 3 } },
-        { name: "update_for", label: "Updates", type: "select", options: UPDATE_OPTIONS, grid: { xs: 12, sm: 6, md: 3 } },
         { name: "pay_scheme_id", label: "Pay Scheme", type: "select", options: paySchemes, required: true, grid: { xs: 12, sm: 6, md: 3 } },
+        { name: "update_for", label: "Updates", type: "select", options: UPDATE_OPTIONS, grid: { xs: 12, sm: 6, md: 3 } },
         { name: "action", label: "Process/Report/Print For", type: "select", options: PROCESS_OPTIONS, grid: { xs: 12, md: 6 } },
         { name: "checklist", label: "Checklist For", type: "select", options: CHECKLIST_OPTIONS, grid: { xs: 12, md: 6 } },
       ] satisfies Field[],
@@ -567,6 +573,8 @@ export default function NjmWagesProcessPage() {
           url: string;
           columns: GridColDef[];
           params: Record<string, string | number | undefined>;
+          /** Save the sheet as soon as it arrives, as legacy did. */
+          download?: string;
         }> = isChecklist
           ? {
               "3": {
@@ -605,7 +613,8 @@ export default function NjmWagesProcessPage() {
                   date_to: dateTo,
                   pay_scheme_id: scheme,
                 },
-                    },
+                download: `contractor-wages-payroll-${dateFrom}-to-${dateTo}`,
+              },
               // Main Wages Excel — columns come from the scheme's payroll map.
               "7": {
                 url: apiRoutesPortalMasters.NJM_WAGES_EXPORT,
@@ -643,8 +652,15 @@ export default function NjmWagesProcessPage() {
                 { field: "emp_name", headerName: "Employee", width: 200 },
                 ...(data.columns ?? []).map((c) => num(c, c, 130)),
               ];
-          setReport({ title: label, columns, rows: data.data });
-          if (data.data.length === 0) notify(`No rows for "${label}"`, "info");
+          // sno is a plain row field so the Excel export picks it up too.
+          setReport({ title: label, columns, rows: data.data.map((r, i) => ({ ...r, sno: i + 1 })) });
+          if (data.data.length === 0) {
+            notify(`No rows for "${label}"`, "info");
+            return;
+          }
+          // Plain sheet — header row then data, no report banner — so it
+          // uploads to payroll unchanged.
+          if (target.download) void exportRowsToExcel(columns, data.data, target.download);
           return;
         }
 
@@ -733,7 +749,7 @@ export default function NjmWagesProcessPage() {
             onClick={() => void run("process")}
             disabled={submitting}
           >
-            {submitting ? "Processing..." : "Action"}
+            {submitting ? "Processing..." : "Process"}
           </Button>
           <Button
             variant="outline"
@@ -788,8 +804,9 @@ export default function NjmWagesProcessPage() {
       )}
 
       <Alert severity="info">
-        Live: every Updates action, Contractor Wages Process (attendance +
-        canteen), Main Wages Process (attendance, advance and leave), both
+        Live: every Updates action, Contractor Wages Process (attendance,
+        piece production + canteen), Main Wages Process (attendance, advance
+        and leave), both
         payroll postings, both payroll exports, the break-up summary, the
         Contractor ESI file, and all five checklists. Pay Slip Printing and Bank
         Statements download from this screen; Pay Register opens the register.
