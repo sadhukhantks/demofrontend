@@ -9,16 +9,18 @@ import { FixedMenuConsole } from "./FixedMenuConsole";
 interface SidebarProps {
   isCollapsed: boolean;
   onToggle: () => void;
+  isMobile?: boolean;
+  onClose?: () => void;
 }
 
-export default function sidebarConsole({ isCollapsed, onToggle }: SidebarProps) {
+export default function sidebarConsole({ isCollapsed, onToggle, isMobile, onClose }: SidebarProps) {
   
  
     return (
     <div className={`sidebar-container ${isCollapsed ? "w-20" : "w-56"}`}>
 
     <div className="sidebar-container">
-      <LogoSection isCollapsed={isCollapsed} onToggle={onToggle} logoSrc="path/to/logo.png" title="Your Title" />
+      <LogoSection isCollapsed={isCollapsed} onToggle={onToggle} logoSrc="path/to/logo.png" title="Your Title" isMobile={isMobile} onClose={onClose} />
         <DynamicMenuCompanyConsole isCollapsed={isCollapsed} />  
       <FixedMenuConsole isCollapsed={isCollapsed} /> 
     </div>

@@ -45,13 +45,16 @@ const mrStock: StockOutstandingItem = {
 	balweight: 390,
 };
 
+/** A GROUPED waste row as the picker now serves it (TKT-000147): the whole
+ * balance of one waste item, with no single booking, department or area behind
+ * it. */
 const wasteStock: StockOutstandingItem = {
-	stock_key: "W-1",
+	stock_key: "WI-335637",
 	source: "WASTE",
 	jute_mr_li_id: null,
-	waste_entry_id: 1,
-	dept_name: "SPINNING(EJM)",
-	area_name: "Frame Bay",
+	waste_entry_id: null,
+	dept_name: null,
+	area_name: null,
 	jute_gate_entry_no: null,
 	warehouse_name: null,
 	branch_id: 29,
@@ -100,11 +103,12 @@ describe("createLineFromStock", () => {
 		expect(line.waste_entry_id).toBe("");
 	});
 
-	it("carries the waste link and leaves the MR link empty", () => {
+	it("carries the grouped waste key and leaves the MR link empty", () => {
 		const line = createLineFromStock(wasteStock, "5", 100, 100);
 		expect(line.source).toBe("WASTE");
-		expect(line.stock_key).toBe("W-1");
-		expect(line.waste_entry_id).toBe("1");
+		expect(line.stock_key).toBe("WI-335637");
+		// No single booking behind a grouped row — the server picks them FIFO.
+		expect(line.waste_entry_id).toBe("");
 		expect(line.jute_mr_li_id).toBe("");
 	});
 
@@ -113,10 +117,12 @@ describe("createLineFromStock", () => {
 		expect(createLineFromStock(wasteStock, "5", 120, 120).issue_value).toBeCloseTo(1020);
 	});
 
-	it("keeps waste provenance for display", () => {
+	it("carries the item, which is what a grouped waste line draws on", () => {
 		const line = createLineFromStock(wasteStock, "5", 100, 100);
-		expect(line.dept_name).toBe("SPINNING(EJM)");
-		expect(line.area_name).toBe("Frame Bay");
+		expect(line.item_id).toBe("335637");
+		// A grouped row spans every booking, so it has no one dept/area to show.
+		expect(line.dept_name).toBeNull();
+		expect(line.area_name).toBeNull();
 	});
 });
 
@@ -129,28 +135,34 @@ describe("mapEditableToCreatePayload", () => {
 		);
 		expect(payload.jute_mr_li_id).toBe(24143);
 		expect(payload.waste_entry_id).toBeNull();
+		expect(payload.waste_item_id).toBeNull();
 	});
 
-	it("sends only waste_entry_id for a waste line", () => {
+	it("sends only waste_item_id for a waste line", () => {
 		const payload = mapEditableToCreatePayload(
 			createLineFromStock(wasteStock, "5", 100, 100),
 			29,
 			"2026-08-10"
 		);
-		expect(payload.waste_entry_id).toBe(1);
+		// The grouped item balance is the draw; the server splits it FIFO across
+		// that item's bookings, so no waste_entry_id is sent.
+		expect(payload.waste_item_id).toBe(335637);
+		expect(payload.waste_entry_id).toBeNull();
 		expect(payload.jute_mr_li_id).toBeNull();
 	});
 
-	it("never sends both links — the backend rejects that", () => {
+	it("never sends more than one stock link — the backend rejects that", () => {
 		for (const stock of [mrStock, wasteStock]) {
 			const payload = mapEditableToCreatePayload(
 				createLineFromStock(stock, "5", 1, 1),
 				29,
 				"2026-08-10"
 			);
-			const supplied = [payload.jute_mr_li_id, payload.waste_entry_id].filter(
-				(v) => v !== null
-			);
+			const supplied = [
+				payload.jute_mr_li_id,
+				payload.waste_entry_id,
+				payload.waste_item_id,
+			].filter((v) => v !== null);
 			expect(supplied).toHaveLength(1);
 		}
 	});
@@ -202,8 +214,19 @@ describe("picker labels", () => {
 		expect(describeStockOrigin(mrStock)).toBe("GE 1492");
 	});
 
-	it("shows department and area for waste stock", () => {
-		expect(describeStockOrigin(wasteStock)).toBe("SPINNING(EJM) / Frame Bay");
+	it("labels a grouped waste row 'Waste' — it spans every dept and area", () => {
+		expect(describeStockOrigin(wasteStock)).toBe("Waste");
+	});
+
+	it("still shows department and area when a row carries them", () => {
+		// Saved waste issue lines DO resolve back to one booking's provenance.
+		expect(
+			describeStockOrigin({
+				...wasteStock,
+				dept_name: "SPINNING(EJM)",
+				area_name: "Frame Bay",
+			})
+		).toBe("SPINNING(EJM) / Frame Bay");
 	});
 
 	it("falls back to 'Waste' when the booking has no area", () => {
@@ -214,7 +237,7 @@ describe("picker labels", () => {
 
 	it("uses stock_key as the option value so the two sources cannot collide", () => {
 		expect(mapStockToOption(mrStock).value).toBe("MR-24143");
-		expect(mapStockToOption(wasteStock).value).toBe("W-1");
+		expect(mapStockToOption(wasteStock).value).toBe("WI-335637");
 	});
 });
 
