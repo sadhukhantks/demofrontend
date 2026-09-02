@@ -64,6 +64,7 @@ const apiRoutesconsole = {
 
     EDIT_USER_CTRLDESK_MENU: `${API_URL}/ctrldskAdmin/edit_user_ctrldsk_admin`,
     
+    CTRLDSK_DASHBOARD_STATS: `${API_URL}/ctrldskAdmin/dashboard_stats`,
     GET_ORG_ALL: `${API_URL}/ctrldskAdmin/get_org_data_all`,
     GET_ORG_BY_ID: `${API_URL}/ctrldskAdmin/get_org_data_by_id`,
     CREATE_ORG_SETUP: `${API_URL}/ctrldskAdmin/create_org_setup_data`,
@@ -384,6 +385,9 @@ const apiRoutesPortalMasters = {
     JUTE_REPORT_MR_OPTIONS: `${API_URL}/juteReports/mr-options`,
     JUTE_REPORT_TALLY_DOWNLOAD: `${API_URL}/juteReports/tally-download`,
     JUTE_REPORT_ISSUE_PLANNER: `${API_URL}/juteReports/issue-planner`,
+    JUTE_REPORT_PO_OPTIONS: `${API_URL}/juteReports/po-options`,
+    JUTE_REPORT_PO_MR_RECEIPT_DETAIL: `${API_URL}/juteReports/po-mr-receipt-detail`,
+    JUTE_REPORT_PO_PENDING: `${API_URL}/juteReports/po-pending`,
     SALES_REPORT_JUTE_TALLY_DOWNLOAD: `${API_URL}/salesReports/jute-tally-download`,
     SALES_REPORT_JUTE_MR_SUMMARY: `${API_URL}/salesReports/jute-mr-summary`,
     SALES_REPORT_SALES_ORDER_LIST: `${API_URL}/salesReports/sales-order-list`,

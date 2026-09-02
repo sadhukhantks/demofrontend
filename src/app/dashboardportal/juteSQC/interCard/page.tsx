@@ -4,7 +4,7 @@ import * as React from "react";
 import { Alert, Box, CircularProgress, Tab, Tabs, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
-import { todayISO } from "./utils/interCardCalc";
+import { gmsToLbs, todayISO } from "./utils/interCardCalc";
 import { useInterCardSetup } from "./hooks/useInterCardSetup";
 import { useInterCardByDate } from "./hooks/useInterCardByDate";
 import InterCardForm from "./_components/InterCardForm";
@@ -92,6 +92,9 @@ export default function InterCardSqcPage() {
 		};
 		const num = (v: number | null | undefined, digits: number): string =>
 			v != null ? Number(v).toFixed(digits) : "";
+		// calc_corr_wt comes back in the entered unit (grams); print it in lbs/100yds.
+		const lbs = (v: number | null | undefined, digits = 2): string =>
+			v != null ? gmsToLbs(Number(v)).toFixed(digits) : "";
 		const pct = (v: number | null | undefined): string =>
 			v != null ? `${(Number(v) * 100).toFixed(2)}%` : "";
 
@@ -115,7 +118,7 @@ export default function InterCardSqcPage() {
 			...readingCols("mr", "MR%", CARD_SLIVER_READINGS),
 			{ key: "calc_wt", label: "Obs Wt", align: "right" },
 			{ key: "calc_mr_pct", label: "MR%", align: "right" },
-			{ key: "calc_corr_wt", label: "Corr Wt", align: "right" },
+			{ key: "calc_corr_wt", label: "Corr Wt (lbs)", align: "right" },
 			{ key: "calc_sdev", label: "StDev", align: "right" },
 			{ key: "calc_cv_pct", label: "CV %", align: "right" },
 			{ key: "band", label: "Band" },
@@ -135,7 +138,7 @@ export default function InterCardSqcPage() {
 			...readingCells("mr", r.mr_pcts, CARD_SLIVER_READINGS, 2),
 			calc_wt: num(r.calc_wt, 2),
 			calc_mr_pct: num(r.calc_mr_pct, 2),
-			calc_corr_wt: num(r.calc_corr_wt, 2),
+			calc_corr_wt: lbs(r.calc_corr_wt),
 			calc_sdev: num(r.calc_sdev, 4),
 			calc_cv_pct: pct(r.calc_cv_pct),
 			band: r.cv_within_band == null ? "—" : r.cv_within_band ? "PASS" : "FAIL",
@@ -147,7 +150,7 @@ export default function InterCardSqcPage() {
 			{ key: "row_count", label: "Rows", align: "right" },
 			{ key: "avg_obs", label: "Obs", align: "right" },
 			{ key: "avg_mr_pct", label: "MR%", align: "right" },
-			{ key: "avg_corr_wt", label: "Corr", align: "right" },
+			{ key: "avg_corr_wt", label: "Corr (lbs)", align: "right" },
 			{ key: "avg_sdev", label: "StDev", align: "right" },
 			{ key: "avg_cv_pct", label: "CV %", align: "right" },
 		];
@@ -158,7 +161,7 @@ export default function InterCardSqcPage() {
 				row_count: s.row_count ?? "—",
 				avg_obs: s.avg_obs != null ? num(s.avg_obs, 2) : "—",
 				avg_mr_pct: s.avg_mr_pct != null ? num(s.avg_mr_pct, 2) : "—",
-				avg_corr_wt: s.avg_corr_wt != null ? num(s.avg_corr_wt, 2) : "—",
+				avg_corr_wt: s.avg_corr_wt != null ? lbs(s.avg_corr_wt) : "—",
 				avg_sdev: s.avg_sdev != null ? num(s.avg_sdev, 4) : "—",
 				avg_cv_pct: s.avg_cv_pct != null ? pct(s.avg_cv_pct) : "—",
 			}));
@@ -169,7 +172,7 @@ export default function InterCardSqcPage() {
 			{ key: "row_count", label: "Rows", align: "right" },
 			{ key: "grand_obs", label: "Obs", align: "right" },
 			{ key: "grand_mr_pct", label: "MR%", align: "right" },
-			{ key: "grand_corr_wt", label: "Corr", align: "right" },
+			{ key: "grand_corr_wt", label: "Corr (lbs)", align: "right" },
 			{ key: "grand_cv_pct", label: "CV %", align: "right" },
 		];
 		const grandAvgRows = grandAverages.map((g) => ({
@@ -177,7 +180,7 @@ export default function InterCardSqcPage() {
 			row_count: g.row_count ?? "—",
 			grand_obs: g.grand_obs != null ? num(g.grand_obs, 2) : "—",
 			grand_mr_pct: g.grand_mr_pct != null ? num(g.grand_mr_pct, 2) : "—",
-			grand_corr_wt: g.grand_corr_wt != null ? num(g.grand_corr_wt, 2) : "—",
+			grand_corr_wt: g.grand_corr_wt != null ? lbs(g.grand_corr_wt) : "—",
 			grand_cv_pct: g.grand_cv_pct != null ? pct(g.grand_cv_pct) : "—",
 		}));
 

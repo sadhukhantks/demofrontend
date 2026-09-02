@@ -96,6 +96,7 @@ type MRPreviewProps = {
  */
 export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAcceptedWeight }) => {
 	const previewRef = React.useRef<HTMLDivElement>(null);
+	const [pdfBusy, setPdfBusy] = React.useState(false);
 
 	const handlePrint = () => {
 		const content = previewRef.current?.innerHTML ?? "";
@@ -153,10 +154,165 @@ export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAc
 	const companyAddress = formatCompanyAddress(header);
 	const poDisplay = header.po_num ?? (header.po_no != null ? String(header.po_no) : null);
 
+	// Same document as the print window, rebuilt with jsPDF + autotable so it
+	// saves as a file instead of opening the print dialog (SQC report pattern).
+	const handleDownloadPdf = async () => {
+		setPdfBusy(true);
+		try {
+			const { jsPDF } = await import("jspdf");
+			const { autoTable } = await import("jspdf-autotable");
+
+			const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+			const pageWidth = doc.internal.pageSize.getWidth();
+			const marginX = 12;
+			let y = 16;
+
+			// Centered company header
+			if (header.co_name) {
+				doc.setFont("helvetica", "bold");
+				doc.setFontSize(15);
+				doc.text(String(header.co_name).toUpperCase(), pageWidth / 2, y, { align: "center" });
+				y += 6;
+			}
+			doc.setFont("helvetica", "normal");
+			if (companyAddress) {
+				doc.setFontSize(9);
+				doc.text(companyAddress, pageWidth / 2, y, { align: "center" });
+				y += 5;
+			}
+			if (header.branch_name) {
+				doc.setFontSize(9);
+				doc.text(String(header.branch_name).toUpperCase(), pageWidth / 2, y, { align: "center" });
+				y += 5;
+			}
+
+			// Title band
+			y += 2;
+			doc.setLineWidth(0.5);
+			doc.line(marginX, y, pageWidth - marginX, y);
+			y += 6;
+			doc.setFont("helvetica", "bold");
+			doc.setFontSize(12);
+			doc.text("MATERIAL RECEIPT", pageWidth / 2, y, { align: "center", charSpace: 1.5 });
+			y += 3;
+			doc.line(marginX, y, pageWidth - marginX, y);
+			y += 7;
+
+			// MR No / MR Date row
+			doc.setFontSize(10);
+			doc.text(`MR No : ${header.mr_num ?? header.branch_mr_no ?? "Draft"}`, marginX, y);
+			doc.text(`MR Date : ${formatDate(header.jute_mr_date)}`, pageWidth - marginX, y, { align: "right" });
+			y += 7;
+
+			// Detail rows
+			doc.setFont("helvetica", "normal");
+			doc.setFontSize(9.5);
+			const metaRow = (left: string, right?: string) => {
+				doc.text(left, marginX, y);
+				if (right) doc.text(right, pageWidth - marginX, y, { align: "right" });
+				y += 5;
+			};
+			metaRow(`M/S : ${header.party_name ?? header.supplier_name ?? "-"}`, `Mukam : ${header.mukam ?? ""}`);
+			if (header.party_address) metaRow(`Party Address : ${header.party_address}`);
+			if (header.party_gst_no) metaRow(`Party GST No : ${header.party_gst_no}`);
+			metaRow(
+				`PO No / Date : ${poDisplay ?? "-"}${header.po_date ? `  /  ${formatDate(header.po_date)}` : ""}`,
+				`Lorry No : ${header.vehicle_no ?? "-"}`,
+			);
+			metaRow(`Challan No / Date : ${header.challan_no ?? "-"}${header.challan_date ? `  /  ${formatDate(header.challan_date)}` : ""}`);
+			y += 2;
+			doc.text("Against the above we have received the consignment as follows:", marginX, y);
+			y += 4;
+
+			// Line items table (same columns as the on-screen table)
+			const boldCell = (content: string) => ({ content, styles: { fontStyle: "bold" as const, fillColor: [247, 247, 247] as [number, number, number] } });
+			autoTable(doc, {
+				startY: y,
+				head: [
+					[
+						{ content: "Bales/\ndrums", rowSpan: 2 },
+						{ content: "Marks &\nQuality", rowSpan: 2 },
+						{ content: "Advised\nweight in\nKgs", rowSpan: 2 },
+						{ content: "Mill\nweight in\nKgs", rowSpan: 2 },
+						{ content: "Claim in\nKgs", rowSpan: 2 },
+						{ content: "Approved\nWeight", rowSpan: 2 },
+						{ content: "Rate per\nQtls Rs", rowSpan: 2 },
+						{ content: "CLAIM FOR", colSpan: 2 },
+					],
+					["QUALITY", "CONDITION"],
+				],
+				body: [
+					...lineItems.map((li) => [
+						li.actualQty != null ? fmt(li.actualQty) : "",
+						`${li.actualItemName ?? ""}${li.actualQualityName && li.actualQualityName !== "-" ? ` ${li.actualQualityName}` : ""}`,
+						fmt(li.challanWeight, 2),
+						fmt(li.actualWeight, 2),
+						li.shortageKgs ? fmt(li.shortageKgs) : "",
+						fmt(li.acceptedWeight, 2),
+						fmt(li.rate, 2),
+						formatClaimQuality(li.claimQuality, li.claimRate, li.claimDust),
+						formatMoistureCondition(li.actualMoisture, li.allowableMoisture),
+					]),
+					[
+						boldCell(fmt(totals.qty, 2)),
+						boldCell("TOTAL"),
+						boldCell(fmt(totals.challan, 2)),
+						boldCell(fmt(totals.mill, 2)),
+						boldCell(totals.claimKgs ? fmt(totals.claimKgs) : ""),
+						boldCell(fmt(totals.approved, 2)),
+						boldCell(""),
+						boldCell(""),
+						boldCell(""),
+					],
+				],
+				theme: "grid",
+				styles: { fontSize: 8, cellPadding: 1.5, lineColor: [51, 51, 51], lineWidth: 0.15, textColor: [17, 17, 17] },
+				headStyles: { fillColor: [239, 239, 239], textColor: [17, 17, 17], fontStyle: "bold", halign: "center", valign: "bottom" },
+				columnStyles: {
+					0: { halign: "center" },
+					2: { halign: "right" },
+					3: { halign: "right" },
+					4: { halign: "right" },
+					5: { halign: "right" },
+					6: { halign: "right" },
+				},
+				margin: { left: marginX, right: marginX },
+			});
+			y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+
+			doc.setFontSize(9.5);
+			if (header.remarks) {
+				doc.setFont("helvetica", "bold");
+				doc.text("Remarks : ", marginX, y);
+				doc.setFont("helvetica", "normal");
+				doc.text(String(header.remarks), marginX + doc.getTextWidth("Remarks : ") + 1, y);
+				y += 7;
+			}
+			if (header.status) {
+				doc.setFont("helvetica", "bold");
+				doc.setFontSize(9);
+				doc.text(`STATUS : ${String(header.status).toUpperCase()}`, marginX, y);
+				y += 8;
+			}
+			doc.setFont("helvetica", "normal");
+			doc.setFontSize(8);
+			doc.setTextColor(85);
+			doc.text("Note*: This is a computer generated print, Signature is not required.", pageWidth / 2, y + 4, { align: "center" });
+
+			const mrNo = String(header.mr_num ?? header.branch_mr_no ?? header.jute_mr_id ?? "draft").replace(/[^\w.-]+/g, "-");
+			doc.save(`Material-Receipt-MR-${mrNo}.pdf`);
+		} finally {
+			setPdfBusy(false);
+		}
+	};
+
 	return (
 		<Box>
-			{/* Print button */}
-			<Stack direction="row" justifyContent="flex-end" sx={{ mb: 2 }} className="print-hidden">
+			{/* Print / Download buttons */}
+			<Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mb: 2 }} className="print-hidden">
+				<Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={pdfBusy}>
+					{pdfBusy ? "Downloading..." : "Download PDF"}
+				</Button>
 				<Button variant="outline" size="sm" onClick={handlePrint}>
 					Print Preview
 				</Button>

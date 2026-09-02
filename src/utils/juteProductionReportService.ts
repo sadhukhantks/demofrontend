@@ -17,7 +17,9 @@ export interface DprShiftRow {
   frame_runs: number;
   kg_per_frame: number;
   utilization_pct: number;
-  eff_pct: number;
+  /** null = no spinning standard configured for the quality (see
+   * `DprSpinningSection.standards_missing`), not "zero efficiency". */
+  eff_pct: number | null;
 }
 
 export interface DprSpinningQualityRow {
@@ -30,7 +32,7 @@ export interface DprSpinningQualityRow {
   kg_per_frame_shift: number;
   target_per_frame_shift: number;
   winding_kg: number;
-  eff_pct: number;
+  eff_pct: number | null;
 }
 
 export interface DprSpinningSection {
@@ -41,7 +43,7 @@ export interface DprSpinningSection {
     frame_runs: number;
     kg_per_frame: number;
     utilization_pct: number;
-    eff_pct: number;
+    eff_pct: number | null;
     avg_target_per_frame: number;
     avg_std_per_frame: number;
   };
@@ -53,6 +55,9 @@ export interface DprSpinningSection {
   };
   total_frames: number;
   quality: DprSpinningQualityRow[];
+  /** Quality names that produced today but have no spinning standard
+   * (TPI / efficiency) configured — their eff % is blank, not zero. */
+  standards_missing: string[];
 }
 
 export interface DprWindingQualityRow {
@@ -64,16 +69,27 @@ export interface DprWindingQualityRow {
   kg_per_winder: number;
   mtd_production_kg: number;
   mtd_kg_per_winder_shift: number;
+  /** 1 = twisted (ply) yarn — re-wound single yarn, excluded from the total. */
+  is_twisted: 0 | 1;
 }
 
 export interface DprWindingSection {
   qualities: DprWindingQualityRow[];
   total: {
+    /** Net of twisting — twisted yarn is re-wound single yarn, so counting it
+     * again would double count the winder output. */
     production_kg: number;
     winders: number;
     kg_per_winder: number;
     mtd_production_kg: number;
+    twisting_kg: number;
+    mtd_twisting_kg: number;
+    gross_production_kg: number;
+    mtd_gross_production_kg: number;
   };
+  /** false when the tenant DB has no is_twisted yarn-master flag yet — then
+   * twisting_kg is 0 and twisted yarn is still inside the winding total. */
+  twisting_available: boolean;
 }
 
 export interface DprWeavingQualityRow {
@@ -86,7 +102,7 @@ export interface DprWeavingQualityRow {
   production_mt: number;
   looms_run: number;
   kg_per_loom: number;
-  eff_pct: number;
+  eff_pct: number | null;
   mtd_production_mt: number;
 }
 
@@ -98,11 +114,14 @@ export interface DprWeavingSection {
     loom_runs: number;
     looms_run: number;
     kg_per_loom: number;
-    eff_pct: number;
+    eff_pct: number | null;
     utilization_pct: number;
     mtd_production_mt: number;
   };
   total_looms: number;
+  /** Quality names that wove today but have no weaving standard configured —
+   * their eff % is blank, not zero. */
+  standards_missing: string[];
 }
 
 export interface DprFinishingRow {
@@ -178,12 +197,18 @@ export interface DprKpi {
   spinning_mt: number;
   spinning_mtd_mt: number;
   frame_utilization_pct: number;
-  spinning_eff_pct: number;
+  /** null = no spinning standard configured, not zero efficiency. */
+  spinning_eff_pct: number | null;
   weaving_mt: number;
   weaving_mtd_mt: number;
   loom_utilization_pct: number;
-  weaving_eff_pct: number;
+  weaving_eff_pct: number | null;
+  /** Net of twisting. */
   winding_kg: number | null;
+  winding_mtd_kg: number | null;
+  twisting_kg: number | null;
+  /** Batching oil % in emulsion for the day. */
+  jbo_pct: number | null;
   total_hands: number;
   hands_per_mt: number;
   /** The MT the ratio was divided by (TKT-000117) — shown on the KPI card so
@@ -193,6 +218,30 @@ export interface DprKpi {
    * tenants, quintal on others) — deliberately NOT converted to MT. */
   jute_closing_weight: number | null;
   jute_days_stock: number | null;
+}
+
+/** Batching-oil emulsion — day reading plus the month's running totals. */
+export interface DprEmulsion {
+  day: {
+    entry_date: string | null;
+    jbo_ltr: number | null;
+    eco_fin_ltr: number | null;
+    oil_used_ltr: number | null;
+    tank_capacity_ltr: number | null;
+    /** Measured oil % in emulsion. */
+    oil_pct: number | null;
+    /** oil_used / tank_capacity * 100. */
+    derived_oil_pct: number | null;
+    std_low: number | null;
+    std_high: number | null;
+    status: "OK" | "LOW" | "HIGH" | null;
+  } | null;
+  mtd: {
+    jbo_ltr: number;
+    eco_fin_ltr: number;
+    avg_oil_pct: number | null;
+    days: number;
+  };
 }
 
 export interface DprUnavailableSection {
@@ -208,6 +257,8 @@ export interface DailyProductionReport {
   winding: DprWindingSection | null;
   weaving: DprWeavingSection;
   finishing: { processes: DprFinishingRow[] };
+  /** null when the tenant logged no emulsion rows in the window. */
+  emulsion: DprEmulsion | null;
   yarn_heavy_light: DprYarnHeavyLightRow[];
   jute: DprJuteSection | null;
   hands: DprHandsSection;
@@ -236,6 +287,8 @@ export async function fetchDailyProductionReport(params: {
 export interface WwdReconciliation {
   opening_mt: number;
   winding_mt: number;
+  /** Twisted (3-ply) yarn consumed out of net winding — subtracted line. */
+  twisting_mt: number;
   weaving_mt: number;
   purchase_mt: number;
   sale_mt: number;

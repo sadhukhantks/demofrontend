@@ -4,7 +4,7 @@ import * as React from "react";
 import { Alert, Box, CircularProgress, Tab, Tabs, TextField, Typography } from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
-import { todayISO } from "./utils/drawheadCalc";
+import { gmsToLbs, todayISO } from "./utils/drawheadCalc";
 import { useDrawheadSetup } from "./hooks/useDrawheadSetup";
 import { useDrawheadByDate } from "./hooks/useDrawheadByDate";
 import DrawheadForm from "./_components/DrawheadForm";
@@ -56,6 +56,9 @@ const printSpellLabel = (r: DrawheadReadingRow): string =>
 
 const fmt = (v: number | null | undefined, digits = 2): string =>
 	v != null ? Number(v).toFixed(digits) : "—";
+// Corrected weights come back in the entered unit (grams); print them in lbs/100yds.
+const fmtLbs = (v: number | null | undefined, digits = 2): string =>
+	v != null ? gmsToLbs(Number(v)).toFixed(digits) : "—";
 const fmtCv = (v: number | null | undefined): string =>
 	v != null ? `${(Number(v) * 100).toFixed(2)}%` : "—";
 
@@ -138,7 +141,7 @@ export default function DrawheadSqcPage() {
 			...readingCols("mr", "MR%", readingCount),
 			{ key: "calc_wt", label: "Obs Wt", align: "right" },
 			{ key: "calc_mr_pct", label: "MR%", align: "right" },
-			{ key: "calc_corr_wt", label: "Corr Wt", align: "right" },
+			{ key: "calc_corr_wt", label: "Corr Wt (lbs)", align: "right" },
 			{ key: "calc_sdev", label: "StDev", align: "right" },
 			{ key: "calc_cv_pct", label: "CV %", align: "right" },
 			{ key: "cv_within_band", label: "Band", align: "center" },
@@ -161,7 +164,7 @@ export default function DrawheadSqcPage() {
 			...readingCells("mr", r.mr_pcts, readingCount, 2),
 			calc_wt: fmt(r.calc_wt),
 			calc_mr_pct: fmt(r.calc_mr_pct),
-			calc_corr_wt: fmt(r.calc_corr_wt),
+			calc_corr_wt: fmtLbs(r.calc_corr_wt),
 			calc_sdev: fmt(r.calc_sdev, 4),
 			calc_cv_pct: fmtCv(r.calc_cv_pct),
 			cv_within_band: r.cv_within_band == null ? "—" : r.cv_within_band ? "PASS" : "FAIL",
@@ -175,7 +178,7 @@ export default function DrawheadSqcPage() {
 			{ key: "rows", label: "Rows", align: "right" },
 			{ key: "obs", label: "Obs", align: "right" },
 			{ key: "mr_pct", label: "MR%", align: "right" },
-			{ key: "corr", label: "Corr", align: "right" },
+			{ key: "corr", label: "Corr (lbs)", align: "right" },
 			{ key: "sdev", label: "StDev", align: "right" },
 			{ key: "cv_pct", label: "CV %", align: "right" },
 		];
@@ -184,7 +187,7 @@ export default function DrawheadSqcPage() {
 			rows: s.row_count ?? "—",
 			obs: fmt(s.avg_obs),
 			mr_pct: fmt(s.avg_mr_pct),
-			corr: fmt(s.avg_corr_wt),
+			corr: fmtLbs(s.avg_corr_wt),
 			sdev: fmt(s.avg_sdev, 4),
 			cv_pct: fmtCv(s.avg_cv_pct),
 		}));
@@ -194,7 +197,7 @@ export default function DrawheadSqcPage() {
 			{ key: "rows", label: "Rows", align: "right" },
 			{ key: "obs", label: "Obs", align: "right" },
 			{ key: "mr_pct", label: "MR%", align: "right" },
-			{ key: "corr", label: "Corr", align: "right" },
+			{ key: "corr", label: "Corr (lbs)", align: "right" },
 			{ key: "cv_pct", label: "CV %", align: "right" },
 		];
 		const grandAvgRows = grandAverages.map((g) => ({
@@ -202,7 +205,7 @@ export default function DrawheadSqcPage() {
 			rows: g.row_count ?? "—",
 			obs: fmt(g.grand_obs),
 			mr_pct: fmt(g.grand_mr_pct),
-			corr: fmt(g.grand_corr_wt),
+			corr: fmtLbs(g.grand_corr_wt),
 			cv_pct: fmtCv(g.grand_cv_pct),
 		}));
 
