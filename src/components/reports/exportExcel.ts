@@ -33,6 +33,8 @@ export type Worksheet = {
       optsOrCb: unknown,
       cb?: (cell: Record<string, unknown>) => void,
     ) => void;
+    /** Horizontal page break after this row. */
+    addPageBreak?: () => void;
   };
   mergeCells: (r1: number, c1: number, r2: number, c2: number) => void;
   getColumn: (i: number) => Record<string, unknown>;
@@ -132,13 +134,14 @@ export async function exportRowsToExcel<T extends GridValidRowModel>(
   rows: T[],
   fileNamePrefix = "jute-report",
   header?: ReportExportHeader,
+  groupBy?: string,
 ): Promise<void> {
   const ExcelJS = await import("exceljs");
   const { saveAs } = await import("file-saver");
 
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Report");
-  buildReportSheet(ws as unknown as Worksheet, columns, rows, header);
+  buildReportSheet(ws as unknown as Worksheet, columns, rows, header, groupBy);
 
   const buf = await wb.xlsx.writeBuffer();
   saveAs(
@@ -159,6 +162,11 @@ export function buildReportSheet<T extends GridValidRowModel>(
   columns: GridColDef<T>[],
   rows: T[],
   header?: ReportExportHeader,
+  /** Field to break the sheet on — every change of value repeats the column
+   * header band and starts a new printed page, so each group (a department,
+   * say) prints on its own sheet of paper under its own header. Rows must
+   * already arrive grouped; the query's ORDER BY is what does that. */
+  groupBy?: string,
 ): void {
   // Report header block: each line merged across all report columns, centered.
   //   COMPANY NAME
@@ -168,13 +176,15 @@ export function buildReportSheet<T extends GridValidRowModel>(
     ws.addRow([]); // blank spacer row before the column headers
   }
 
-  const headerRow = ws.addRow(
-    columns.map((c) => c.headerName ?? String(c.field)),
-  );
-  styleHeaderRow(headerRow);
+  const addHeaderRow = () => {
+    const r = ws.addRow(columns.map((c) => c.headerName ?? String(c.field)));
+    styleHeaderRow(r);
+    return r;
+  };
+  const headerRow = addHeaderRow();
 
   const leadField = String(columns[0]?.field ?? "");
-  for (const row of rows) {
+  const addDataRow = (row: T) => {
     const r = ws.addRow(
       columns.map(
         (c) => (row as Record<string, unknown>)[c.field as string] ?? "",
@@ -200,7 +210,23 @@ export function buildReportSheet<T extends GridValidRowModel>(
         cell.font = { bold: true, color: { argb: style.text } };
       }
     });
-  }
+    return r;
+  };
+
+  let previous: unknown;
+  let lastRow: ReturnType<typeof addDataRow> | null = null;
+  rows.forEach((row, i) => {
+    if (groupBy) {
+      const key = (row as Record<string, unknown>)[groupBy];
+      // Break after the group that just ended, then head the next one.
+      if (i > 0 && key !== previous) {
+        lastRow?.addPageBreak?.();
+        addHeaderRow();
+      }
+      previous = key;
+    }
+    lastRow = addDataRow(row);
+  });
 
   columns.forEach((c, i) => {
     const col = ws.getColumn(i + 1);
@@ -218,7 +244,18 @@ export function buildReportSheet<T extends GridValidRowModel>(
       );
       col.width = Math.min(Math.max(maxLen + 2, 10), 40);
     }
-    if (c.type === "number") col.numFmt = "0.00";
+    // Whole-number columns (counts, meals, rupee statements) print without the
+    // ".00" that only adds noise; anything with a fraction keeps two decimals.
+    if (c.type === "number") {
+      const values = rows.map(
+        (r) => (r as Record<string, unknown>)[c.field as string],
+      );
+      col.numFmt = values.every(
+        (v) => v == null || v === "" || Number.isInteger(Number(v)),
+      )
+        ? "0"
+        : "0.00";
+    }
   });
 
   // Freeze everything above the first data row so headers stay visible.

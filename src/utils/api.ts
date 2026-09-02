@@ -588,6 +588,8 @@ const apiRoutesPortalMasters = {
     NJM_PRODUCTION_CHECKLIST: `${API_URL}/hrmsMasters/njm_production_checklist`,
     NJM_FOOD_ALLOWANCE_DETAILS: `${API_URL}/hrmsMasters/njm_food_allowance_details`,
     NJM_ADVANCE_DETAILS: `${API_URL}/hrmsMasters/njm_advance_details`,
+    NJM_CANTEEN_STATEMENT: `${API_URL}/hrmsMasters/njm_canteen_statement`,
+    NJM_STL_STATEMENT: `${API_URL}/hrmsMasters/njm_stl_statement`,
     NJM_CNT_WAGES_EXPORT: `${API_URL}/hrmsMasters/njm_cnt_wages_export`,
     NJM_PAY_PERIOD: `${API_URL}/hrmsMasters/njm_pay_period`,
     NJM_CNT_WAGES_PROCESS: `${API_URL}/hrmsMasters/njm_cnt_wages_process`,
