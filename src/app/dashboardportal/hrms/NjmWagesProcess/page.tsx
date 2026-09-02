@@ -40,6 +40,7 @@ import {
 } from "@/utils/hrmsService";
 import { saveAs } from "file-saver";
 import { fetchAttendancePayscheme } from "@/utils/hrmsReportService";
+import { sizeColumnsToContent } from "@/components/ui/gridAutoSize";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { useRouter } from "next/navigation";
 import { exportRowsToExcel } from "@/components/reports/exportExcel";
@@ -82,7 +83,16 @@ const CHECKLIST_OPTIONS: Option[] = [
   { label: "Leave Not Approved", value: "6" },
   { label: "Food Allowance Details", value: "7" },
   { label: "Advance Details", value: "8" },
+  // 9 and 10 are ours: legacy served both off their own download modals
+  // rather than this list, but they are checklists like the rest.
+  { label: "Canteen Statement", value: "9" },
+  { label: "STL Statement", value: "10" },
 ];
+
+/** Checklists scoped by branch and period alone — meals and STL leave are
+ *  recorded per employee, not per pay scheme, so the scheme never narrows
+ *  them and an empty one must not block the run. */
+const SCHEME_FREE_CHECKLISTS = new Set(["9", "10"]);
 
 /** Contractor Wages Process refuses a period shorter than a wage month
  *  (legacy `desiredDiff`). */
@@ -121,6 +131,7 @@ const UPDATE_CONTRACTOR_ESI = "contractorEsiFileGeneration";
 const num = (field: string, headerName: string, width = 120): GridColDef => ({
   field, headerName, width, type: "number",
 });
+
 
 const ATT_PAYSCHEME_COLUMNS: GridColDef[] = [
   { field: "emp_code", headerName: "EB No", width: 100 },
@@ -181,6 +192,9 @@ const ADVANCE_COLUMNS: GridColDef[] = [
   num("cumulative_ded", "Cumulative", 130),
   num("balamt", "Balance", 120),
 ];
+
+// Both statements are day-wise: their columns depend on the period, so they
+// arrive with the data instead of being fixed here.
 
 // Headers are the payroll-upload column names, exactly as legacy's sheet had
 // them — the file is uploaded as-is, so the names are the contract.
@@ -423,7 +437,14 @@ export default function NjmWagesProcessPage() {
       const code = isChecklist ? filters.checklist : filters.action;
       const options = isChecklist ? CHECKLIST_OPTIONS : PROCESS_OPTIONS;
 
-      const parsed = baseSchema.safeParse(filters);
+      // The placeholder only satisfies the shared schema — neither of these
+      // two sends a pay scheme.
+      const schemeFree = isChecklist && SCHEME_FREE_CHECKLISTS.has(code);
+      const parsed = baseSchema.safeParse(
+        schemeFree && !filters.pay_scheme_id
+          ? { ...filters, pay_scheme_id: "-" }
+          : filters,
+      );
       if (!parsed.success) {
         notify(parsed.error.issues[0]?.message ?? "Invalid selection", "error");
         return;
@@ -575,6 +596,8 @@ export default function NjmWagesProcessPage() {
           params: Record<string, string | number | undefined>;
           /** Save the sheet as soon as it arrives, as legacy did. */
           download?: string;
+          /** Field the saved sheet breaks pages on, repeating the header. */
+          groupBy?: string;
         }> = isChecklist
           ? {
               "3": {
@@ -601,6 +624,21 @@ export default function NjmWagesProcessPage() {
                 url: apiRoutesPortalMasters.NJM_ADVANCE_DETAILS,
                 columns: ADVANCE_COLUMNS,
                 params: {},
+              },
+              // Day columns come back with the data — the period decides them.
+              "9": {
+                url: apiRoutesPortalMasters.NJM_CANTEEN_STATEMENT,
+                columns: [],
+                params: { branch_id: branchId, date_from: dateFrom, date_to: dateTo },
+                download: `canteen-statement-${dateFrom}-to-${dateTo}`,
+                groupBy: "dept_desc",
+              },
+              "10": {
+                url: apiRoutesPortalMasters.NJM_STL_STATEMENT,
+                columns: [],
+                params: { branch_id: branchId, date_from: dateFrom, date_to: dateTo },
+                download: `stl-statement-${dateFrom}-to-${dateTo}`,
+                groupBy: "dept_desc",
               },
             }
           : {
@@ -645,13 +683,26 @@ export default function NjmWagesProcessPage() {
           }
           // Main Wages Excel's columns are whatever the scheme maps, so they
           // come back with the data instead of being fixed here.
+          // No widths on the dynamic set: sizeColumnsToContent only sizes the
+          // columns a page has not pinned, and a fixed width would waste half
+          // the screen on the canteen statement's thirty-odd day columns.
           const columns = target.columns.length
             ? target.columns
-            : [
-                { field: "emp_code", headerName: "EB No", width: 110 },
-                { field: "emp_name", headerName: "Employee", width: 200 },
-                ...(data.columns ?? []).map((c) => num(c, c, 130)),
-              ];
+            : sizeColumnsToContent<NjmReportRow>(
+                [
+                  { field: "emp_code", headerName: "EB No" },
+                  { field: "emp_name", headerName: "Employee" },
+                  // A backend-supplied list can carry a label column (the
+                  // canteen statement leads with the department), so only the
+                  // numeric ones get the numeric treatment.
+                  ...(data.columns ?? []).map((c) =>
+                    typeof data.data[0]?.[c] === "number"
+                      ? { field: c, headerName: c, type: "number" as const }
+                      : { field: c, headerName: c },
+                  ),
+                ],
+                data.data,
+              );
           // sno is a plain row field so the Excel export picks it up too.
           setReport({ title: label, columns, rows: data.data.map((r, i) => ({ ...r, sno: i + 1 })) });
           if (data.data.length === 0) {
@@ -659,8 +710,13 @@ export default function NjmWagesProcessPage() {
             return;
           }
           // Plain sheet — header row then data, no report banner — so it
-          // uploads to payroll unchanged.
-          if (target.download) void exportRowsToExcel(columns, data.data, target.download);
+          // uploads to payroll unchanged. The statements break per department
+          // instead, each on its own page under a repeated header.
+          if (target.download) {
+            void exportRowsToExcel(
+              columns, data.data, target.download, undefined, target.groupBy,
+            );
+          }
           return;
         }
 

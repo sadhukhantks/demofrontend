@@ -917,12 +917,18 @@ export const fetchAttendanceOpenCloseStatus = async (params: {
   );
 };
 
-/** Open (3→1) or close (1→3) the slice for one department. Password-gated. */
+/**
+ * Open (3→1) or close (1→3) the slice for one department, or `"all"` departments
+ * of the spell — close only. Only the open direction is password-gated: closing
+ * just returns records to the state they are written in.
+ */
 export const submitAttendanceOpenClose = async (
   body: AttendanceSliceParams & {
+    /** A department id, or "all" (close only) for the whole spell. */
     worked_department_id: string | number;
     action: "open" | "close";
-    password: string;
+    /** Required for `action: "open"` only. */
+    password?: string;
   },
 ) =>
   fetchWithCookie<{ message: string; updated: number }>(
