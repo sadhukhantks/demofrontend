@@ -180,10 +180,10 @@ export default function DrawheadGrid({
 			},
 			{
 				field: "calc_wt",
-				headerName: "Obs Wt",
+				headerName: "Obs Wt (lbs)",
 				width: 100,
 				type: "number",
-				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
+				valueFormatter: (value) => lbs(value),
 			},
 			{
 				field: "calc_mr_pct",
@@ -201,10 +201,10 @@ export default function DrawheadGrid({
 			},
 			{
 				field: "calc_sdev",
-				headerName: "StDev",
+				headerName: "StDev (lbs)",
 				width: 100,
 				type: "number",
-				valueFormatter: (value) => (value != null ? Number(value).toFixed(4) : ""),
+				valueFormatter: (value) => lbs(value, 4),
 			},
 			{
 				field: "calc_cv_pct",
@@ -258,10 +258,10 @@ export default function DrawheadGrid({
 								<TableRow>
 									<TableCell>SECTION</TableCell>
 									<TableCell align="right">ROWS</TableCell>
-									<TableCell align="right">OBS</TableCell>
+									<TableCell align="right">OBS (LBS)</TableCell>
 									<TableCell align="right">MR%</TableCell>
 									<TableCell align="right">CORR (LBS)</TableCell>
-									<TableCell align="right">StDev</TableCell>
+									<TableCell align="right">STDEV (LBS)</TableCell>
 									<TableCell align="right">CV %</TableCell>
 								</TableRow>
 							</TableHead>
@@ -271,7 +271,7 @@ export default function DrawheadGrid({
 										<TableCell>{sectionLabel(s.section)}</TableCell>
 										<TableCell align="right">{s.row_count ?? "—"}</TableCell>
 										<TableCell align="right">
-											{s.avg_obs != null ? Number(s.avg_obs).toFixed(2) : "—"}
+											{s.avg_obs != null ? lbs(s.avg_obs) : "—"}
 										</TableCell>
 										<TableCell align="right">
 											{s.avg_mr_pct != null ? Number(s.avg_mr_pct).toFixed(2) : "—"}
@@ -280,7 +280,7 @@ export default function DrawheadGrid({
 											{s.avg_corr_wt != null ? lbs(s.avg_corr_wt) : "—"}
 										</TableCell>
 										<TableCell align="right">
-											{s.avg_sdev != null ? Number(s.avg_sdev).toFixed(4) : "—"}
+											{s.avg_sdev != null ? lbs(s.avg_sdev, 4) : "—"}
 										</TableCell>
 										<TableCell align="right">
 											{s.avg_cv_pct != null ? `${(Number(s.avg_cv_pct) * 100).toFixed(2)}%` : "—"}
@@ -309,7 +309,7 @@ export default function DrawheadGrid({
 								<TableRow>
 									<TableCell>YARN GROUP</TableCell>
 									<TableCell align="right">ROWS</TableCell>
-									<TableCell align="right">OBS</TableCell>
+									<TableCell align="right">OBS (LBS)</TableCell>
 									<TableCell align="right">MR%</TableCell>
 									<TableCell align="right">CORR (LBS)</TableCell>
 									<TableCell align="right">CV %</TableCell>
@@ -323,7 +323,7 @@ export default function DrawheadGrid({
 											<TableCell>{groupLabel(g)}</TableCell>
 											<TableCell align="right">{g.row_count ?? "—"}</TableCell>
 											<TableCell align="right">
-												{g.grand_obs != null ? Number(g.grand_obs).toFixed(2) : "—"}
+												{g.grand_obs != null ? lbs(g.grand_obs) : "—"}
 											</TableCell>
 											<TableCell align="right">
 												{g.grand_mr_pct != null ? Number(g.grand_mr_pct).toFixed(2) : "—"}

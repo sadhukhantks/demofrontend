@@ -137,12 +137,12 @@ export default function DrawheadSqcPage() {
 			{ key: "group", label: "Yarn Group" },
 			{ key: "std_mr_pct", label: "Std MR%", align: "right" },
 			// The raw cuts the operator recorded, ahead of the derived calc_* values.
-			...readingCols("wt", "Wt", readingCount),
+			...readingCols("wt", "Wt (g)", readingCount),
 			...readingCols("mr", "MR%", readingCount),
-			{ key: "calc_wt", label: "Obs Wt", align: "right" },
+			{ key: "calc_wt", label: "Obs Wt (lbs)", align: "right" },
 			{ key: "calc_mr_pct", label: "MR%", align: "right" },
 			{ key: "calc_corr_wt", label: "Corr Wt (lbs)", align: "right" },
-			{ key: "calc_sdev", label: "StDev", align: "right" },
+			{ key: "calc_sdev", label: "StDev (lbs)", align: "right" },
 			{ key: "calc_cv_pct", label: "CV %", align: "right" },
 			{ key: "cv_within_band", label: "Band", align: "center" },
 		];
@@ -162,10 +162,10 @@ export default function DrawheadSqcPage() {
 			std_mr_pct: fmt(r.std_mr_pct),
 			...readingCells("wt", r.weights, readingCount, 2),
 			...readingCells("mr", r.mr_pcts, readingCount, 2),
-			calc_wt: fmt(r.calc_wt),
+			calc_wt: fmtLbs(r.calc_wt),
 			calc_mr_pct: fmt(r.calc_mr_pct),
 			calc_corr_wt: fmtLbs(r.calc_corr_wt),
-			calc_sdev: fmt(r.calc_sdev, 4),
+			calc_sdev: fmtLbs(r.calc_sdev, 4),
 			calc_cv_pct: fmtCv(r.calc_cv_pct),
 			cv_within_band: r.cv_within_band == null ? "—" : r.cv_within_band ? "PASS" : "FAIL",
 		}));
@@ -176,26 +176,26 @@ export default function DrawheadSqcPage() {
 		const sectionAvgColumns: PrintColumn[] = [
 			{ key: "section", label: "Section" },
 			{ key: "rows", label: "Rows", align: "right" },
-			{ key: "obs", label: "Obs", align: "right" },
+			{ key: "obs", label: "Obs (lbs)", align: "right" },
 			{ key: "mr_pct", label: "MR%", align: "right" },
 			{ key: "corr", label: "Corr (lbs)", align: "right" },
-			{ key: "sdev", label: "StDev", align: "right" },
+			{ key: "sdev", label: "StDev (lbs)", align: "right" },
 			{ key: "cv_pct", label: "CV %", align: "right" },
 		];
 		const sectionAvgRows = orderedSectionAverages.map((s) => ({
 			section: printSectionLabel(s.section),
 			rows: s.row_count ?? "—",
-			obs: fmt(s.avg_obs),
+			obs: fmtLbs(s.avg_obs),
 			mr_pct: fmt(s.avg_mr_pct),
 			corr: fmtLbs(s.avg_corr_wt),
-			sdev: fmt(s.avg_sdev, 4),
+			sdev: fmtLbs(s.avg_sdev, 4),
 			cv_pct: fmtCv(s.avg_cv_pct),
 		}));
 
 		const grandAvgColumns: PrintColumn[] = [
 			{ key: "group", label: "Yarn Group" },
 			{ key: "rows", label: "Rows", align: "right" },
-			{ key: "obs", label: "Obs", align: "right" },
+			{ key: "obs", label: "Obs (lbs)", align: "right" },
 			{ key: "mr_pct", label: "MR%", align: "right" },
 			{ key: "corr", label: "Corr (lbs)", align: "right" },
 			{ key: "cv_pct", label: "CV %", align: "right" },
@@ -203,7 +203,7 @@ export default function DrawheadSqcPage() {
 		const grandAvgRows = grandAverages.map((g) => ({
 			group: printGroupLabel(g),
 			rows: g.row_count ?? "—",
-			obs: fmt(g.grand_obs),
+			obs: fmtLbs(g.grand_obs),
 			mr_pct: fmt(g.grand_mr_pct),
 			corr: fmtLbs(g.grand_corr_wt),
 			cv_pct: fmtCv(g.grand_cv_pct),
