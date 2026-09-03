@@ -1,12 +1,12 @@
 "use client";
 import React, { Suspense } from "react";
-import { Box, CircularProgress, Paper, Typography } from "@mui/material";
+import { Box, CircularProgress, Paper, Typography, ToggleButtonGroup, ToggleButton } from "@mui/material";
 import { GridColDef } from "@mui/x-data-grid";
 import ReportPanel from "@/components/reports/ReportPanel";
 import { numCol } from "@/components/reports/ReportGrid";
 import { useReportBranches } from "@/components/reports/useReportBranches";
 import { yesterdayIso } from "@/components/reports/reportDates";
-import { fetchJuteStockReport } from "@/utils/juteReportService";
+import { fetchJuteStockReport, type JuteReportBasis } from "@/utils/juteReportService";
 import type { JuteStockReportRow } from "../types/reportTypes";
 
 const columns: GridColDef<JuteStockReportRow>[] = [
@@ -140,22 +140,38 @@ function withGrandTotal(rows: JuteStockReportRow[]): JuteStockReportRow[] {
 
 function JuteStockPageContent() {
   const { branches, initialBranchId, dateParam } = useReportBranches();
+  // Decision D5 (2026-09-03): actual = today's reports; accounts = receipt on
+  // jute_mr_date, approved weight, issues shifted to the MR date.
+  const [basis, setBasis] = React.useState<JuteReportBasis>("actual");
 
   return (
-    <ReportPanel
-      title="Jute Stock Report"
-      branches={branches}
-      initialBranchId={initialBranchId}
-      dates="single"
-      singleLabel="As of Date"
-      initialDateTo={dateParam || yesterdayIso()}
-      fetcher={(f) => fetchJuteStockReport(f.branchId, f.dateTo).then(withGrandTotal)}
-      columns={columns}
-      getRowId={getRowId}
-      summary={SummaryCards}
-      sortField="item_group_name"
-      exportName="jute-stock"
-    />
+    <>
+      <Box sx={{ mb: 2 }}>
+        <ToggleButtonGroup
+          value={basis}
+          exclusive
+          onChange={(_e, v) => v && setBasis(v)}
+          size="small"
+        >
+          <ToggleButton value="actual">Actual</ToggleButton>
+          <ToggleButton value="accounts">Accounts</ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+      <ReportPanel
+        title={`Jute Stock Report (${basis === "accounts" ? "Accounts" : "Actual"})`}
+        branches={branches}
+        initialBranchId={initialBranchId}
+        dates="single"
+        singleLabel="As of Date"
+        initialDateTo={dateParam || yesterdayIso()}
+        fetcher={(f) => fetchJuteStockReport(f.branchId, f.dateTo, basis).then(withGrandTotal)}
+        columns={columns}
+        getRowId={getRowId}
+        summary={SummaryCards}
+        sortField="item_group_name"
+        exportName="jute-stock"
+      />
+    </>
   );
 }
 

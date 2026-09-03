@@ -211,6 +211,22 @@ export interface JuteMrIssueDetailRow {
   /** Only present when the backend could join vw_jute_stock_outstanding. */
   balance_qty?: number | null;
   balance_weight?: number | null;
+  // Reconciliation columns (2026-09-03, jute transfer chain review §E3) —
+  // computed per MR line, repeated on every issue row of that line so a grid
+  // sorted/filtered by line still shows them; use the "Sync issued weights"
+  // action (POST /juteIssue/sync_issue_weights) when weight_diff is non-zero.
+  /** MR line's approved weight (jute_mr_li.accepted_weight). */
+  accepted_weight?: number | null;
+  /** actual_weight / actual_qty for the line — the per-bale weight basis. */
+  unit_weight?: number | null;
+  /** Count of non-rejected issues on this MR line. */
+  line_issue_count?: number | null;
+  /** Sum of issue.weight across all non-rejected issues on this line. */
+  total_issued_weight?: number | null;
+  /** Sum of issue.quantity * unit_weight across the same issues. */
+  expected_issued_weight?: number | null;
+  /** total_issued_weight - expected_issued_weight; non-zero means a sync is due. */
+  weight_diff?: number | null;
 }
 
 /** Row from GET /api/juteReports/mr-movement-detail — the Issue Detail row plus

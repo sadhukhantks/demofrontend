@@ -1,5 +1,5 @@
 import * as React from "react";
-import { TextField } from "@mui/material";
+import { TextField, Box, Typography } from "@mui/material";
 import type { TransactionLineColumn } from "@/components/ui/transaction";
 import { SearchableSelect } from "@/components/ui/transaction";
 import type { MRLineItem } from "../types/mrTypes";
@@ -117,29 +117,43 @@ export function useMRLineItems({
 				header: "Allowable Moisture (%)",
 				width: "1.1fr",
 				renderCell: ({ item }) => {
+					// Actual moisture shown as a caption beneath the allowable-moisture
+					// cell (spec §"Moisture", 2026-09-03) — actualMoisture stays its own
+					// (editable) column, this is a read-only reference for the reviewer.
+					const actualCaption = (
+						<Typography variant="caption" color="text.secondary" component="span" sx={{ display: "block", lineHeight: 1.2 }}>
+							Actual: {item.actualMoisture != null ? Number(item.actualMoisture).toFixed(2) : "-"}%
+						</Typography>
+					);
 					if (!canEdit) {
 						return (
-							<span className="text-xs">
-								{item.allowableMoisture != null ? item.allowableMoisture.toFixed(2) : "-"}
-							</span>
+							<Box sx={{ display: "flex", flexDirection: "column" }}>
+								<span className="text-xs">
+									{item.allowableMoisture != null ? item.allowableMoisture.toFixed(2) : "-"}
+								</span>
+								{actualCaption}
+							</Box>
 						);
 					}
 					return (
-						<TextField
-							type="number"
-							size="small"
-							value={item.allowableMoisture ?? ""}
-							onChange={(e) =>
-								handleLineFieldChange(
-									item.id,
-									"allowableMoisture",
-									e.target.value ? parseFloat(e.target.value) : null
-								)
-							}
-							inputProps={{ min: 0, step: 0.01 }}
-							sx={{ "& .MuiInputBase-input": { fontSize: "0.75rem", py: 0.5 } }}
-							fullWidth
-						/>
+						<Box sx={{ display: "flex", flexDirection: "column" }}>
+							<TextField
+								type="number"
+								size="small"
+								value={item.allowableMoisture ?? ""}
+								onChange={(e) =>
+									handleLineFieldChange(
+										item.id,
+										"allowableMoisture",
+										e.target.value ? parseFloat(e.target.value) : null
+									)
+								}
+								inputProps={{ min: 0, step: 0.01 }}
+								sx={{ "& .MuiInputBase-input": { fontSize: "0.75rem", py: 0.5 } }}
+								fullWidth
+							/>
+							{actualCaption}
+						</Box>
 					);
 				},
 				getTooltip: ({ item }) =>

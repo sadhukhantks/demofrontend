@@ -26,11 +26,17 @@ import type {
   ReportApiResponse,
 } from "@/app/dashboardportal/jutePurchase/reports/types/reportTypes";
 
+/** Reporting basis (decision D5, 2026-09-03): "actual" = today's reports;
+ * "accounts" = receipt on jute_mr_date, approved weight, issues dated before
+ * the MR date shifted to the MR date. Defaults to "actual" everywhere. */
+export type JuteReportBasis = "actual" | "accounts";
+
 export async function fetchJuteStockReport(
   branchId: number,
   date: string,
+  basis: JuteReportBasis = "actual",
 ): Promise<JuteStockReportRow[]> {
-  const url = `${apiRoutesPortalMasters.JUTE_REPORT_STOCK}?branch_id=${branchId}&date=${date}`;
+  const url = `${apiRoutesPortalMasters.JUTE_REPORT_STOCK}?branch_id=${branchId}&date=${date}&basis=${basis}`;
   const result = await fetchWithCookie<ReportApiResponse<JuteStockReportRow>>(url);
   if (result.error || !result.data) {
     throw new Error(result.error ?? "Failed to fetch jute stock report");
@@ -41,13 +47,59 @@ export async function fetchJuteStockReport(
 export async function fetchBatchCostReport(
   branchId: number,
   date: string,
+  basis: JuteReportBasis = "actual",
 ): Promise<BatchCostReportRow[]> {
-  const url = `${apiRoutesPortalMasters.JUTE_REPORT_BATCH_COST}?branch_id=${branchId}&date=${date}`;
+  const url = `${apiRoutesPortalMasters.JUTE_REPORT_BATCH_COST}?branch_id=${branchId}&date=${date}&basis=${basis}`;
   const result = await fetchWithCookie<ReportApiResponse<BatchCostReportRow>>(url);
   if (result.error || !result.data) {
     throw new Error(result.error ?? "Failed to fetch batch cost report");
   }
   return result.data.data;
+}
+
+// =============================================================================
+// ISSUE SYNC (decision "Sync", 2026-09-03) — re-derive issue.weight /
+// issue_value from the MR line's current actual_weight/actual_qty.
+// =============================================================================
+
+export interface SyncIssueWeightsRow {
+  jute_issue_id: number;
+  jute_mr_li_id: number;
+  quantity: number;
+  status_id: number;
+  weight_before: number;
+  weight_after: number;
+  issue_value_before: number;
+  issue_value_after: number;
+}
+
+export interface SyncIssueWeightsResponse {
+  data: SyncIssueWeightsRow[];
+  totals: {
+    lines_processed: number;
+    issues_processed: number;
+    issues_changed: number;
+    weight_before: number;
+    weight_after: number;
+  };
+}
+
+/** POST /api/juteIssue/sync_issue_weights — updates every non-rejected issue
+ * (Draft/Open/Approved) on one MR in place, from the line's CURRENT weights. */
+export async function syncIssueWeights(
+  coId: number | string,
+  mrId: number,
+  branchId: number,
+): Promise<SyncIssueWeightsResponse> {
+  const url = `${apiRoutesPortalMasters.JUTE_ISSUE_SYNC_WEIGHTS}?co_id=${coId}`;
+  const result = await fetchWithCookie<SyncIssueWeightsResponse>(url, "POST", {
+    jute_mr_id: mrId,
+    branch_id: branchId,
+  });
+  if (result.error || !result.data) {
+    throw new Error(result.error ?? "Failed to sync issued weights");
+  }
+  return result.data;
 }
 
 export async function fetchJuteQtyWiseReport(
