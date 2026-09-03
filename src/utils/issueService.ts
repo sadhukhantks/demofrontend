@@ -122,7 +122,14 @@ export type InventoryListItem = {
 	uom_name: string;
 	approved_qty: number;
 	issue_qty: number;
+	/** Issuable right now — already net of drafted (unapproved) issues. */
 	available_qty: number;
+	/** Qty on this lot committed by drafted, unapproved issues. Absent/0 = none. */
+	draft_held_qty?: number;
+	/** Comma-joined issue numbers holding it, e.g. "1433, 1435". */
+	draft_held_refs?: string | null;
+	/** available_qty + draft_held_qty — the figure Item Ledger / Stock Report show. */
+	ledger_qty?: number;
 	rate: number;
 	warehouse_id?: number;
 	warehouse_name?: string;

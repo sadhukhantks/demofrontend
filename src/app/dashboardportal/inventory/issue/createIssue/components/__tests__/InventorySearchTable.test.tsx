@@ -268,6 +268,91 @@ describe("InventorySearchTable", () => {
 		});
 	});
 
+	describe("Draft-held stock (TKT-000143)", () => {
+		// A lot fully committed by a drafted issue comes back with
+		// available_qty 0 — it must be visible, explained, and not addable.
+		const heldRow = {
+			...mockInventoryData[0],
+			item_name: "Held Item",
+			available_qty: 0,
+			draft_held_qty: 1,
+			draft_held_refs: "1433",
+			ledger_qty: 1,
+		};
+
+		it("shows the held qty as a chip and blocks Add", async () => {
+			(issueService.fetchInventoryList as Mock).mockResolvedValue({
+				data: [heldRow],
+				total: 1,
+			});
+
+			render(<InventorySearchTable {...defaultProps} />);
+			openDialog();
+			submitSearch("held");
+
+			await waitFor(() => {
+				expect(screen.getByText("Held Item")).toBeInTheDocument();
+			});
+			expect(screen.getByText("In draft 1.00")).toBeInTheDocument();
+
+			const held = screen.getByRole("button", { name: /not issuable/ });
+			expect(held).toBeDisabled();
+			expect(held).toHaveAccessibleName(/draft issue 1433/);
+			fireEvent.click(held);
+			expect(mockOnInsertItems).not.toHaveBeenCalled();
+		});
+
+		// sls br87 carries pre-existing negative-stock lots (e.g. -0.1) that
+		// the old balance_qty > 0 filter hid. Not clamped, not issuable, and
+		// worded as a data problem rather than a draft to chase.
+		it("shows a negative lot as negative and blocks it", async () => {
+			(issueService.fetchInventoryList as Mock).mockResolvedValue({
+				data: [
+					{
+						...heldRow,
+						item_name: "Negative Item",
+						available_qty: -0.1,
+						draft_held_qty: 0,
+						draft_held_refs: null,
+						ledger_qty: -0.1,
+					},
+				],
+				total: 1,
+			});
+
+			render(<InventorySearchTable {...defaultProps} />);
+			openDialog();
+			submitSearch("neg");
+
+			await waitFor(() => {
+				expect(screen.getByText("Negative Item")).toBeInTheDocument();
+			});
+			// shown as-is, not clamped to 0
+			expect(screen.getByText("-0.10")).toBeInTheDocument();
+
+			const blocked = screen.getByRole("button", { name: /not issuable/ });
+			expect(blocked).toBeDisabled();
+			expect(blocked).toHaveAccessibleName(/below zero/);
+			expect(blocked).not.toHaveAccessibleName(/draft issue/);
+			fireEvent.click(blocked);
+			expect(mockOnInsertItems).not.toHaveBeenCalled();
+		});
+
+		it("renders today’s UI when the backend sends no draft fields", async () => {
+			render(<InventorySearchTable {...defaultProps} />);
+			openDialog();
+			submitSearch("item");
+
+			await waitFor(() => {
+				expect(screen.getByText("Test Item 1")).toBeInTheDocument();
+			});
+			expect(screen.queryByText(/In draft/)).not.toBeInTheDocument();
+			expect(
+				screen.getByRole("button", { name: /Test Item 1 to issue/ })
+			).toBeEnabled();
+		});
+	});
+
 	describe("Disabled state", () => {
 		it("should keep the trigger disabled so the dialog cannot open", () => {
 			render(<InventorySearchTable {...defaultProps} disabled />);

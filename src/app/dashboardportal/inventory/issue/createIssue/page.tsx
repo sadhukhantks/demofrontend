@@ -769,17 +769,36 @@ function IssueTransactionPageContent() {
 
 			// Skip rows whose inward detail is already on the issue — adding the same
 			// inward_dtl_id twice would split one inward line into two over-issuing lines.
-			const newLines: EditableLineItem[] = items
-				.filter((item) => !existing.has(String(item.inward_dtl_id ?? "")))
-				.map((item) => createLineFromInventory(item));
+			const fresh = items.filter(
+				(item) => !existing.has(String(item.inward_dtl_id ?? ""))
+			);
 
-			if (!newLines.length) {
+			if (!fresh.length) {
 				toast({
 					title: "Already added",
 					description: "This item is already on the issue.",
 				});
 				return;
 			}
+
+			// Single funnel for every lot that becomes a line — the picker also
+			// disables these rows, but nothing may add a lot with no issuable stock
+			// (fully held by a drafted issue). The backend guard rejects them too.
+			const issuable = fresh.filter((item) => Number(item.available_qty ?? 0) > 0);
+
+			if (!issuable.length) {
+				toast({
+					variant: "destructive",
+					title: "Nothing available to issue",
+					description:
+						"This stock is held by a drafted issue that has not been approved or cancelled yet.",
+				});
+				return;
+			}
+
+			const newLines: EditableLineItem[] = issuable.map((item) =>
+				createLineFromInventory(item)
+			);
 
 			setLineItems([...filledLines, ...newLines, createBlankLine()]);
 

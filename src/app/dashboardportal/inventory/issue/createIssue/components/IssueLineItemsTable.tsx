@@ -121,10 +121,17 @@ export const useIssueLineItemColumns = ({
 					if (!canEdit) {
 						return <span className="text-xs text-right block">{item.quantity}</span>;
 					}
-					const maxQty = parseFloat(item.availableQty || "0");
+					// availableQty is blank on lines loaded from a saved issue — no
+					// known ceiling there. When the picker did give us a number, clamp
+					// to it including 0 (a lot fully held by a drafted issue must not
+					// be issuable); `maxQty > 0` used to let those through unchecked.
+					const maxQty = parseFloat(item.availableQty);
+					const hasMax = Number.isFinite(maxQty);
+					const exceedsMax =
+						hasMax && parseFloat(item.quantity || "0") > maxQty;
 					return (
 						<Tooltip
-							title={maxQty > 0 ? `Max available: ${maxQty}` : ""}
+							title={hasMax ? `Max available: ${maxQty}` : ""}
 							placement="top"
 						>
 							<TextField
@@ -136,17 +143,17 @@ export const useIssueLineItemColumns = ({
 								}
 								inputProps={{
 									min: 0,
-									max: maxQty > 0 ? maxQty : undefined,
+									// A negative ceiling (negative-stock lot) can never reach a line —
+									// the picker blocks it — but min: 0 with a negative max is invalid
+									// HTML, so floor the input attribute at 0. exceedsMax below still
+									// compares against the real value.
+									max: hasMax ? Math.max(maxQty, 0) : undefined,
 									step: "0.01",
 									style: { textAlign: "right" },
 								}}
 								fullWidth
-								error={maxQty > 0 && parseFloat(item.quantity || "0") > maxQty}
-								helperText={
-									maxQty > 0 && parseFloat(item.quantity || "0") > maxQty
-										? "Exceeds"
-										: undefined
-								}
+								error={exceedsMax}
+								helperText={exceedsMax ? "Exceeds" : undefined}
 							/>
 						</Tooltip>
 					);
