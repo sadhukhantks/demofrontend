@@ -90,6 +90,10 @@ interface ReportPanelProps<TRow extends GridValidRowModel> {
   pdfExport?: boolean;
   /** Optional row drill-down (see ReportGrid); not fired for total rows. */
   onRowDoubleClick?: (row: TRow) => void;
+  /** Optional cards rendered between the filter bar and the grid, built from
+   * the rows currently loaded. Called only when there are rows, so it never
+   * has to render an empty state of its own. */
+  summary?: (rows: TRow[]) => React.ReactNode;
 }
 
 /**
@@ -120,6 +124,7 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
   exportOverride,
   pdfExport = false,
   onRowDoubleClick,
+  summary,
 }: ReportPanelProps<TRow>) {
   // Draft filters — bound to the inputs.
   const [branchId, setBranchId] = useState<number | null>(initialBranchId);
@@ -433,6 +438,8 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
               )}
             </Box>
           </Paper>
+
+          {summary && rows.length > 0 && summary(rows)}
 
           <ReportGrid
             rows={rows}

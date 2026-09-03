@@ -114,12 +114,12 @@ export default function InterCardSqcPage() {
 			{ key: "group", label: "Yarn Group" },
 			{ key: "std_mr_pct", label: "Std MR%", align: "right" },
 			// The raw cuts the operator recorded, ahead of the derived calc_* values.
-			...readingCols("wt", "Wt", CARD_SLIVER_READINGS),
+			...readingCols("wt", "Wt (g)", CARD_SLIVER_READINGS),
 			...readingCols("mr", "MR%", CARD_SLIVER_READINGS),
-			{ key: "calc_wt", label: "Obs Wt", align: "right" },
+			{ key: "calc_wt", label: "Obs Wt (lbs)", align: "right" },
 			{ key: "calc_mr_pct", label: "MR%", align: "right" },
 			{ key: "calc_corr_wt", label: "Corr Wt (lbs)", align: "right" },
-			{ key: "calc_sdev", label: "StDev", align: "right" },
+			{ key: "calc_sdev", label: "StDev (lbs)", align: "right" },
 			{ key: "calc_cv_pct", label: "CV %", align: "right" },
 			{ key: "band", label: "Band" },
 		];
@@ -136,10 +136,10 @@ export default function InterCardSqcPage() {
 			std_mr_pct: num(r.std_mr_pct, 2),
 			...readingCells("wt", r.weights, CARD_SLIVER_READINGS, 2),
 			...readingCells("mr", r.mr_pcts, CARD_SLIVER_READINGS, 2),
-			calc_wt: num(r.calc_wt, 2),
+			calc_wt: lbs(r.calc_wt),
 			calc_mr_pct: num(r.calc_mr_pct, 2),
 			calc_corr_wt: lbs(r.calc_corr_wt),
-			calc_sdev: num(r.calc_sdev, 4),
+			calc_sdev: lbs(r.calc_sdev, 4),
 			calc_cv_pct: pct(r.calc_cv_pct),
 			band: r.cv_within_band == null ? "—" : r.cv_within_band ? "PASS" : "FAIL",
 		}));
@@ -148,10 +148,10 @@ export default function InterCardSqcPage() {
 		const sectionAvgColumns: PrintColumn[] = [
 			{ key: "section", label: "Section" },
 			{ key: "row_count", label: "Rows", align: "right" },
-			{ key: "avg_obs", label: "Obs", align: "right" },
+			{ key: "avg_obs", label: "Obs (lbs)", align: "right" },
 			{ key: "avg_mr_pct", label: "MR%", align: "right" },
 			{ key: "avg_corr_wt", label: "Corr (lbs)", align: "right" },
-			{ key: "avg_sdev", label: "StDev", align: "right" },
+			{ key: "avg_sdev", label: "StDev (lbs)", align: "right" },
 			{ key: "avg_cv_pct", label: "CV %", align: "right" },
 		];
 		const sectionAvgRows = [...sectionAverages]
@@ -159,10 +159,10 @@ export default function InterCardSqcPage() {
 			.map((s) => ({
 				section: sectionLabel(s.section),
 				row_count: s.row_count ?? "—",
-				avg_obs: s.avg_obs != null ? num(s.avg_obs, 2) : "—",
+				avg_obs: s.avg_obs != null ? lbs(s.avg_obs) : "—",
 				avg_mr_pct: s.avg_mr_pct != null ? num(s.avg_mr_pct, 2) : "—",
 				avg_corr_wt: s.avg_corr_wt != null ? lbs(s.avg_corr_wt) : "—",
-				avg_sdev: s.avg_sdev != null ? num(s.avg_sdev, 4) : "—",
+				avg_sdev: s.avg_sdev != null ? lbs(s.avg_sdev, 4) : "—",
 				avg_cv_pct: s.avg_cv_pct != null ? pct(s.avg_cv_pct) : "—",
 			}));
 
@@ -170,7 +170,7 @@ export default function InterCardSqcPage() {
 		const grandAvgColumns: PrintColumn[] = [
 			{ key: "group", label: "Yarn Group" },
 			{ key: "row_count", label: "Rows", align: "right" },
-			{ key: "grand_obs", label: "Obs", align: "right" },
+			{ key: "grand_obs", label: "Obs (lbs)", align: "right" },
 			{ key: "grand_mr_pct", label: "MR%", align: "right" },
 			{ key: "grand_corr_wt", label: "Corr (lbs)", align: "right" },
 			{ key: "grand_cv_pct", label: "CV %", align: "right" },
@@ -178,7 +178,7 @@ export default function InterCardSqcPage() {
 		const grandAvgRows = grandAverages.map((g) => ({
 			group: g.item_grp_name ?? (g.item_grp_id != null ? `Group #${g.item_grp_id}` : "—"),
 			row_count: g.row_count ?? "—",
-			grand_obs: g.grand_obs != null ? num(g.grand_obs, 2) : "—",
+			grand_obs: g.grand_obs != null ? lbs(g.grand_obs) : "—",
 			grand_mr_pct: g.grand_mr_pct != null ? num(g.grand_mr_pct, 2) : "—",
 			grand_corr_wt: g.grand_corr_wt != null ? lbs(g.grand_corr_wt) : "—",
 			grand_cv_pct: g.grand_cv_pct != null ? pct(g.grand_cv_pct) : "—",

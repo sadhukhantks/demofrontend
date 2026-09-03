@@ -324,6 +324,8 @@ const apiRoutesPortalMasters = {
     JUTE_MR_APPROVE: `${API_URL}/juteMR/approve_mr`,
     JUTE_MR_REJECT: `${API_URL}/juteMR/reject_mr`,
     JUTE_MR_CANCEL: `${API_URL}/juteMR/cancel_mr`,
+    JUTE_MR_REOPEN: `${API_URL}/juteMR/reopen_mr`,
+    JUTE_MR_RETURN: `${API_URL}/juteMR/return_mr`,
     JUTE_MR_DOWNLOAD: `${API_URL}/juteMR/download_mr_table`,
     JUTE_MATERIAL_INSPECTION_UPDATE_LINE: `${API_URL}/juteMaterialInspection/update_line_item`,
 
@@ -354,6 +356,7 @@ const apiRoutesPortalMasters = {
     JUTE_ISSUE_APPROVE: `${API_URL}/juteIssue/approve_issues`,
     JUTE_ISSUE_REJECT: `${API_URL}/juteIssue/reject_issues`,
     JUTE_ISSUE_DOWNLOAD: `${API_URL}/juteIssue/download_issue_table`,
+    JUTE_ISSUE_SYNC_WEIGHTS: `${API_URL}/juteIssue/sync_issue_weights`,
 
     // Batch Daily Assign
     BATCH_DAILY_ASSIGN_TABLE: `${API_URL}/batchDailyAssign/get_assign_table`,

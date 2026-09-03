@@ -15,9 +15,9 @@ export type Option = {
  * Which stock source a row came from.
  *
  * "MR"    — purchased jute, one row per MR line (vw_jute_stock_outstanding).
- * "WASTE" — process waste booked on the Waste Entry page, one row per booking
- *           (vw_jute_waste_stock_outstanding). Waste is kg-only and is priced
- *           from the Waste Rate master, not from a purchase.
+ * "WASTE" — process waste booked on the Waste Entry page, GROUPED to one row
+ *           per waste item (vw_jute_waste_stock_outstanding). Waste is kg-only
+ *           and is priced from the Waste Rate master, not from a purchase.
  */
 export type StockSource = "MR" | "WASTE";
 
@@ -25,18 +25,24 @@ export type StockSource = "MR" | "WASTE";
  * A row of available jute stock, from either source.
  *
  * The backend concatenates both sources into one list, so the MR-only fields
- * (gate entry, MR number, warehouse, jute_mr_li_id) are null on a waste row and
- * the waste-only fields (waste_entry_id, dept_name, area_name) are null on an
- * MR row. Always key rows on `stock_key` — jute_mr_li_id is NOT unique across
- * the merged list because it is null for every waste row.
+ * (gate entry, MR number, warehouse, jute_mr_li_id) are null on a waste row.
+ *
+ * A waste row is a GROUPED item balance, not one booking (TKT-000147): it sums
+ * every open Waste Entry for that item, so waste_entry_id / dept_name /
+ * area_name are null on it too. Issuing it sends `waste_item_id` and the server
+ * fans the draw out FIFO across the underlying bookings.
+ *
+ * Always key rows on `stock_key` — jute_mr_li_id is NOT unique across the
+ * merged list because it is null for every waste row.
  */
 export type StockOutstandingItem = {
-  /** Unique across BOTH sources: "MR-<jute_mr_li_id>" or "W-<waste_entry_id>". */
+  /** Unique across BOTH sources: "MR-<jute_mr_li_id>" or "WI-<item_id>". */
   stock_key: string;
   source: StockSource;
   jute_mr_li_id: number | null;
+  /** Always null on a grouped waste row — it stands for several bookings. */
   waste_entry_id: number | null;
-  /** Waste only — the department and collection area the waste came from. */
+  /** Null on a grouped waste row; still populated on SAVED waste issue lines. */
   dept_name?: string | null;
   area_name?: string | null;
   jute_gate_entry_no?: number | null;

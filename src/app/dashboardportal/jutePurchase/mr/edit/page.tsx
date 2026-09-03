@@ -12,6 +12,7 @@ import { useMenuId } from "@/hooks/useMenuId";
 import { MRHeaderForm } from "../components/MRHeaderForm";
 import { MRApprovalBar } from "../components/MRApprovalBar";
 import { MRApprovalDialog } from "../components/MRApprovalDialog";
+import { MRReopenDialog } from "../components/MRReopenDialog";
 import { MRPreview } from "../components/MRPreview";
 import { useMRLineItems } from "../hooks/useMRLineItems";
 import { useMRApproval } from "../hooks/useMRApproval";
@@ -351,8 +352,13 @@ function JuteMREditPageContent() {
 			setPartyBranchOptions(branches);
 			setPartyBranchesLoaded(true);
 			
-			// Auto-select if only 1 branch and no branch is currently selected
+			// Auto-select if only 1 branch and no branch is currently selected.
+			// This mutates header outside handleHeaderChange, so it must also mark
+			// isDirty — otherwise a freshly-loaded MR shows Pending/Approve as usable
+			// (header.party_branch_id looks set, isDirty is false) while the DB still
+			// has party_branch_id NULL, and the click 400s (bug found 2026-09-03 QA).
 			if (branches.length === 1 && !currentPartyBranchId) {
+				setIsDirty(true);
 				setHeader((prev) => prev ? {
 					...prev,
 					party_branch_id: branches[0].party_mst_branch_id,
@@ -505,17 +511,26 @@ function JuteMREditPageContent() {
 		statusId,
 		canSetOpen,
 		canSetPending,
+		canReopen,
+		canReturnLorry,
 		partyHasNoBranches,
 		// Approval dialog state
 		approvalDialogOpen,
 		handleApprovalDialogClose,
 		handleApproveConfirm,
+		// Reopen dialog state
+		reopenDialogOpen,
+		reopenWarning,
+		handleReopenClick,
+		handleReopenDialogClose,
+		handleReopenConfirm,
 		// Action handlers
 		handleOpen,
 		handlePending,
 		handleApprove,
 		handleReject,
 		handleCancel,
+		handleReturn,
 		handleViewApprovalLog,
 	} = useMRApproval({
 		mode,
@@ -668,21 +683,30 @@ function JuteMREditPageContent() {
 						loading={approvalLoading}
 						canSetOpen={canSetOpen}
 						canSetPending={canSetPending}
+						canReopen={canReopen}
+						canReturnLorry={canReturnLorry}
 						partyHasNoBranches={partyHasNoBranches}
 						onOpen={handleOpen}
 						onApprove={handleApprove}
 						onReject={handleReject}
 						onPending={handlePending}
 						onCancel={handleCancel}
+						onReopen={handleReopenClick}
+						onReturn={handleReturn}
 						onViewApprovalLog={handleViewApprovalLog}
 					/>
 				)
 			}
 		>
 			<Box sx={{ maxHeight: "calc(100vh - 300px)", overflowY: "auto", pr: 1 }}>
-				<MRHeaderForm 
-					header={header} 
-					mode={canEdit ? mode : "view"} 
+				{reopenWarning ? (
+					<Alert severity="warning" sx={{ mb: 2 }}>
+						{reopenWarning}
+					</Alert>
+				) : null}
+				<MRHeaderForm
+					header={header}
+					mode={canEdit ? mode : "view"}
 					onHeaderChange={handleHeaderChange}
 					partyOptions={partyOptions}
 					partyBranchOptions={partyBranchOptions}
@@ -691,7 +715,7 @@ function JuteMREditPageContent() {
 					totalAcceptedWeight={totalAcceptedWeight}
 				/>
 			</Box>
-			
+
 			{/* MR Approval Dialog - for entering MR date before final approval */}
 			<MRApprovalDialog
 				open={approvalDialogOpen}
@@ -699,6 +723,15 @@ function JuteMREditPageContent() {
 				onClose={handleApprovalDialogClose}
 				onConfirm={handleApproveConfirm}
 				defaultDate={header?.jute_mr_date ? String(header.jute_mr_date).slice(0, 10) : undefined}
+			/>
+
+			{/* MR Reopen Dialog - choose reopen target (edit / QC) */}
+			<MRReopenDialog
+				open={reopenDialogOpen}
+				loading={approvalLoading}
+				warning={reopenWarning}
+				onClose={handleReopenDialogClose}
+				onConfirm={handleReopenConfirm}
 			/>
 		</TransactionWrapper>
 	);

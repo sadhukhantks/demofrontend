@@ -73,6 +73,8 @@ export const buildStockKey = (
  */
 export const describeStockOrigin = (stock: StockOutstandingItem): string => {
   if (stock.source === "WASTE") {
+    // Grouped waste rows carry no department or area — they sum every booking
+    // for the item — so the fallback is the normal case, not an edge one.
     return [stock.dept_name, stock.area_name].filter(Boolean).join(" / ") || "Waste";
   }
   return `GE ${stock.jute_gate_entry_no ?? "-"}`;
@@ -179,8 +181,12 @@ export const createLineFromStock = (
 /**
  * Map editable line item to API create payload.
  *
- * Exactly one of jute_mr_li_id / waste_entry_id is sent — the backend rejects
- * zero or both, since a line has to draw on one identifiable stock row.
+ * Exactly one stock source is sent — the backend rejects zero or many, since a
+ * line has to draw on one identifiable balance:
+ *   MR    -> jute_mr_li_id (the MR line);
+ *   WASTE -> waste_item_id (the grouped item balance). The server picks the
+ *            individual Waste Entry bookings FIFO and writes one row per
+ *            booking consumed, so ONE POST here can create several lines.
  */
 export const mapEditableToCreatePayload = (
   line: EditableLineItem,
@@ -190,7 +196,8 @@ export const mapEditableToCreatePayload = (
   branch_id: branchId,
   issue_date: issueDate,
   jute_mr_li_id: line.source === "WASTE" ? null : Number(line.jute_mr_li_id),
-  waste_entry_id: line.source === "WASTE" ? Number(line.waste_entry_id) : null,
+  waste_entry_id: null,
+  waste_item_id: line.source === "WASTE" ? Number(line.item_id) : null,
   yarn_type_id: Number(line.yarn_type_id),
   item_id: Number(line.item_id),
   quantity: Number(line.quantity) || 0,

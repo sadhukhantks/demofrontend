@@ -13,11 +13,13 @@ import {
 	TextField,
 	InputAdornment,
 	Button,
+	Chip,
 	CircularProgress,
 	Pagination,
 	Dialog,
 	DialogTitle,
 	DialogContent,
+	Tooltip,
 } from "@mui/material";
 import { Search, Plus, AlertCircle } from "lucide-react";
 import { fetchInventoryList, type InventoryListItem } from "@/utils/issueService";
@@ -275,6 +277,7 @@ export function InventorySearchTable({
 									<TableHead>Item Name</TableHead>
 									<TableHead className="w-16">UOM</TableHead>
 									<TableHead className="w-20 text-right">Avl Qty</TableHead>
+									<TableHead className="w-24 text-right">In Draft</TableHead>
 									<TableHead className="w-24 text-right">Rate</TableHead>
 									<TableHead>Warehouse</TableHead>
 									<TableHead className="w-16" />
@@ -284,7 +287,7 @@ export function InventorySearchTable({
 								{rows.length === 0 ? (
 									<TableRow>
 										<TableCell
-											colSpan={10}
+											colSpan={11}
 											className="text-center py-8 text-gray-500"
 										>
 											{submittedSearch
@@ -299,8 +302,52 @@ export function InventorySearchTable({
 										);
 										const itemLabel =
 											row.item_name || row.item_code || "item";
+										// A lot whose stock is fully committed by a drafted (unapproved)
+										// issue now comes back with available_qty 0 instead of being
+										// filtered out — show it and explain it, but never let it be added
+										// to an issue (TKT-000143).
+										const available = Number(row.available_qty ?? 0) || 0;
+										const draftHeld = Number(row.draft_held_qty ?? 0) || 0;
+										const ledger =
+											Number(row.ledger_qty ?? available + draftHeld) || 0;
+										const issuable = available > 0;
+										// Pre-existing negative-stock lots (branch 87) were hidden by the old
+										// balance_qty > 0 filter and now surface. Never clamp to 0 — the store
+										// team has to see it — but say plainly it is a data problem, not a
+										// draft they can go approve.
+										const negative = available < 0;
+										const refs = row.draft_held_refs?.trim();
+										const heldBy = refs
+											? `draft issue${refs.includes(",") ? "s" : ""} ${refs}`
+											: "an unapproved draft issue";
+										const heldTitle = draftHeld
+											? `${formatNumber(draftHeld)} held by ${heldBy} — approve or cancel it to release this stock. Item Ledger shows ${formatNumber(ledger)}.`
+											: "";
+										const negativeTitle = `Recorded stock on this lot is ${formatNumber(
+											available
+										)} — below zero, so nothing can be issued from it. That is a stock-data problem to report, not something to fix from this screen.${
+											draftHeld
+												? ` A further ${formatNumber(draftHeld)} is held by ${heldBy}.`
+												: ""
+										}`;
+										// Negative wins over draft-held: ledger_qty is still <= 0, so
+										// releasing every draft on the lot would not make it issuable.
+										const blockedTitle = issuable
+											? ""
+											: negative
+												? negativeTitle
+												: heldTitle || "No stock left on this lot.";
 										return (
-										<TableRow key={row.inward_dtl_id}>
+										<TableRow
+											key={row.inward_dtl_id}
+											className={
+												issuable
+													? undefined
+													: negative
+														? "bg-red-50/60"
+														: "bg-amber-50/60"
+											}
+										>
 											<TableCell className="font-mono text-xs">
 												{row.sr_no || "-"}
 											</TableCell>
@@ -319,8 +366,27 @@ export function InventorySearchTable({
 											<TableCell className="text-xs">
 												{row.uom_name || "-"}
 											</TableCell>
-											<TableCell className="text-right font-mono text-sm">
+											<TableCell
+												className={`text-right font-mono text-sm${
+													issuable ? "" : negative ? " text-red-700" : " text-amber-700"
+												}`}
+											>
 												{formatNumber(row.available_qty, 2)}
+											</TableCell>
+											<TableCell className="text-right">
+												{draftHeld > 0 ? (
+													<Tooltip title={heldTitle} placement="top">
+														<Chip
+															size="small"
+															color="warning"
+															variant="outlined"
+															label={`In draft ${formatNumber(draftHeld, 2)}`}
+															sx={{ height: 18, fontSize: 10, cursor: "help" }}
+														/>
+													</Tooltip>
+												) : (
+													<span className="text-xs text-gray-400">-</span>
+												)}
 											</TableCell>
 											<TableCell className="text-right font-mono text-sm">
 												{formatNumber(row.rate, 2)}
@@ -329,20 +395,39 @@ export function InventorySearchTable({
 												{row.warehouse_name || "-"}
 											</TableCell>
 											<TableCell>
-												<Button
-													variant="contained"
-													size="small"
-													startIcon={<Plus className="h-4 w-4" />}
-													onClick={() => handleAdd(row)}
-													disabled={disabled || alreadyAdded}
-													aria-label={
-														alreadyAdded
-															? `${itemLabel} already added`
-															: `Add ${itemLabel} to issue`
-													}
+												{/* Tooltip needs a real element to hang off — a disabled
+													    MUI Button fires no mouse events. */}
+												<Tooltip
+													title={alreadyAdded ? "" : blockedTitle}
+													placement="top"
 												>
-													{alreadyAdded ? "Added" : "Add"}
-												</Button>
+													<span>
+														<Button
+															variant="contained"
+															size="small"
+															startIcon={
+																issuable ? <Plus className="h-4 w-4" /> : undefined
+															}
+															onClick={() => handleAdd(row)}
+															disabled={disabled || alreadyAdded || !issuable}
+															aria-label={
+																alreadyAdded
+																	? `${itemLabel} already added`
+																	: issuable
+																		? `Add ${itemLabel} to issue`
+																		: `${itemLabel} not issuable — ${blockedTitle}`
+															}
+														>
+															{alreadyAdded
+																? "Added"
+																: issuable
+																	? "Add"
+																	: negative
+																		? "Negative"
+																		: "Held"}
+														</Button>
+													</span>
+												</Tooltip>
 											</TableCell>
 										</TableRow>
 										);

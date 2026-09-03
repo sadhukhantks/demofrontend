@@ -1,12 +1,12 @@
 "use client";
 import React, { Suspense } from "react";
-import { Box, CircularProgress } from "@mui/material";
+import { Box, CircularProgress, ToggleButtonGroup, ToggleButton } from "@mui/material";
 import { GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
 import ReportPanel from "@/components/reports/ReportPanel";
 import { numCol } from "@/components/reports/ReportGrid";
 import { useReportBranches } from "@/components/reports/useReportBranches";
 import { yesterdayIso } from "@/components/reports/reportDates";
-import { fetchBatchCostReport } from "@/utils/juteReportService";
+import { fetchBatchCostReport, type JuteReportBasis } from "@/utils/juteReportService";
 import type { BatchCostReportRow } from "../types/reportTypes";
 
 const inrFormatter = new Intl.NumberFormat("en-IN", {
@@ -54,21 +54,37 @@ const getRowId = (r: BatchCostReportRow) => `${r.yarn_type_id}-${r.item_id}`;
 
 function BatchCostPageContent() {
   const { branches, initialBranchId, dateParam } = useReportBranches();
+  // Decision D5 (2026-09-03): actual = today's reports; accounts = receipt on
+  // jute_mr_date, approved weight, issues shifted to the MR date.
+  const [basis, setBasis] = React.useState<JuteReportBasis>("actual");
 
   return (
-    <ReportPanel
-      title="Batch Cost Report"
-      branches={branches}
-      initialBranchId={initialBranchId}
-      dates="single"
-      singleLabel="As of Date"
-      initialDateTo={dateParam || yesterdayIso()}
-      fetcher={(f) => fetchBatchCostReport(f.branchId, f.dateTo)}
-      columns={columns}
-      getRowId={getRowId}
-      sortField="yarn_type_name"
-      exportName="batch-cost"
-    />
+    <>
+      <Box sx={{ mb: 2 }}>
+        <ToggleButtonGroup
+          value={basis}
+          exclusive
+          onChange={(_e, v) => v && setBasis(v)}
+          size="small"
+        >
+          <ToggleButton value="actual">Actual</ToggleButton>
+          <ToggleButton value="accounts">Accounts</ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+      <ReportPanel
+        title={`Batch Cost Report (${basis === "accounts" ? "Accounts" : "Actual"})`}
+        branches={branches}
+        initialBranchId={initialBranchId}
+        dates="single"
+        singleLabel="As of Date"
+        initialDateTo={dateParam || yesterdayIso()}
+        fetcher={(f) => fetchBatchCostReport(f.branchId, f.dateTo, basis)}
+        columns={columns}
+        getRowId={getRowId}
+        sortField="yarn_type_name"
+        exportName="batch-cost"
+      />
+    </>
   );
 }
 

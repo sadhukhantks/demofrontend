@@ -210,6 +210,75 @@ export async function cancelMR(mrId: string, branchId: string): Promise<StatusCh
 	return data;
 }
 
+/**
+ * Reopen MR - rolls a Pending (13) / Approved (3) MR back to Open (1).
+ * Requires edit access on the MR menu (backend-enforced, 403 otherwise).
+ * `target: "qc"` also resets qc_check so Material Inspection can be redone.
+ */
+export type ReopenResponse = StatusChangeResponse & {
+	target: "open" | "qc";
+	issues: { count: number; weight: number };
+	warning: string | null;
+};
+
+export async function reopenMR(
+	mrId: string,
+	branchId: string,
+	target: "open" | "qc",
+	menuId: string | null
+): Promise<ReopenResponse> {
+	const payload = {
+		mr_id: mrId,
+		branch_id: branchId,
+		target,
+		menu_id: Number(menuId),
+	};
+
+	const { data, error } = await fetchWithCookie<ReopenResponse>(
+		apiRoutesPortalMasters.JUTE_MR_REOPEN,
+		"POST",
+		payload
+	);
+
+	if (error) {
+		throw new Error(error);
+	}
+
+	if (!data) {
+		throw new Error("Empty response from reopen API");
+	}
+
+	return data;
+}
+
+/**
+ * Return lorry - marks the MR Returned (48): the lorry came in but was sent
+ * back to the supplier without settlement. Allowed from Open (1) or Pending (13).
+ */
+export async function returnMR(mrId: string, branchId: string, reason: string): Promise<StatusChangeResponse> {
+	const payload = {
+		mr_id: mrId,
+		branch_id: branchId,
+		reason,
+	};
+
+	const { data, error } = await fetchWithCookie<StatusChangeResponse>(
+		apiRoutesPortalMasters.JUTE_MR_RETURN,
+		"POST",
+		payload
+	);
+
+	if (error) {
+		throw new Error(error);
+	}
+
+	if (!data) {
+		throw new Error("Empty response from return API");
+	}
+
+	return data;
+}
+
 // =============================================================================
 // EXCEL DOWNLOAD
 // =============================================================================
