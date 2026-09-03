@@ -12,6 +12,9 @@ export interface JuteStockReportRow {
   closing_weight: number;
   mtd_receipt_weight: number;
   mtd_issue_weight: number;
+  /** 1 when the item's group is Jute Waste (item_grp_mst.item_type_id = 3),
+   * 0 for purchased raw jute. Drives the waste/raw split on the summary cards. */
+  is_waste: number;
 }
 
 /** Row from GET /api/juteReports/qty-wise (backs Quantity Wise #2 + Inventory Snapshot #14) */

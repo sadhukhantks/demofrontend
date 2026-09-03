@@ -23,21 +23,40 @@ const columns: GridColDef<JuteStockReportRow>[] = [
 
 const getRowId = (r: JuteStockReportRow) => `${r.item_grp_id}-${r.item_id}`;
 
-/** The weight columns the summary cards total, in grid order. */
-const TOTAL_FIELDS: { field: keyof JuteStockReportRow; label: string }[] = [
+/**
+ * The weight columns the summary cards total, in grid order.
+ *
+ * `split` marks the MOVEMENT columns — jute moves in and out through two
+ * different stock sources, so their totals are shown broken into purchased raw
+ * jute vs process waste. Sold is raw-jute invoices only, and opening/closing
+ * are positions rather than movements, so those stay single numbers.
+ */
+const TOTAL_FIELDS: {
+  field: keyof JuteStockReportRow;
+  label: string;
+  split?: boolean;
+}[] = [
   { field: "opening_weight", label: "Opening" },
-  { field: "receipt_weight", label: "Receipt" },
-  { field: "issue_weight", label: "Issue" },
+  { field: "receipt_weight", label: "Receipt", split: true },
+  { field: "issue_weight", label: "Issue", split: true },
   { field: "sold_weight", label: "Sold" },
   { field: "closing_weight", label: "Closing" },
-  { field: "mtd_receipt_weight", label: "MTD Receipt" },
-  { field: "mtd_issue_weight", label: "MTD Issue" },
+  { field: "mtd_receipt_weight", label: "MTD Receipt", split: true },
+  { field: "mtd_issue_weight", label: "MTD Issue", split: true },
 ];
 
 const fmtKg = (n: number) =>
   n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-function TotalCard({ label, value }: { label: string; value: number }) {
+function TotalCard({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: number;
+  sub?: string;
+}) {
   return (
     <Paper elevation={1} sx={{ p: 1.5, minWidth: 150, flex: "1 1 150px" }}>
       <Typography variant="caption" color="text.secondary">
@@ -46,29 +65,48 @@ function TotalCard({ label, value }: { label: string; value: number }) {
       <Typography variant="h6" sx={{ color: "#0C3C60", fontWeight: 700 }}>
         {fmtKg(value)}
       </Typography>
+      {sub && (
+        <Typography variant="caption" color="text.secondary" component="div">
+          {sub}
+        </Typography>
+      )}
     </Paper>
   );
 }
 
 /**
- * Cards above the grid carrying the same totals as its Grand Total row.
+ * Cards above the grid carrying the same totals as its Grand Total row, with
+ * the movement columns broken into raw jute vs jute waste.
  *
- * Read straight off that appended row rather than re-summing: withGrandTotal
- * already did the arithmetic, and re-adding the rows here would double-count
- * it. If the row is somehow absent, sum the real rows instead of showing zeros.
+ * Summed off the REAL rows (the appended Grand Total row is skipped, or it
+ * would be counted twice) using the same 2dp rounding as withGrandTotal, so a
+ * card and the grid's total row always print the same number. The waste share
+ * comes from is_waste — the item group's own item_type_id — not from a name
+ * match on the group.
  */
 function SummaryCards(rows: JuteStockReportRow[]) {
-  const total = rows.find((r) => r.item_id === -1);
-  const value = (f: keyof JuteStockReportRow) =>
-    total
-      ? Number(total[f]) || 0
-      : rows.reduce((acc, r) => acc + (Number(r[f]) || 0), 0);
+  const real = rows.filter((r) => r.item_id !== -1);
+  const sum = (f: keyof JuteStockReportRow, only?: (r: JuteStockReportRow) => boolean) =>
+    Math.round(
+      real
+        .filter((r) => !only || only(r))
+        .reduce((acc, r) => acc + (Number(r[f]) || 0), 0) * 100,
+    ) / 100;
 
   return (
     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, mb: 2 }}>
-      {TOTAL_FIELDS.map(({ field, label }) => (
-        <TotalCard key={field} label={label} value={value(field)} />
-      ))}
+      {TOTAL_FIELDS.map(({ field, label, split }) => {
+        const waste = split ? sum(field, (r) => Boolean(r.is_waste)) : 0;
+        const raw = split ? sum(field, (r) => !r.is_waste) : 0;
+        return (
+          <TotalCard
+            key={field}
+            label={label}
+            value={sum(field)}
+            sub={split ? `Raw ${fmtKg(raw)} · Waste ${fmtKg(waste)}` : undefined}
+          />
+        );
+      })}
     </Box>
   );
 }
@@ -94,6 +132,8 @@ function withGrandTotal(rows: JuteStockReportRow[]): JuteStockReportRow[] {
       closing_weight: sum("closing_weight"),
       mtd_receipt_weight: sum("mtd_receipt_weight"),
       mtd_issue_weight: sum("mtd_issue_weight"),
+      // Totals span both stock sources; the split lives on the real rows.
+      is_waste: 0,
     },
   ];
 }
