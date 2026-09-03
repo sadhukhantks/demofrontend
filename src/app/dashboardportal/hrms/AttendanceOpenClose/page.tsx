@@ -38,9 +38,13 @@ import {
  * Open (status 1) and Closed (status 3).
  *
  * Attendance is written Closed, so "Open" is what unlocks a day for
- * correction and "Close" locks it again. Submitting prompts for the shared
- * password held in `attendance_open_close_password` — the update rewrites a
- * day's worth of records, so the menu permission alone isn't the only brake.
+ * correction and "Close" locks it again. Opening prompts for the shared
+ * password held in `attendance_open_close_password` — it unlocks finalised
+ * records, so the menu permission alone isn't the only brake. Closing only
+ * asks for confirmation: it restores the state attendance is written in.
+ *
+ * Department offers an "All Departments" entry for Close only, so a whole
+ * spell can be locked in one shot. Opening stays one department at a time.
  *
  * Spell and Department are populated from the day's attendance itself, not from
  * spell_mst / sub_dept_mst — offering a spell or department that never marked
@@ -56,6 +60,9 @@ const ACTION_OPTIONS: Option[] = [
   { label: "Open", value: "open" },
   { label: "Close", value: "close" },
 ];
+
+/** Department sentinel the backend reads as "every department of the spell". */
+const DEPT_ALL = "all";
 
 /** Mirrors OPEN_WINDOW_HOURS in vowerp3be/src/hrms/attendance.py — display only,
  *  the backend is the one that actually enforces it. */
@@ -207,15 +214,21 @@ export default function AttendanceOpenClosePage() {
   );
 
   // Departments that marked this spell. dept_id is null for attendance with no
-  // worked_department_id — it shows in the grid but cannot be toggled, so it is
-  // not offered as an option.
-  const deptOptions = useMemo<Option[]>(
-    () =>
-      spellRows
-        .filter((r) => r.dept_id != null)
-        .map((r) => ({ label: r.dept_name, value: String(r.dept_id) })),
-    [spellRows],
-  );
+  // worked_department_id — it shows in the grid but cannot be picked on its own
+  // (there is no id to send).
+  //
+  // "All Departments" is offered for Close only, and the backend refuses it on
+  // open too: locking a whole spell down is safe, unlocking one wholesale is
+  // what the per-department step exists to prevent.
+  const deptOptions = useMemo<Option[]>(() => {
+    if (spellRows.length === 0) return [];
+    const individual = spellRows
+      .filter((r) => r.dept_id != null)
+      .map((r) => ({ label: r.dept_name, value: String(r.dept_id) }));
+    return filters.action === "close"
+      ? [{ label: "All Departments", value: DEPT_ALL }, ...individual]
+      : individual;
+  }, [spellRows, filters.action]);
 
   /** The numeric spell_id behind the selected name, or null when every row of
    *  the group predates spell_id and the backfill found the name ambiguous. */
@@ -234,8 +247,10 @@ export default function AttendanceOpenClosePage() {
         // Spell and Department come from the day's attendance, so the lists are
         // empty until a branch + date resolve to actual records.
         { name: "spell", label: "Spell", type: "select", options: spellOptions, required: true, grid: { xs: 12, sm: 6, md: 3 } },
-        { name: "worked_department_id", label: "Department", type: "select", options: deptOptions, required: true, grid: { xs: 12, sm: 6, md: 3 } },
+        // Open/Close sits before Department because it decides what Department
+        // offers — "All Departments" exists for Close only.
         { name: "action", label: "Open/Close", type: "select", options: ACTION_OPTIONS, required: true, grid: { xs: 12, sm: 6, md: 3 } },
+        { name: "worked_department_id", label: "Department", type: "select", options: deptOptions, required: true, grid: { xs: 12, sm: 6, md: 3 } },
       ] satisfies Field[],
     }),
     // Deliberately NOT dependent on `loading`: MuiForm re-runs getInitialValues
@@ -270,6 +285,14 @@ export default function AttendanceOpenClosePage() {
       prevSpellRef.current = incoming.spell;
       formRef.current?.setValue("worked_department_id", "");
     }
+    // "All Departments" only exists for Close — switching to Open drops it
+    // rather than leaving a selection the option list no longer offers.
+    if (
+      incoming.action !== "close" &&
+      incoming.worked_department_id === DEPT_ALL
+    ) {
+      formRef.current?.setValue("worked_department_id", "");
+    }
   }, []);
 
   const handleSubmit = useCallback(() => {
@@ -292,7 +315,8 @@ export default function AttendanceOpenClosePage() {
   const handleConfirm = useCallback(async () => {
     const parsed = submitSchema.safeParse(filters);
     if (!parsed.success || selectedSpellId == null) return;
-    if (!password) {
+    const isOpen = parsed.data.action === "open";
+    if (isOpen && !password) {
       notify("Please enter the password", "error");
       return;
     }
@@ -307,7 +331,8 @@ export default function AttendanceOpenClosePage() {
         // the ones written before spell_id existed.
         spell_id: selectedSpellId,
         spell_name: parsed.data.spell,
-        password,
+        // Closing needs no password — the backend only checks it on open.
+        ...(isOpen ? { password } : {}),
       });
       if (res.error || !res.data) {
         throw new Error(res.error || "Failed to update attendance status");
@@ -325,6 +350,10 @@ export default function AttendanceOpenClosePage() {
       setSubmitting(false);
     }
   }, [filters, password, selectedSpellId, loadStatus, notify]);
+
+  const confirmDeptLabel =
+    deptOptions.find((o) => String(o.value) === filters.worked_department_id)
+      ?.label ?? "";
 
   const columns = useMemo<GridColDef<AttendanceOpenCloseRow>[]>(
     () => [
@@ -405,24 +434,33 @@ export default function AttendanceOpenClosePage() {
           Confirm {filters.action === "open" ? "Open" : "Close"}
         </DialogTitle>
         <DialogContent>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            {filters.action === "open" ? "Open" : "Close"} attendance for{" "}
+            <b>{confirmDeptLabel}</b> — {filters.spell}, {filters.attendance_date}
+            .
+          </Typography>
+          {/* Password gates the open direction only: it unlocks finalised
+              records, while closing just puts them back as they were written. */}
           {filters.action === "open" && (
-            <Alert severity="info" sx={{ mb: 1 }}>
-              Only records created within the last {OPEN_WINDOW_HOURS} hours can
-              be re-opened.
-            </Alert>
+            <>
+              <Alert severity="info" sx={{ mb: 1 }}>
+                Only records created within the last {OPEN_WINDOW_HOURS} hours
+                can be re-opened.
+              </Alert>
+              <TextField
+                autoFocus
+                fullWidth
+                type="password"
+                label="Password"
+                margin="dense"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !submitting) void handleConfirm();
+                }}
+              />
+            </>
           )}
-          <TextField
-            autoFocus
-            fullWidth
-            type="password"
-            label="Password"
-            margin="dense"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !submitting) void handleConfirm();
-            }}
-          />
         </DialogContent>
         <DialogActions>
           <Button variant="outline" onClick={() => setPwdOpen(false)}>

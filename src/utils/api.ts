@@ -595,6 +595,8 @@ const apiRoutesPortalMasters = {
     NJM_PRODUCTION_CHECKLIST: `${API_URL}/hrmsMasters/njm_production_checklist`,
     NJM_FOOD_ALLOWANCE_DETAILS: `${API_URL}/hrmsMasters/njm_food_allowance_details`,
     NJM_ADVANCE_DETAILS: `${API_URL}/hrmsMasters/njm_advance_details`,
+    NJM_CANTEEN_STATEMENT: `${API_URL}/hrmsMasters/njm_canteen_statement`,
+    NJM_STL_STATEMENT: `${API_URL}/hrmsMasters/njm_stl_statement`,
     NJM_CNT_WAGES_EXPORT: `${API_URL}/hrmsMasters/njm_cnt_wages_export`,
     NJM_PAY_PERIOD: `${API_URL}/hrmsMasters/njm_pay_period`,
     NJM_CNT_WAGES_PROCESS: `${API_URL}/hrmsMasters/njm_cnt_wages_process`,
@@ -768,6 +770,7 @@ const apiRoutesPortalMasters = {
     EJM_WAGES_DATA_BUILD: `${API_URL}/hrmsMasters/ejm_wages_data_build`,
     EJM_WAGES_DATA_LIST: `${API_URL}/hrmsMasters/ejm_wages_data_list`,
     EJM_WAGES_DATA_UPDATE: `${API_URL}/hrmsMasters/ejm_wages_data_update`,
+  EJM_CASH_OUTSIDER_PROCESS: `${API_URL}/hrmsMasters/ejm_cash_outsider_process`,
     // EJM Pay Register / OT Register grids (legacy pay_register_payslip.php / ot_register_payslip.php)
     EJM_PAY_REGISTER_REPORT: `${API_URL}/hrmsMasters/ejm_pay_register_report`,
     EJM_OT_REGISTER_REPORT: `${API_URL}/hrmsMasters/ejm_ot_register_report`,

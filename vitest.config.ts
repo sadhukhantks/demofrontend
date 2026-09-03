@@ -31,6 +31,10 @@ export default defineConfig({
           include: ['src/**/*.test.{ts,tsx}'],
           exclude: ['src/stories/**'],
           setupFiles: ['./vitest.setup.ts'],
+          // x-data-grid ships a plain `.css` import; externalized, Node tries to
+          // load it as ESM and every test that touches the grid dies on
+          // "Unknown file extension .css". Inlined, Vite handles it.
+          server: { deps: { inline: ['@mui/x-data-grid'] } },
         },
       },
       // Storybook tests project

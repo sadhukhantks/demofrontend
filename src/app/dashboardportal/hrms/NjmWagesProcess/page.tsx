@@ -40,6 +40,7 @@ import {
 } from "@/utils/hrmsService";
 import { saveAs } from "file-saver";
 import { fetchAttendancePayscheme } from "@/utils/hrmsReportService";
+import { sizeColumnsToContent } from "@/components/ui/gridAutoSize";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { useRouter } from "next/navigation";
 import { exportRowsToExcel } from "@/components/reports/exportExcel";
@@ -82,7 +83,16 @@ const CHECKLIST_OPTIONS: Option[] = [
   { label: "Leave Not Approved", value: "6" },
   { label: "Food Allowance Details", value: "7" },
   { label: "Advance Details", value: "8" },
+  // 9 and 10 are ours: legacy served both off their own download modals
+  // rather than this list, but they are checklists like the rest.
+  { label: "Canteen Statement", value: "9" },
+  { label: "STL Statement", value: "10" },
 ];
+
+/** Checklists scoped by branch and period alone — meals and STL leave are
+ *  recorded per employee, not per pay scheme, so the scheme never narrows
+ *  them and an empty one must not block the run. */
+const SCHEME_FREE_CHECKLISTS = new Set(["9", "10"]);
 
 /** Contractor Wages Process refuses a period shorter than a wage month
  *  (legacy `desiredDiff`). */
@@ -122,6 +132,7 @@ const num = (field: string, headerName: string, width = 120): GridColDef => ({
   field, headerName, width, type: "number",
 });
 
+
 const ATT_PAYSCHEME_COLUMNS: GridColDef[] = [
   { field: "emp_code", headerName: "EB No", width: 100 },
   { field: "emp_name", headerName: "Employee", width: 200 },
@@ -157,13 +168,15 @@ const PRODUCTION_COLUMNS: GridColDef[] = [
   num("act_prod_amount", "Prod Amount", 140),
 ];
 
+// Headers keep the legacy sheet's column names verbatim.
 const FOOD_ALLOWANCE_COLUMNS: GridColDef[] = [
-  { field: "ticket_no", headerName: "Ticket No", width: 110 },
-  { field: "emp_name", headerName: "Employee", width: 200 },
-  num("da_rate", "DA Rate"),
-  num("fa_rate", "FA Rate"),
-  num("fa_days", "FA Days"),
-  num("amount", "Amount"),
+  { field: "sno", headerName: "sno", width: 80 },
+  { field: "ticket_no", headerName: "TICKET_NO", width: 110 },
+  { field: "emp_name", headerName: "empname", width: 200 },
+  num("da_rate", "da_rate"),
+  num("fa_rate", "fa_rate"),
+  num("fa_days", "fa_days"),
+  num("amount", "AMOUNT"),
 ];
 
 const ADVANCE_COLUMNS: GridColDef[] = [
@@ -180,19 +193,26 @@ const ADVANCE_COLUMNS: GridColDef[] = [
   num("balamt", "Balance", 120),
 ];
 
+// Both statements are day-wise: their columns depend on the period, so they
+// arrive with the data instead of being fixed here.
+
+// Headers are the payroll-upload column names, exactly as legacy's sheet had
+// them — the file is uploaded as-is, so the names are the contract.
 const CNT_WAGES_EXPORT_COLUMNS: GridColDef[] = [
-  { field: "emp_code", headerName: "EB No", width: 100 },
-  { field: "emp_name", headerName: "Employee", width: 200 },
-  { field: "pay_scheme", headerName: "Pay Scheme", width: 170 },
-  num("c_working_days", "Working Days", 140),
-  num("c_pwage_amt", "Piece Wage", 130),
-  num("c_exadvance", "Adv + Canteen", 150),
-  num("c_arramtplus", "Arrear +", 120),
-  num("c_arramtminus", "Arrear -", 120),
-  num("c_rate1otdays", "OT Days", 110),
-  num("c_rate1regdays", "Reg Days", 120),
-  num("c_canteen", "Canteen", 110),
-  num("c_esi_days", "ESI Days", 110),
+  { field: "emp_code", headerName: "Employee Id", width: 110 },
+  { field: "emp_name", headerName: "Employee_Name", width: 200 },
+  { field: "pay_scheme", headerName: "PayScheme", width: 170 },
+  num("c_working_days", "C_WORKING_DAYS_", 150),
+  num("c_pwage_amt", "C_Pwage_amt_", 140),
+  num("c_exadvance", "C_exadvance_", 140),
+  num("c_arramtplus", "C_ARRAMTPLUS_", 150),
+  num("c_arramtminus", "C_ARRAMTMINUS_", 150),
+  num("c_rate1otdays", "C_RATE1OTDAYS_", 150),
+  num("c_rate2otdays", "C_RATE2OTDAYS_", 150),
+  num("c_rate1regdays", "C_RATE1REGDAYS_", 160),
+  num("c_rate2regdays", "C_RATE2REGDAYS_", 160),
+  num("c_canteen", "C_canteen_", 120),
+  num("c_esi_days", "C_esi_days_", 120),
 ];
 
 const BREAKUP_COLUMNS: GridColDef[] = [
@@ -375,8 +395,8 @@ export default function NjmWagesProcessPage() {
       fields: [
         { name: "date_from", label: "From Date", type: "date", required: true, grid: { xs: 12, sm: 6, md: 3 } },
         { name: "date_to", label: "To Date", type: "date", required: true, grid: { xs: 12, sm: 6, md: 3 } },
-        { name: "update_for", label: "Updates", type: "select", options: UPDATE_OPTIONS, grid: { xs: 12, sm: 6, md: 3 } },
         { name: "pay_scheme_id", label: "Pay Scheme", type: "select", options: paySchemes, required: true, grid: { xs: 12, sm: 6, md: 3 } },
+        { name: "update_for", label: "Updates", type: "select", options: UPDATE_OPTIONS, grid: { xs: 12, sm: 6, md: 3 } },
         { name: "action", label: "Process/Report/Print For", type: "select", options: PROCESS_OPTIONS, grid: { xs: 12, md: 6 } },
         { name: "checklist", label: "Checklist For", type: "select", options: CHECKLIST_OPTIONS, grid: { xs: 12, md: 6 } },
       ] satisfies Field[],
@@ -417,7 +437,14 @@ export default function NjmWagesProcessPage() {
       const code = isChecklist ? filters.checklist : filters.action;
       const options = isChecklist ? CHECKLIST_OPTIONS : PROCESS_OPTIONS;
 
-      const parsed = baseSchema.safeParse(filters);
+      // The placeholder only satisfies the shared schema — neither of these
+      // two sends a pay scheme.
+      const schemeFree = isChecklist && SCHEME_FREE_CHECKLISTS.has(code);
+      const parsed = baseSchema.safeParse(
+        schemeFree && !filters.pay_scheme_id
+          ? { ...filters, pay_scheme_id: "-" }
+          : filters,
+      );
       if (!parsed.success) {
         notify(parsed.error.issues[0]?.message ?? "Invalid selection", "error");
         return;
@@ -567,6 +594,10 @@ export default function NjmWagesProcessPage() {
           url: string;
           columns: GridColDef[];
           params: Record<string, string | number | undefined>;
+          /** Save the sheet as soon as it arrives, as legacy did. */
+          download?: string;
+          /** Field the saved sheet breaks pages on, repeating the header. */
+          groupBy?: string;
         }> = isChecklist
           ? {
               "3": {
@@ -594,6 +625,21 @@ export default function NjmWagesProcessPage() {
                 columns: ADVANCE_COLUMNS,
                 params: {},
               },
+              // Day columns come back with the data — the period decides them.
+              "9": {
+                url: apiRoutesPortalMasters.NJM_CANTEEN_STATEMENT,
+                columns: [],
+                params: { branch_id: branchId, date_from: dateFrom, date_to: dateTo },
+                download: `canteen-statement-${dateFrom}-to-${dateTo}`,
+                groupBy: "dept_desc",
+              },
+              "10": {
+                url: apiRoutesPortalMasters.NJM_STL_STATEMENT,
+                columns: [],
+                params: { branch_id: branchId, date_from: dateFrom, date_to: dateTo },
+                download: `stl-statement-${dateFrom}-to-${dateTo}`,
+                groupBy: "dept_desc",
+              },
             }
           : {
               [ACTION_CNT_WAGES_EXPORT]: {
@@ -605,7 +651,8 @@ export default function NjmWagesProcessPage() {
                   date_to: dateTo,
                   pay_scheme_id: scheme,
                 },
-                    },
+                download: `contractor-wages-payroll-${dateFrom}-to-${dateTo}`,
+              },
               // Main Wages Excel — columns come from the scheme's payroll map.
               "7": {
                 url: apiRoutesPortalMasters.NJM_WAGES_EXPORT,
@@ -636,15 +683,40 @@ export default function NjmWagesProcessPage() {
           }
           // Main Wages Excel's columns are whatever the scheme maps, so they
           // come back with the data instead of being fixed here.
+          // No widths on the dynamic set: sizeColumnsToContent only sizes the
+          // columns a page has not pinned, and a fixed width would waste half
+          // the screen on the canteen statement's thirty-odd day columns.
           const columns = target.columns.length
             ? target.columns
-            : [
-                { field: "emp_code", headerName: "EB No", width: 110 },
-                { field: "emp_name", headerName: "Employee", width: 200 },
-                ...(data.columns ?? []).map((c) => num(c, c, 130)),
-              ];
-          setReport({ title: label, columns, rows: data.data });
-          if (data.data.length === 0) notify(`No rows for "${label}"`, "info");
+            : sizeColumnsToContent<NjmReportRow>(
+                [
+                  { field: "emp_code", headerName: "EB No" },
+                  { field: "emp_name", headerName: "Employee" },
+                  // A backend-supplied list can carry a label column (the
+                  // canteen statement leads with the department), so only the
+                  // numeric ones get the numeric treatment.
+                  ...(data.columns ?? []).map((c) =>
+                    typeof data.data[0]?.[c] === "number"
+                      ? { field: c, headerName: c, type: "number" as const }
+                      : { field: c, headerName: c },
+                  ),
+                ],
+                data.data,
+              );
+          // sno is a plain row field so the Excel export picks it up too.
+          setReport({ title: label, columns, rows: data.data.map((r, i) => ({ ...r, sno: i + 1 })) });
+          if (data.data.length === 0) {
+            notify(`No rows for "${label}"`, "info");
+            return;
+          }
+          // Plain sheet — header row then data, no report banner — so it
+          // uploads to payroll unchanged. The statements break per department
+          // instead, each on its own page under a repeated header.
+          if (target.download) {
+            void exportRowsToExcel(
+              columns, data.data, target.download, undefined, target.groupBy,
+            );
+          }
           return;
         }
 
@@ -733,7 +805,7 @@ export default function NjmWagesProcessPage() {
             onClick={() => void run("process")}
             disabled={submitting}
           >
-            {submitting ? "Processing..." : "Action"}
+            {submitting ? "Processing..." : "Process"}
           </Button>
           <Button
             variant="outline"
@@ -788,8 +860,9 @@ export default function NjmWagesProcessPage() {
       )}
 
       <Alert severity="info">
-        Live: every Updates action, Contractor Wages Process (attendance +
-        canteen), Main Wages Process (attendance, advance and leave), both
+        Live: every Updates action, Contractor Wages Process (attendance,
+        piece production + canteen), Main Wages Process (attendance, advance
+        and leave), both
         payroll postings, both payroll exports, the break-up summary, the
         Contractor ESI file, and all five checklists. Pay Slip Printing and Bank
         Statements download from this screen; Pay Register opens the register.
