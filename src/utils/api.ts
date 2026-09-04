@@ -771,6 +771,9 @@ const apiRoutesPortalMasters = {
     EJM_WAGES_DATA_LIST: `${API_URL}/hrmsMasters/ejm_wages_data_list`,
     EJM_WAGES_DATA_UPDATE: `${API_URL}/hrmsMasters/ejm_wages_data_update`,
   EJM_CASH_OUTSIDER_PROCESS: `${API_URL}/hrmsMasters/ejm_cash_outsider_process`,
+    // EJM-Cumulative Data Transfer (legacy hol_get=20) -> cumulative_data_table
+    EJM_CUMULATIVE_TRANSFER: `${API_URL}/hrmsMasters/ejm_cumulative_transfer`,
+    EJM_WAGES_PAYROLL_EXCEL: `${API_URL}/hrmsMasters/ejm_wages_payroll_excel`,
     // EJM Pay Register / OT Register grids (legacy pay_register_payslip.php / ot_register_payslip.php)
     EJM_PAY_REGISTER_REPORT: `${API_URL}/hrmsMasters/ejm_pay_register_report`,
     EJM_OT_REGISTER_REPORT: `${API_URL}/hrmsMasters/ejm_ot_register_report`,
