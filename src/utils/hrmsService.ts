@@ -444,6 +444,22 @@ export const downloadEjmTextPrint = (p: {
     })}`,
   );
 
+/** Excel for Pay Roll: the scheme's Pay Roll upload template filled from the
+ *  period's collected wages, every hand on the scheme (zeros where nothing
+ *  was collected). Uploads through Pay Roll unchanged. */
+export const downloadEjmWagesPayrollExcel = (p: {
+  dateFrom: string;
+  dateTo: string;
+  paySchemeId: string | number;
+}): Promise<Blob> =>
+  fetchHrmsBlob(
+    `${apiRoutesPortalMasters.EJM_WAGES_PAYROLL_EXCEL}?${new URLSearchParams({
+      date_from: p.dateFrom,
+      date_to: p.dateTo,
+      pay_scheme_id: String(p.paySchemeId),
+    })}`,
+  );
+
 // ─── Pay Register Display Setup (tbl_payslip_print_component) ───────
 
 export const fetchPayslipPrintComponentList = async (
