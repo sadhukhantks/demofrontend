@@ -1245,11 +1245,12 @@ function JuteIssueEditPage() {
                             size="small"
                           />
                         </TableCell>
-                        {/* Waste has no gate entry, date, vehicle or MR number —
-                            its department stands in for the gate entry */}
+                        {/* A grouped waste row has no gate entry, date, vehicle,
+                            MR number, department or area — it is the item's whole
+                            balance across every booking. */}
                         <TableCell>
                           {stock.source === "WASTE"
-                            ? stock.dept_name || "-"
+                            ? stock.dept_name || "Waste"
                             : stock.gate_entry_num || stock.jute_gate_entry_no || "-"}
                         </TableCell>
                         <TableCell sx={{ whiteSpace: "nowrap" }}>
@@ -1263,7 +1264,7 @@ function JuteIssueEditPage() {
                         <TableCell>{stock.unit_conversion}</TableCell>
                         <TableCell>
                           {stock.source === "WASTE"
-                            ? stock.area_name || "-"
+                            ? stock.area_name || "All areas"
                             : stock.warehouse_name || "-"}
                         </TableCell>
                         <TableCell align="right">
@@ -1322,7 +1323,7 @@ function JuteIssueEditPage() {
                             </Typography>
                             <Typography variant="caption" color="text.secondary" display="block">
                               {stock.source === "WASTE"
-                                ? `${stock.dept_name || "-"} · ${stock.area_name || "-"}`
+                                ? describeStockOrigin(stock)
                                 : `${stock.mr_num ?? stock.branch_mr_no ?? "-"} · GE ${
                                     stock.gate_entry_num || stock.jute_gate_entry_no || "-"
                                   }`}
@@ -1419,7 +1420,7 @@ function JuteIssueEditPage() {
                 </Typography>
                 <Typography>
                   {selectedStock.source === "WASTE"
-                    ? `Waste #${selectedStock.waste_entry_id} / ${describeStockOrigin(selectedStock)} - ${selectedStock.jute_group_name || "Unknown"} (${selectedStock.item_name || "N/A"})`
+                    ? `Waste stock - ${selectedStock.jute_group_name || "Unknown"} (${selectedStock.item_name || "N/A"})`
                     : `MR ${selectedStock.mr_num ?? selectedStock.branch_mr_no} / GE ${selectedStock.gate_entry_num ?? selectedStock.jute_gate_entry_no ?? "-"} - ${selectedStock.jute_group_name || "Unknown"} (${selectedStock.item_name || "N/A"})`}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">

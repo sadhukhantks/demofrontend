@@ -7,9 +7,10 @@ import type { ApprovalStatusId } from "@/components/ui/transaction";
 import type { PartyBranchOption } from "../types/mrTypes";
 
 /**
- * Extended status type for MR that includes Pending (13) which is not in standard ApprovalStatusId.
+ * Extended status type for MR that includes Pending (13) and Returned (48),
+ * which are not in standard ApprovalStatusId.
  */
-export type MRStatusId = ApprovalStatusId | 13;
+export type MRStatusId = ApprovalStatusId | 13 | 48;
 
 /**
  * Standard MR status identifiers used throughout the workflow.
@@ -23,6 +24,8 @@ export const MR_STATUS_IDS: Record<string, MRStatusId> = {
 	REJECTED: 4,
 	CLOSED: 5,
 	CANCELLED: 6,
+	// Lorry returned to supplier without settlement (2026-09-03, status_mst 48).
+	RETURNED: 48,
 } as const;
 
 /**
@@ -37,6 +40,7 @@ export const MR_STATUS_LABELS: Record<MRStatusId, string> = {
 	4: "Rejected",
 	5: "Closed",
 	6: "Cancelled",
+	48: "Returned",
 };
 
 /**

@@ -8,11 +8,14 @@
  */
 
 import React from "react";
+import { usePathname } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
 import type { MuiFormMode } from "@/components/ui/muiform";
 import type { ApprovalInfo, ApprovalActionPermissions, ApprovalStatusId } from "@/components/ui/transaction";
+import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { MR_STATUS_IDS, MR_STATUS_LABELS, type MRStatusId } from "../utils/mrConstants";
-import { openMR, pendingMR, approveMR, rejectMR, cancelMR } from "../utils/mrService";
+import { openMR, pendingMR, approveMR, rejectMR, cancelMR, reopenMR, returnMR, type ReopenResponse } from "../utils/mrService";
+import type { MRReopenTarget } from "../components/MRReopenDialog";
 import type { JuteMRHeader } from "../types/mrTypes";
 
 type UseMRApprovalParams = {
@@ -42,6 +45,8 @@ export const useMRApproval = ({
 	onRefresh,
 }: UseMRApprovalParams) => {
 	const [approvalLoading, setApprovalLoading] = React.useState(false);
+	const pathname = usePathname();
+	const { hasMenuAccess } = useSidebarContext();
 
 	/**
 	 * Maps status string to status ID. Used when statusId is not directly available.
@@ -126,6 +131,11 @@ export const useMRApproval = ({
 				return { canViewApprovalLog: true };
 			}
 
+			// Returned (lorry sent back, no settlement): terminal, view log only.
+			if (status === MR_STATUS_IDS.RETURNED) {
+				return { canViewApprovalLog: true };
+			}
+
 			// Draft: can save and open (if party + branch are selected)
 			if (status === MR_STATUS_IDS.DRAFT) {
 				const hasParty = Boolean(header?.party_id);
@@ -184,11 +194,52 @@ export const useMRApproval = ({
 	 * Whether the Pending button should be shown. Pending parks the MR to the
 	 * external system and is offered ONLY to the highest-level approver — so it
 	 * requires the current-level approve permission AND the MR being at its
-	 * final approval level.
+	 * final approval level. Mirrors the backend's require_mr_party_complete
+	 * guard (decision D4): party AND party branch must both be set.
 	 */
 	const canSetPending = React.useMemo(() => {
-		return mode !== "view" && Boolean(approvalPermissions.canApprove) && isFinalLevel;
-	}, [mode, approvalPermissions.canApprove, isFinalLevel]);
+		return (
+			mode !== "view" &&
+			Boolean(approvalPermissions.canApprove) &&
+			isFinalLevel &&
+			Boolean(header?.party_id) &&
+			Boolean(header?.party_branch_id)
+		);
+	}, [mode, approvalPermissions.canApprove, isFinalLevel, header?.party_id, header?.party_branch_id]);
+
+	/**
+	 * Whether the Reopen button should be shown: Pending/Approved only, and only
+	 * for users with edit access on this menu (access_type_id >= 4, decision D2).
+	 * The backend re-checks this (403) — this only controls button visibility.
+	 */
+	const canReopen = React.useMemo(() => {
+		return (
+			mode !== "view" &&
+			(statusId === MR_STATUS_IDS.PENDING || statusId === MR_STATUS_IDS.APPROVED) &&
+			hasMenuAccess(pathname, "edit")
+		);
+	}, [mode, statusId, hasMenuAccess, pathname]);
+
+	/**
+	 * Whether the Return-lorry button should be shown: Open/Pending.
+	 *
+	 * NOT gated on approvalPermissions.canReject: calculate_approval_permissions
+	 * (src/common/approval_utils.py) only ever sets canReject=True for
+	 * status_id === 20 (Pending Approval) — never for Open (1) or Pending (13),
+	 * which are exactly the two statuses this button targets. Gating on canReject
+	 * made the button permanently unreachable for every user (bug found in QA,
+	 * 2026-09-03). The backend /return_mr endpoint has no permission check of its
+	 * own, so the FE is the sole gate — use the same menu edit-access check as
+	 * Reopen just above, which is the established pattern for actions the
+	 * approval-permissions object doesn't model.
+	 */
+	const canReturnLorry = React.useMemo(() => {
+		return (
+			mode !== "view" &&
+			(statusId === MR_STATUS_IDS.OPEN || statusId === MR_STATUS_IDS.PENDING) &&
+			hasMenuAccess(pathname, "edit")
+		);
+	}, [mode, statusId, hasMenuAccess, pathname]);
 
 	/**
 	 * Approval info for the approval bar.
@@ -217,7 +268,7 @@ export const useMRApproval = ({
 		const color: StatusChipColor =
 			statusId === MR_STATUS_IDS.APPROVED
 				? "success"
-				: statusId === MR_STATUS_IDS.REJECTED || statusId === MR_STATUS_IDS.CANCELLED
+				: statusId === MR_STATUS_IDS.REJECTED || statusId === MR_STATUS_IDS.CANCELLED || statusId === MR_STATUS_IDS.RETURNED
 					? "error"
 					: statusId === MR_STATUS_IDS.PENDING_APPROVAL || statusId === MR_STATUS_IDS.PENDING
 						? "warning"
@@ -308,6 +359,11 @@ export const useMRApproval = ({
 	// State for approval dialog
 	const [approvalDialogOpen, setApprovalDialogOpen] = React.useState(false);
 
+	// State for reopen dialog + the warning it surfaces after a successful reopen
+	// (e.g. issues already drawn against the MR — run Sync issued weights next).
+	const [reopenDialogOpen, setReopenDialogOpen] = React.useState(false);
+	const [reopenWarning, setReopenWarning] = React.useState<string | null>(null);
+
 	/**
 	 * Approve action. At intermediate levels this advances the MR to the next
 	 * approval level directly. At the final level it opens the dialog to collect
@@ -319,12 +375,21 @@ export const useMRApproval = ({
 			return;
 		}
 
-		// Validate party branch is selected before approving
-		if (header?.party_id && !partyBranchId) {
+		// Mirror the backend's require_mr_party_complete guard (decision D4):
+		// Pending/Approved both need party AND party branch, unconditionally.
+		if (!header?.party_id) {
+			toast({
+				variant: "destructive",
+				title: "Party required",
+				description: "Party must be selected before the MR can be set to Pending or Approved.",
+			});
+			return;
+		}
+		if (!partyBranchId) {
 			toast({
 				variant: "destructive",
 				title: "Party branch required",
-				description: "Please select a party branch before approving."
+				description: "Party branch must be selected before the MR can be set to Pending or Approved.",
 			});
 			return;
 		}
@@ -440,6 +505,81 @@ export const useMRApproval = ({
 	}, [mrId, branchId, onRefresh]);
 
 	/**
+	 * Open the reopen-target dialog.
+	 */
+	const handleReopenClick = React.useCallback(() => {
+		setReopenWarning(null);
+		setReopenDialogOpen(true);
+	}, []);
+
+	/**
+	 * Close the reopen dialog.
+	 */
+	const handleReopenDialogClose = React.useCallback(() => {
+		setReopenDialogOpen(false);
+	}, []);
+
+	/**
+	 * Confirm reopen with the chosen target ("open" or "qc").
+	 * Requires the MR menu_id so the backend can check edit access.
+	 */
+	const handleReopenConfirm = React.useCallback(
+		async (target: MRReopenTarget) => {
+			if (!mrId || !branchId) {
+				toast({ variant: "destructive", title: "Missing required information" });
+				return;
+			}
+
+			setApprovalLoading(true);
+			try {
+				const result: ReopenResponse = await reopenMR(mrId, branchId, target, getMenuId());
+				toast({ title: "MR reopened", description: target === "qc" ? "Ready for gate entry / QC." : "Ready for editing." });
+				setReopenDialogOpen(false);
+				setReopenWarning(result.warning ?? null);
+				await onRefresh();
+			} catch (error) {
+				toast({
+					variant: "destructive",
+					title: "Unable to reopen MR",
+					description: error instanceof Error ? error.message : "Please try again.",
+				});
+			} finally {
+				setApprovalLoading(false);
+			}
+		},
+		[mrId, branchId, getMenuId, onRefresh],
+	);
+
+	/**
+	 * Handle Return-lorry action - marks the MR Returned (48): the lorry came in
+	 * but was sent back to the supplier without settlement.
+	 */
+	const handleReturn = React.useCallback(
+		async (reason: string) => {
+			if (!mrId || !branchId) {
+				toast({ variant: "destructive", title: "Missing required information" });
+				return;
+			}
+
+			setApprovalLoading(true);
+			try {
+				await returnMR(mrId, branchId, reason);
+				toast({ title: "MR marked Returned" });
+				await onRefresh();
+			} catch (error) {
+				toast({
+					variant: "destructive",
+					title: "Unable to mark MR Returned",
+					description: error instanceof Error ? error.message : "Please try again.",
+				});
+			} finally {
+				setApprovalLoading(false);
+			}
+		},
+		[mrId, branchId, onRefresh],
+	);
+
+	/**
 	 * Handle View Approval Log action.
 	 */
 	const handleViewApprovalLog = React.useCallback(() => {
@@ -456,17 +596,26 @@ export const useMRApproval = ({
 		statusId,
 		canSetOpen,
 		canSetPending,
+		canReopen,
+		canReturnLorry,
 		partyHasNoBranches,
 		// Approval dialog state
 		approvalDialogOpen,
 		handleApprovalDialogClose,
 		handleApproveConfirm,
+		// Reopen dialog state
+		reopenDialogOpen,
+		reopenWarning,
+		handleReopenClick,
+		handleReopenDialogClose,
+		handleReopenConfirm,
 		// Action handlers
 		handleOpen,
 		handlePending,
 		handleApprove,
 		handleReject,
 		handleCancel,
+		handleReturn,
 		handleViewApprovalLog,
 	};
 };
