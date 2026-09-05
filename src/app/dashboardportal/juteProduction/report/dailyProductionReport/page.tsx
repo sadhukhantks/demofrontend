@@ -276,6 +276,18 @@ function Content() {
               }
             />
             <KpiCard
+              label="Shifts Worked"
+              // TKT-000152: the sheet's per-shift averages could not be checked
+              // without it. Union over sections — one shift both spinning and
+              // weaving ran in is one worked shift.
+              value={fmt(data.kpi.shifts_worked, 0)}
+              sub={`MTD ${fmt(data.kpi.shifts_worked_mtd, 0)}${
+                data.shifts_worked.day_shifts.length
+                  ? ` · ${data.shifts_worked.day_shifts.join(", ")}`
+                  : ""
+              }`}
+            />
+            <KpiCard
               label="Hands / MT"
               value={fmt(data.kpi.hands_per_mt, 1)}
               // Denominator on the card (TKT-000117): "396 hands" beside a spinning
@@ -719,6 +731,38 @@ function Content() {
               </DprTable>
             </SectionCard>
           ) : null}
+
+          {/* Shifts worked */}
+          <SectionCard
+            title="Shifts Worked"
+            subtitle="A shift counts as worked when that section has a production entry in it; the mill row is the union across sections, not their sum"
+          >
+            <DprTable
+              head={
+                <Tr>
+                  <Td>Section</Td>
+                  <Td align="right">Today</Td>
+                  <Td>Shifts</Td>
+                  <Td align="right">To Date</Td>
+                </Tr>
+              }
+            >
+              {data.shifts_worked.sections.map((s) => (
+                <Tr key={s.section}>
+                  <Td>{s.section}</Td>
+                  <NumTd value={s.day} digits={0} />
+                  <Td>{s.day_shifts.join(", ") || "—"}</Td>
+                  <NumTd value={s.mtd} digits={0} />
+                </Tr>
+              ))}
+              <Tr sx={totalRowSx()}>
+                <Td>Mill</Td>
+                <NumTd value={data.shifts_worked.day} digits={0} bold />
+                <Td>{data.shifts_worked.day_shifts.join(", ") || "—"}</Td>
+                <NumTd value={data.shifts_worked.mtd} digits={0} bold />
+              </Tr>
+            </DprTable>
+          </SectionCard>
 
           {/* Hands */}
           <SectionCard

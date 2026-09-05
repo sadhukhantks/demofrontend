@@ -12,7 +12,7 @@ import {
 	type SpreaderSliverWtSetup,
 	type SpreaderSliverWtSavePayload,
 } from "../types/sqcSpreaderTypes";
-import { computePreview } from "../utils/spreaderSliverCalc";
+import { computePreview, gmsToLbs, SAMPLE_LENGTH_YDS } from "../utils/spreaderSliverCalc";
 
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 type Props = {
@@ -34,7 +34,8 @@ const blankReadings = (): string[] => Array(SLIVER_WT_MIN_READINGS).fill("");
  * this captures a DYNAMIC list of paired (weight, MR%) readings — add/remove
  * rows between 1 and 12 — and the live preview (corrected weights, averages,
  * StDev, CV%) is advisory only (NO bands). The server recomputes and persists
- * every value on save. Units are lb/100yds (operator-entered, already scaled).
+ * every value on save. The operator keys each 5-yd cut in GRAMS (what gets
+ * stored); Obs / Corr / StDev are DISPLAYED in lbs/100yds.
  * POST shape per the R-08-03 build plan §3.
  */
 export default function SliverWtForm({ coId, branchId, entryDate, setup, onSaved }: Props) {
@@ -211,7 +212,8 @@ export default function SliverWtForm({ coId, branchId, entryDate, setup, onSaved
 			{/* Dynamic 1–12 paired (weight, MR%) readings */}
 			<Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mt: 1 }}>
 				<Typography variant="subtitle2">
-					Sliver weight readings — {weights.length}/{SLIVER_WT_MAX_READINGS} (lb/100yds + MR%)
+					Sliver weight readings — {weights.length}/{SLIVER_WT_MAX_READINGS} (gms per{" "}
+					{SAMPLE_LENGTH_YDS} yds + MR%) — Obs / Corr / StDev shown in lbs/100yds
 				</Typography>
 				<Button
 					variant="outlined"
@@ -239,7 +241,7 @@ export default function SliverWtForm({ coId, branchId, entryDate, setup, onSaved
 					<Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
 						<TextField
 							type="number"
-							label={`Wt ${i + 1}`}
+							label={`Wt ${i + 1} (g)`}
 							value={w}
 							onChange={(e) => setWeightAt(i, e.target.value)}
 							size="small"
@@ -291,18 +293,18 @@ export default function SliverWtForm({ coId, branchId, entryDate, setup, onSaved
 					>
 						<Box>
 							<Typography variant="caption" color="text.secondary">
-								Avg Obs
+								Avg Obs (lbs)
 							</Typography>
 							<Typography variant="body2" fontWeight="bold">
-								{preview.avgObs != null ? preview.avgObs.toFixed(2) : "—"}
+								{preview.avgObs != null ? gmsToLbs(preview.avgObs).toFixed(2) : "—"}
 							</Typography>
 						</Box>
 						<Box>
 							<Typography variant="caption" color="text.secondary">
-								Avg Corr
+								Avg Corr (lbs)
 							</Typography>
 							<Typography variant="body2" fontWeight="bold">
-								{preview.avgCorr != null ? preview.avgCorr.toFixed(2) : "—"}
+								{preview.avgCorr != null ? gmsToLbs(preview.avgCorr).toFixed(2) : "—"}
 							</Typography>
 						</Box>
 						<Box>
@@ -315,10 +317,10 @@ export default function SliverWtForm({ coId, branchId, entryDate, setup, onSaved
 						</Box>
 						<Box>
 							<Typography variant="caption" color="text.secondary">
-								StDev
+								StDev (lbs)
 							</Typography>
 							<Typography variant="body2" fontWeight="bold">
-								{preview.stdev != null ? preview.stdev.toFixed(4) : "—"}
+								{preview.stdev != null ? gmsToLbs(preview.stdev).toFixed(4) : "—"}
 							</Typography>
 						</Box>
 						<Box>

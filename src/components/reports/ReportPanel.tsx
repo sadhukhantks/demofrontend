@@ -233,6 +233,25 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
     pathname,
   ]);
 
+  // Building the workbook is synchronous and blocks the tab (~16s for 36k
+  // rows), so the button has to say so — an export with no busy state and no
+  // error surface reads as "export to excel is not working" (TKT-000141).
+  const [exporting, setExporting] = useState(false);
+  const runExport = useCallback(async (job: () => Promise<void>) => {
+    setExporting(true);
+    setError(null);
+    // Yield a macrotask so "Exporting…" actually paints before the blocking
+    // workbook build starts.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    try {
+      await job();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to export");
+    } finally {
+      setExporting(false);
+    }
+  }, []);
+
   const handleExport = useCallback(async () => {
     const header = await buildHeader();
     if (exportOverride) {
@@ -415,21 +434,21 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
                 // "Select a branch", but `rows` still holds the previous
                 // branch's data — exporting it would write a sheet with no
                 // Branch line in the header over another branch's rows.
-                disabled={branchId == null || rows.length === 0}
+                disabled={branchId == null || rows.length === 0 || exporting}
                 onClick={() => {
-                  void handleExport();
+                  void runExport(handleExport);
                 }}
                 sx={{ textTransform: "none" }}
               >
-                Export to Excel
+                {exporting ? "Exporting…" : "Export to Excel"}
               </Button>
 
               {pdfExport && (
                 <Button
                   variant="outlined"
-                  disabled={branchId == null || rows.length === 0}
+                  disabled={branchId == null || rows.length === 0 || exporting}
                   onClick={() => {
-                    void handleExportPdf();
+                    void runExport(handleExportPdf);
                   }}
                   sx={{ textTransform: "none" }}
                 >
