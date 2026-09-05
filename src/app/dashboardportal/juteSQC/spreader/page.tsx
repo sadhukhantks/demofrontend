@@ -5,6 +5,7 @@ import { Alert, Box, CircularProgress, Tab, Tabs, TextField, Typography } from "
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayISO } from "./utils/spreaderCalc";
+import { gmsToLbs } from "./utils/spreaderSliverCalc";
 import { ROLL_WT_READINGS } from "./types/sqcSpreaderTypes";
 import { useSqcRollWtSetup } from "./hooks/useSqcRollWtSetup";
 import { useSqcRollWtByDate } from "./hooks/useSqcRollWtByDate";
@@ -177,7 +178,8 @@ export default function SpreaderSqcPage() {
 
 	// R-08-03 day print: every loaded row for the date, spell as an ordinary
 	// column. Mirrors the grid's columns + server-computed calc_* averages
-	// (no machine std comparison, matching the on-screen grid).
+	// (no machine std comparison, matching the on-screen grid). Weight stats are
+	// persisted in the entered gram unit and printed in lbs/100yds.
 	const getSliverWtReport = React.useCallback((): SqcPrintReport | null => {
 		if (sliverWtReadings.length === 0) return null;
 		const columns: PrintColumn[] = [
@@ -186,10 +188,10 @@ export default function SpreaderSqcPage() {
 			{ key: "quality", label: "Quality" },
 			{ key: "category", label: "Category" },
 			{ key: "std_mr_pct", label: "Std MR%", align: "right" },
-			{ key: "avg_obs", label: "Avg Obs", align: "right" },
-			{ key: "avg_corr", label: "Avg Corr", align: "right" },
+			{ key: "avg_obs", label: "Avg Obs (lbs)", align: "right" },
+			{ key: "avg_corr", label: "Avg Corr (lbs)", align: "right" },
 			{ key: "avg_mr", label: "Avg MR%", align: "right" },
-			{ key: "stdev", label: "StDev", align: "right" },
+			{ key: "stdev", label: "StDev (lbs)", align: "right" },
 			{ key: "cv_pct", label: "CV %", align: "right" },
 		];
 		// Row identity labels — shared by the summary and the raw-readings section.
@@ -203,13 +205,16 @@ export default function SpreaderSqcPage() {
 			quality: r.item_name ?? r.item_code ?? (r.item_id != null ? `Quality #${r.item_id}` : "—"),
 			category: r.category && r.category.trim() !== "" ? r.category : "—",
 		});
+		// calc_* weights come back in the entered unit (grams); print them in lbs/100yds.
+		const lbs = (v: number | null | undefined, digits = 2): string =>
+			v != null ? gmsToLbs(Number(v)).toFixed(digits) : "—";
 		const rows = sliverWtReadings.map((r) => ({
 			...identity(r),
 			std_mr_pct: r.std_mr_pct != null ? r.std_mr_pct.toFixed(2) : "—",
-			avg_obs: r.calc_avg_obs != null ? r.calc_avg_obs.toFixed(2) : "—",
-			avg_corr: r.calc_avg_corr != null ? r.calc_avg_corr.toFixed(2) : "—",
+			avg_obs: lbs(r.calc_avg_obs),
+			avg_corr: lbs(r.calc_avg_corr),
 			avg_mr: r.calc_avg_mr != null ? r.calc_avg_mr.toFixed(2) : "—",
-			stdev: r.calc_stdev != null ? r.calc_stdev.toFixed(4) : "—",
+			stdev: lbs(r.calc_stdev, 4),
 			cv_pct: r.calc_cv_pct != null ? `${(r.calc_cv_pct * 100).toFixed(2)}%` : "—",
 		}));
 		// Second section: the raw readings the operator keyed. Ragged arrays (1–12),
@@ -219,7 +224,7 @@ export default function SpreaderSqcPage() {
 		if (n > 0) {
 			sections.push({
 				kind: "table",
-				title: "Recorded Readings — Sliver Weights & MR%",
+				title: "Recorded Readings — Sliver Weights (g) & MR%",
 				columns: [
 					{ key: "spell", label: "Spell" },
 					{ key: "machine", label: "Machine" },
@@ -227,7 +232,7 @@ export default function SpreaderSqcPage() {
 					{ key: "category", label: "Category" },
 					{ key: "sample_length_yds", label: "Sample (yds)", align: "right" },
 					{ key: "weight_basis", label: "Basis" },
-					...readingColumns("wt", "Wt", n),
+					...readingColumns("wt", "Wt (g)", n),
 					...readingColumns("mr", "MR%", n),
 				],
 				rows: sliverWtReadings.map((r) => ({

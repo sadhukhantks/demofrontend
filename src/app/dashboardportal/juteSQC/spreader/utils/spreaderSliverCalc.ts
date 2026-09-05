@@ -12,6 +12,15 @@
 // Default per-quality standard moisture regain % when no satellite value is set.
 export const DEFAULT_STD_MR_PCT = 16;
 
+// The operator weighs each 5-yd sliver cut in GRAMS (raw grams are what get
+// stored); the sheet reports sliver weight as LBS per 100 yds. Display-only
+// conversion — the server keeps computing calc_* in the entered (gram) unit.
+export const GMS_PER_LB = 453.6;
+export const SAMPLE_LENGTH_YDS = 5;
+export function gmsToLbs(gms: number): number {
+	return (Number(gms) / GMS_PER_LB) * (100 / SAMPLE_LENGTH_YDS);
+}
+
 function round2(x: number): number {
 	return Math.round(x * 100) / 100;
 }
@@ -51,7 +60,7 @@ export function cvRatio(stdevCorr: number, avgCorr: number): number {
 // ─── Full preview bundle (no bands) ──────────────────────────────────────────
 
 export type SpreaderSliverWtPreview = {
-	observed: number[]; // raw weights (the bench reading, lb/100yds)
+	observed: number[]; // raw cut weights (the bench reading, grams)
 	corrected: number[]; // per-reading corrected weight
 	avgMrPct: number | null;
 	avgObs: number | null;

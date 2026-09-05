@@ -234,14 +234,18 @@ export function buildReportSheet<T extends GridValidRowModel>(
     if (/item description/i.test(name)) {
       col.width = 70;
     } else {
-      const maxLen = Math.max(
-        name.length,
-        ...rows.map(
-          (r) =>
-            String((r as Record<string, unknown>)[c.field as string] ?? "")
-              .length,
-        ),
-      );
+      // Loop, not `Math.max(name.length, ...rows.map(...))`: a spread of more
+      // than ~125k arguments throws RangeError: Maximum call stack size
+      // exceeded, which killed the whole export with no message on any report
+      // big enough to need one (sls br 29 Full Attendance = 382k rows for one
+      // financial year).
+      let maxLen = name.length;
+      for (const r of rows) {
+        const len = String(
+          (r as Record<string, unknown>)[c.field as string] ?? "",
+        ).length;
+        if (len > maxLen) maxLen = len;
+      }
       col.width = Math.min(Math.max(maxLen + 2, 10), 40);
     }
     // Whole-number columns (counts, meals, rupee statements) print without the

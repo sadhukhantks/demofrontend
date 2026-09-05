@@ -20,6 +20,11 @@ import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { SpreaderSliverWtReadingRow } from "../types/sqcSpreaderTypes";
+import { gmsToLbs } from "../utils/spreaderSliverCalc";
+
+// Server calc_* weights are in the entered unit (grams); render them in lbs/100yds.
+const lbs = (value: unknown, digits = 2): string =>
+	value != null ? gmsToLbs(Number(value)).toFixed(digits) : "";
 
 type Props = {
 	coId: string;
@@ -31,7 +36,7 @@ type Props = {
 // One computed summary line per saved entry. Unlike R-08-04 there is NO machine
 // standard sliver weight to compare against (source tab prints no std / band
 // column), so the summary is just the persisted stats: Avg Obs / Avg Corr /
-// Avg MR% / StDev / CV%.
+// Avg MR% / StDev / CV%. Weight stats are stored in grams and shown in lbs/100yds.
 type SummaryRow = {
 	gridId: string;
 	serverId: number;
@@ -171,17 +176,17 @@ export default function SliverWtGrid({ coId, readings, loading, onDeleted }: Pro
 			},
 			{
 				field: "calc_avg_obs",
-				headerName: "Avg Obs",
-				width: 110,
+				headerName: "Avg Obs (lbs)",
+				width: 130,
 				type: "number",
-				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
+				valueFormatter: (value) => lbs(value),
 			},
 			{
 				field: "calc_avg_corr",
-				headerName: "Avg Corr",
-				width: 110,
+				headerName: "Avg Corr (lbs)",
+				width: 130,
 				type: "number",
-				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
+				valueFormatter: (value) => lbs(value),
 			},
 			{
 				field: "calc_avg_mr",
@@ -192,10 +197,10 @@ export default function SliverWtGrid({ coId, readings, loading, onDeleted }: Pro
 			},
 			{
 				field: "calc_stdev",
-				headerName: "StDev",
+				headerName: "StDev (lbs)",
 				width: 120,
 				type: "number",
-				valueFormatter: (value) => (value != null ? Number(value).toFixed(4) : ""),
+				valueFormatter: (value) => lbs(value, 4),
 			},
 			{
 				field: "calc_cv_pct",
@@ -232,10 +237,10 @@ export default function SliverWtGrid({ coId, readings, loading, onDeleted }: Pro
 									<TableCell>QUALITY</TableCell>
 									<TableCell>MACHINE</TableCell>
 									<TableCell>CATEGORY</TableCell>
-									<TableCell align="right">AVG OBS</TableCell>
-									<TableCell align="right">AVG CORR</TableCell>
+									<TableCell align="right">AVG OBS (LBS)</TableCell>
+									<TableCell align="right">AVG CORR (LBS)</TableCell>
 									<TableCell align="right">AVG MR%</TableCell>
-									<TableCell align="right">STDEV</TableCell>
+									<TableCell align="right">STDEV (LBS)</TableCell>
 									<TableCell align="right">CV %</TableCell>
 								</TableRow>
 							</TableHead>
@@ -246,16 +251,16 @@ export default function SliverWtGrid({ coId, readings, loading, onDeleted }: Pro
 										<TableCell>{r.machine}</TableCell>
 										<TableCell>{r.category}</TableCell>
 										<TableCell align="right">
-											{r.avgObs != null ? r.avgObs.toFixed(2) : "—"}
+											{r.avgObs != null ? lbs(r.avgObs) : "—"}
 										</TableCell>
 										<TableCell align="right">
-											{r.avgCorr != null ? r.avgCorr.toFixed(2) : "—"}
+											{r.avgCorr != null ? lbs(r.avgCorr) : "—"}
 										</TableCell>
 										<TableCell align="right">
 											{r.avgMr != null ? r.avgMr.toFixed(2) : "—"}
 										</TableCell>
 										<TableCell align="right">
-											{r.stdev != null ? r.stdev.toFixed(4) : "—"}
+											{r.stdev != null ? lbs(r.stdev, 4) : "—"}
 										</TableCell>
 										<TableCell align="right">
 											{r.cv != null ? `${(r.cv * 100).toFixed(2)}%` : "—"}

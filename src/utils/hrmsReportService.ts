@@ -238,23 +238,37 @@ export interface AbsenteeismRow {
   emp_code: string | null;
   emp_name: string | null;
   department: string | null;
+  sub_department: string | null;
   category: string | null;
   last_seen: string | null;
   absent_for: number;
 }
 
-/** Absenteeism: last-seen date + days absent per employee as on a date. */
+/** Parses the Absenteeism "Absent For" window: "7-30" -> [7, 30], and an open
+ * upper bound "90-" -> [90, undefined] (no cap). */
+export function parseAbsentRange(v: string): [number, number | undefined] {
+  const [a, b] = (v || "").split("-");
+  const min = Number(a) || 1;
+  const max = b ? Number(b) : undefined;
+  return [min, max && max >= min ? max : undefined];
+}
+
+/** Absenteeism: last-seen date + days absent per employee as on a date. The
+ * gap is bounded both ways — past maxDays the employee has left rather than
+ * gone absent, and an unbounded list buries the real absentees (TKT-000151). */
 export async function fetchAbsenteeism(p: {
   coId: number;
   branchId?: number | null;
   asOn: string;
   minDays?: number;
+  maxDays?: number;
 }): Promise<AbsenteeismRow[]> {
   const qs = new URLSearchParams();
   qs.set("co_id", String(p.coId));
   qs.set("as_on", p.asOn);
   if (p.branchId != null) qs.set("branch_id", String(p.branchId));
   if (p.minDays != null) qs.set("min_days", String(p.minDays));
+  if (p.maxDays != null) qs.set("max_days", String(p.maxDays));
   const url = `${apiRoutesPortalMasters.ABSENTEEISM_REPORT}?${qs.toString()}`;
   const result = await fetchWithCookie<{ data: AbsenteeismRow[] }>(url);
   if (result.error || !result.data) {
