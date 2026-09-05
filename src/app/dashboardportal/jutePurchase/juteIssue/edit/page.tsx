@@ -322,7 +322,9 @@ function JuteIssueEditPage() {
       return getAdjustedBalWeight(selectedStock);
     }
 
-    return qty * wtPerUnit;
+    // Stock is kept in whole kg (backend rounds the same way), so the preview
+    // must show the number that will actually be stored.
+    return Math.round(qty * wtPerUnit);
   }, [newQuantity, wtPerUnit, selectedStock, getAdjustedBalQty, getAdjustedBalWeight]);
 
   // Max weight based on balance quantity (adjusted for drafts)

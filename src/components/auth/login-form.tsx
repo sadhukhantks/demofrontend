@@ -250,9 +250,6 @@ export function LoginForm({ subdomain }: LoginFormsProps) {
                 </FormItem>
               )}
             />
-            <Button className="text-sm text-blue-600">
-              Forgot Password?
-            </Button>
           </div>
 
           <Button
@@ -263,6 +260,12 @@ export function LoginForm({ subdomain }: LoginFormsProps) {
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Log in
           </Button>
+
+          <div className="flex justify-center">
+            <Button className="text-sm text-blue-600">
+              Forgot Password?
+            </Button>
+          </div>
         </form>
       </Form>
     </div>
