@@ -182,6 +182,23 @@ export interface DprHandsSection {
   basis_label: string;
 }
 
+/** Shifts the mill actually produced in — day and month-to-date (TKT-000152). */
+export interface DprShiftsWorkedSection {
+  section: string;
+  day: number;
+  mtd: number;
+  day_shifts: string[];
+}
+
+export interface DprShiftsWorked {
+  /** Distinct shifts worked on the report date, union over sections. */
+  day: number;
+  /** Distinct (date, shift) pairs over the MTD window, union over sections. */
+  mtd: number;
+  day_shifts: string[];
+  sections: DprShiftsWorkedSection[];
+}
+
 export interface DprMachineRunRow {
   section: string;
   basis: "std" | "target";
@@ -210,6 +227,9 @@ export interface DprKpi {
   /** Batching oil % in emulsion for the day. */
   jbo_pct: number | null;
   total_hands: number;
+  /** Shifts worked on the day / MTD (union over sections) — TKT-000152. */
+  shifts_worked: number;
+  shifts_worked_mtd: number;
   hands_per_mt: number;
   /** The MT the ratio was divided by (TKT-000117) — shown on the KPI card so
    * hands ÷ MT reconciles without hunting for the basis further down the page. */
@@ -262,6 +282,7 @@ export interface DailyProductionReport {
   yarn_heavy_light: DprYarnHeavyLightRow[];
   jute: DprJuteSection | null;
   hands: DprHandsSection;
+  shifts_worked: DprShiftsWorked;
   machine_run: DprMachineRunRow[];
   unavailable: DprUnavailableSection[];
 }

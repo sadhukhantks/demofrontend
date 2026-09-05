@@ -91,3 +91,23 @@ describe("buildReportSheet", () => {
     expect(fractional.columns[2].numFmt).toBe("0.00");
   });
 });
+
+describe("buildReportSheet at report scale", () => {
+  // Regression, TKT-000141: the column-width pass used
+  // `Math.max(name.length, ...rows.map(...))`, and a spread of >~125k arguments
+  // throws RangeError. sls br 29 Full Attendance is 382k rows for one financial
+  // year, so Export to Excel died there with no file and no message.
+  it("sizes columns without spreading every row onto the stack", () => {
+    const { ws, columns } = fakeSheet();
+    const rows = Array.from({ length: 130_000 }, (_, i) => ({
+      id: i,
+      dept_desc: "BATCHING",
+      emp_code: String(i),
+      amount: i,
+    }));
+
+    expect(() => buildReportSheet(ws, COLS, rows)).not.toThrow();
+    // Widest EB No is "129999" (6) + 2 padding, floored at the 10-char minimum.
+    expect(columns[1].width).toBe(10);
+  });
+});
