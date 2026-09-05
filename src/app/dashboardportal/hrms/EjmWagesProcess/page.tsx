@@ -19,11 +19,11 @@ import MuiForm, {
   type Option,
   type Schema,
 } from "@/components/ui/muiform";
-import { useSelectedCompanyCoId } from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayIso } from "@/components/reports/reportDates";
 import {
   downloadEjmTextPrint,
+  downloadEjmWagesPayrollExcel,
   exportBankSheet,
   fetchNjmPayPeriod,
   fetchPaySchemeList,
@@ -40,8 +40,35 @@ const ACTION_HOLIDAY_DATA = "1";
 const ACTION_CASH_OUTSIDER = "14";
 /** Legacy `hol_get` code for Main Payroll FN Attendance Incentive. */
 const ACTION_ATT_INCENTIVE = "2";
-/** New (not a legacy code): browse/correct tbl_ejm_wages_data_collection. */
+/** Legacy exportdbfdata holget 20 — posts the pay period into cumulative_data_table. */
+const ACTION_CUMULATIVE_TRANSFER = "20";
+/** New (not a legacy code): run the five collection steps below over
+ *  tbl_ejm_wages_data_collection, then browse/correct the result. */
 const ACTION_WAGES_DATA = "27";
+
+/** The Wages Data Process pipeline, run in this order on Submit. Each step is
+ *  its own request so progress is visible and a failure stops the chain
+ *  where it happened (legacy mainwagesprocess1 did the same, arm by arm). */
+type StepStatus = "pending" | "running" | "done" | "skipped" | "failed";
+interface PipelineStep {
+  label: string;
+  status: StepStatus;
+  message?: string;
+}
+const STEP_TEXT: Record<StepStatus, string> = {
+  pending: "waiting",
+  running: "running…",
+  done: "done",
+  skipped: "skipped",
+  failed: "failed",
+};
+const STEP_COLOR: Record<StepStatus, string> = {
+  pending: "text.disabled",
+  running: "info.main",
+  done: "success.main",
+  skipped: "warning.main",
+  failed: "error.main",
+};
 
 /**
  * EJM Wages Process — period + pay scheme + action, then Process.
@@ -218,10 +245,16 @@ interface WagesDataRow {
   stl_advance: number;
   installment_advance: number;
   co_loan: number;
+  atten_incentive: number | null;
   misc_earn: number;
   misc_ded: number;
   misc_ot_earn: number;
   misc_ot_ded: number;
+  prev_cuml_w_days: number;
+  prev_cuml_pf_gross: number;
+  prev_cuml_pf_contribution: number;
+  prev_cuml_bonus_gross: number;
+  prev_cuml_fpf_contribution: number;
   update_for: string | null;
 }
 
@@ -230,7 +263,7 @@ interface WagesDataRow {
 const EDITABLE_NUMERIC_FIELDS = [
   "working_hours", "ot_hours", "ns_hours", "ot_ns_hours", "fest_hours",
   "stl_days", "production", "puja_advance", "ot_advance", "stl_advance",
-  "installment_advance", "co_loan", "misc_earn", "misc_ded",
+  "installment_advance", "co_loan", "atten_incentive", "misc_earn", "misc_ded",
   "misc_ot_earn", "misc_ot_ded",
 ] as const;
 
@@ -261,10 +294,18 @@ const WAGES_GRID_COLUMNS: GridColDef[] = [
   numCol("stl_advance", "STL Adv"),
   numCol("installment_advance", "Inst Adv"),
   numCol("co_loan", "CO Loan"),
+  numCol("atten_incentive", "Att Incentive"),
   numCol("misc_earn", "Misc Earn"),
   numCol("misc_ded", "Misc Ded"),
   numCol("misc_ot_earn", "Misc OT Earn"),
   numCol("misc_ot_ded", "Misc OT Ded"),
+  // Previous cumulatives are computed by the Cumulative Data Process, never
+  // hand-corrected: fix the past period in cumulative_data_table instead.
+  { ...numCol("prev_cuml_w_days", "Prev W Days"), editable: false },
+  { ...numCol("prev_cuml_pf_gross", "Prev PF Gross"), editable: false },
+  { ...numCol("prev_cuml_pf_contribution", "Prev PF Cont"), editable: false },
+  { ...numCol("prev_cuml_bonus_gross", "Prev Bonus Gross"), editable: false },
+  { ...numCol("prev_cuml_fpf_contribution", "Prev FPF Cont"), editable: false },
   { field: "update_for", headerName: "Source", width: 80 },
 ];
 
@@ -304,11 +345,14 @@ type ReportResult =
   | { kind: "report"; title: string; columns: GridColDef[]; rows: ReportRow[] };
 
 export default function EjmWagesProcessPage() {
-  const { coId } = useSelectedCompanyCoId();
   // Every action here processes one branch's data — the legacy screen used the
   // logged-in company, this uses the sidebar branch selection.
   const { selectedBranches, selectedCompany } = useSidebarContext();
   const branchId = selectedBranches.length > 0 ? selectedBranches[0] : undefined;
+  // From the live context, not the localStorage hook: that one only refreshes
+  // on a cross-tab storage event, so switching company in the sidebar left the
+  // Pay Scheme list showing the previous company's schemes.
+  const coId = selectedCompany ? String(selectedCompany.co_id) : "";
   const formRef = useRef<MuiFormHandle>(null);
 
   const [filters, setFilters] = useState<FilterValues>(INITIAL_FILTERS);
@@ -316,6 +360,8 @@ export default function EjmWagesProcessPage() {
   const [submitting, setSubmitting] = useState(false);
   // null = nothing run yet (grid hidden); rows [] = ran, found nothing.
   const [result, setResult] = useState<ReportResult | null>(null);
+  // Step-by-step outcome of the last Wages Data Process run.
+  const [pipeline, setPipeline] = useState<PipelineStep[] | null>(null);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -383,6 +429,114 @@ export default function EjmWagesProcessPage() {
     setFilters((prev) => ({ ...prev, ...(vals as Partial<FilterValues>) }));
   }, []);
 
+  /** Wages Data Process: the five collection steps in order, then the grid.
+   *  1 Attendance Data Transfer  → attendance + night hours arms
+   *  2 Leave Data Process        → STL days arm
+   *  3 Holiday Data Process      → credit pending holidays in the period, then
+   *                                the festival hours arm
+   *  4 Incentive Data Process    → attendance incentive arm
+   *  5 Cumulative Data Process   → previous-cumulative arm (calendar-year
+   *                                work days, financial-year PF / bonus / FPF
+   *                                from cumulative_data_table), then this
+   *                                period's payroll into cumulative_data_table
+   *                                when a pay period already exists
+   *  Stops at the first failure; whatever was collected is still listed. */
+  const runWagesPipeline = useCallback(
+    async (p: { date_from: string; date_to: string; pay_scheme_id: string }) => {
+      if (branchId == null) {
+        notify("Select a branch in the sidebar before processing", "error");
+        return;
+      }
+      // Rebuilding discards corrections made to the generated rows.
+      const existing = result?.kind === "wages" ? result.rows.length : 0;
+      if (
+        existing > 0 &&
+        !window.confirm(
+          `Rebuild wages data? Any corrections made to the ${existing} existing record(s) will be lost.`,
+        )
+      ) {
+        return;
+      }
+
+      const body = { branch_id: branchId, ...p };
+      type Msg = { message: string };
+      const unwrap = async (req: Promise<{ data: Msg | null; error: string | null }>) => {
+        const { data, error } = await req;
+        if (error || !data) throw new Error(error || "Request failed");
+        return data;
+      };
+      const build = (arms: string[]) =>
+        unwrap(fetchWithCookie<Msg>(apiRoutesPortalMasters.EJM_WAGES_DATA_BUILD, "POST", { ...body, arms }));
+
+      const steps: { label: string; go: () => Promise<Msg & { skipped?: boolean }> }[] = [
+        { label: "Attendance Data Transfer", go: () => build(["ATT", "NSH"]) },
+        { label: "Leave Data Process", go: () => build(["STL"]) },
+        {
+          label: "Holiday Data Process",
+          go: async () => {
+            // No pay scheme here: a holiday is approved once, so it must credit
+            // every scheme on the branch (as per-holiday Approve does); the
+            // FES arm then collects only this scheme's hours.
+            const h = await unwrap(
+              fetchWithCookie<Msg>(apiRoutesPortalMasters.HOLIDAY_PROCESS_RANGE, "POST", {
+                branch_id: branchId,
+                date_from: p.date_from,
+                date_to: p.date_to,
+              }),
+            );
+            const f = await build(["FES"]);
+            return { message: `${h.message}; ${f.message}` };
+          },
+        },
+        { label: "Incentive Data Process", go: () => build(["INC"]) },
+        {
+          label: "Cumulative Data Process",
+          go: async () => {
+            // What each hand ran up before this period comes first; it only
+            // reads past periods, so it never depends on this period's payroll.
+            const c = await build(["CUM"]);
+            const r = await fetchWithCookie<Msg>(apiRoutesPortalMasters.EJM_CUMULATIVE_TRANSFER, "POST", body);
+            // The payroll for this period is normally run after this
+            // collection, so "no pay period yet" is expected, not a failure.
+            if (r.status === 404) return { message: `${c.message}; ${r.error ?? "No pay period yet"}` };
+            const t = await unwrap(Promise.resolve(r));
+            return { message: `${c.message}; ${t.message}` };
+          },
+        },
+      ];
+
+      const setStep = (i: number, patch: Partial<PipelineStep>) =>
+        setPipeline((prev) => (prev ? prev.map((s, j) => (j === i ? { ...s, ...patch } : s)) : prev));
+
+      setPipeline(steps.map((s) => ({ label: s.label, status: "pending" })));
+      setResult(null);
+      setSubmitting(true);
+      try {
+        for (let i = 0; i < steps.length; i++) {
+          setStep(i, { status: "running" });
+          try {
+            const out = await steps[i].go();
+            setStep(i, { status: out.skipped ? "skipped" : "done", message: out.message });
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Failed";
+            setStep(i, { status: "failed", message });
+            notify(`${steps[i].label} failed: ${message}`, "error");
+            break;
+          }
+        }
+        const { data: listed } = await fetchWithCookie<{ data: WagesDataRow[] }>(
+          apiRoutesPortalMasters.EJM_WAGES_DATA_LIST,
+          "POST",
+          p,
+        );
+        setResult({ kind: "wages", rows: listed?.data ?? [] });
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [branchId, notify, result],
+  );
+
   /** Validate the shared header plus the picked code, then hand off to the
    *  backend. All three buttons funnel through here — they differ only in
    *  which select supplies the code. */
@@ -418,10 +572,16 @@ export default function EjmWagesProcessPage() {
       return;
     }
 
+    if (action === ACTION_WAGES_DATA) {
+      await runWagesPipeline(parsed.data);
+      return;
+    }
+
     setSubmitting(true);
     // A stale grid under a different action's result would mislead; clear it
     // on every submit and repopulate only for the actions that produce one.
     setResult(null);
+    setPipeline(null);
     try {
       // Pay Register / OT Register: one endpoint each, the legacy code picks
       // the report. Both hang off a pay period, which needs the branch.
@@ -455,27 +615,6 @@ export default function EjmWagesProcessPage() {
         });
         if (data.data.length === 0) {
           notify(`No data for "${label}" in the selected period`, "info");
-        }
-        return;
-      }
-
-      if (action === ACTION_WAGES_DATA) {
-        const { data, error } = await fetchWithCookie<{ data: WagesDataRow[] }>(
-          apiRoutesPortalMasters.EJM_WAGES_DATA_LIST,
-          "POST",
-          {
-            date_from: parsed.data.date_from,
-            date_to: parsed.data.date_to,
-            pay_scheme_id: parsed.data.pay_scheme_id,
-          },
-        );
-        if (error || !data) {
-          notify(error || "Failed to load wages data", "error");
-          return;
-        }
-        setResult({ kind: "wages", rows: data.data });
-        if (data.data.length === 0) {
-          notify("No wages data found for the selected period and pay scheme", "info");
         }
         return;
       }
@@ -552,6 +691,25 @@ export default function EjmWagesProcessPage() {
         return;
       }
 
+      if (action === ACTION_CUMULATIVE_TRANSFER) {
+        const { data, error } = await fetchWithCookie<{ message: string; inserted: number }>(
+          apiRoutesPortalMasters.EJM_CUMULATIVE_TRANSFER,
+          "POST",
+          {
+            branch_id: branchId,
+            date_from: parsed.data.date_from,
+            date_to: parsed.data.date_to,
+            pay_scheme_id: parsed.data.pay_scheme_id,
+          },
+        );
+        if (error || !data) {
+          notify(error || `"${label}" failed`, "error");
+          return;
+        }
+        notify(data.message, data.inserted > 0 ? "success" : "info");
+        return;
+      }
+
       // ponytail: the remaining Report actions are not ported from
       // Ejmprocessdata.php yet. Swap each for its service call as the backend
       // lands; the validation above is the part that would otherwise get
@@ -560,7 +718,7 @@ export default function EjmWagesProcessPage() {
     } finally {
       setSubmitting(false);
     }
-  }, [filters, notify, branchId]);
+  }, [filters, notify, branchId, runWagesPipeline]);
 
   /** Legacy dot-matrix .txt for whichever select the button belongs to —
    *  the "Print" (register) and text "Payslip" of each legacy screen. The
@@ -665,61 +823,34 @@ export default function EjmWagesProcessPage() {
     }
   }, [filters, notify, branchId, coId]);
 
-  /** Build the collected wages rows for the selected period, then reload.
-   *  Separate from Submit so viewing the data can never overwrite it. */
-  const handleBuildFromAttendance = useCallback(async () => {
+  /** Excel for Pay Roll: the scheme's Pay Roll upload template filled from
+   *  the collected wages — every hand on the scheme, zeros where nothing was
+   *  collected — so it uploads through Pay Roll unchanged. */
+  const handlePayrollExcel = useCallback(async () => {
     const parsed = submitSchema.safeParse(filters);
     if (!parsed.success) {
       notify(parsed.error.issues[0]?.message ?? "Invalid selection", "error");
       return;
     }
-    if (filters.action !== ACTION_WAGES_DATA) {
-      notify("Select Wages Data Process as the Report first", "error");
-      return;
-    }
-    if (branchId == null) {
-      notify("Select a branch in the sidebar before processing", "error");
-      return;
-    }
-    // Rebuilding discards corrections made to the generated rows.
-    const existing = result?.kind === "wages" ? result.rows.length : 0;
-    if (
-      existing > 0 &&
-      !window.confirm(
-        `Rebuild wages data? Any corrections made to the ${existing} existing record(s) will be lost.`,
-      )
-    ) {
-      return;
-    }
-
     setSubmitting(true);
     try {
-      const body = {
-        branch_id: branchId,
-        date_from: parsed.data.date_from,
-        date_to: parsed.data.date_to,
-        pay_scheme_id: parsed.data.pay_scheme_id,
-      };
-      const { data, error } = await fetchWithCookie<{
-        message: string;
-        inserted: number;
-      }>(apiRoutesPortalMasters.EJM_WAGES_DATA_BUILD, "POST", body);
-      if (error || !data) {
-        notify(error || "Build failed", "error");
+      const blob = await downloadEjmWagesPayrollExcel({
+        dateFrom: parsed.data.date_from,
+        dateTo: parsed.data.date_to,
+        paySchemeId: parsed.data.pay_scheme_id,
+      });
+      if (!blob || blob.size === 0) {
+        notify("No data to export", "error");
         return;
       }
-      notify(data.message, data.inserted > 0 ? "success" : "info");
-
-      const { data: listed } = await fetchWithCookie<{ data: WagesDataRow[] }>(
-        apiRoutesPortalMasters.EJM_WAGES_DATA_LIST,
-        "POST",
-        body,
-      );
-      setResult({ kind: "wages", rows: listed?.data ?? [] });
+      saveAs(blob, `PayRoll_${parsed.data.pay_scheme_id}_${parsed.data.date_from}_to_${parsed.data.date_to}.xlsx`);
+      notify("Excel for Pay Roll generated", "success");
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Excel for Pay Roll failed", "error");
     } finally {
       setSubmitting(false);
     }
-  }, [filters, notify, branchId, result]);
+  }, [filters, notify]);
 
   // Edit-in-place: persist the corrected row, or throw so the grid reverts it.
   const handleWagesRowUpdate = useCallback(
@@ -829,11 +960,12 @@ export default function EjmWagesProcessPage() {
             </Typography>
             {result.kind === "wages" && (
               <Button
-                onClick={() => void handleBuildFromAttendance()}
-                disabled={submitting}
+                variant="outline"
                 className="shrink-0"
+                disabled={submitting}
+                onClick={() => void handlePayrollExcel()}
               >
-                Build Wages Data
+                Excel for Pay Roll
               </Button>
             )}
             {/* The legacy "Print" was a dot-matrix text dump of these rows;
@@ -864,12 +996,25 @@ export default function EjmWagesProcessPage() {
             )}
           </Box>
 
+          {result.kind === "wages" && pipeline && (
+            <Box component="ol" sx={{ m: 0, mb: 2, pl: 2.5 }}>
+              {pipeline.map((s) => (
+                <Typography
+                  key={s.label}
+                  component="li"
+                  variant="body2"
+                  sx={{ color: STEP_COLOR[s.status] }}
+                >
+                  {s.label}: {STEP_TEXT[s.status]}
+                  {s.message ? ` — ${s.message}` : ""}
+                </Typography>
+              ))}
+            </Box>
+          )}
           {result.kind === "wages" && result.rows.length === 0 && (
             <Alert severity="info" sx={{ mb: 2 }}>
-              No wages data collected for this period yet. Use{" "}
-              <strong>Build Wages Data</strong> to generate it for the selected
-              branch from attendance, night shifts, approved holidays and STL
-              leave.
+              The processes found no attendance, leave, holiday or incentive
+              data for this period, pay scheme and branch.
             </Alert>
           )}
           {result.kind === "report" && result.rows.length === 0 && (
@@ -940,7 +1085,14 @@ export default function EjmWagesProcessPage() {
         })}
       >
         <CircularProgress color="inherit" />
-        <Typography variant="body2">Processing…</Typography>
+        <Typography variant="body2">
+          {(() => {
+            const i = pipeline?.findIndex((s) => s.status === "running") ?? -1;
+            return i >= 0 && pipeline
+              ? `Step ${i + 1} of ${pipeline.length}: ${pipeline[i].label}…`
+              : "Processing…";
+          })()}
+        </Typography>
       </Backdrop>
 
       <Snackbar
