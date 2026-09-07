@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { Menu } from "lucide-react"
 import SidebarConsole from "@/components/dashboard/sidebarConsole"
+import SupportNotificationBell from "@/components/support/SupportNotificationBell"
 
 export default function DashboardLayout({
   children,
@@ -52,6 +53,12 @@ export default function DashboardLayout({
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-white">
           {children}
         </main>
+      </div>
+
+      {/* Ticket-notification bell — one instance (it polls), pinned top-right on every
+          ctrldesk page; sits left of the hamburger on the mobile bar. */}
+      <div className="fixed z-30 top-2 right-14 md:top-3 md:right-4 rounded-full bg-white/90 shadow-sm text-gray-700">
+        <SupportNotificationBell />
       </div>
     </div>
   );
