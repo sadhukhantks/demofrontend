@@ -50,6 +50,12 @@ export const META_COMPONENT_OPTIONS: Option[] = [
   { label: "PF No", value: "-4" },
   { label: "UAN No", value: "-5" },
   { label: "ESI No", value: "-6" },
+  // Dept Code / Designation / Eb Id complete the legacy register's identity
+  // columns (eb_no, emp_name, dept_code, department, designation, uan_no,
+  // esi_no, eb_id).
+  { label: "Dept Code", value: "-7" },
+  { label: "Designation", value: "-8" },
+  { label: "Eb Id", value: "-9" },
 ];
 
 /** component_id (as string) → meta label, for displaying configured meta rows. */
