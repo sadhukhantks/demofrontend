@@ -653,7 +653,9 @@ export default function NjmWagesProcessPage() {
                 },
                 download: `contractor-wages-payroll-${dateFrom}-to-${dateTo}`,
               },
-              // Main Wages Excel — columns come from the scheme's payroll map.
+              // Main Wages Excel — columns come from the scheme's payroll map,
+              // headed by pay component codes, and the sheet saves on arrival
+              // like the contractor one.
               "7": {
                 url: apiRoutesPortalMasters.NJM_WAGES_EXPORT,
                 columns: [],
@@ -662,7 +664,8 @@ export default function NjmWagesProcessPage() {
                   date_to: dateTo,
                   pay_scheme_id: scheme,
                 },
-                    },
+                download: `main-wages-payroll-${dateFrom}-to-${dateTo}`,
+              },
               "11": {
                 url: apiRoutesPortalMasters.NJM_WAGES_BREAKUP_SUMMARY,
                 columns: BREAKUP_COLUMNS,
