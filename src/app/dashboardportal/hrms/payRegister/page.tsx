@@ -15,6 +15,7 @@ const STATUS_COLOR: Record<string, "default" | "primary" | "warning" | "success"
   "4": "error",
   "1": "primary",
   "20": "warning",
+  "28": "info",
   "21": "default",
   "6": "default",
 };

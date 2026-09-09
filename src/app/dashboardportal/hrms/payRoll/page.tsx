@@ -45,6 +45,7 @@ import type {
   PayRollFilterValues,
   PayRollGridRow,
   PayRollSetupData,
+  PayRollUploadResult,
 } from "./types/payRollTypes";
 
 const EMPTY_OPTIONS: Option[] = Object.freeze([]) as unknown as Option[];
@@ -90,6 +91,9 @@ function PayRollContent() {
   const [saving, setSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState("");
+  // Stays on screen until dismissed — the upload can run long and the snackbar
+  // alone (4s) is easy to miss.
+  const [uploadResult, setUploadResult] = useState<PayRollUploadResult | null>(null);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 25,
@@ -350,14 +354,28 @@ function PayRollContent() {
       const file = e.target.files?.[0];
       if (!file || !coId) return;
       setActionLoading(true);
+      setUploadResult(null);
       try {
         const res = await uploadPayRollExcel(coId, file, {
           from_date: filters.from_date,
           to_date: filters.to_date,
         });
         if (res?.error) throw new Error(res.error);
+        const result = (res?.data as { data?: PayRollUploadResult } | null)?.data;
+        const saved = result?.records_saved ?? 0;
+        const skipped = result?.skipped_employee_codes ?? [];
         setUploadedFileName(file.name);
-        notify("File uploaded successfully", "success");
+        setUploadResult({
+          message: `${file.name} uploaded: ${saved} records saved` +
+            (skipped.length ? `, ${skipped.length} employee code(s) not found` : ""),
+          records_saved: saved,
+          skipped_employee_codes: skipped,
+        });
+        notify(
+          `Upload complete: ${saved} records saved` +
+            (skipped.length ? `, ${skipped.length} skipped` : ""),
+          "success",
+        );
       } catch (err: unknown) {
         notify(err instanceof Error ? err.message : "Failed to upload file", "error");
       } finally {
@@ -370,6 +388,7 @@ function PayRollContent() {
 
   const handleClearFile = useCallback(() => {
     setUploadedFileName("");
+    setUploadResult(null);
   }, []);
 
   const handleProcessRowUpdate = useCallback(
@@ -527,6 +546,18 @@ function PayRollContent() {
             </Button>
           )}
         </Box>
+
+        {uploadResult && (
+          <Alert
+            severity={uploadResult.skipped_employee_codes.length ? "warning" : "success"}
+            onClose={() => setUploadResult(null)}
+            className="mt-4"
+          >
+            {uploadResult.message}
+            {uploadResult.skipped_employee_codes.length > 0 &&
+              ` — not found: ${uploadResult.skipped_employee_codes.join(", ")}`}
+          </Alert>
+        )}
       </Paper>
 
       {/* Employee × Pay Component editable grid */}

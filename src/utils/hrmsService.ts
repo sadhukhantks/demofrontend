@@ -646,7 +646,13 @@ export const uploadPayRollExcel = async (
     );
     return { data: response.data, error: null, status: response.status };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    // FastAPI puts the real reason (bad header, unreadable sheet…) in `detail`;
+    // axios' own message is just "Request failed with status code 400".
+    const detail = axios.isAxiosError(err)
+      ? (err.response?.data as { detail?: unknown } | undefined)?.detail
+      : undefined;
+    const message =
+      typeof detail === "string" ? detail : err instanceof Error ? err.message : String(err);
     return { data: null, error: message, status: 0 };
   }
 };

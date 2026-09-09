@@ -653,7 +653,9 @@ export default function NjmWagesProcessPage() {
                 },
                 download: `contractor-wages-payroll-${dateFrom}-to-${dateTo}`,
               },
-              // Main Wages Excel — columns come from the scheme's payroll map.
+              // Main Wages Excel — columns come from the scheme's payroll map,
+              // headed by pay component codes, and the sheet saves on arrival
+              // like the contractor one.
               "7": {
                 url: apiRoutesPortalMasters.NJM_WAGES_EXPORT,
                 columns: [],
@@ -662,7 +664,8 @@ export default function NjmWagesProcessPage() {
                   date_to: dateTo,
                   pay_scheme_id: scheme,
                 },
-                    },
+                download: `main-wages-payroll-${dateFrom}-to-${dateTo}`,
+              },
               "11": {
                 url: apiRoutesPortalMasters.NJM_WAGES_BREAKUP_SUMMARY,
                 columns: BREAKUP_COLUMNS,
@@ -720,10 +723,7 @@ export default function NjmWagesProcessPage() {
           return;
         }
 
-        // ponytail: what is left is the two wages calculation engines
-        // (Contractor/Main Wages Process), their payroll postings, the Main
-        // Wages payroll export, the break-up summary and the ESI file. Each
-        // needs production/quality data that has no tenant equivalent yet.
+        // Every legacy code is wired above; only an unknown one lands here.
         notify(`"${label}" is not wired to the backend yet`, "info");
       } catch (err) {
         notify(err instanceof Error ? err.message : `Failed to run "${label}"`, "error");
@@ -861,12 +861,13 @@ export default function NjmWagesProcessPage() {
 
       <Alert severity="info">
         Live: every Updates action, Contractor Wages Process (attendance,
-        piece production + canteen), Main Wages Process (attendance, advance
-        and leave), both
-        payroll postings, both payroll exports, the break-up summary, the
-        Contractor ESI file, and all five checklists. Pay Slip Printing and Bank
-        Statements download from this screen; Pay Register opens the register.
-        Main Wages piece-wage arms still need their production sources mapped.
+        piece production + canteen), Main Wages Process (attendance, advance,
+        leave, beaming, winding, finishing and weaving piece wages, loom line
+        pools and sardar/helper), both payroll postings, both payroll exports,
+        the break-up summary, the Contractor ESI file, and all five checklists.
+        Pay Slip Printing and Bank Statements download from this screen; Pay
+        Register opens the register. Piece wages price through the Production
+        Quality to Wages Quality link; an unlinked quality earns nothing.
       </Alert>
 
       {/* One dialog for all five Updates entries — Cad/Vard/GWF types three

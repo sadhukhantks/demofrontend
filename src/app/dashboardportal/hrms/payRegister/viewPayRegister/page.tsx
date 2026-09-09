@@ -2,7 +2,7 @@
 
 import React, { Suspense, useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Box, Typography, Paper, Snackbar, Alert } from "@mui/material";
+import { Box, Typography, Paper, Snackbar, Alert, CircularProgress } from "@mui/material";
 import { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
 import { saveAs } from "file-saver";
 import { Download as DownloadIcon, Landmark as LandmarkIcon, Printer as PrinterIcon } from "lucide-react";
@@ -34,6 +34,7 @@ function ViewPayRegisterContent() {
   const [totalsRow, setTotalsRow] = useState<PaySalaryRow | null>(null);
   const [salaryColumns, setSalaryColumns] = useState<GridColDef[]>([]);
   const [loading, setLoading] = useState(true);
+  const [salaryLoading, setSalaryLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [printing, setPrinting] = useState(false);
@@ -73,6 +74,7 @@ function ViewPayRegisterContent() {
     if (!coId || !detail || !payRegisterId) return;
     let cancelled = false;
     (async () => {
+      setSalaryLoading(true);
       try {
         const res = await fetchPayRegisterSalary(coId, {
           branch_id: detail.branchId ?? undefined,
@@ -82,7 +84,7 @@ function ViewPayRegisterContent() {
           pay_period_id: Number(payRegisterId),
         });
         if (cancelled) return;
-        if (res?.error || !res?.data) return;
+        if (res?.error || !res?.data) throw new Error(res?.error || "Failed to load salary data");
 
         const body = res.data as {
           data?: PaySalaryRow[];
@@ -104,8 +106,12 @@ function ViewPayRegisterContent() {
         setSalaryData(rows.map((row, idx) => ({ ...row, id: (row.id as number) ?? idx })));
         // Vertical grand-total row (id "__totals__") is pinned at the bottom.
         setTotalsRow(body.totals ?? null);
-      } catch {
-        // Silent failure for salary data
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setSnackbar({ open: true, message: err instanceof Error ? err.message : "Failed to load salary data", severity: "error" });
+        }
+      } finally {
+        if (!cancelled) setSalaryLoading(false);
       }
     })();
     return () => { cancelled = true; };
@@ -298,9 +304,16 @@ function ViewPayRegisterContent() {
               params.row.id === "__totals__" ? "row-grand-total" : ""
             }
           />
+        ) : loading || salaryLoading ? (
+          <Box className="flex flex-col items-center gap-3 py-12">
+            <CircularProgress />
+            <Typography variant="body2" color="text.secondary">
+              Loading salary data...
+            </Typography>
+          </Box>
         ) : (
           <Typography variant="body2" color="text.secondary" className="text-center py-8">
-            {loading ? "Loading salary data..." : "No salary data available."}
+            No salary data available.
           </Typography>
         )}
       </Paper>

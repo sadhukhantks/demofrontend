@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // Dev rewrite proxy (/api -> FastAPI) gives up at 30s by default; payroll
+    // uploads/processing on the big tenants run longer, and the backend kept
+    // going while the browser saw a bare 500 and no completion message.
+    proxyTimeout: 600_000,
+  },
   images: {
     // Allow image optimization for localhost subdomains
     remotePatterns: [
