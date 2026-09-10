@@ -657,12 +657,15 @@ export const fetchPayRollCumulative = async (
 export const uploadPayRollExcel = async (
   coId: string,
   file: File,
-  params: { from_date: string; to_date: string },
+  params: { from_date: string; to_date: string; branch_id: number },
 ) => {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("from_date", params.from_date);
   formData.append("to_date", params.to_date);
+  // emp_code is only unique within a branch — without this the backend can
+  // resolve a code to the same-code employee of another branch.
+  formData.append("branch_id", String(params.branch_id));
   try {
     const response = await axios.post(
       `${apiRoutesPortalMasters.HRMS_PAY_ROLL_UPLOAD}?co_id=${coId}`,
