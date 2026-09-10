@@ -28,11 +28,12 @@ import { useSelectedCompanyCoId } from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayIso } from "@/components/reports/reportDates";
 import {
+  downloadNjmReportPdf,
+  downloadNjmTextPayslip,
   exportBankSheet,
   fetchNjmPayPeriod,
   fetchNjmReport,
   fetchPaySchemeList,
-  printPaySlips,
   runNjmContractorEsi,
   runNjmProcess,
   runNjmUpdate,
@@ -66,7 +67,10 @@ const PROCESS_OPTIONS: Option[] = [
   { label: "Main Wages PayRoll Posting", value: "6" },
   { label: "Main Wages Excel for PayRoll", value: "7" },
   { label: "Main Wages Pay Register", value: "8" },
-  { label: "Pay Slip Printing", value: "9" },
+  // Legacy 9 printed both slips and picked the layout by pay scheme id; 13 is
+  // ours so the screen splits Contractor / Main like every other action.
+  { label: "Contractor Wages Pay Slip", value: "9" },
+  { label: "Main Wages Pay Slip", value: "13" },
   { label: "Bank Statements", value: "10" },
   { label: "All Wages Break Up Summary", value: "11" },
   { label: "Contractor ESI File Generation", value: "12" },
@@ -102,17 +106,19 @@ const ACTION_CONTRACTOR_WAGES_PROCESS = "1";
  *  with Contractor Wages Process — the two lists are independent. */
 const CHECKLIST_ATT_PAYSCHEME = "1";
 
-/** Legacy `hol_get` codes backed by a pay period. All four resolve the screen's
+/** Pay slips: the legacy dot-matrix .txt (Njmwagesprocess::njmcntwagespayslip),
+ *  printed HERE, on this screen — never by sending the operator to Pay
+ *  Register. The backend resolves the pay period from the period + scheme. */
+const TEXT_PAYSLIPS: Record<string, "contractor" | "main"> = {
+  "9": "contractor",
+  "13": "main",
+};
+/** Legacy `hol_get` codes backed by a pay period. All three resolve the screen's
  *  period + scheme to a payperiod_id first; they differ in what they do next. */
-// Printed output — produced HERE, on this screen. Pay slips must print from
-// NJM Wages Process itself, never by sending the operator to Pay Register.
 const PAY_PERIOD_DOWNLOADS: Record<
   string,
   { file: string; ext: string; get: (coId: string, id: number) => Promise<Blob> }
 > = {
-  // Pay slips come back as a PDF, the bank sheet as a workbook — the extension
-  // has to follow the endpoint, not a single hardcoded guess.
-  "9": { file: "PaySlips", ext: "pdf", get: (coId, id) => printPaySlips(coId, id) },
   "10": { file: "BankStatement", ext: "xlsx", get: (coId, id) => exportBankSheet(coId, id) },
 };
 // The register is an interactive screen, not a printout, so these two still open it.
@@ -156,6 +162,8 @@ const LINE_HOURS_COLUMNS: GridColDef[] = [
   num("no_of_looms", "No of Looms", 130),
   num("quantity", "Quantity"),
   num("pamount", "Amount"),
+  // Per-loom-hour rate the legacy statement derived (sardars at 1.3x).
+  num("rate", "Rate", 130),
 ];
 
 const PRODUCTION_COLUMNS: GridColDef[] = [
@@ -495,8 +503,27 @@ export default function NjmWagesProcessPage() {
           return;
         }
 
-        // Pay slips, bank statements and the register all hang off a pay
-        // period, so resolve that first from the period + scheme on screen.
+        const slipKind = !isChecklist ? TEXT_PAYSLIPS[code] : undefined;
+        if (slipKind) {
+          if (!coId) {
+            notify("Select a company in the sidebar first", "error");
+            return;
+          }
+          const blob = await downloadNjmTextPayslip({
+            kind: slipKind,
+            coId: String(coId),
+            branchId,
+            dateFrom,
+            dateTo,
+            paySchemeId: scheme,
+          });
+          saveAs(blob, `NJM_${slipKind}_payslip_${dateFrom}_to_${dateTo}.txt`);
+          notify(`${label} generated`, "success");
+          return;
+        }
+
+        // Bank statements and the register hang off a pay period, so resolve
+        // that first from the period + scheme on screen.
         const download = !isChecklist ? PAY_PERIOD_DOWNLOADS[code] : undefined;
         if (!isChecklist && (download || PAY_PERIOD_OPENS_REGISTER.has(code))) {
           const { data, error } = await fetchNjmPayPeriod({
@@ -598,12 +625,17 @@ export default function NjmWagesProcessPage() {
           download?: string;
           /** Field the saved sheet breaks pages on, repeating the header. */
           groupBy?: string;
+          /** Same endpoint with `fmt=pdf`: the legacy PDF statement, saved on
+           *  arrival alongside the grid. */
+          pdf?: string;
         }> = isChecklist
           ? {
+              // Legacy njmlinehrschecklist: grid here, LINE HOURS STATEMENT PDF saved.
               "3": {
                 url: apiRoutesPortalMasters.NJM_LINE_HOURS_CHECKLIST,
                 columns: LINE_HOURS_COLUMNS,
                 params: { date_from: dateFrom, date_to: dateTo },
+                pdf: `line-hours-statement-${dateFrom}-to-${dateTo}`,
               },
               "4": {
                 url: apiRoutesPortalMasters.NJM_PRODUCTION_CHECKLIST,
@@ -719,6 +751,13 @@ export default function NjmWagesProcessPage() {
             void exportRowsToExcel(
               columns, data.data, target.download, undefined, target.groupBy,
             );
+          }
+          if (target.pdf) {
+            const blob = await downloadNjmReportPdf(target.url, {
+              ...target.params,
+              co_id: coId ? String(coId) : undefined,
+            });
+            saveAs(blob, `${target.pdf}.pdf`);
           }
           return;
         }
@@ -865,8 +904,8 @@ export default function NjmWagesProcessPage() {
         leave, beaming, winding, finishing and weaving piece wages, loom line
         pools and sardar/helper), both payroll postings, both payroll exports,
         the break-up summary, the Contractor ESI file, and all five checklists.
-        Pay Slip Printing and Bank Statements download from this screen; Pay
-        Register opens the register. Piece wages price through the Production
+        Contractor and Main Wages Pay Slips (dot-matrix text) and Bank
+        Statements download from this screen; Pay Register opens the register. Piece wages price through the Production
         Quality to Wages Quality link; an unlinked quality earns nothing.
       </Alert>
 
