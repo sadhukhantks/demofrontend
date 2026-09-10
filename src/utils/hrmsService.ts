@@ -447,8 +447,10 @@ export const downloadEjmTextPrint = (p: {
 /** NJM pay slips as dot-matrix .txt (legacy Njmwagesprocess::njmcntwagespayslip):
  *  `contractor` is the two-up contractor slip with piece production lines,
  *  `main` the main-payroll slip. The backend resolves the pay period itself. */
-export const downloadNjmTextPayslip = (p: {
+export const downloadNjmPayslip = (p: {
   kind: "contractor" | "main";
+  /** `pdf` is the legacy FPDF two-up (contractor only); `txt` the dot-matrix slip. */
+  fmt: "pdf" | "txt";
   coId: string;
   branchId: number;
   dateFrom: string;
@@ -458,6 +460,7 @@ export const downloadNjmTextPayslip = (p: {
   fetchHrmsBlob(
     `${apiRoutesPortalMasters.NJM_TEXT_PAYSLIP}?${new URLSearchParams({
       kind: p.kind,
+      fmt: p.fmt,
       co_id: p.coId,
       branch_id: String(p.branchId),
       date_from: p.dateFrom,

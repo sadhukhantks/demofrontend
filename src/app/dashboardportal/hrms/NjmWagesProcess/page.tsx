@@ -29,7 +29,7 @@ import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayIso } from "@/components/reports/reportDates";
 import {
   downloadNjmReportPdf,
-  downloadNjmTextPayslip,
+  downloadNjmPayslip,
   exportBankSheet,
   fetchNjmPayPeriod,
   fetchNjmReport,
@@ -106,12 +106,13 @@ const ACTION_CONTRACTOR_WAGES_PROCESS = "1";
  *  with Contractor Wages Process — the two lists are independent. */
 const CHECKLIST_ATT_PAYSCHEME = "1";
 
-/** Pay slips: the legacy dot-matrix .txt (Njmwagesprocess::njmcntwagespayslip),
- *  printed HERE, on this screen — never by sending the operator to Pay
- *  Register. The backend resolves the pay period from the period + scheme. */
-const TEXT_PAYSLIPS: Record<string, "contractor" | "main"> = {
-  "9": "contractor",
-  "13": "main",
+/** Pay slips (Njmwagesprocess::njmcntwagespayslip), printed HERE, on this
+ *  screen — never by sending the operator to Pay Register: Contractor as the
+ *  legacy FPDF two-up PDF, Main as the dot-matrix .txt. The backend resolves
+ *  the pay period from the period + scheme. */
+const PAYSLIPS: Record<string, { kind: "contractor" | "main"; fmt: "pdf" | "txt" }> = {
+  "9": { kind: "contractor", fmt: "pdf" },
+  "13": { kind: "main", fmt: "txt" },
 };
 /** Legacy `hol_get` codes backed by a pay period. All three resolve the screen's
  *  period + scheme to a payperiod_id first; they differ in what they do next. */
@@ -503,21 +504,21 @@ export default function NjmWagesProcessPage() {
           return;
         }
 
-        const slipKind = !isChecklist ? TEXT_PAYSLIPS[code] : undefined;
-        if (slipKind) {
+        const slip = !isChecklist ? PAYSLIPS[code] : undefined;
+        if (slip) {
           if (!coId) {
             notify("Select a company in the sidebar first", "error");
             return;
           }
-          const blob = await downloadNjmTextPayslip({
-            kind: slipKind,
+          const blob = await downloadNjmPayslip({
+            ...slip,
             coId: String(coId),
             branchId,
             dateFrom,
             dateTo,
             paySchemeId: scheme,
           });
-          saveAs(blob, `NJM_${slipKind}_payslip_${dateFrom}_to_${dateTo}.txt`);
+          saveAs(blob, `payslip.${slip.fmt}`);
           notify(`${label} generated`, "success");
           return;
         }
@@ -904,7 +905,7 @@ export default function NjmWagesProcessPage() {
         leave, beaming, winding, finishing and weaving piece wages, loom line
         pools and sardar/helper), both payroll postings, both payroll exports,
         the break-up summary, the Contractor ESI file, and all five checklists.
-        Contractor and Main Wages Pay Slips (dot-matrix text) and Bank
+        Contractor (PDF) and Main (dot-matrix text) Wages Pay Slips and Bank
         Statements download from this screen; Pay Register opens the register. Piece wages price through the Production
         Quality to Wages Quality link; an unlinked quality earns nothing.
       </Alert>
