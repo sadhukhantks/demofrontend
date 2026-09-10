@@ -444,6 +444,28 @@ export const downloadEjmTextPrint = (p: {
     })}`,
   );
 
+/** NJM pay slips as dot-matrix .txt (legacy Njmwagesprocess::njmcntwagespayslip):
+ *  `contractor` is the two-up contractor slip with piece production lines,
+ *  `main` the main-payroll slip. The backend resolves the pay period itself. */
+export const downloadNjmTextPayslip = (p: {
+  kind: "contractor" | "main";
+  coId: string;
+  branchId: number;
+  dateFrom: string;
+  dateTo: string;
+  paySchemeId: string | number;
+}): Promise<Blob> =>
+  fetchHrmsBlob(
+    `${apiRoutesPortalMasters.NJM_TEXT_PAYSLIP}?${new URLSearchParams({
+      kind: p.kind,
+      co_id: p.coId,
+      branch_id: String(p.branchId),
+      date_from: p.dateFrom,
+      date_to: p.dateTo,
+      pay_scheme_id: String(p.paySchemeId),
+    })}`,
+  );
+
 /** Excel for Pay Roll: the scheme's Pay Roll upload template filled from the
  *  period's collected wages, every hand on the scheme (zeros where nothing
  *  was collected). Uploads through Pay Roll unchanged. */
@@ -1079,6 +1101,18 @@ export const fetchNjmReport = async (
     query ? `${url}?${query}` : url,
     "GET",
   );
+};
+
+/** The same NJM report endpoint asked for its legacy PDF (`fmt=pdf`). */
+export const downloadNjmReportPdf = (
+  url: string,
+  params: Record<string, string | number | undefined>,
+): Promise<Blob> => {
+  const qs = new URLSearchParams({ fmt: "pdf" });
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== "") qs.set(k, String(v));
+  }
+  return fetchHrmsBlob(`${url}?${qs}`);
 };
 
 /** Resolve the screen's period + pay scheme to a pay_period id, so Pay
