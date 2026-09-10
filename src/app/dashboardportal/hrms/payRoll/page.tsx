@@ -346,8 +346,12 @@ function PayRollContent() {
 
   const handleUploadClick = useCallback(() => {
     if (!validateDateRange()) return;
+    if (!filters.branch_id) {
+      notify("Please select the Branch", "error");
+      return;
+    }
     fileInputRef.current?.click();
-  }, [validateDateRange]);
+  }, [validateDateRange, filters.branch_id, notify]);
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -359,6 +363,7 @@ function PayRollContent() {
         const res = await uploadPayRollExcel(coId, file, {
           from_date: filters.from_date,
           to_date: filters.to_date,
+          branch_id: Number(filters.branch_id),
         });
         if (res?.error) throw new Error(res.error);
         const result = (res?.data as { data?: PayRollUploadResult } | null)?.data;
@@ -383,7 +388,7 @@ function PayRollContent() {
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     },
-    [coId, filters.from_date, filters.to_date, notify],
+    [coId, filters.from_date, filters.to_date, filters.branch_id, notify],
   );
 
   const handleClearFile = useCallback(() => {
