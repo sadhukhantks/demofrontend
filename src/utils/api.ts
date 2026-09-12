@@ -604,6 +604,8 @@ const apiRoutesPortalMasters = {
     NJM_PAYROLL_POSTING: `${API_URL}/hrmsMasters/njm_payroll_posting`,
     NJM_WAGES_EXPORT: `${API_URL}/hrmsMasters/njm_wages_export`,
     NJM_WAGES_BREAKUP_SUMMARY: `${API_URL}/hrmsMasters/njm_wages_breakup_summary`,
+    NJM_WAGES_BREAKUP_TOTALS: `${API_URL}/hrmsMasters/njm_wages_breakup_totals`,
+    NJM_WAGES_BREAKUP_WORKBOOK: `${API_URL}/hrmsMasters/njm_wages_breakup_workbook`,
     NJM_CONTRACTOR_ESI: `${API_URL}/hrmsMasters/njm_contractor_esi`,
     NJM_TEXT_PAYSLIP: `${API_URL}/hrmsMasters/njm_text_payslip`,
 
