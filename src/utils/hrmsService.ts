@@ -490,10 +490,12 @@ export const downloadEjmTextPrint = (p: {
 /** NJM pay slips as dot-matrix .txt (legacy Njmwagesprocess::njmcntwagespayslip):
  *  `contractor` is the two-up contractor slip with piece production lines,
  *  `main` the main-payroll slip, `retired` the retired-payroll one (legacy 167:
- *  the main layout with a blank PFN and ADJ.A for DJ.A). Each kind is pinned to
- *  one pay scheme backend-side. The backend resolves the pay period itself. */
+ *  the main layout with a blank PFN and ADJ.A for DJ.A), `newbudli` the new-budli
+ *  one (legacy 169/174, printed from one block: ADJ.A, O.A for INC, FWOA/SWOA
+ *  and a blank P.F.G box). Each kind is pinned to its pay scheme(s)
+ *  backend-side. The backend resolves the pay period itself. */
 export const downloadNjmPayslip = (p: {
-  kind: "contractor" | "main" | "retired";
+  kind: "contractor" | "main" | "retired" | "newbudli";
   /** `pdf` is the legacy FPDF two-up (contractor only); `txt` the dot-matrix slip. */
   fmt: "pdf" | "txt";
   coId: string;
