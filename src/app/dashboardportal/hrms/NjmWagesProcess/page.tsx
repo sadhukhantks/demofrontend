@@ -73,6 +73,7 @@ const PROCESS_OPTIONS: Option[] = [
   { label: "Contractor Wages Pay Slip", value: "9" },
   { label: "Main Wages Pay Slip", value: "13" },
   { label: "Retired Wages Pay Slip", value: "14" },
+  { label: "New Budli Wages Pay Slip", value: "15" },
   { label: "Bank Statements", value: "10" },
   { label: "All Wages Break Up Summary", value: "11" },
   { label: "Contractor ESI File Generation", value: "12" },
@@ -110,17 +111,21 @@ const CHECKLIST_ATT_PAYSCHEME = "1";
 
 /** Pay slips (Njmwagesprocess::njmcntwagespayslip), printed HERE, on this
  *  screen — never by sending the operator to Pay Register: Contractor as the
- *  legacy FPDF two-up PDF, Main and Retired as the dot-matrix .txt. Legacy
- *  dispatched on the pay scheme id, so each entry is pinned to one scheme
- *  backend-side; picking the wrong one in the Pay Scheme box is rejected. The
- *  backend resolves the pay period from the period + scheme. */
+ *  legacy FPDF two-up PDF, Main, Retired and New Budli as the dot-matrix .txt.
+ *  Legacy dispatched on the pay scheme id, so each entry is pinned to its
+ *  scheme(s) backend-side; picking the wrong one in the Pay Scheme box is
+ *  rejected. New Budli takes both njm_newbudli_payroll and njm_newbudli_rtd
+ *  (legacy 169 and 174) because legacy printed them from one identical block —
+ *  the operator's Pay Scheme choice picks which. The backend resolves the pay
+ *  period from the period + scheme. */
 const PAYSLIPS: Record<
   string,
-  { kind: "contractor" | "main" | "retired"; fmt: "pdf" | "txt" }
+  { kind: "contractor" | "main" | "retired" | "newbudli"; fmt: "pdf" | "txt" }
 > = {
   "9": { kind: "contractor", fmt: "pdf" },
   "13": { kind: "main", fmt: "txt" },
   "14": { kind: "retired", fmt: "txt" },
+  "15": { kind: "newbudli", fmt: "txt" },
 };
 /** Legacy `hol_get` codes backed by a pay period. All three resolve the screen's
  *  period + scheme to a payperiod_id first; they differ in what they do next. */
