@@ -386,6 +386,49 @@ async function fetchHrmsBlob(url: string): Promise<Blob> {
   }
 }
 
+/** Same as fetchHrmsBlob but for the one download that has to POST: the
+ *  Wages Break Up workbook takes the operator's template file in. */
+async function postHrmsBlob(url: string, form: FormData): Promise<Blob> {
+  try {
+    const response = await axios.post<Blob>(url, form, {
+      responseType: "blob",
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
+      let detail = "Download failed";
+      try {
+        const text = await err.response.data.text();
+        const parsed = JSON.parse(text) as { detail?: string };
+        if (parsed?.detail) detail = parsed.detail;
+      } catch {
+        /* non-JSON body — keep the default message */
+      }
+      throw new Error(detail);
+    }
+    throw err instanceof Error ? err : new Error(String(err));
+  }
+}
+
+/** All Wages Break Up Summary: the maintained template in, the same workbook
+ *  back with the nine generated sheets refilled for this period. The
+ *  hand-typed sheets (ALMA, Fng & Twisting, Sweeper, PENDING) ride through
+ *  untouched, which is why the file has to make the round trip. */
+export const runNjmWagesBreakupWorkbook = (p: {
+  branchId: number;
+  dateFrom: string;
+  dateTo: string;
+  file: File;
+}): Promise<Blob> => {
+  const form = new FormData();
+  form.append("branch_id", String(p.branchId));
+  form.append("date_from", p.dateFrom);
+  form.append("date_to", p.dateTo);
+  form.append("file", p.file);
+  return postHrmsBlob(apiRoutesPortalMasters.NJM_WAGES_BREAKUP_WORKBOOK, form);
+};
+
 export const exportPayRegister = (
   coId: string,
   payPeriodId: number | string,
@@ -446,9 +489,11 @@ export const downloadEjmTextPrint = (p: {
 
 /** NJM pay slips as dot-matrix .txt (legacy Njmwagesprocess::njmcntwagespayslip):
  *  `contractor` is the two-up contractor slip with piece production lines,
- *  `main` the main-payroll slip. The backend resolves the pay period itself. */
+ *  `main` the main-payroll slip, `retired` the retired-payroll one (legacy 167:
+ *  the main layout with a blank PFN and ADJ.A for DJ.A). Each kind is pinned to
+ *  one pay scheme backend-side. The backend resolves the pay period itself. */
 export const downloadNjmPayslip = (p: {
-  kind: "contractor" | "main";
+  kind: "contractor" | "main" | "retired";
   /** `pdf` is the legacy FPDF two-up (contractor only); `txt` the dot-matrix slip. */
   fmt: "pdf" | "txt";
   coId: string;

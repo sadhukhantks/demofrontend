@@ -37,6 +37,7 @@ import {
   runNjmContractorEsi,
   runNjmProcess,
   runNjmUpdate,
+  runNjmWagesBreakupWorkbook,
   type NjmReportRow,
 } from "@/utils/hrmsService";
 import { saveAs } from "file-saver";
@@ -71,6 +72,7 @@ const PROCESS_OPTIONS: Option[] = [
   // ours so the screen splits Contractor / Main like every other action.
   { label: "Contractor Wages Pay Slip", value: "9" },
   { label: "Main Wages Pay Slip", value: "13" },
+  { label: "Retired Wages Pay Slip", value: "14" },
   { label: "Bank Statements", value: "10" },
   { label: "All Wages Break Up Summary", value: "11" },
   { label: "Contractor ESI File Generation", value: "12" },
@@ -108,11 +110,17 @@ const CHECKLIST_ATT_PAYSCHEME = "1";
 
 /** Pay slips (Njmwagesprocess::njmcntwagespayslip), printed HERE, on this
  *  screen — never by sending the operator to Pay Register: Contractor as the
- *  legacy FPDF two-up PDF, Main as the dot-matrix .txt. The backend resolves
- *  the pay period from the period + scheme. */
-const PAYSLIPS: Record<string, { kind: "contractor" | "main"; fmt: "pdf" | "txt" }> = {
+ *  legacy FPDF two-up PDF, Main and Retired as the dot-matrix .txt. Legacy
+ *  dispatched on the pay scheme id, so each entry is pinned to one scheme
+ *  backend-side; picking the wrong one in the Pay Scheme box is rejected. The
+ *  backend resolves the pay period from the period + scheme. */
+const PAYSLIPS: Record<
+  string,
+  { kind: "contractor" | "main" | "retired"; fmt: "pdf" | "txt" }
+> = {
   "9": { kind: "contractor", fmt: "pdf" },
   "13": { kind: "main", fmt: "txt" },
+  "14": { kind: "retired", fmt: "txt" },
 };
 /** Legacy `hol_get` codes backed by a pay period. All three resolve the screen's
  *  period + scheme to a payperiod_id first; they differ in what they do next. */
@@ -134,6 +142,13 @@ const ACTION_MAIN_PAYROLL_POSTING = "6";
 /** The ESI return needs the portal's template uploaded, so it runs from the
  *  Updates dialog set rather than the plain Action button. */
 const UPDATE_CONTRACTOR_ESI = "contractorEsiFileGeneration";
+/** All Wages Break Up Summary. Like the ESI return it needs a file uploaded —
+ *  the maintained workbook, whose hand-typed sheets (ALMA, Fng & Twisting,
+ *  Sweeper, PENDING) only survive by riding through the backend untouched —
+ *  so it borrows the same dialog instead of running straight off the button. */
+const ACTION_BREAKUP_SUMMARY = "11";
+const UPDATE_BREAKUP_TEMPLATE = "wagesBreakupTemplate";
+const BREAKUP_TEMPLATE_LABEL = "Wages Break Up Summary — upload the template";
 
 const num = (field: string, headerName: string, width = 120): GridColDef => ({
   field, headerName, width, type: "number",
@@ -224,21 +239,27 @@ const CNT_WAGES_EXPORT_COLUMNS: GridColDef[] = [
   num("c_esi_days", "C_esi_days_", 120),
 ];
 
-const BREAKUP_COLUMNS: GridColDef[] = [
-  { field: "ticket_no", headerName: "Ticket No", width: 110 },
-  { field: "emp_name", headerName: "Employee", width: 190 },
-  { field: "payscheme_name", headerName: "Pay Scheme", width: 170 },
-  num("gross_earn", "Gross Earn", 130),
-  num("pf", "PF", 100), num("esi", "ESI", 100), num("p_tax", "P.Tax", 100),
-  num("rent", "Rent", 100), num("land_rent", "Land Rent", 120),
-  num("advance", "Advance", 110), num("rsd", "RSD", 100),
-  num("canteen", "Canteen", 110), num("net", "Net", 110),
-  num("death", "Death", 100), num("net_pay", "Net Pay", 120),
+/** Final Sheet, as rows: one per generated category plus the grand total.
+ *  Shown beside the download so the operator can reconcile without opening
+ *  Excel. It totals the GENERATED sheets only — ALMA, Fng & Twisting, Sweeper
+ *  and PENDING are typed into the workbook by hand and nothing here can see
+ *  them, so the workbook's own Grand Total is the larger number. */
+const FINAL_SHEET_COLUMNS: GridColDef[] = [
+  { field: "payment_for", headerName: "Payment For", width: 240 },
+  num("employees", "Employees", 120),
+  num("gross_earn", "Gross Earnings", 140),
+  num("other_earn", "Other Earnings", 140),
+  num("pf", "PF", 110), num("esi", "ESI", 110), num("p_tax", "PTAX", 110),
+  num("gwf", "GWF", 100), num("rent", "Rent", 110),
+  num("land_rent", "LandRent", 120), num("advance", "Advance", 120),
+  num("rsd", "RSD", 100), num("canteen", "Canteen", 110),
+  num("other_ded", "Other Deductions", 150), num("roff", "R/Off", 100),
+  num("net", "Net Payment", 130), num("death", "Death Fund", 130),
+  num("net_pay", "Net Payable", 130),
   num("employer_pf", "Employer PF", 140),
   num("employer_esi", "Employer ESI", 140),
-  { field: "bank_acc_no", headerName: "Bank A/C", width: 150 },
-  { field: "ifsc_code", headerName: "IFSC", width: 120 },
 ];
+
 
 const ESI_COLUMNS: GridColDef[] = [
   { field: "ip_number", headerName: "IP Number", width: 140 },
@@ -446,9 +467,12 @@ export default function NjmWagesProcessPage() {
       const code = isChecklist ? filters.checklist : filters.action;
       const options = isChecklist ? CHECKLIST_OPTIONS : PROCESS_OPTIONS;
 
-      // The placeholder only satisfies the shared schema — neither of these
-      // two sends a pay scheme.
-      const schemeFree = isChecklist && SCHEME_FREE_CHECKLISTS.has(code);
+      // The placeholder only satisfies the shared schema — none of these sends
+      // a pay scheme. The break-up workbook spans every scheme at once, so
+      // demanding one here would only force the operator to pick an unused one.
+      const schemeFree =
+        (isChecklist && SCHEME_FREE_CHECKLISTS.has(code)) ||
+        (!isChecklist && code === ACTION_BREAKUP_SUMMARY);
       const parsed = baseSchema.safeParse(
         schemeFree && !filters.pay_scheme_id
           ? { ...filters, pay_scheme_id: "-" }
@@ -483,6 +507,15 @@ export default function NjmWagesProcessPage() {
       const label = options.find((o) => o.value === code)?.label ?? code;
       const { date_from: dateFrom, date_to: dateTo, pay_scheme_id: scheme } =
         parsed.data;
+
+      // The break-up workbook is regenerated INTO the operator's maintained
+      // template — the only place ALMA, Fng & Twisting, Sweeper and PENDING
+      // exist — so it cannot start until that file is picked.
+      if (!isChecklist && code === ACTION_BREAKUP_SUMMARY) {
+        setFile(null);
+        setUpdateFor(UPDATE_BREAKUP_TEMPLATE);
+        return;
+      }
 
       setSubmitting(true);
       // A stale grid under a different selection's result would mislead.
@@ -699,15 +732,6 @@ export default function NjmWagesProcessPage() {
                 },
                 download: `main-wages-payroll-${dateFrom}-to-${dateTo}`,
               },
-              "11": {
-                url: apiRoutesPortalMasters.NJM_WAGES_BREAKUP_SUMMARY,
-                columns: BREAKUP_COLUMNS,
-                params: {
-                  date_from: dateFrom,
-                  date_to: dateTo,
-                  pay_scheme_id: scheme,
-                },
-              },
             };
 
         const target = wired[code];
@@ -779,7 +803,14 @@ export default function NjmWagesProcessPage() {
    *  and the uploads additionally need a file. */
   const runUpdate = useCallback(async () => {
     if (!updateFor) return;
-    const parsed = baseSchema.safeParse(filters);
+    const isBreakup = updateFor === UPDATE_BREAKUP_TEMPLATE;
+    // The workbook spans every scheme at once, so the header's Pay Scheme is
+    // irrelevant to it — the placeholder only satisfies the shared schema.
+    const parsed = baseSchema.safeParse(
+      isBreakup && !filters.pay_scheme_id
+        ? { ...filters, pay_scheme_id: "-" }
+        : filters,
+    );
     if (!parsed.success) {
       notify(parsed.error.issues[0]?.message ?? "Invalid selection", "error");
       return;
@@ -793,16 +824,48 @@ export default function NjmWagesProcessPage() {
       notify("Please choose a file first", "error");
       return;
     }
-    const label = UPDATE_OPTIONS.find((o) => o.value === updateFor)?.label ?? updateFor;
+    const label = isBreakup
+      ? "All Wages Break Up Summary"
+      : UPDATE_OPTIONS.find((o) => o.value === updateFor)?.label ?? updateFor;
+    const { date_from: dateFrom, date_to: dateTo } = parsed.data;
 
     setSubmitting(true);
     try {
+      // `file` is already guaranteed above; naming it here narrows the type
+      // without an assertion.
+      if (isBreakup && file) {
+        const blob = await runNjmWagesBreakupWorkbook({
+          branchId, dateFrom, dateTo, file,
+        });
+        saveAs(blob, `Wages_break_up_Summary_${dateFrom}_to_${dateTo}.xlsx`);
+        setUpdateFor(null);
+        notify(`${label} generated`, "success");
+
+        // Final Sheet beside the download, so the totals can be checked
+        // without opening the workbook. A failure here costs the operator
+        // nothing — they already have the file.
+        const { data, error } = await fetchNjmReport(
+          apiRoutesPortalMasters.NJM_WAGES_BREAKUP_TOTALS,
+          { branch_id: branchId, date_from: dateFrom, date_to: dateTo },
+        );
+        if (error || !data) {
+          notify(error || "Workbook saved, but the totals could not be read", "info");
+          return;
+        }
+        setReport({
+          title: `${label} — generated sheets`,
+          columns: FINAL_SHEET_COLUMNS,
+          rows: data.data,
+        });
+        return;
+      }
+
       const { data, error } = await runNjmUpdate(
         updateFor,
         {
           branchId,
-          dateFrom: parsed.data.date_from,
-          dateTo: parsed.data.date_to,
+          dateFrom,
+          dateTo,
           paySchemeId: parsed.data.pay_scheme_id,
         },
         isFileUpload ? { file } : { deds },
@@ -813,6 +876,8 @@ export default function NjmWagesProcessPage() {
       }
       notify(data.data.message, "success");
       setUpdateFor(null);
+    } catch (err) {
+      notify(err instanceof Error ? err.message : `Failed to run "${label}"`, "error");
     } finally {
       setSubmitting(false);
     }
@@ -904,7 +969,8 @@ export default function NjmWagesProcessPage() {
         piece production + canteen), Main Wages Process (attendance, advance,
         leave, beaming, winding, finishing and weaving piece wages, loom line
         pools and sardar/helper), both payroll postings, both payroll exports,
-        the break-up summary, the Contractor ESI file, and all five checklists.
+        the break-up summary workbook (refilled into your uploaded template),
+        the Contractor ESI file, and all five checklists.
         Contractor (PDF) and Main (dot-matrix text) Wages Pay Slips and Bank
         Statements download from this screen; Pay Register opens the register. Piece wages price through the Production
         Quality to Wages Quality link; an unlinked quality earns nothing.
@@ -920,7 +986,9 @@ export default function NjmWagesProcessPage() {
         maxWidth="xs"
       >
         <DialogTitle>
-          {UPDATE_OPTIONS.find((o) => o.value === updateFor)?.label ?? ""}
+          {updateFor === UPDATE_BREAKUP_TEMPLATE
+            ? BREAKUP_TEMPLATE_LABEL
+            : UPDATE_OPTIONS.find((o) => o.value === updateFor)?.label ?? ""}
         </DialogTitle>
         <DialogContent>
           {updateFor === UPDATE_CADVARD ? (
@@ -945,8 +1013,14 @@ export default function NjmWagesProcessPage() {
                 type="file"
                 size="small"
                 fullWidth
-                // Legacy accepted the wage-period workbook only.
-                slotProps={{ htmlInput: { accept: ".xls,.xlsx,.csv" } }}
+                // Legacy accepted the wage-period workbook only; the break-up
+                // template is edited in place, so it must be the real .xlsx.
+                slotProps={{
+                  htmlInput: {
+                    accept:
+                      updateFor === UPDATE_BREAKUP_TEMPLATE ? ".xlsx" : ".xls,.xlsx,.csv",
+                  },
+                }}
                 onChange={(e) =>
                   setFile(
                     (e.target as HTMLInputElement).files?.[0] ?? null,
@@ -958,6 +1032,14 @@ export default function NjmWagesProcessPage() {
                   {file.name}
                 </Typography>
               )}
+              {updateFor === UPDATE_BREAKUP_TEMPLATE && (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Upload last month&apos;s Wages Break Up workbook. The nine
+                  payroll sheets and their Final Sheet rows are regenerated for
+                  this period; ALMA, Fng &amp; Twisting Contractor, Sweeper and
+                  PENDING come back exactly as uploaded.
+                </Typography>
+              )}
             </Box>
           )}
         </DialogContent>
@@ -966,7 +1048,11 @@ export default function NjmWagesProcessPage() {
             Close
           </Button>
           <Button onClick={() => void runUpdate()} disabled={submitting}>
-            {updateFor === UPDATE_CADVARD ? "Update" : "Upload"}
+            {updateFor === UPDATE_CADVARD
+              ? "Update"
+              : updateFor === UPDATE_BREAKUP_TEMPLATE
+                ? "Generate"
+                : "Upload"}
           </Button>
         </DialogActions>
       </Dialog>
