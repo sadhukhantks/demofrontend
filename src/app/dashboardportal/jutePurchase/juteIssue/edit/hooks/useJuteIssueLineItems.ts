@@ -8,6 +8,7 @@ import {
   createBlankLine,
   lineHasAnyData,
   calculateIssueValue,
+  sumLineTotals,
 } from "../utils/juteIssueFactories";
 import { createLineFromStock } from "../utils/juteIssueMappers";
 
@@ -90,23 +91,7 @@ export const useJuteIssueLineItems = ({
   }, []);
 
   // Calculate totals for summary
-  const calculateTotals = React.useCallback(() => {
-    let totalWeight = 0;
-    let totalValue = 0;
-    let totalQty = 0;
-
-    for (const item of lineItems) {
-      totalWeight += Number(item.weight) || 0;
-      totalValue += Number(item.issue_value) || 0;
-      totalQty += Number(item.quantity) || 0;
-    }
-
-    return {
-      totalWeight: Math.round(totalWeight * 100) / 100,
-      totalValue: Math.round(totalValue * 100) / 100,
-      totalQty: Math.round(totalQty * 100) / 100,
-    };
-  }, [lineItems]);
+  const calculateTotals = React.useCallback(() => sumLineTotals(lineItems), [lineItems]);
 
   return {
     lineItems,
