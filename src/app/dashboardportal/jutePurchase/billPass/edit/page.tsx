@@ -705,7 +705,7 @@ function BillPassEditPageContent() {
 										fileType="invoice"
 										coId={Number(coId)}
 										disabled={isComplete}
-										label="Invoice"
+										label="Final Invoice (from party)"
 									/>
 								</Grid>
 								<Grid size={{ xs: 12, sm: 6 }}>

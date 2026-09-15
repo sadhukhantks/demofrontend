@@ -93,6 +93,29 @@ export const lineIsComplete = (line: EditableLineItem): boolean => {
  * Calculate issue value from weight and rate.
  * Rate is per quintal (100 kg), weight is in kg.
  */
+/**
+ * Day totals over the saved + draft lines. A REJECTED (4) line gave its stock
+ * back, so it stays listed for the audit trail but never counts (TKT-000160).
+ */
+export const sumLineTotals = (
+  lines: EditableLineItem[]
+): { totalWeight: number; totalValue: number; totalQty: number } => {
+  let totalWeight = 0;
+  let totalValue = 0;
+  let totalQty = 0;
+  for (const item of lines) {
+    if (Number(item.status_id) === 4) continue;
+    totalWeight += Number(item.weight) || 0;
+    totalValue += Number(item.issue_value) || 0;
+    totalQty += Number(item.quantity) || 0;
+  }
+  return {
+    totalWeight: Math.round(totalWeight * 100) / 100,
+    totalValue: Math.round(totalValue * 100) / 100,
+    totalQty: Math.round(totalQty * 100) / 100,
+  };
+};
+
 export const calculateIssueValue = (weight: number, rate: number): number => {
   if (!weight || !rate) return 0;
   return Math.round(((weight / 100) * rate) * 100) / 100;
