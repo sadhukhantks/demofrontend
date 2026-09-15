@@ -14,7 +14,7 @@
 import * as React from "react";
 import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Alert, CircularProgress } from "@mui/material";
+import { Alert, Box, CircularProgress } from "@mui/material";
 import { ArrowLeft, Save, LogIn, CheckCircle } from "lucide-react";
 import TransactionWrapper from "@/components/ui/TransactionWrapper";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
@@ -60,6 +60,7 @@ import { useGateEntryLineItemColumns } from "./hooks/useMaterialInspectionLineIt
 
 // Components
 import { GateEntryHeaderForm, MoistureReadingDialog } from "./components";
+import AttachmentUploader from "@/components/AttachmentUploader";
 
 function JuteGateEntryCreatePageContent() {
 	const searchParams = useSearchParams();
@@ -1135,6 +1136,20 @@ function JuteGateEntryCreatePageContent() {
 					onSubmit={handleFormSubmit}
 					onValuesChange={handleHeaderValuesChange}
 				/>
+			)}
+
+			{/* Challan scan — gateEntryId IS jute_mr_id; same slot MR + bill pass read. */}
+			{isMounted && gateEntryId && coId && (
+				<Box sx={{ mt: 2, maxWidth: 480 }}>
+					<AttachmentUploader
+						module="billpass"
+						entityId={Number(gateEntryId)}
+						fileType="challan"
+						coId={Number(coId)}
+						disabled={mode === "view"}
+						label="Challan"
+					/>
+				</Box>
 			)}
 
 			{/* Moisture Reading Dialog */}

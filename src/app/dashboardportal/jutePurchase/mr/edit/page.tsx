@@ -4,6 +4,7 @@ import * as React from "react";
 import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Alert, CircularProgress, Box, Typography } from "@mui/material";
+import AttachmentUploader from "@/components/AttachmentUploader";
 import TransactionWrapper from "@/components/ui/TransactionWrapper";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -714,6 +715,17 @@ function JuteMREditPageContent() {
 					partyBranchesLoaded={partyBranchesLoaded}
 					totalAcceptedWeight={totalAcceptedWeight}
 				/>
+				{/* Challan scan — same slot bill pass + QC read (module "billpass", keyed on jute_mr_id). */}
+				<Box sx={{ mt: 2, maxWidth: 480 }}>
+					<AttachmentUploader
+						module="billpass"
+						entityId={header.jute_mr_id}
+						fileType="challan"
+						coId={Number(coId)}
+						disabled={!canEdit}
+						label="Challan"
+					/>
+				</Box>
 			</Box>
 
 			{/* MR Approval Dialog - for entering MR date before final approval */}
