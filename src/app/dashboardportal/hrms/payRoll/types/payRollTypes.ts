@@ -35,6 +35,13 @@ export interface PayRollDataResponse {
   pay_period_id?: number | null;
 }
 
+/** `data` of POST /hrms/pay_roll_upload, plus the summary line shown on the page. */
+export interface PayRollUploadResult {
+  message: string;
+  records_saved: number;
+  skipped_employee_codes: string[];
+}
+
 export type PayRollGridRow = {
   id: number;
   eb_id: number;

@@ -386,6 +386,49 @@ async function fetchHrmsBlob(url: string): Promise<Blob> {
   }
 }
 
+/** Same as fetchHrmsBlob but for the one download that has to POST: the
+ *  Wages Break Up workbook takes the operator's template file in. */
+async function postHrmsBlob(url: string, form: FormData): Promise<Blob> {
+  try {
+    const response = await axios.post<Blob>(url, form, {
+      responseType: "blob",
+      withCredentials: true,
+    });
+    return response.data;
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
+      let detail = "Download failed";
+      try {
+        const text = await err.response.data.text();
+        const parsed = JSON.parse(text) as { detail?: string };
+        if (parsed?.detail) detail = parsed.detail;
+      } catch {
+        /* non-JSON body — keep the default message */
+      }
+      throw new Error(detail);
+    }
+    throw err instanceof Error ? err : new Error(String(err));
+  }
+}
+
+/** All Wages Break Up Summary: the maintained template in, the same workbook
+ *  back with the nine generated sheets refilled for this period. The
+ *  hand-typed sheets (ALMA, Fng & Twisting, Sweeper, PENDING) ride through
+ *  untouched, which is why the file has to make the round trip. */
+export const runNjmWagesBreakupWorkbook = (p: {
+  branchId: number;
+  dateFrom: string;
+  dateTo: string;
+  file: File;
+}): Promise<Blob> => {
+  const form = new FormData();
+  form.append("branch_id", String(p.branchId));
+  form.append("date_from", p.dateFrom);
+  form.append("date_to", p.dateTo);
+  form.append("file", p.file);
+  return postHrmsBlob(apiRoutesPortalMasters.NJM_WAGES_BREAKUP_WORKBOOK, form);
+};
+
 export const exportPayRegister = (
   coId: string,
   payPeriodId: number | string,
@@ -436,6 +479,35 @@ export const downloadEjmTextPrint = (p: {
       list: p.list,
       kind: p.kind,
       report: p.report,
+      co_id: p.coId,
+      branch_id: String(p.branchId),
+      date_from: p.dateFrom,
+      date_to: p.dateTo,
+      pay_scheme_id: String(p.paySchemeId),
+    })}`,
+  );
+
+/** NJM pay slips as dot-matrix .txt (legacy Njmwagesprocess::njmcntwagespayslip):
+ *  `contractor` is the two-up contractor slip with piece production lines,
+ *  `main` the main-payroll slip, `retired` the retired-payroll one (legacy 167:
+ *  the main layout with a blank PFN and ADJ.A for DJ.A), `newbudli` the new-budli
+ *  one (legacy 169/174, printed from one block: ADJ.A, O.A for INC, FWOA/SWOA
+ *  and a blank P.F.G box). Each kind is pinned to its pay scheme(s)
+ *  backend-side. The backend resolves the pay period itself. */
+export const downloadNjmPayslip = (p: {
+  kind: "contractor" | "main" | "retired" | "newbudli";
+  /** `pdf` is the legacy FPDF two-up (contractor only); `txt` the dot-matrix slip. */
+  fmt: "pdf" | "txt";
+  coId: string;
+  branchId: number;
+  dateFrom: string;
+  dateTo: string;
+  paySchemeId: string | number;
+}): Promise<Blob> =>
+  fetchHrmsBlob(
+    `${apiRoutesPortalMasters.NJM_TEXT_PAYSLIP}?${new URLSearchParams({
+      kind: p.kind,
+      fmt: p.fmt,
       co_id: p.coId,
       branch_id: String(p.branchId),
       date_from: p.dateFrom,
@@ -632,12 +704,15 @@ export const fetchPayRollCumulative = async (
 export const uploadPayRollExcel = async (
   coId: string,
   file: File,
-  params: { from_date: string; to_date: string },
+  params: { from_date: string; to_date: string; branch_id: number },
 ) => {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("from_date", params.from_date);
   formData.append("to_date", params.to_date);
+  // emp_code is only unique within a branch — without this the backend can
+  // resolve a code to the same-code employee of another branch.
+  formData.append("branch_id", String(params.branch_id));
   try {
     const response = await axios.post(
       `${apiRoutesPortalMasters.HRMS_PAY_ROLL_UPLOAD}?co_id=${coId}`,
@@ -646,7 +721,13 @@ export const uploadPayRollExcel = async (
     );
     return { data: response.data, error: null, status: response.status };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+    // FastAPI puts the real reason (bad header, unreadable sheet…) in `detail`;
+    // axios' own message is just "Request failed with status code 400".
+    const detail = axios.isAxiosError(err)
+      ? (err.response?.data as { detail?: unknown } | undefined)?.detail
+      : undefined;
+    const message =
+      typeof detail === "string" ? detail : err instanceof Error ? err.message : String(err);
     return { data: null, error: message, status: 0 };
   }
 };
@@ -1073,6 +1154,18 @@ export const fetchNjmReport = async (
     query ? `${url}?${query}` : url,
     "GET",
   );
+};
+
+/** The same NJM report endpoint asked for its legacy PDF (`fmt=pdf`). */
+export const downloadNjmReportPdf = (
+  url: string,
+  params: Record<string, string | number | undefined>,
+): Promise<Blob> => {
+  const qs = new URLSearchParams({ fmt: "pdf" });
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== "") qs.set(k, String(v));
+  }
+  return fetchHrmsBlob(`${url}?${qs}`);
 };
 
 /** Resolve the screen's period + pay scheme to a pay_period id, so Pay
