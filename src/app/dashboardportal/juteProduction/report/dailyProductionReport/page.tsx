@@ -56,6 +56,11 @@ const UTIL_WARN_PCT = 50;
 const JUTE_COVER_GOOD_DAYS = 30;
 const JUTE_COVER_WARN_DAYS = 10;
 
+/** kg → MT for the KPI strip; null passes through so fmt renders "—". */
+function kgToMt(kg: number | null | undefined): number | null {
+  return kg === null || kg === undefined ? null : kg / 1000;
+}
+
 function utilState(pct: number): KpiState {
   return pct >= UTIL_GOOD_PCT ? "good" : pct >= UTIL_WARN_PCT ? "warn" : "bad";
 }
@@ -241,39 +246,28 @@ function Content() {
             <KpiCard
               label="Spinning (MT)"
               value={fmt(data.kpi.spinning_mt, 3)}
-              sub={`MTD ${fmt(data.kpi.spinning_mtd_mt, 1)} MT`}
+              sub={`${fmt(spinning?.total.frame_runs, 0)} frames run · MTD ${fmt(data.kpi.spinning_mtd_mt, 1)} MT`}
             />
             <KpiCard
-              label="Frame Utilization"
-              value={`${fmt(data.kpi.frame_utilization_pct, 1)}%`}
-              sub={`Doff eff ${fmt(data.kpi.spinning_eff_pct, 1)}%`}
-              state={utilState(data.kpi.frame_utilization_pct)}
-            />
-            <KpiCard
-              label="Weaving (MT)"
-              value={fmt(data.kpi.weaving_mt, 3)}
-              sub={`MTD ${fmt(data.kpi.weaving_mtd_mt, 1)} MT`}
-            />
-            <KpiCard
-              label="Loom Utilization"
-              value={`${fmt(data.kpi.loom_utilization_pct, 1)}%`}
-              sub={`Weaving eff ${fmt(data.kpi.weaving_eff_pct, 1)}%`}
-              state={utilState(data.kpi.loom_utilization_pct)}
-            />
-            <KpiCard
-              label="Winding (kg)"
-              value={fmt(data.kpi.winding_kg, 0)}
+              label="Winding (MT)"
+              // Card shows MT like Spinning/Weaving; API and the section table stay in kg.
+              value={fmt(kgToMt(data.kpi.winding_kg), 3)}
               // Winding was the one card with no MTD line (TKT — "MTD winding
               // production is not visible"); twisting is appended when split out.
               sub={
                 data.kpi.winding_kg === null
                   ? "select a branch"
-                  : `MTD ${fmt(data.kpi.winding_mtd_kg, 0)} kg${
+                  : `MTD ${fmt(kgToMt(data.kpi.winding_mtd_kg), 1)} MT${
                       data.kpi.twisting_kg
-                        ? ` · twisting ${fmt(data.kpi.twisting_kg, 0)} kg`
+                        ? ` · twisting ${fmt(kgToMt(data.kpi.twisting_kg), 3)} MT`
                         : ""
                     }`
               }
+            />
+            <KpiCard
+              label="Weaving (MT)"
+              value={fmt(data.kpi.weaving_mt, 3)}
+              sub={`MTD ${fmt(data.kpi.weaving_mtd_mt, 1)} MT`}
             />
             <KpiCard
               label="Shifts Worked"
@@ -306,6 +300,18 @@ function Content() {
                     : "select a branch"
               }
               state={daysStockState(data.kpi.jute_days_stock)}
+            />
+            <KpiCard
+              label="Frame Utilization"
+              value={`${fmt(data.kpi.frame_utilization_pct, 1)}%`}
+              sub={`Doff eff ${fmt(data.kpi.spinning_eff_pct, 1)}%`}
+              state={utilState(data.kpi.frame_utilization_pct)}
+            />
+            <KpiCard
+              label="Loom Utilization"
+              value={`${fmt(data.kpi.loom_utilization_pct, 1)}%`}
+              sub={`Weaving eff ${fmt(data.kpi.weaving_eff_pct, 1)}%`}
+              state={utilState(data.kpi.loom_utilization_pct)}
             />
             {data.emulsion?.day ? (
               <KpiCard

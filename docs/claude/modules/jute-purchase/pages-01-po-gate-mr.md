@@ -58,6 +58,9 @@ and **OUT is blocked until QC (`qc_check = 1`) is complete**.
   actions: **IN** (create mode → POST `JUTE_GATE_ENTRY_CREATE`, then redirect to edit), **Save**
   (PUT `JUTE_GATE_ENTRY_UPDATE/{id}`), **OUT** (same PUT with `action: "OUT"` + `out_date`/
   `out_time`; client-side blocked if QC incomplete — backend keeps `status_id` unchanged).
+  **Weight Slip** upload (`AttachmentUploader`, module `billpass`, file_type `weightslip`, entity =
+  `jute_mr_id`; PDF or photo → PDF) sits below Remarks; hidden in create mode (no id until IN).
+  MR edit shows the same file download-only.
 - Endpoints (BE `src/juteProcurement/juteGateEntry.py`, prefix `/juteGateEntry`; the id path
   param is `jute_mr_id`):
 
@@ -83,7 +86,10 @@ value in the FY — `TDS_CAP_INR` in `constants.py`). See `approval-flows.md §M
 - List page: `mr/page.tsx` — `JUTE_MR_TABLE`; xlsx via `mrService.fetchJuteMRDownload`
   (`JUTE_MR_DOWNLOAD`).
 - Edit: `mr/edit/page.tsx` — note the **module-level layout**: `components/`, `hooks/`, `types/`,
-  `utils/` sit at `mr/` (shared by list + edit), not inside `edit/`.
+  `utils/` sit at `mr/` (shared by list + edit), not inside `edit/`. Below the header form: a
+  Documents row — **Challan** (upload/replace when editable; same slot QC + bill pass read) and
+  **Weight Slip** (download-only; uploaded on gate entry). All via `/api/attachments`, module
+  `billpass`, entity `jute_mr_id`.
 - How it works:
   - components/: `MRHeaderForm`, `MRApprovalBar`, `MRApprovalDialog` (collects MR date / party
     branch for final approval), `MRPreview` (+ `MRPreview.test.tsx`)

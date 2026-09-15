@@ -10,7 +10,7 @@ import {
 	mapEditableToCreatePayload,
 	mapStockToOption,
 } from "./juteIssueMappers";
-import { lineIsComplete } from "./juteIssueFactories";
+import { lineIsComplete, sumLineTotals } from "./juteIssueFactories";
 
 /**
  * Jute stock has TWO sources — purchased jute (MR lines) and process waste
@@ -270,5 +270,23 @@ describe("buildItemFilterOptions", () => {
 
 	it("returns nothing for a group with no stock", () => {
 		expect(buildItemFilterOptions(rows, "99")).toEqual([]);
+	});
+});
+
+describe("sumLineTotals", () => {
+	// TKT-000160: sls br87 11-Apr-2026 — 87721 rejected, 87727 re-entered; page showed 3788 kg.
+	const line = (jute_issue_id: number, status_id: number) =>
+		({ jute_issue_id, status_id, weight: "1894", quantity: "170", issue_value: 500 }) as never;
+
+	it("skips REJECTED lines but keeps every other status", () => {
+		expect(sumLineTotals([line(87721, 4), line(87727, 1)])).toEqual({
+			totalWeight: 1894,
+			totalValue: 500,
+			totalQty: 170,
+		});
+	});
+
+	it("still counts unsaved draft lines with no status", () => {
+		expect(sumLineTotals([{ weight: "10.005", quantity: "1", issue_value: 0 } as never]).totalWeight).toBe(10.01);
 	});
 });

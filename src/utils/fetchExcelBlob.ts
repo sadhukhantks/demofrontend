@@ -8,6 +8,7 @@ export type ExcelBlobParams = {
 	toDate?: string | null;
 	branchIds?: string | null;
 	statusId?: number | string | null;
+	includeCompleted?: boolean;
 };
 
 /**
@@ -27,6 +28,7 @@ export async function fetchExcelBlob(url: string, params: ExcelBlobParams): Prom
 		qs.append("status_id", String(params.statusId));
 	if (params.fromDate) qs.append("from_date", params.fromDate);
 	if (params.toDate) qs.append("to_date", params.toDate);
+	if (params.includeCompleted) qs.append("include_completed", "1");
 
 	const fullUrl = `${url}?${qs.toString()}`;
 

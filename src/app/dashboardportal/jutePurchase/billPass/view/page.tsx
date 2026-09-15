@@ -18,6 +18,7 @@ import { ArrowLeft } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import AttachmentUploader from "@/components/AttachmentUploader";
 
 /**
  * @component BillPassViewPage
@@ -310,6 +311,37 @@ function BillPassViewPageContent() {
 						</Grid>
 						<Grid size={{ xs: 12, md: 6, lg: 3 }}>
 							<ReadOnlyField label="Party" value={header.party_name ?? "-"} />
+						</Grid>
+					</Grid>
+				</CardContent>
+			</Card>
+
+			{/* Documents — read-only (download only); uploads happen on MR / QC / bill-pass edit. */}
+			<Card sx={{ mb: 2 }}>
+				<CardContent>
+					<Typography variant="subtitle1" fontWeight={600} mb={2}>
+						Documents
+					</Typography>
+					<Grid container spacing={2}>
+						<Grid size={{ xs: 12, sm: 6 }}>
+							<AttachmentUploader
+								module="billpass"
+								entityId={header.jute_mr_id}
+								fileType="invoice"
+								coId={Number(coId)}
+								disabled
+								label="Final Invoice (from party)"
+							/>
+						</Grid>
+						<Grid size={{ xs: 12, sm: 6 }}>
+							<AttachmentUploader
+								module="billpass"
+								entityId={header.jute_mr_id}
+								fileType="challan"
+								coId={Number(coId)}
+								disabled
+								label="Challan"
+							/>
 						</Grid>
 					</Grid>
 				</CardContent>
