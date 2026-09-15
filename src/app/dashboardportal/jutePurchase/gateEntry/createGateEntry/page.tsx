@@ -43,6 +43,7 @@ import {
 } from "@mui/material";
 import { ArrowLeft, LogIn, Save, LogOut } from "lucide-react";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import AttachmentUploader from "@/components/AttachmentUploader";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
@@ -903,6 +904,21 @@ function JuteGateEntryCreatePageContent() {
               disabled={isViewMode}
             />
           </Box>
+
+          {/* Weight slip scan — entryId IS jute_mr_id; MR page shows the same file download-only.
+              Hidden in create mode: no id exists until IN is pressed. */}
+          {entryId && coId && (
+            <Box sx={{ maxWidth: 480 }}>
+              <AttachmentUploader
+                module="billpass"
+                entityId={Number(entryId)}
+                fileType="weightslip"
+                coId={Number(coId)}
+                disabled={isViewMode}
+                label="Weight Slip"
+              />
+            </Box>
+          )}
         </CardContent>
       </Card>
 
