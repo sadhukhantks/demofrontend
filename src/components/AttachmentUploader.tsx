@@ -18,9 +18,11 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 
 /**
  * @component AttachmentUploader
- * @description Reusable PDF upload widget backed by the generic /api/attachments
- * subsystem (S3-backed). Renders an upload button when no file is present,
- * and a card row with Download/Replace/Delete actions when a file exists.
+ * @description Reusable document upload widget backed by the generic
+ * /api/attachments subsystem (S3-backed). Accepts a PDF or an image
+ * (JPEG/PNG/WebP — the backend converts images to PDF). Renders an upload
+ * button when no file is present, and a card row with Download/Replace/Delete
+ * actions when a file exists.
  *
  * Hydration safety: parent component is expected to gate rendering until
  * `coId` and `entityId` are resolved (per project convention). No mounted-gate
@@ -72,7 +74,9 @@ type Props = {
 };
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
-const ALLOWED_MIME = "application/pdf";
+// Must match ALLOWED_MIME in vowerp3be src/common/attachments/constants.py.
+const ALLOWED_MIME = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+const ACCEPT_ATTR = ALLOWED_MIME.join(",");
 
 const formatBytes = (bytes: number): string => {
 	if (bytes == null) return "-";
@@ -161,8 +165,8 @@ const AttachmentUploader: React.FC<Props> = ({
 		if (inputRef.current) inputRef.current.value = "";
 		if (!file) return;
 
-		if (file.type !== ALLOWED_MIME) {
-			showMessage("Only PDF files are allowed", "error");
+		if (!ALLOWED_MIME.includes(file.type)) {
+			showMessage("Only PDF or image (JPG/PNG/WebP) files are allowed", "error");
 			return;
 		}
 		if (file.size > MAX_SIZE_BYTES) {
@@ -281,7 +285,7 @@ const AttachmentUploader: React.FC<Props> = ({
 				onClick={triggerPicker}
 				disabled={loading}
 			>
-				Upload {displayLabel} PDF
+				Upload {displayLabel} (PDF / Photo)
 			</Button>
 		);
 	};
@@ -370,7 +374,7 @@ const AttachmentUploader: React.FC<Props> = ({
 			<input
 				ref={inputRef}
 				type="file"
-				accept="application/pdf"
+				accept={ACCEPT_ATTR}
 				onChange={handleFileChange}
 				style={{ display: "none" }}
 			/>

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Chip, Typography } from "@mui/material";
+import { Alert, Checkbox, Chip, FormControlLabel, Typography } from "@mui/material";
 import type { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui/x-data-grid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
@@ -38,6 +38,7 @@ type JuteQualityCheckRow = {
 	supplier_name: string;
 	party_name: string;
 	status: string;
+	qc_done: boolean;
 };
 
 const formatDate = (value?: string | null) => {
@@ -90,6 +91,8 @@ export default function JuteQualityCheckIndexPage() {
 	const [searchValue, setSearchValue] = React.useState("");
 	const [fromDate, setFromDate] = React.useState("");
 	const [toDate, setToDate] = React.useState("");
+	// Completed QC rows are only fetched when the user opts in (view-only in the grid)
+	const [includeCompleted, setIncludeCompleted] = React.useState(false);
 	const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 	const [coIdState, setCoIdState] = React.useState<string>("");
 	const [branchIdsState, setBranchIdsState] = React.useState<string>("");
@@ -99,13 +102,14 @@ export default function JuteQualityCheckIndexPage() {
 	}, []);
 
 	const downloadFetcher = React.useCallback(
-		(p: { coId: string; branchIds: string; search: string; fromDate: string; toDate: string }) =>
+		(p: { coId: string; branchIds: string; search: string; fromDate: string; toDate: string; includeCompleted: boolean }) =>
 			fetchExcelBlob(apiRoutesPortalMasters.JUTE_MATERIAL_INSPECTION_DOWNLOAD, {
 				coId: p.coId,
 				branchIds: p.branchIds || null,
 				search: p.search,
 				fromDate: p.fromDate || null,
 				toDate: p.toDate || null,
+				includeCompleted: p.includeCompleted,
 			}),
 		[]
 	);
@@ -210,6 +214,14 @@ export default function JuteQualityCheckIndexPage() {
 					<Chip size="small" color={getStatusColor(params.value ?? "")} label={params.value || "Pending QC"} />
 				),
 			},
+			{
+				field: "qc_done",
+				headerName: "QC",
+				minWidth: 90,
+				renderCell: (params: GridRenderCellParams<JuteQualityCheckRow, boolean>) => (
+					<Chip size="small" color={params.value ? "success" : "warning"} label={params.value ? "Done" : "Pending"} />
+				),
+			},
 		],
 		[]
 	);
@@ -261,6 +273,7 @@ export default function JuteQualityCheckIndexPage() {
 			if (trimmedSearch) query.set("search", trimmedSearch);
 			if (fromDate) query.set("from_date", fromDate);
 			if (toDate) query.set("to_date", toDate);
+			if (includeCompleted) query.set("include_completed", "1");
 
 			// Use the material inspection table endpoint which returns entries pending QC
 			const url = `${apiRoutesPortalMasters.JUTE_MATERIAL_INSPECTION_TABLE}?${query.toString()}`;
@@ -295,6 +308,7 @@ export default function JuteQualityCheckIndexPage() {
 					supplier_name: (r.supplier_name ?? "") as string,
 					party_name: (r.party_name ?? "") as string,
 					status: (r.status ?? "Pending QC") as string,
+					qc_done: Number(r.qc_check) === 1,
 				};
 			});
 
@@ -309,7 +323,7 @@ export default function JuteQualityCheckIndexPage() {
 		} finally {
 			setLoading(false);
 		}
-	}, [paginationModel.page, paginationModel.pageSize, searchValue, fromDate, toDate]);
+	}, [paginationModel.page, paginationModel.pageSize, searchValue, fromDate, toDate, includeCompleted]);
 
 	React.useEffect(() => {
 		fetchQualityCheckEntries();
@@ -341,9 +355,14 @@ export default function JuteQualityCheckIndexPage() {
 		setToDate("");
 	}, []);
 
+	const handleIncludeCompletedChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+		setPaginationModel((prev) => ({ ...prev, page: 0 }));
+		setIncludeCompleted(event.target.checked);
+	}, []);
+
 	const handleDownload = React.useCallback(() => {
-		download({ coId: coIdState, branchIds: branchIdsState, search: searchValue, fromDate, toDate });
-	}, [download, coIdState, branchIdsState, searchValue, fromDate, toDate]);
+		download({ coId: coIdState, branchIds: branchIdsState, search: searchValue, fromDate, toDate, includeCompleted });
+	}, [download, coIdState, branchIdsState, searchValue, fromDate, toDate, includeCompleted]);
 
 	const handleView = React.useCallback(
 		(row: JuteQualityCheckRow) => {
@@ -383,6 +402,11 @@ export default function JuteQualityCheckIndexPage() {
 				debounceDelayMs: 500,
 			}}
 			toolbarContent={
+				<>
+				<FormControlLabel
+					control={<Checkbox size="small" checked={includeCompleted} onChange={handleIncludeCompletedChange} />}
+					label="Show completed QC"
+				/>
 				<DateRangeToolbar
 					fromDate={fromDate}
 					toDate={toDate}
@@ -394,9 +418,11 @@ export default function JuteQualityCheckIndexPage() {
 					downloadDisabled={!coIdState || loading}
 					mounted={mounted}
 				/>
+				</>
 			}
 			onView={handleView}
 			onEdit={handleEdit}
+			isRowEditable={(row) => !row.qc_done}
 		>
 			{errorMessage ? (
 				<Alert severity="error" sx={{ mt: 2 }}>

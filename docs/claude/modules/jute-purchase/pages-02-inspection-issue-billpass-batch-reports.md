@@ -70,9 +70,12 @@ No status lifecycle of its own.
 
 - List page: `billPass/page.tsx` — `JUTE_BILL_PASS_TABLE`, xlsx via `JUTE_BILL_PASS_DOWNLOAD`.
 - Edit: `billPass/edit/page.tsx` — Save vs Complete (both PUT `JUTE_BILL_PASS_UPDATE/{jute_mr_id}`);
-  attachments via `AttachmentUploader` (`invoice_upload`, `challan_upload`).
+  attachments via `AttachmentUploader` (`invoice_upload`, `challan_upload`; module `billpass`,
+  entity = `jute_mr_id`). The **challan slot is shared** with the MR edit page and the QC page
+  (both key on the same `jute_mr_id`) — upload once anywhere, download everywhere. Uploads accept
+  PDF or JPEG/PNG/WebP; images are converted to PDF server-side (`/api/attachments/upload`).
 - View (read-only): `billPass/view/page.tsx` — header via `JUTE_BILL_PASS_BY_ID`, lines via
-  `JUTE_BILL_PASS_LINE_ITEMS`.
+  `JUTE_BILL_PASS_LINE_ITEMS`; Documents card = download-only invoice + challan.
 - BE `src/juteProcurement/billPass.py`, prefix `/juteBillPass`. Plain pages — no hooks/ folders.
 
 ## Batch Daily Assign (`batchPlan/`)

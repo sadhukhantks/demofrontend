@@ -14,7 +14,7 @@
 import * as React from "react";
 import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Alert, CircularProgress } from "@mui/material";
+import { Alert, Box, CircularProgress } from "@mui/material";
 import { ArrowLeft, Save, LogIn, CheckCircle } from "lucide-react";
 import TransactionWrapper from "@/components/ui/TransactionWrapper";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
@@ -40,6 +40,7 @@ import {
 	UOM_OPTIONS,
 } from "./utils/MaterialInspectionConstants";
 import { calculateNetWeight, calculateLineItemTotals, recalculateLineItemWeights } from "./utils/MaterialInspectionCalculations";
+import { mergePoLinesIntoLineItems } from "./utils/MaterialInspectionFactories";
 import {
 	mapGateEntrySetupResponse,
 	buildBranchOptions,
@@ -60,6 +61,7 @@ import { useGateEntryLineItemColumns } from "./hooks/useMaterialInspectionLineIt
 
 // Components
 import { GateEntryHeaderForm, MoistureReadingDialog } from "./components";
+import AttachmentUploader from "@/components/AttachmentUploader";
 
 function JuteGateEntryCreatePageContent() {
 	const searchParams = useSearchParams();
@@ -544,12 +546,13 @@ function JuteGateEntryCreatePageContent() {
 
 		if (mode === "view" || !coId) return;
 
-		// Lines derive from the PO: a USER PO change (edit load pre-syncs the ref,
-		// so it never lands here) replaces the grid; clearing the PO blanks it.
-		// Safe in edit since complete_inspection reconciles rows to the payload —
-		// replaced lines go up without ids and the old rows are deactivated.
+		// The PO is a reference/quick-entry aid, not the source of truth: a USER PO
+		// change (edit load pre-syncs the ref, so it never lands here) MERGES the PO
+		// lines into whatever the user has already typed — rows with data survive and
+		// only their blank fields get filled (mergePoLinesIntoLineItems).
+		// Clearing the PO likewise keeps the rows and only drops the PO link.
 		if (!poId) {
-			if (hadPo) replaceLineItems([]);
+			if (hadPo) setLineItems((prev) => prev.map((li) => ({ ...li, jutePoLiId: "" })));
 			return;
 		}
 
@@ -606,29 +609,8 @@ function JuteGateEntryCreatePageContent() {
 					}
 				}
 
-				// Auto-fill line items from PO — unconditional: an empty PO yields an
-				// empty grid (lines derive from the PO)
+				// Merge the PO lines into what the user already typed — never replace
 				{
-					const newLineItems: GateEntryLineItem[] = (poData.line_items ?? []).map((poli) => ({
-						id: `ge-line-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-						jute_mr_li_id: null,  // New lines from PO don't have a database ID yet
-						jutePoLiId: String(poli.jute_po_li_id),  // Link to PO line item
-					challanItem: poli.item_grp_id ? String(poli.item_grp_id) : "",
-					challanQuality: poli.item_id ? String(poli.item_id) : "",
-					challanQty: poli.quantity ? String(poli.quantity) : "",
-					challanWeight: "",
-					juteUom: poli.jute_uom ?? poData.jute_uom ?? "",
-					actualItem: poli.item_grp_id ? String(poli.item_grp_id) : "",
-						actualQuality: poli.item_id ? String(poli.item_id) : "",
-						actualQty: poli.quantity ? String(poli.quantity) : "",
-						actualWeight: "",
-						allowableMoisture: poli.allowable_moisture != null ? String(poli.allowable_moisture) : "",  // Copy from PO
-						warehouseId: "",
-						remarks: "",
-						moistureReadings: [],  // Initialize empty moisture readings
-						averageMoisture: null,
-					}));
-					
 					// Recalculate weights based on header values before replacing
 					const currentChallanWeight = parseFloat(formValues.challanWeight) || 0;
 					const currentGross = parseFloat(formValues.grossWeight) || 0;
@@ -636,9 +618,17 @@ function JuteGateEntryCreatePageContent() {
 					const currentVariableShortage = parseFloat(formValues.variableShortage) || 0;
 					const currentNetWeight = currentGross > 0 && currentTare > 0 ? currentGross - currentTare : 0;
 					const currentActualWeight = currentNetWeight > 0 ? Math.max(0, currentNetWeight - currentVariableShortage) : 0;
-					
-					const lineItemsWithWeights = recalculateLineItemWeights(newLineItems, currentChallanWeight, currentActualWeight);
-					replaceLineItems(lineItemsWithWeights);
+
+					// Updater form, not replaceLineItems: the effect's deps are frozen
+					// (exhaustive-deps disabled) so a captured `lineItems` would be stale
+					setLineItems((prev) => {
+						const merged = mergePoLinesIntoLineItems(
+							prev,
+							poData.line_items ?? [],
+							poData.jute_uom ?? ""
+						);
+						return recalculateLineItemWeights(merged, currentChallanWeight, currentActualWeight);
+					});
 				}
 			} catch (err) {
 				console.error("Error fetching PO details:", err);
@@ -647,7 +637,7 @@ function JuteGateEntryCreatePageContent() {
 
 		void fetchPODetails();
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [formValues.poId, coId, mode, setFormValues, setInitialValues, bumpFormKey, replaceLineItems]);
+	}, [formValues.poId, coId, mode, setFormValues, setInitialValues, bumpFormKey, setLineItems]);
 
 	// Fetch setup data
 	React.useEffect(() => {
@@ -1135,6 +1125,20 @@ function JuteGateEntryCreatePageContent() {
 					onSubmit={handleFormSubmit}
 					onValuesChange={handleHeaderValuesChange}
 				/>
+			)}
+
+			{/* Challan scan — gateEntryId IS jute_mr_id; same slot MR + bill pass read. */}
+			{isMounted && gateEntryId && coId && (
+				<Box sx={{ mt: 2, maxWidth: 480 }}>
+					<AttachmentUploader
+						module="billpass"
+						entityId={Number(gateEntryId)}
+						fileType="challan"
+						coId={Number(coId)}
+						disabled={mode === "view"}
+						label="Challan"
+					/>
+				</Box>
 			)}
 
 			{/* Moisture Reading Dialog */}
