@@ -70,3 +70,4 @@ leaveRequest pages are fully built but non-functional until the backend lands. S
 | `pages-02-payroll.md` | Pay Scheme, Pay Param, Pay Register, Pay Roll |
 | `backend-map.md` | Router file → prefix → every endpoint |
 | `approval-flows.md` | Pay Register status lifecycle, employee lifecycle statuses, planned Leave Request flow |
+| `ejm-cash-outsider-payment.md` | EJM Wages Process action 14: Cash/Outsider daily payment prep, step by step (API, SQL, tables) |
