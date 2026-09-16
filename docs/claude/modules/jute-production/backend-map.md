@@ -88,3 +88,24 @@ Schema is live on **dev3 and sls**; any other tenant still needs
 `machine_id` is `NOT NULL` until the migration lands and the new insert leaves it NULL.
 
 Contract source of truth: `docs/winding-person-keyed-entry-spec.md`.
+
+## Bale Production (Bale Press) — added 2026-09-16
+
+Spec: `../vowerp3be/docs/bale-production-spec-sheet.md`. Portal persona, no approval workflow,
+soft delete, `{"data": …}`.
+
+| Router file | Prefix | Endpoints |
+|---|---|---|
+| `bale_entry.py` (+ `bale_query.py`, `bale_models.py`, `services/bale_sync.py`) | `/api/baleProd` | GET `entry_setup`, `next_bale_no`, `entries_by_date`, `bale_search`, `series_setup`, `series_list`; POST `entry_create`, `series_create`; PUT `entry_edit/{id}?co_id`, `series_edit/{id}?co_id`; DELETE `entry_delete/{id}?co_id`, `series_delete/{id}?co_id`. 409 on a `(series, bale_no)` clash or unknown REPACK original unless `allow_duplicate`. Every save/edit/delete calls `sync_balepress_daily()` so `jute_prod_finishing_daily` (`process='balepress'`) mirrors the per-bale rows (spec F10). |
+| `bale_reports.py` (+ `bale_reports_query.py`) | `/api/juteProductionReports` | GET `bale_daily_sheet?co_id&branch_id&tran_date[&spell_id][&entry_type]`, `bale_heavy_light?co_id&branch_id&date_from&date_to` (F1–F8; MR from `jute_sqc_packing_mr`, item → group → none fallback). |
+
+Tables: `jute_prod_bale_series` (running counters — the sheet's "Last Bale No"), `jute_prod_bale_entry`
+(one row per bale, `entry_type` PROD/REPACK, `original_bale_no`, snapshot `trolly_wt` / `packsheet_wt` /
+`std_bale_wt`, `net_wt = gross − trolley − packsheet`). `jute_prod_finishing_quality` gained `std_mr_pct`,
+`weft_yarn_item_id`. Migrations: `create_jute_prod_bale_tables.sql`, `seed_bale_series_dev3.sql` (optional),
+`seed_bale_production_menus.sql`.
+
+FE pages: `juteProduction/baleProduction` (entry), `juteProduction/masters/baleSeriesMaster`,
+`juteProduction/report/baleDailySheet`, `juteProduction/report/baleHeavyLight`;
+`juteProduction/finishing/balePress` now redirects to the entry page. Constants `BALE_PROD_*`,
+`BALE_SERIES_*`, `BALE_REPORT_*` in `src/utils/api.ts`.
