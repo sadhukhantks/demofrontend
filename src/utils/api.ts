@@ -1243,6 +1243,23 @@ const apiRoutesPortalMasters = {
     JUTE_WASTE_ENTRIES_BY_DATE: `${API_URL}/juteWasteProd/entries_by_date`,
     JUTE_WASTE_ENTRY_EDIT: `${API_URL}/juteWasteProd/entry_edit`,
     JUTE_WASTE_ENTRY_DELETE: `${API_URL}/juteWasteProd/entry_delete`,
+    // Bale Production (router prefix /api/baleProd) — BALE_PROD_ENTRY_EDIT/DELETE and
+    // BALE_SERIES_EDIT/DELETE are base paths; caller appends /${id}?co_id=...
+    BALE_PROD_ENTRY_SETUP: `${API_URL}/baleProd/entry_setup`,
+    BALE_PROD_NEXT_BALE_NO: `${API_URL}/baleProd/next_bale_no`,
+    BALE_PROD_ENTRIES_BY_DATE: `${API_URL}/baleProd/entries_by_date`,
+    BALE_PROD_ENTRY_CREATE: `${API_URL}/baleProd/entry_create`,
+    BALE_PROD_ENTRY_EDIT: `${API_URL}/baleProd/entry_edit`,
+    BALE_PROD_ENTRY_DELETE: `${API_URL}/baleProd/entry_delete`,
+    BALE_PROD_BALE_SEARCH: `${API_URL}/baleProd/bale_search`,
+    BALE_SERIES_SETUP: `${API_URL}/baleProd/series_setup`,
+    BALE_SERIES_LIST: `${API_URL}/baleProd/series_list`,
+    BALE_SERIES_CREATE: `${API_URL}/baleProd/series_create`,
+    BALE_SERIES_EDIT: `${API_URL}/baleProd/series_edit`,
+    BALE_SERIES_DELETE: `${API_URL}/baleProd/series_delete`,
+    // Bale reports (router prefix /api/juteProductionReports)
+    BALE_REPORT_DAILY_SHEET: `${API_URL}/juteProductionReports/bale_daily_sheet`,
+    BALE_REPORT_HEAVY_LIGHT: `${API_URL}/juteProductionReports/bale_heavy_light`,
     // Wastage Area master — same router; WASTAGE_AREA_EDIT is a base path, caller
     // appends /${id}?co_id=...
     WASTAGE_AREA_LIST: `${API_URL}/juteWasteProd/area_list`,
