@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, TextField, Tooltip, Typography } from "@mui/material";
+import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, TextField, Tooltip, Typography } from "@mui/material";
 import { Pencil as EditIcon, Plus as AddIcon, Trash2 as DeleteIcon, Eye as ViewIcon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { z } from "zod";
@@ -11,8 +11,9 @@ import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
-
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
+
 // =============================================================================
 // Quality type discriminator (BE: quality_type 1=hessian, 2=sacking — INT, no DB change)
 // =============================================================================
@@ -22,7 +23,8 @@ const QUALITY_TYPE_SACKING = 2;
 type QualityType = typeof QUALITY_TYPE_HESSIAN | typeof QUALITY_TYPE_SACKING;
 
 // =============================================================================
-// Setup / list / detail contract types (match BE finishing_masters.py exactly)
+// Setup / list / detail contract types (match BE finishing_masters.py exactly;
+// std_mr_pct + weft_yarn_item_id per bale-production-spec-sheet.md §4.3)
 // =============================================================================
 type SetupItem = {
 	item_id: number;
@@ -32,6 +34,20 @@ type SetupItem = {
 	item_grp_id: number;
 	item_grp_name: string;
 	item_type_id: number;
+};
+
+/**
+ * Weft yarn option. FINISHING_QUALITY_SETUP returns cloth items only (type 5),
+ * so yarns (type 4, with their count) come from the beaming quality setup —
+ * `BM_QUALITY_CREATE_SETUP` → `data.yarns` — the smallest existing endpoint
+ * that lists jute yarns with `jute_yarn_count` (single company-scoped query,
+ * no pagination, no worker/machine payload).
+ */
+type SetupYarn = {
+	item_id: number;
+	item_code: string | null;
+	item_name: string | null;
+	jute_yarn_count: number | null;
 };
 
 type FinishingQualityRow = {
@@ -45,11 +61,19 @@ type FinishingQualityRow = {
 	packsheet_wt: number | null;
 	std_bale_weight: number | null;
 	no_of_bags: number | null;
+	/** Standard moisture regain % (SPEC §4.3) — nullable, seeded 16 / 20 by type. */
+	std_mr_pct?: number | null;
+	/** Linked weft yarn item (item_type 4), nullable. */
+	weft_yarn_item_id?: number | null;
+	/** Optional denormalised weft columns the list query may carry. */
+	weft_item_code?: string | null;
+	weft_item_name?: string | null;
+	weft_count?: number | null;
 	active: number;
 };
 
 // =============================================================================
-// Zod schema — item is the identity; the three params are all OPTIONAL.
+// Zod schema — item is the identity; every parameter is OPTIONAL.
 // Numeric fields are strings in the form (text inputs), parsed to number|null
 // at submit.
 // =============================================================================
@@ -60,12 +84,19 @@ const optionalNumber = z
 		message: "Must be a number",
 	});
 
+const optionalPct = optionalNumber.refine(
+	(v) => v === undefined || v === "" || (Number(v) >= 0 && Number(v) <= 100),
+	{ message: "Must be between 0 and 100" }
+);
+
 const formSchema = z.object({
 	quality_type: z.union([z.literal(QUALITY_TYPE_HESSIAN), z.literal(QUALITY_TYPE_SACKING)]),
 	item_id: z.string().min(1, "Item is required"),
 	packsheet_wt: optionalNumber,
 	std_bale_weight: optionalNumber,
 	no_of_bags: optionalNumber,
+	std_mr_pct: optionalPct,
+	weft_yarn_item_id: z.string(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -76,6 +107,8 @@ const DEFAULT_VALUES: FormData = {
 	packsheet_wt: "",
 	std_bale_weight: "",
 	no_of_bags: "",
+	std_mr_pct: "",
+	weft_yarn_item_id: "",
 };
 
 // Parse a form string to number | null (empty -> null).
@@ -94,6 +127,9 @@ const toStr = (v: number | null | undefined): string => (v === null || v === und
 
 const itemLabel = (i: Pick<SetupItem, "item_code" | "full_item_code" | "item_name">): string =>
 	`${i.full_item_code || i.item_code} — ${i.item_name}`;
+
+const yarnLabel = (y: SetupYarn): string =>
+	`${y.item_code ?? y.item_id} — ${y.item_name ?? ""}${y.jute_yarn_count != null ? ` (${y.jute_yarn_count} lbs)` : ""}`;
 
 type DialogMode = "create" | "edit" | "view";
 
@@ -115,6 +151,7 @@ export default function FinishingQualityMasterPage() {
 
 	const [rows, setRows] = React.useState<FinishingQualityRow[]>([]);
 	const [items, setItems] = React.useState<SetupItem[]>([]);
+	const [yarns, setYarns] = React.useState<SetupYarn[]>([]);
 	const [loading, setLoading] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
 	const [typeFilter, setTypeFilter] = React.useState<QualityType | "all">("all");
@@ -148,7 +185,7 @@ export default function FinishingQualityMasterPage() {
 		void refresh();
 	}, [refresh]);
 
-	// Load create/edit setup (items only) once a company is selected.
+	// Load create/edit setup (cloth items) once a company is selected.
 	React.useEffect(() => {
 		if (!coId) return;
 		void (async () => {
@@ -161,6 +198,20 @@ export default function FinishingQualityMasterPage() {
 			setItems(data?.data?.items ?? []);
 		})();
 	}, [coId, singleBranchId]);
+
+	// Weft yarn options (type-4 items with count) — see SetupYarn for why this endpoint.
+	React.useEffect(() => {
+		if (!coId) return;
+		void (async () => {
+			const { data } = await fetchWithCookie<{ data: { yarns: SetupYarn[] } }>(
+				`${apiRoutesPortalMasters.BM_QUALITY_CREATE_SETUP}?co_id=${coId}`,
+				"GET"
+			);
+			setYarns(data?.data?.yarns ?? []);
+		})();
+	}, [coId]);
+
+	const yarnById = React.useMemo(() => new Map(yarns.map((y) => [y.item_id, y])), [yarns]);
 
 	const openCreate = () => {
 		setMode("create");
@@ -176,6 +227,8 @@ export default function FinishingQualityMasterPage() {
 		packsheet_wt: toStr(row.packsheet_wt),
 		std_bale_weight: toStr(row.std_bale_weight),
 		no_of_bags: toStr(row.no_of_bags),
+		std_mr_pct: toStr(row.std_mr_pct),
+		weft_yarn_item_id: row.weft_yarn_item_id == null ? "" : String(row.weft_yarn_item_id),
 	});
 
 	const openDetail = async (row: FinishingQualityRow, nextMode: DialogMode) => {
@@ -203,13 +256,18 @@ export default function FinishingQualityMasterPage() {
 		setError(null);
 
 		const branchId = singleBranchId != null ? singleBranchId : branchOptions[0]?.branch_id ?? null;
+		const shared = {
+			packsheet_wt: toNum(values.packsheet_wt),
+			std_bale_weight: toNum(values.std_bale_weight),
+			no_of_bags: toInt(values.no_of_bags),
+			std_mr_pct: toNum(values.std_mr_pct),
+			weft_yarn_item_id: values.weft_yarn_item_id === "" ? null : Number(values.weft_yarn_item_id),
+		};
 
 		if (mode === "edit" && editingId != null) {
 			const body = {
 				item_id: Number(values.item_id),
-				packsheet_wt: toNum(values.packsheet_wt),
-				std_bale_weight: toNum(values.std_bale_weight),
-				no_of_bags: toInt(values.no_of_bags),
+				...shared,
 				active: 1,
 			};
 			const { error: err } = await fetchWithCookie(
@@ -227,9 +285,7 @@ export default function FinishingQualityMasterPage() {
 				branch_id: branchId,
 				quality_type: values.quality_type,
 				item_id: Number(values.item_id),
-				packsheet_wt: toNum(values.packsheet_wt),
-				std_bale_weight: toNum(values.std_bale_weight),
-				no_of_bags: toInt(values.no_of_bags),
+				...shared,
 			};
 			const { error: err } = await fetchWithCookie(
 				apiRoutesPortalMasters.FINISHING_QUALITY_CREATE,
@@ -333,6 +389,29 @@ export default function FinishingQualityMasterPage() {
 			valueFormatter: (value) => (value != null ? value : "—"),
 		},
 		{
+			field: "std_mr_pct",
+			headerName: "Std MR %",
+			width: 110,
+			type: "number",
+			valueFormatter: (value) => (value != null ? value : "—"),
+		},
+		{
+			field: "weft_yarn_item_id",
+			headerName: "Weft Yarn",
+			width: 200,
+			// Resolve the label from the yarn list; fall back to any denormalised
+			// columns the list query carries, then to the bare id.
+			valueGetter: (value, row) => {
+				if (value == null) return "—";
+				const y = yarnById.get(Number(value));
+				if (y) return yarnLabel(y);
+				if (row.weft_item_code || row.weft_item_name) {
+					return `${row.weft_item_code ?? ""} — ${row.weft_item_name ?? ""}${row.weft_count != null ? ` (${row.weft_count} lbs)` : ""}`.trim();
+				}
+				return String(value);
+			},
+		},
+		{
 			field: "active",
 			headerName: "Active",
 			width: 90,
@@ -369,7 +448,7 @@ export default function FinishingQualityMasterPage() {
 					</Typography>
 					<Typography variant="body2" color="text.secondary">
 						Hessian and sacking finishing qualities keyed by item, with optional packsheet weight,
-						standard bale weight and bag count.
+						standard bale weight, bag count, standard MR % and weft yarn.
 					</Typography>
 				</Box>
 				<Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
@@ -378,7 +457,7 @@ export default function FinishingQualityMasterPage() {
 						size="small"
 						options={[{ value: "all", label: "All" }, { value: String(QUALITY_TYPE_HESSIAN), label: "Hessian" }, { value: String(QUALITY_TYPE_SACKING), label: "Sacking" }]}
 						value={typeFilter === "all" ? "all" : String(typeFilter)}
-						onChange={(selectedValue) => setTypeFilter(selectedValue === "all" ? "all" : (Number(selectedValue) as QualityType))}
+						onChange={(selectedValue) => setTypeFilter(selectedValue === "all" || selectedValue === "" ? "all" : (Number(selectedValue) as QualityType))}
 						sx={{ minWidth: 140 }}
 					/>
 					<Button variant="contained" startIcon={<AddIcon size={18} />} onClick={openCreate}>
@@ -432,36 +511,21 @@ export default function FinishingQualityMasterPage() {
 							control={control}
 							name="item_id"
 							render={({ field, fieldState }) => (
-								<Autocomplete
+								<SearchableSelect<SetupItem>
+									variant="outlined"
+									label="Item"
+									required
 									options={items}
-									getOptionLabel={itemLabel}
 									value={items.find((it) => String(it.item_id) === field.value) ?? null}
-									onChange={(_, newVal) => field.onChange(newVal ? String(newVal.item_id) : "")}
-									size="small"
-									fullWidth
-									disabled={lockIdentity || items.length === 0}
-									clearOnEscape
+									onChange={(opt) => field.onChange(opt ? String(opt.item_id) : "")}
+									getOptionLabel={itemLabel}
+									getOptionKey={(it) => it.item_id}
 									isOptionEqualToValue={(opt, val) => opt.item_id === val.item_id}
-									renderOption={(props, option) => {
-										const { key: _key, ...rest } = props;
-										return (
-											<li key={option.item_id} {...rest}>
-												{itemLabel(option)}
-											</li>
-										);
-									}}
-									renderInput={(params) => (
-										<TextField
-											{...params}
-											label="Item"
-											required
-											error={!!fieldState.error}
-											helperText={
-												fieldState.error?.message ??
-												(items.length === 0 ? "Loading items…" : undefined)
-											}
-										/>
-									)}
+									disabled={lockIdentity || items.length === 0}
+									loading={items.length === 0}
+									error={!!fieldState.error}
+									helperText={fieldState.error?.message ?? (items.length === 0 ? "Loading items…" : undefined)}
+									textFieldProps={{ onBlur: field.onBlur }}
 								/>
 							)}
 						/>
@@ -470,6 +534,32 @@ export default function FinishingQualityMasterPage() {
 							<NumField control={control} name="packsheet_wt" label="Packsheet Wt (kg)" disabled={isView} />
 							<NumField control={control} name="std_bale_weight" label="Std Bale Wt (kg)" disabled={isView} />
 							<NumField control={control} name="no_of_bags" label="No. of Bags" disabled={isView} integer />
+						</Box>
+
+						{/* Bale Heavy/Light standards (SPEC §4.3): std MR % + weft yarn */}
+						<Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 2fr" }, gap: 2 }}>
+							<NumField control={control} name="std_mr_pct" label="Std MR %" disabled={isView} helper="0–100; 16 hessian / 20 sacking" />
+							<Controller
+								control={control}
+								name="weft_yarn_item_id"
+								render={({ field, fieldState }) => (
+									<SearchableSelect<SetupYarn>
+										variant="outlined"
+										label="Weft Yarn (optional)"
+										options={yarns}
+										value={yarns.find((y) => String(y.item_id) === field.value) ?? null}
+										onChange={(opt) => field.onChange(opt ? String(opt.item_id) : "")}
+										getOptionLabel={yarnLabel}
+										getOptionKey={(y) => y.item_id}
+										isOptionEqualToValue={(opt, val) => opt.item_id === val.item_id}
+										disabled={isView}
+										loading={yarns.length === 0}
+										error={!!fieldState.error}
+										helperText={fieldState.error?.message ?? "Shown as WFT (lbs) on the Bale Heavy/Light report"}
+										textFieldProps={{ onBlur: field.onBlur }}
+									/>
+								)}
+							/>
 						</Box>
 					</Box>
 				</DialogContent>
@@ -497,12 +587,14 @@ function NumField({
 	label,
 	disabled,
 	integer = false,
+	helper,
 }: {
 	control: ReturnType<typeof useForm<FormData>>["control"];
 	name: NumFieldName;
 	label: string;
 	disabled?: boolean;
 	integer?: boolean;
+	helper?: string;
 }) {
 	return (
 		<Controller
@@ -518,7 +610,7 @@ function NumField({
 					disabled={disabled}
 					inputProps={integer ? { step: 1 } : { step: 0.001 }}
 					error={!!fieldState.error}
-					helperText={fieldState.error?.message}
+					helperText={fieldState.error?.message ?? helper}
 				/>
 			)}
 		/>

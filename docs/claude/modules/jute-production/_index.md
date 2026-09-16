@@ -48,6 +48,7 @@ doff row entirely, so a per-machine winding attribute master has no consumer. Se
 |------|--------|
 | `pages-01-winding-production.md` | The shipped Winding page (Doff/Jugar/Quality tabs), the person-keyed API contract, data points, client formulas |
 | `backend-map.md` | The shipped winding routers → prefix → endpoints (person-keyed), and legacy → vowerp3 endpoint mapping |
+| `bale-production-spec-sheet.md` | **Bale Production (Bale Press)** — pointer to `../vowerp3be/docs/bale-production-spec-sheet.md`: per-bale entry (PROD/REPACK + original bale no), bale-series counters, standards on the finishing quality master, Daily Bale Sheet + Bale Heavy/Light reports, DPR sync into the finishing balepress row |
 
 > No `approval-flows.md` — winding has **no approval workflow** (direct CRUD + soft delete),
 > consistent with the rest of jute production.
