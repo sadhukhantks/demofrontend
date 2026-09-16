@@ -1,4 +1,4 @@
-// middleware.ts (Edge Middleware for Tenant + Auth Validation)
+// proxy.ts (Next.js 16 proxy — formerly middleware.ts — for Tenant + Auth Validation)
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 // Ensure this has full absolute URLs, not relative
@@ -9,7 +9,7 @@ import { determinePortalAction } from './utils/portalPermissions';
 const PROTECTED_PATHS = ['/dashboardctrldesk', '/dashboardadmin', '/dashboardportal', '/reset-password'];
 const PUBLIC_PATHS = ['/', '/login', '/_next', '/favicon.ico'];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const url = request.nextUrl;
   const hostname = request.headers.get('host') || '';
   const accessToken = request.cookies.get('access_token');
