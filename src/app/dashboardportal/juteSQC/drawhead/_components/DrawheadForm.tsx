@@ -28,10 +28,12 @@ type Props = {
 	onSaved: () => void;
 };
 
-// Human-friendly labels for the three drawing sub-sections.
+// Human-friendly labels for the drawing sub-sections.
 const SECTION_LABEL: Record<DrawSection, string> = {
 	DRAWHEAD_SWT: "Drawhead SWT",
 	DRAWHEAD_SWP: "Drawhead SWP",
+	DRAWHEAD_HWT: "Drawhead HWT",
+	DRAWHEAD_HWP: "Drawhead HWP",
 	FINISHER_CARD: "Finisher Card",
 };
 
