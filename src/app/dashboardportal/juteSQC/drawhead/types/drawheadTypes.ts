@@ -23,8 +23,14 @@ import { z } from "zod";
 // ─── MINIMUM cut readings per draw-sliver row (rows may carry more) ───────────
 export const DRAW_SLIVER_READINGS = 4;
 
-// ─── The three drawing sub-sections ───────────────────────────────────────────
-export const DRAW_SECTIONS = ["DRAWHEAD_SWT", "DRAWHEAD_SWP", "FINISHER_CARD"] as const;
+// ─── The drawing sub-sections ─────────────────────────────────────────────────
+export const DRAW_SECTIONS = [
+	"DRAWHEAD_SWT",
+	"DRAWHEAD_SWP",
+	"DRAWHEAD_HWT",
+	"DRAWHEAD_HWP",
+	"FINISHER_CARD",
+] as const;
 export type DrawSection = (typeof DRAW_SECTIONS)[number];
 export const DEFAULT_DRAW_SECTION: DrawSection = "DRAWHEAD_SWT";
 
