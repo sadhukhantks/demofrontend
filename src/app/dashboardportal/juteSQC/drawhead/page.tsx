@@ -28,9 +28,17 @@ const TABS = ["R-08-08/09/10 Drawhead & Finisher Card"] as const;
 const PRINT_SECTION_LABEL: Record<DrawSection, string> = {
 	DRAWHEAD_SWT: "Drawhead SWT",
 	DRAWHEAD_SWP: "Drawhead SWP",
+	DRAWHEAD_HWT: "Drawhead HWT",
+	DRAWHEAD_HWP: "Drawhead HWP",
 	FINISHER_CARD: "Finisher Card",
 };
-const PRINT_SECTION_ORDER: DrawSection[] = ["DRAWHEAD_SWT", "DRAWHEAD_SWP", "FINISHER_CARD"];
+const PRINT_SECTION_ORDER: DrawSection[] = [
+	"DRAWHEAD_SWT",
+	"DRAWHEAD_SWP",
+	"DRAWHEAD_HWT",
+	"DRAWHEAD_HWP",
+	"FINISHER_CARD",
+];
 const printSectionLabel = (s: DrawSection | null | undefined): string =>
 	s ? PRINT_SECTION_LABEL[s] ?? s : "—";
 const printSectionRank = (s: DrawSection | null | undefined): number => {
