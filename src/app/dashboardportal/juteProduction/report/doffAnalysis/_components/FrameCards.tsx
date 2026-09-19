@@ -24,7 +24,7 @@ export interface FrameCardItem {
   doffs?: number | null;
   doffMedian?: number | null;
   netWt?: number | null;
-  /** Production target + actual-minus-target; null = standards not entered. */
+  /** Production target + target-minus-actual (positive = short); null = standards not entered. */
   targetWt?: number | null;
   diffWt?: number | null;
 }
@@ -140,7 +140,7 @@ export default function FrameCards({
                     c.diffWt == null ? "—" : `${c.diffWt > 0 ? "+" : ""}${fmt(c.diffWt)} kg`
                   }
                   color={
-                    c.diffWt == null ? undefined : c.diffWt < 0 ? "error.main" : "success.main"
+                    c.diffWt == null ? undefined : c.diffWt > 0 ? "error.main" : "success.main"
                   }
                 />
               ) : null}

@@ -171,13 +171,14 @@ describe("deriveSpellTotals", () => {
 
   it("sums target and diff over the rows that have a target only", () => {
     const rows = [
-      sRow({ net_wt: 300, target_wt: 315.2, diff_wt: -15.2 }),
-      sRow({ net_wt: 330, target_wt: 315.2, diff_wt: 14.8 }),
+      // diff = target - actual: +15.2 short, -14.8 over
+      sRow({ net_wt: 300, target_wt: 315.2, diff_wt: 15.2 }),
+      sRow({ net_wt: 330, target_wt: 315.2, diff_wt: -14.8 }),
       // standards not entered for this frame's quality: not a zero target
       sRow({ net_wt: 250, target_wt: null, diff_wt: null }),
     ];
     expect(deriveSpellTotals(rows)).toEqual([
-      { spell_code: "A", net_wt: 880, target_wt: 630.4, diff_wt: -0.4, target_rows: 2, rows: 3 },
+      { spell_code: "A", net_wt: 880, target_wt: 630.4, diff_wt: 0.4, target_rows: 2, rows: 3 },
     ]);
   });
 });

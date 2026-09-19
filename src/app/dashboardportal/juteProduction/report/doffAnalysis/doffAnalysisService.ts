@@ -27,16 +27,15 @@ export interface DoffMeta {
 
 /**
  * Production target of a row and how the actual compares. The target is the
- * Spinning Production grid's "Tgt Prod" (Spinning Standards master + the day's
- * SQC count). All three are null when the standards behind it have not been
- * entered — blank on screen, and left out of every target total.
+ * Spinning Production grid's "Std Prod" — 100% production x Std Eff % from the
+ * Spinning Standards master, with the day's SQC count. Both are null when the
+ * standards behind it have not been entered — blank on screen, and left out of
+ * every target total.
  */
 export interface TargetFields {
   target_wt?: number | null;
-  /** Actual - target: negative = short of target. */
+  /** Target - actual: positive = short of target, negative = over. */
   diff_wt?: number | null;
-  /** Actual / target x 100. */
-  achv_pct?: number | null;
 }
 
 export interface DoffSummaryRow extends TargetFields {

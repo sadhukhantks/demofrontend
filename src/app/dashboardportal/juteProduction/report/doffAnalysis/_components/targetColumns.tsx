@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * Target / Diff / Achv % columns shared by the Doff Summary, Spell Totals and
- * per-frame drill grids. A row with no target (standards not entered) renders
- * all three blank. Diff is actual - target: a shortfall is red, at-or-above
+ * Target / Diff columns shared by the Doff Summary, Spell Totals and per-frame
+ * drill grids. A row with no target (standards not entered) renders both
+ * blank. Diff is target - actual: a shortfall (positive) is red, on-or-over
  * target green — theme palette only, no literal colours.
  */
 
@@ -19,14 +19,14 @@ export function diffCol<T extends GridValidRowModel>(
 ): GridColDef<T> {
   return {
     ...numCol<T>(field, headerName, width),
-    description: "Actual - Target (negative = short of target)",
+    description: "Target - Actual (positive = short of target)",
     renderCell: (params) => {
       const n = Number(params.value);
       if (params.value == null || !Number.isFinite(n)) return "";
       return (
         <Box
           component="span"
-          sx={{ color: n < 0 ? "error.main" : "success.main", fontWeight: 600 }}
+          sx={{ color: n > 0 ? "error.main" : "success.main", fontWeight: 600 }}
         >
           {n > 0 ? `+${fmtNum(n)}` : fmtNum(n)}
         </Box>
@@ -40,17 +40,8 @@ export function targetColumns<T extends GridValidRowModel>(): GridColDef<T>[] {
     {
       ...numCol<T>("target_wt", "Target (kg)", 120),
       description:
-        "Tgt Prod of the Spinning Production grid: 100% production x Target Eff % (Spinning Standards). Blank until the standards are entered.",
+        "Std Prod of the Spinning Production grid: 100% production x Std Eff % (Spinning Standards). Blank until the standards are entered.",
     },
     diffCol<T>(),
-    {
-      field: "achv_pct",
-      headerName: "Achv %",
-      description: "Actual / Target x 100",
-      type: "number",
-      width: 90,
-      valueFormatter: (value: unknown) =>
-        value == null || !Number.isFinite(Number(value)) ? "" : Number(value).toFixed(1),
-    },
   ];
 }
