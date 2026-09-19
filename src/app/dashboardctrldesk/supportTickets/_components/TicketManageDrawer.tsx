@@ -28,6 +28,7 @@ import {
 import { X } from "lucide-react";
 
 import { AttachmentList, AttachmentUploadButton } from "@/components/support/AttachmentList";
+import { requestTicketNotificationsRefresh } from "@/components/support/useTicketNotifications";
 import {
   addManageComment,
   assignTicket,
@@ -156,6 +157,8 @@ export default function TicketManageDrawer({
     setComments(data.comments ?? []);
     setAttachments(data.attachments ?? []);
     setAssigneeId(data.data.assigned_to_con_user_id ?? "");
+    // Opening the ticket marks its notifications read server-side; refresh the bell now.
+    requestTicketNotificationsRefresh();
   }, [ticketId]);
 
   const openAttachment = useCallback(async (attachment: TicketAttachment) => {

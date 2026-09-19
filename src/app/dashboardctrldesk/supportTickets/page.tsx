@@ -8,7 +8,8 @@
  * lifecycle and converse with the reporter.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Box, Chip, MenuItem, Paper, TextField, FormControlLabel, Switch, Typography } from "@mui/material";
 import type { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui/x-data-grid";
 
@@ -53,7 +54,10 @@ function StatCard({ label, value }: { label: string; value: number }) {
   );
 }
 
-export default function SupportTicketsPage() {
+function SupportTicketsPageContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -101,6 +105,17 @@ export default function SupportTicketsPage() {
   useEffect(() => {
     void fetchRows();
   }, [fetchRows]);
+
+  // Deep link from the notification bell: /supportTickets?ticket=<id> opens the drawer,
+  // then the param is dropped so a refresh/back doesn't re-open it.
+  useEffect(() => {
+    const raw = searchParams.get("ticket");
+    const id = raw ? Number(raw) : NaN;
+    if (!Number.isInteger(id) || id <= 0) return;
+    setDrawerTicketId(id);
+    setDrawerOpen(true);
+    router.replace(pathname);
+  }, [searchParams, router, pathname]);
 
   const columns = useMemo<GridColDef<Row>[]>(
     () => [
@@ -262,5 +277,13 @@ export default function SupportTicketsPage() {
         }}
       />
     </>
+  );
+}
+
+export default function SupportTicketsPage() {
+  return (
+    <Suspense fallback={null}>
+      <SupportTicketsPageContent />
+    </Suspense>
   );
 }
