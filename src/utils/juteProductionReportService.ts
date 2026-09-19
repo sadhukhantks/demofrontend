@@ -158,10 +158,34 @@ export interface DprJuteGroupRow {
   mtd_issue_weight: number;
 }
 
+/** The day whose spinning production the jute days-of-cover divides by
+ * (TKT-000172): the report date, or the last full working day before it when
+ * the report date was a holiday / part day. */
+export interface DprJuteCoverBasis {
+  /** ISO date of the production day used. */
+  date: string;
+  production_kg: number;
+  /** Shifts spinning ran on that day. */
+  shifts: number;
+  /** false = the report date was skipped (holiday or part day). */
+  is_report_date: boolean;
+  basis_label: string;
+}
+
 export interface DprJuteSection {
   groups: DprJuteGroupRow[];
   totals: Omit<DprJuteGroupRow, "item_group_name">;
-  days_stock: number | null; // null when nothing was issued MTD
+  /** Total closing stock ÷ `cover_basis.production_kg` (both kg). null when
+   * spinning produced nothing in the look-back window. */
+  days_stock: number | null;
+  /** Same cover on purchased raw jute alone (process waste left out). */
+  days_stock_raw_jute: number | null;
+  raw_jute_closing_weight: number;
+  waste_closing_weight: number;
+  cover_basis: DprJuteCoverBasis | null;
+  /** Superseded basis (closing ÷ MTD jute issue per calendar day) — kept for
+   * comparison only; it drifts whenever jute-issue entry lags production. */
+  days_stock_mtd_issue: number | null;
 }
 
 export interface DprHandsShiftRow {
@@ -238,6 +262,9 @@ export interface DprKpi {
    * tenants, quintal on others) — deliberately NOT converted to MT. */
   jute_closing_weight: number | null;
   jute_days_stock: number | null;
+  /** Divisor of `jute_days_stock` and its date (TKT-000172). */
+  jute_cover_basis_kg: number | null;
+  jute_cover_basis_date: string | null;
 }
 
 /** Batching-oil emulsion — day reading plus the month's running totals. */

@@ -49,6 +49,7 @@ import {
   totalRowSx,
   type KpiState,
 } from "./_components/DprPieces";
+import { juteCoverKpiSub, juteCoverSubtitle } from "./_components/dprJuteCover";
 
 // Status thresholds for the KPI strip.
 const UTIL_GOOD_PCT = 80;
@@ -292,13 +293,9 @@ function Content() {
             <KpiCard
               label="Jute Closing Stock"
               value={fmt(data.kpi.jute_closing_weight, 0)}
-              sub={
-                data.kpi.jute_days_stock !== null
-                  ? `${fmt(data.kpi.jute_days_stock, 1)} days cover`
-                  : data.jute
-                    ? "no MTD issue"
-                    : "select a branch"
-              }
+              // TKT-000172: cover = stock ÷ last full working day's spinning
+              // production; the divisor and its date ride on the card.
+              sub={juteCoverKpiSub(data.jute)}
               state={daysStockState(data.kpi.jute_days_stock)}
             />
             <KpiCard
@@ -699,7 +696,7 @@ function Content() {
           {data.jute ? (
             <SectionCard
               title="Jute Stock Position (kg)"
-              subtitle={`Days of cover at MTD issue rate: ${fmt(data.jute.days_stock, 1)}`}
+              subtitle={juteCoverSubtitle(data.jute)}
             >
               <DprTable
                 head={
