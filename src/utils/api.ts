@@ -1479,12 +1479,16 @@ const apiRoutesSupport = {
     PORTAL_TICKET: `${API_URL}/supportTicket/portal/ticket`, // append /{id} (and /{id}/attachment)
     PORTAL_COMMENT: `${API_URL}/supportTicket/portal/comment`,
     PORTAL_ATTACHMENT: `${API_URL}/supportTicket/portal/attachment`, // append /{id}
+    PORTAL_NOTIFICATIONS: `${API_URL}/supportTicket/portal/notifications`,
+    PORTAL_NOTIFICATIONS_READ: `${API_URL}/supportTicket/portal/notifications/read`,
     // Reporter side — Tenant Admin
     ADMIN_RAISE: `${API_URL}/supportTicket/admin/raise`,
     ADMIN_MY_TICKETS: `${API_URL}/supportTicket/admin/my-tickets`,
     ADMIN_TICKET: `${API_URL}/supportTicket/admin/ticket`, // append /{id} (and /{id}/attachment)
     ADMIN_COMMENT: `${API_URL}/supportTicket/admin/comment`,
     ADMIN_ATTACHMENT: `${API_URL}/supportTicket/admin/attachment`, // append /{id}
+    ADMIN_NOTIFICATIONS: `${API_URL}/supportTicket/admin/notifications`,
+    ADMIN_NOTIFICATIONS_READ: `${API_URL}/supportTicket/admin/notifications/read`,
     // VOW management — Control Desk
     MANAGE_LIST: `${API_URL}/supportTicket/manage/list`,
     MANAGE_STATS: `${API_URL}/supportTicket/manage/stats`,
@@ -1494,6 +1498,8 @@ const apiRoutesSupport = {
     MANAGE_TRANSITION: `${API_URL}/supportTicket/manage/transition`,
     MANAGE_COMMENT: `${API_URL}/supportTicket/manage/comment`,
     MANAGE_ATTACHMENT: `${API_URL}/supportTicket/manage/attachment`, // append /{id}
+    MANAGE_NOTIFICATIONS: `${API_URL}/supportTicket/manage/notifications`,
+    MANAGE_NOTIFICATIONS_READ: `${API_URL}/supportTicket/manage/notifications/read`,
 };
 
 export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters, apiRoutesSupport };
