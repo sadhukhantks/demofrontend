@@ -12,6 +12,9 @@
  * std-weighted figure covers only the qualities that have one and shows "—"
  * when none does, with a line saying where to enter them.
  *
+ * The same three figures ride on the "Avg Count (lb)" KPI card at the top of
+ * the page (avgCountKpi) — owner asked for both.
+ *
  * Presentational only; same DOM on screen and on print.
  */
 
@@ -31,6 +34,24 @@ export function stdBasisText(avg: DprSpinningAvgCount): string {
   return avg.std_qualities < avg.qualities
     ? `${base} · ${avg.std_qualities} of ${avg.qualities} qualities have a standard`
     : base;
+}
+
+/**
+ * Strings for the "Avg Count (lb)" KPI card: the three figures in one compact
+ * line (frames / production / std), in the same order as the table below. A
+ * blank std figure shows "—" and the caption says why, so the card never reads
+ * as a zero. Kept short on purpose — the KPI strip is read on a phone.
+ */
+export function avgCountKpi(avg: DprSpinningAvgCount): { value: string; sub: string } {
+  return {
+    value: [avg.by_frames, avg.by_production, avg.by_std_production]
+      .map((v) => fmt(v, 2))
+      .join(" / "),
+    sub:
+      avg.by_std_production === null
+        ? "frames / production / std (std not entered)"
+        : "frames / production / std",
+  };
 }
 
 export function DprAvgCountTable({ avg }: DprAvgCountTableProps) {

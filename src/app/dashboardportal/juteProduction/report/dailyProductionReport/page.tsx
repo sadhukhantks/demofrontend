@@ -49,7 +49,7 @@ import {
   totalRowSx,
   type KpiState,
 } from "./_components/DprPieces";
-import { DprAvgCountTable } from "./_components/DprAvgCountTable";
+import { DprAvgCountTable, avgCountKpi } from "./_components/DprAvgCountTable";
 import { DprWindingTable } from "./_components/DprWindingTable";
 import { juteCoverKpiSub, juteCoverSubtitle } from "./_components/dprJuteCover";
 
@@ -306,6 +306,11 @@ function Content() {
               sub={`Doff eff ${fmt(data.kpi.spinning_eff_pct, 1)}%`}
               state={utilState(data.kpi.frame_utilization_pct)}
             />
+            {/* Average count by frames / production / std production
+                (TKT-000173) — the detail table sits under the quality section. */}
+            {spinning?.avg_count ? (
+              <KpiCard label="Avg Count (lb)" {...avgCountKpi(spinning.avg_count)} />
+            ) : null}
             <KpiCard
               label="Loom Utilization"
               value={`${fmt(data.kpi.loom_utilization_pct, 1)}%`}
