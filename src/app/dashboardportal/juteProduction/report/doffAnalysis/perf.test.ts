@@ -164,8 +164,20 @@ describe("deriveSpellTotals", () => {
       sRow({ spell_code: "B", net_wt: 2.5 }),
     ];
     expect(deriveSpellTotals(rows)).toEqual([
-      { spell_code: "A", net_wt: 5 },
-      { spell_code: "B", net_wt: 12.5 },
+      { spell_code: "A", net_wt: 5, target_wt: null, diff_wt: null, target_rows: 0, rows: 1 },
+      { spell_code: "B", net_wt: 12.5, target_wt: null, diff_wt: null, target_rows: 0, rows: 2 },
+    ]);
+  });
+
+  it("sums target and diff over the rows that have a target only", () => {
+    const rows = [
+      sRow({ net_wt: 300, target_wt: 315.2, diff_wt: -15.2 }),
+      sRow({ net_wt: 330, target_wt: 315.2, diff_wt: 14.8 }),
+      // standards not entered for this frame's quality: not a zero target
+      sRow({ net_wt: 250, target_wt: null, diff_wt: null }),
+    ];
+    expect(deriveSpellTotals(rows)).toEqual([
+      { spell_code: "A", net_wt: 880, target_wt: 630.4, diff_wt: -0.4, target_rows: 2, rows: 3 },
     ]);
   });
 });

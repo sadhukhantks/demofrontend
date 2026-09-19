@@ -25,7 +25,21 @@ export interface DoffMeta {
   notes?: string[];
 }
 
-export interface DoffSummaryRow {
+/**
+ * Production target of a row and how the actual compares. The target is the
+ * Spinning Production grid's "Tgt Prod" (Spinning Standards master + the day's
+ * SQC count). All three are null when the standards behind it have not been
+ * entered — blank on screen, and left out of every target total.
+ */
+export interface TargetFields {
+  target_wt?: number | null;
+  /** Actual - target: negative = short of target. */
+  diff_wt?: number | null;
+  /** Actual / target x 100. */
+  achv_pct?: number | null;
+}
+
+export interface DoffSummaryRow extends TargetFields {
   spell_code: string | null;
   frame: string | null;
   item_id: number | null;
@@ -41,6 +55,11 @@ export interface DoffSummaryRow {
 export interface DoffSpellTotalRow {
   spell_code: string | null;
   net_wt: number | null;
+  /** Summed over the rows that HAVE a target only (see target_rows / rows). */
+  target_wt?: number | null;
+  diff_wt?: number | null;
+  target_rows?: number;
+  rows?: number;
 }
 
 export interface DoffWeightBandRow {
@@ -83,7 +102,7 @@ export interface FramePivotRow {
   min: number | null;
 }
 
-export interface FrameDateShiftRow {
+export interface FrameDateShiftRow extends TargetFields {
   date: string | null;
   shift: string | null;
   net_wt: number | null;
