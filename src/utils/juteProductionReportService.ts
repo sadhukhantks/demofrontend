@@ -195,16 +195,22 @@ export interface DprJuteGroupRow {
   mtd_issue_weight: number;
 }
 
-/** The day whose spinning production the jute days-of-cover divides by
- * (TKT-000172): the report date, or the last full working day before it when
- * the report date was a holiday / part day. */
+/** The spinning production the jute days-of-cover divides by (TKT-000172):
+ * the report date's own production, or — when the report date was a holiday /
+ * part day — the average over the last producing days ending at it. */
 export interface DprJuteCoverBasis {
-  /** ISO date of the production day used. */
+  /** "report_date" = one day's kg; "average" = kg PER DAY over `days` days. */
+  mode: "report_date" | "average";
+  /** ISO date of the (last) production day used — same as `date_to`. */
   date: string;
+  date_from: string;
+  date_to: string;
+  /** Producing days behind `production_kg` (1 for mode "report_date"). */
+  days: number;
   production_kg: number;
-  /** Shifts spinning ran on that day. */
-  shifts: number;
-  /** false = the report date was skipped (holiday or part day). */
+  /** Shifts spinning ran on the day; null for an average. */
+  shifts: number | null;
+  /** false = the report date was a holiday or part day. */
   is_report_date: boolean;
   basis_label: string;
 }

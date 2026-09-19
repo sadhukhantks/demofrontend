@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DprJuteSection } from "@/utils/juteProductionReportService";
-import { isoToDdMmYyyy, juteCoverKpiSub, juteCoverSubtitle } from "./dprJuteCover";
+import { isoToDdMm, isoToDdMmYyyy, juteCoverKpiSub, juteCoverSubtitle } from "./dprJuteCover";
 
 const totals = {
   opening_weight: 113904,
@@ -21,7 +21,11 @@ const jute: DprJuteSection = {
   raw_jute_closing_weight: 75883,
   waste_closing_weight: 49611,
   cover_basis: {
+    mode: "report_date",
     date: "2026-09-18",
+    date_from: "2026-09-18",
+    date_to: "2026-09-18",
+    days: 1,
     production_kg: 20137.6,
     shifts: 3,
     is_report_date: true,
@@ -30,10 +34,34 @@ const jute: DprJuteSection = {
   days_stock_mtd_issue: 11.7,
 };
 
+/** Sunday 13-09-2026 (shift A only): divisor = 7-producing-day average,
+ * 140,419.5 / 7 = 20,059.929 kg/day -> 77,634 / 20,059.929 = 3.9 days. */
+const sunday: DprJuteSection = {
+  ...jute,
+  totals: { ...totals, closing_weight: 77634 },
+  days_stock: 3.9,
+  days_stock_raw_jute: 2.0,
+  raw_jute_closing_weight: 39327,
+  waste_closing_weight: 38307,
+  cover_basis: {
+    mode: "average",
+    date: "2026-09-13",
+    date_from: "2026-09-07",
+    date_to: "2026-09-13",
+    days: 7,
+    production_kg: 20059.929,
+    shifts: null,
+    is_report_date: false,
+    basis_label: "average daily spinning production",
+  },
+  days_stock_mtd_issue: 5.8,
+};
+
 describe("isoToDdMmYyyy", () => {
   it("reorders an ISO date and leaves anything else alone", () => {
     expect(isoToDdMmYyyy("2026-09-18")).toBe("18-09-2026");
     expect(isoToDdMmYyyy("18/09/2026")).toBe("18/09/2026");
+    expect(isoToDdMm("2026-09-07")).toBe("07-09");
   });
 });
 
@@ -42,15 +70,16 @@ describe("juteCoverKpiSub", () => {
     expect(juteCoverKpiSub(jute)).toBe("6.2 days cover · ÷ 20,138 kg spinning on 18-09-2026");
   });
 
-  it("flags a fallback day", () => {
-    const sunday: DprJuteSection = {
-      ...jute,
-      days_stock: 3.1,
-      cover_basis: { ...jute.cover_basis!, date: "2026-09-12", production_kg: 25077.1, is_report_date: false },
-    };
+  it("names the 7-producing-day average and why it was used on a part day", () => {
     expect(juteCoverKpiSub(sunday)).toBe(
-      "3.1 days cover · ÷ 25,077 kg spinning on 12-09-2026 (last full day)",
+      "3.9 days cover · ÷ 20,060 kg/day avg spinning, last 7 producing days (07-09 to 13-09) — " +
+        "report date was a holiday / part day",
     );
+  });
+
+  it("does not claim a part day when the report date's own production is the divisor", () => {
+    expect(juteCoverKpiSub(jute)).not.toContain("part day");
+    expect(juteCoverKpiSub(jute)).not.toContain("avg");
   });
 
   it("never shows the superseded MTD-issue figure", () => {
@@ -73,13 +102,20 @@ describe("juteCoverSubtitle", () => {
     );
   });
 
-  it("says why another day was used", () => {
-    const sunday: DprJuteSection = {
-      ...jute,
-      cover_basis: { ...jute.cover_basis!, date: "2026-09-12", is_report_date: false },
+  it("spells out the average divisor, the reason, and keeps raw jute on the same divisor", () => {
+    expect(juteCoverSubtitle(sunday)).toBe(
+      "Days of cover: 3.9 = closing 77,634 kg ÷ 20,060 kg/day avg spinning, last 7 producing days " +
+        "(07-09 to 13-09) · report date was a holiday / part day · " +
+        "raw jute alone (excl. 38,307 kg process waste): 2.0 days",
+    );
+  });
+
+  it("uses the singular when only one producing day was found", () => {
+    const one: DprJuteSection = {
+      ...sunday,
+      cover_basis: { ...sunday.cover_basis!, days: 1, date_from: "2026-09-12", date_to: "2026-09-12" },
     };
-    expect(juteCoverSubtitle(sunday)).toContain("(last full day)");
-    expect(juteCoverSubtitle(sunday)).toContain("report date was a holiday / part day");
+    expect(juteCoverSubtitle(one)).toContain("last 1 producing day (12-09 to 12-09)");
   });
 
   it("drops the raw-jute clause when there is no waste in stock", () => {
