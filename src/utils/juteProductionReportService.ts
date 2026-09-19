@@ -35,6 +35,27 @@ export interface DprSpinningQualityRow {
   eff_pct: number | null;
 }
 
+/** Mill average yarn count on three weightings (TKT-000173). The count averaged
+ * is each quality's STANDARD count from the yarn master, so the three figures
+ * differ only by what they are weighted with. */
+export interface DprSpinningAvgCount {
+  /** Σ(count × frame-shifts run) ÷ Σ frame-shifts run. */
+  by_frames: number | null;
+  frame_shifts: number;
+  /** Σ(count × actual kg) ÷ Σ actual kg. */
+  by_production: number | null;
+  production_kg: number;
+  /** Σ(count × std expected kg) ÷ Σ std expected kg, over the qualities that
+   * HAVE a standard entered. null = none has one — blank, never zero. */
+  by_std_production: number | null;
+  std_production_kg: number;
+  /** Qualities covered by the std-weighted figure, out of `qualities`. */
+  std_qualities: number;
+  qualities: number;
+  /** Qualities with no count on the yarn master — left out of all three. */
+  count_missing: string[];
+}
+
 export interface DprSpinningSection {
   shifts: DprShiftRow[];
   total: {
@@ -58,6 +79,7 @@ export interface DprSpinningSection {
   /** Quality names that produced today but have no spinning standard
    * (TPI / efficiency) configured — their eff % is blank, not zero. */
   standards_missing: string[];
+  avg_count: DprSpinningAvgCount;
 }
 
 export interface DprWindingQualityRow {
@@ -73,19 +95,34 @@ export interface DprWindingQualityRow {
   is_twisted: 0 | 1;
 }
 
+/** One totals line of the winder table (TKT-000174) — winding, twisting and
+ * gross each carry the same four columns on their OWN basis. */
+export interface DprWindingBlockTotal {
+  production_kg: number;
+  winders: number;
+  kg_per_winder: number;
+  mtd_production_kg: number;
+}
+
 export interface DprWindingSection {
   qualities: DprWindingQualityRow[];
   total: {
-    /** Net of twisting — twisted yarn is re-wound single yarn, so counting it
-     * again would double count the winder output. */
+    /** Winding ALONE, net of twisting — twisted yarn is re-wound single yarn,
+     * so counting it again would double count the winder output. */
     production_kg: number;
+    /** Winders on the non-twisted qualities only (TKT-000174). */
     winders: number;
+    /** production_kg ÷ winders — winding alone, not a gross figure. */
     kg_per_winder: number;
     mtd_production_kg: number;
     twisting_kg: number;
     mtd_twisting_kg: number;
     gross_production_kg: number;
     mtd_gross_production_kg: number;
+    /** Twisting block total — shown after the winding Total, never inside it. */
+    twisting: DprWindingBlockTotal;
+    /** Winding + twisting: winder OUTPUT (wage basis), not production. */
+    gross: DprWindingBlockTotal;
   };
   /** false when the tenant DB has no is_twisted yarn-master flag yet — then
    * twisting_kg is 0 and twisted yarn is still inside the winding total. */
@@ -158,10 +195,40 @@ export interface DprJuteGroupRow {
   mtd_issue_weight: number;
 }
 
+/** The spinning production the jute days-of-cover divides by (TKT-000172):
+ * the report date's own production, or — when the report date was a holiday /
+ * part day — the average over the last producing days ending at it. */
+export interface DprJuteCoverBasis {
+  /** "report_date" = one day's kg; "average" = kg PER DAY over `days` days. */
+  mode: "report_date" | "average";
+  /** ISO date of the (last) production day used — same as `date_to`. */
+  date: string;
+  date_from: string;
+  date_to: string;
+  /** Producing days behind `production_kg` (1 for mode "report_date"). */
+  days: number;
+  production_kg: number;
+  /** Shifts spinning ran on the day; null for an average. */
+  shifts: number | null;
+  /** false = the report date was a holiday or part day. */
+  is_report_date: boolean;
+  basis_label: string;
+}
+
 export interface DprJuteSection {
   groups: DprJuteGroupRow[];
   totals: Omit<DprJuteGroupRow, "item_group_name">;
-  days_stock: number | null; // null when nothing was issued MTD
+  /** Total closing stock ÷ `cover_basis.production_kg` (both kg). null when
+   * spinning produced nothing in the look-back window. */
+  days_stock: number | null;
+  /** Same cover on purchased raw jute alone (process waste left out). */
+  days_stock_raw_jute: number | null;
+  raw_jute_closing_weight: number;
+  waste_closing_weight: number;
+  cover_basis: DprJuteCoverBasis | null;
+  /** Superseded basis (closing ÷ MTD jute issue per calendar day) — kept for
+   * comparison only; it drifts whenever jute-issue entry lags production. */
+  days_stock_mtd_issue: number | null;
 }
 
 export interface DprHandsShiftRow {
@@ -238,6 +305,9 @@ export interface DprKpi {
    * tenants, quintal on others) — deliberately NOT converted to MT. */
   jute_closing_weight: number | null;
   jute_days_stock: number | null;
+  /** Divisor of `jute_days_stock` and its date (TKT-000172). */
+  jute_cover_basis_kg: number | null;
+  jute_cover_basis_date: string | null;
 }
 
 /** Batching-oil emulsion — day reading plus the month's running totals. */
