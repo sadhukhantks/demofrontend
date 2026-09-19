@@ -307,6 +307,11 @@ export async function fetchDailyProductionReport(params: {
 
 export interface WwdReconciliation {
   opening_mt: number;
+  /** Spinning department's own production from weighed doffs
+   *  (daily_doff_tbl.net_weight), NOT the planning snapshot. Context only —
+   *  upstream of winding, so it never enters should_be_closing_mt or
+   *  difference_mt. */
+  spinning_mt: number;
   winding_mt: number;
   /** Twisted (3-ply) yarn consumed out of net winding — subtracted line. */
   twisting_mt: number;
@@ -335,12 +340,42 @@ export interface WwdStockRow {
   stock_mt: number;
 }
 
+/** One yarn quality's consolidated position inside a single stock block
+ *  (TKT-000182 — MILL_USE only). `total_mt` is 0 for a quality that was counted
+ *  in that block yesterday but not today. */
+export interface WwdQualitySummaryRow {
+  item_id: number | null;
+  item_code: string | null;
+  item_name: string | null;
+  quality_name: string | null;
+  yarn_count: number | null;
+  total_mt: number;
+  /** Previous counted day's position for this quality IN THE SAME BLOCK, summed
+   *  from that day's own lines — NOT from the detail rows' repeated prvs
+   *  column, and never from another block. */
+  prvs_stock_mt: number;
+  /** How many detail lines of that block this row collapses. */
+  line_count: number;
+}
+
+export interface WwdStockSummary {
+  /** The block this summary covers — "MILL_USE" today. */
+  bucket: string;
+  rows: WwdQualitySummaryRow[];
+  /** Ties to that block's printed subtotal, NOT to stock.grand_total_mt. */
+  total_mt: number;
+  prvs_total_mt: number;
+}
+
 export interface WindingWeavingDifference {
   report_date: string;
   date_from: string;
   stock: Record<string, { rows: WwdStockRow[]; subtotal_mt: number } | number> & {
     grand_total_mt: number;
   };
+  /** Consolidated quality-wise position for ONE block of `stock` (mill use);
+   *  its total equals that block's subtotal, not `stock.grand_total_mt`. */
+  stock_summary: WwdStockSummary;
   production: { day: WwdReconciliation; mtd: WwdReconciliation };
   cloth_split: {
     day: Record<string, number>;
