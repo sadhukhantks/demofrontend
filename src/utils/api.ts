@@ -1324,6 +1324,14 @@ const apiRoutesPortalMasters = {
     FINISHING_PROD_EMPLOYEE_LOOKUP: `${API_URL}/finishingProd/employee_lookup`,
     // hemming/herackle: stamp eb_id onto the day+spell's rows from attendance.
     FINISHING_PROD_ENTRY_SYNC_EB: `${API_URL}/finishingProd/entry_sync_eb`,
+    // Finishing Stock — daily physical stock of bales + loose finishing WIP (router prefix /api/finishingStock).
+    FINISHING_STOCK_SETUP: `${API_URL}/finishingStock/setup`,
+    FINISHING_STOCK_ROWS_BY_DATE: `${API_URL}/finishingStock/rows_by_date`,
+    FINISHING_STOCK_ROW_CREATE: `${API_URL}/finishingStock/row_create`,
+    FINISHING_STOCK_ROW_EDIT: `${API_URL}/finishingStock/row_edit`,
+    FINISHING_STOCK_ROW_DELETE: `${API_URL}/finishingStock/row_delete`,
+    FINISHING_STOCK_COPY_PREVIOUS_DAY: `${API_URL}/finishingStock/copy_previous_day`,
+    FINISHING_STOCK_REPORT: `${API_URL}/finishingStock/report`,
     // Finishing SQC — ACTUALS ONLY (router prefix /api/juteSQC, shared with Spinning/Beaming SQC).
     // Proxies to finishingTargetMap with value_role='actual'.
     FINISHING_SQC_SETUP: `${API_URL}/juteSQC/finishing_sqc_setup`,
