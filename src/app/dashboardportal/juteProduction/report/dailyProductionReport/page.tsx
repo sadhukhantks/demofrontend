@@ -49,6 +49,7 @@ import {
   totalRowSx,
   type KpiState,
 } from "./_components/DprPieces";
+import { DprAvgCountTable } from "./_components/DprAvgCountTable";
 import { DprWindingTable } from "./_components/DprWindingTable";
 import { juteCoverKpiSub, juteCoverSubtitle } from "./_components/dprJuteCover";
 
@@ -416,6 +417,8 @@ function Content() {
                   Target Map to see efficiency.
                 </Typography>
               ) : null}
+              {/* Average count by frames / actual / std production (TKT-000173). */}
+              {spinning.avg_count ? <DprAvgCountTable avg={spinning.avg_count} /> : null}
             </SectionCard>
           ) : null}
 

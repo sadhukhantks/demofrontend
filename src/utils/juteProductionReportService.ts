@@ -35,6 +35,27 @@ export interface DprSpinningQualityRow {
   eff_pct: number | null;
 }
 
+/** Mill average yarn count on three weightings (TKT-000173). The count averaged
+ * is each quality's STANDARD count from the yarn master, so the three figures
+ * differ only by what they are weighted with. */
+export interface DprSpinningAvgCount {
+  /** Σ(count × frame-shifts run) ÷ Σ frame-shifts run. */
+  by_frames: number | null;
+  frame_shifts: number;
+  /** Σ(count × actual kg) ÷ Σ actual kg. */
+  by_production: number | null;
+  production_kg: number;
+  /** Σ(count × std expected kg) ÷ Σ std expected kg, over the qualities that
+   * HAVE a standard entered. null = none has one — blank, never zero. */
+  by_std_production: number | null;
+  std_production_kg: number;
+  /** Qualities covered by the std-weighted figure, out of `qualities`. */
+  std_qualities: number;
+  qualities: number;
+  /** Qualities with no count on the yarn master — left out of all three. */
+  count_missing: string[];
+}
+
 export interface DprSpinningSection {
   shifts: DprShiftRow[];
   total: {
@@ -58,6 +79,7 @@ export interface DprSpinningSection {
   /** Quality names that produced today but have no spinning standard
    * (TPI / efficiency) configured — their eff % is blank, not zero. */
   standards_missing: string[];
+  avg_count: DprSpinningAvgCount;
 }
 
 export interface DprWindingQualityRow {
