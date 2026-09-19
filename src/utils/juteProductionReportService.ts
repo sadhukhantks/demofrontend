@@ -73,19 +73,34 @@ export interface DprWindingQualityRow {
   is_twisted: 0 | 1;
 }
 
+/** One totals line of the winder table (TKT-000174) — winding, twisting and
+ * gross each carry the same four columns on their OWN basis. */
+export interface DprWindingBlockTotal {
+  production_kg: number;
+  winders: number;
+  kg_per_winder: number;
+  mtd_production_kg: number;
+}
+
 export interface DprWindingSection {
   qualities: DprWindingQualityRow[];
   total: {
-    /** Net of twisting — twisted yarn is re-wound single yarn, so counting it
-     * again would double count the winder output. */
+    /** Winding ALONE, net of twisting — twisted yarn is re-wound single yarn,
+     * so counting it again would double count the winder output. */
     production_kg: number;
+    /** Winders on the non-twisted qualities only (TKT-000174). */
     winders: number;
+    /** production_kg ÷ winders — winding alone, not a gross figure. */
     kg_per_winder: number;
     mtd_production_kg: number;
     twisting_kg: number;
     mtd_twisting_kg: number;
     gross_production_kg: number;
     mtd_gross_production_kg: number;
+    /** Twisting block total — shown after the winding Total, never inside it. */
+    twisting: DprWindingBlockTotal;
+    /** Winding + twisting: winder OUTPUT (wage basis), not production. */
+    gross: DprWindingBlockTotal;
   };
   /** false when the tenant DB has no is_twisted yarn-master flag yet — then
    * twisting_kg is 0 and twisted yarn is still inside the winding total. */

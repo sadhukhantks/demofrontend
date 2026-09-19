@@ -49,6 +49,7 @@ import {
   totalRowSx,
   type KpiState,
 } from "./_components/DprPieces";
+import { DprWindingTable } from "./_components/DprWindingTable";
 import { juteCoverKpiSub, juteCoverSubtitle } from "./_components/dprJuteCover";
 
 // Status thresholds for the KPI strip.
@@ -422,72 +423,10 @@ function Content() {
           {data.winding ? (
             <SectionCard
               title="Winder Production — Quality Wise"
-              subtitle={`Reconciled kg (doff − opening jugar + closing jugar) per winder · MTD ${fmt(data.winding.total.mtd_production_kg, 0)} kg`}
+              subtitle={`Reconciled kg (doff − opening jugar + closing jugar) per winder · MTD winding ${fmt(data.winding.total.mtd_production_kg, 0)} kg`}
             >
-              <DprTable
-                head={
-                  <Tr>
-                    <Td>Quality</Td>
-                    <Td align="right">Production (kg)</Td>
-                    <Td align="right">Winders</Td>
-                    <Td align="right">Kg/Winder</Td>
-                    <Td align="right">MTD (kg)</Td>
-                    <Td align="right">MTD Kg/Winder-Shift</Td>
-                  </Tr>
-                }
-              >
-                {data.winding.qualities.map((q) => (
-                  <Tr key={q.item_id ?? "na"}>
-                    <Td>
-                      {q.is_twisted === 1 ? (
-                        <Stack direction="row" spacing={0.5} alignItems="center">
-                          <span>{q.item_name ?? q.item_code ?? "Unmapped"}</span>
-                          <Chip label="Twisting" size="small" variant="outlined" />
-                        </Stack>
-                      ) : (
-                        (q.item_name ?? q.item_code ?? "Unmapped")
-                      )}
-                    </Td>
-                    <NumTd value={q.production_kg} digits={0} />
-                    <NumTd value={q.winders} digits={0} />
-                    <NumTd value={q.kg_per_winder} digits={1} />
-                    <NumTd value={q.mtd_production_kg} digits={0} />
-                    <NumTd value={q.mtd_kg_per_winder_shift} digits={1} />
-                  </Tr>
-                ))}
-                <Tr sx={totalRowSx()}>
-                  <Td>
-                    {data.winding.total.twisting_kg > 0 ? "Total (net of twisting)" : "Total"}
-                  </Td>
-                  <NumTd value={data.winding.total.production_kg} digits={0} bold />
-                  <NumTd value={data.winding.total.winders} digits={0} bold />
-                  <NumTd value={data.winding.total.kg_per_winder} digits={1} bold />
-                  <NumTd value={data.winding.total.mtd_production_kg} digits={0} bold />
-                  <Td align="right">—</Td>
-                </Tr>
-              </DprTable>
-              {data.winding.twisting_available === false ? (
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ mt: 0.5, display: "block" }}
-                >
-                  Twisting is not split out on this tenant yet — the is_twisted yarn-master flag
-                  is missing, so any twisted (ply) yarn is still included in the winding total.
-                </Typography>
-              ) : data.winding.total.twisting_kg > 0 ? (
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ mt: 0.5, display: "block" }}
-                >
-                  Gross winder output {fmt(data.winding.total.gross_production_kg, 0)} kg includes{" "}
-                  {fmt(data.winding.total.twisting_kg, 0)} kg of twisted (ply) yarn, which is
-                  re-wound single yarn — excluded from the winding total so it is not counted
-                  twice. MTD: gross {fmt(data.winding.total.mtd_gross_production_kg, 0)} kg,
-                  twisting {fmt(data.winding.total.mtd_twisting_kg, 0)} kg.
-                </Typography>
-              ) : null}
+              {/* Twisting sits in its own block after the winding Total (TKT-000174). */}
+              <DprWindingTable winding={data.winding} />
             </SectionCard>
           ) : null}
 
