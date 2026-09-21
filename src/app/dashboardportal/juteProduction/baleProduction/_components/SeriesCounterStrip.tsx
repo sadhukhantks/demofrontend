@@ -28,7 +28,7 @@ export default function SeriesCounterStrip({ series, liveCounters, selectedSerie
 				Series counters
 			</Typography>
 			{series.map((s) => {
-				const last = Math.max(Number(s.last_bale_no) || 0, liveCounters[s.bale_series_id] ?? 0);
+				const last = liveCounters[s.bale_series_id] ?? (Number(s.last_bale_no) || 0);
 				const selected = s.bale_series_id === selectedSeriesId;
 				const typeLabel = BALE_QUALITY_TYPE_LABELS[Number(s.quality_type) as BaleQualityType] ?? "";
 				return (

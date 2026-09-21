@@ -192,6 +192,9 @@ export type BaleEntrySaveResponse = {
 /** DELETE /baleProd/entry_delete/{id}?co_id */
 export type BaleEntryDeleteResponse = {
 	bale_entry_id: number;
+	bale_series_id: number;
+	/** Series counter after the delete — wound back when the deleted bale was the top. */
+	last_bale_no: number | null;
 };
 
 /** GET /baleProd/bale_search?co_id&branch_id&bale_no[&bale_series_id] */
