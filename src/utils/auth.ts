@@ -1,4 +1,5 @@
 'use client'
+import { apiRoutes } from './api'
 export interface User {
     id: string
     email: string
@@ -54,18 +55,21 @@ export interface User {
   //   return user !== null
   // }
   
-  export function logout() {
+  /**
+   * Log the browser out: ask the backend to expire the httpOnly auth cookies
+   * (document.cookie cannot touch them), drop every cached value (sidebar
+   * companies/menus are cached per user) and go back to the login page.
+   * Always ends on the login page, even if the backend call fails.
+   */
+  export async function logout() {
     if (typeof window === 'undefined') return
-    // Clear localStorage
-    localStorage.removeItem('user')
-    localStorage.removeItem('user_id')
-    localStorage.removeItem('subdomain')
-    localStorage.removeItem('selectedCompany')
-    localStorage.removeItem('sidebar_selectedCompany')
-    // Clear cookies
-    document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-    document.cookie = 'portal_permission_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-    // Redirect to home
+    try {
+      await fetch(apiRoutes.LOGOUT, { method: 'POST', credentials: 'include', keepalive: true })
+    } catch (error) {
+      console.warn('Logout request failed; clearing local session anyway', error)
+    }
+    localStorage.clear()
+    // Redirect to login
     window.location.href = '/'
   }
 
