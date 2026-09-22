@@ -18,6 +18,7 @@ const jute: DprJuteSection = {
   totals,
   days_stock: 6.2,
   days_stock_raw_jute: 3.8,
+  days_stock_waste: 2.5,
   raw_jute_closing_weight: 75883,
   waste_closing_weight: 49611,
   cover_basis: {
@@ -41,6 +42,7 @@ const sunday: DprJuteSection = {
   totals: { ...totals, closing_weight: 77634 },
   days_stock: 3.9,
   days_stock_raw_jute: 2.0,
+  days_stock_waste: 1.9,
   raw_jute_closing_weight: 39327,
   waste_closing_weight: 38307,
   cover_basis: {
@@ -67,12 +69,20 @@ describe("isoToDdMmYyyy", () => {
 
 describe("juteCoverKpiSub", () => {
   it("shows the cover with its divisor and date", () => {
-    expect(juteCoverKpiSub(jute)).toBe("6.2 days cover · ÷ 20,138 kg spinning on 18-09-2026");
+    expect(juteCoverKpiSub(jute)).toBe(
+      "Jute 75,883 + Waste 49,611 kg · 6.2 days cover · ÷ 20,138 kg spinning on 18-09-2026",
+    );
+  });
+
+  it("leaves the jute / waste split out when there is no waste in stock", () => {
+    expect(juteCoverKpiSub({ ...jute, waste_closing_weight: 0 })).toBe(
+      "6.2 days cover · ÷ 20,138 kg spinning on 18-09-2026",
+    );
   });
 
   it("names the 7-producing-day average and why it was used on a part day", () => {
     expect(juteCoverKpiSub(sunday)).toBe(
-      "3.9 days cover · ÷ 20,060 kg/day avg spinning, last 7 producing days (07-09 to 13-09) — " +
+      "Jute 39,327 + Waste 38,307 kg · 3.9 days cover · ÷ 20,060 kg/day avg spinning, last 7 producing days (07-09 to 13-09) — " +
         "report date was a holiday / part day",
     );
   });
@@ -89,16 +99,16 @@ describe("juteCoverKpiSub", () => {
   it("covers the no-branch and no-production cases", () => {
     expect(juteCoverKpiSub(null)).toBe("select a branch");
     expect(juteCoverKpiSub({ ...jute, days_stock: null, cover_basis: null })).toBe(
-      "no recent spinning production",
+      "Jute 75,883 + Waste 49,611 kg · no recent spinning production",
     );
   });
 });
 
 describe("juteCoverSubtitle", () => {
-  it("spells out the hand calculation and the raw-jute-only cover", () => {
+  it("spells out the hand calculation and states jute and waste stock separately", () => {
     expect(juteCoverSubtitle(jute)).toBe(
       "Days of cover: 6.2 = closing 1,25,494 kg ÷ 20,138 kg spinning on 18-09-2026 · " +
-        "raw jute alone (excl. 49,611 kg process waste): 3.8 days",
+        "of which jute stock 75,883 kg (3.8 days) + waste stock 49,611 kg (2.5 days)",
     );
   });
 
@@ -106,7 +116,7 @@ describe("juteCoverSubtitle", () => {
     expect(juteCoverSubtitle(sunday)).toBe(
       "Days of cover: 3.9 = closing 77,634 kg ÷ 20,060 kg/day avg spinning, last 7 producing days " +
         "(07-09 to 13-09) · report date was a holiday / part day · " +
-        "raw jute alone (excl. 38,307 kg process waste): 2.0 days",
+        "of which jute stock 39,327 kg (2.0 days) + waste stock 38,307 kg (1.9 days)",
     );
   });
 
@@ -118,8 +128,8 @@ describe("juteCoverSubtitle", () => {
     expect(juteCoverSubtitle(one)).toContain("last 1 producing day (12-09 to 12-09)");
   });
 
-  it("drops the raw-jute clause when there is no waste in stock", () => {
-    expect(juteCoverSubtitle({ ...jute, waste_closing_weight: 0 })).not.toContain("raw jute alone");
+  it("drops the jute / waste clause when there is no waste in stock", () => {
+    expect(juteCoverSubtitle({ ...jute, waste_closing_weight: 0 })).not.toContain("waste stock");
   });
 
   it("shows a dash when there is no production to divide by", () => {

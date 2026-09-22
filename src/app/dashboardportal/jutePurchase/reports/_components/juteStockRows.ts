@@ -82,3 +82,34 @@ export function withStockGrandTotal(
     },
   ];
 }
+
+/** One summary card's figures: the column total and its two stock sources. */
+export interface StockSplit {
+  total: number;
+  raw: number;
+  waste: number;
+}
+
+/**
+ * Total one weight column, split into purchased raw jute and process waste.
+ *
+ * The appended Grand Total row is skipped, or every figure would double. The
+ * waste share comes from `is_waste` — the item group's own item_type_id — not
+ * from a name match on the group. `raw + waste === total` always holds, since
+ * a row is one or the other.
+ */
+export function stockSplit(
+  rows: JuteStockReportRow[],
+  field: StockWeightField,
+): StockSplit {
+  let raw = 0;
+  let waste = 0;
+  for (const r of rows) {
+    if (r.item_id === GRAND_TOTAL_ID) continue;
+    const v = Number(r[field]) || 0;
+    if (r.is_waste) waste += v;
+    else raw += v;
+  }
+  const round = (n: number) => Math.round(n * 100) / 100;
+  return { total: round(raw + waste), raw: round(raw), waste: round(waste) };
+}

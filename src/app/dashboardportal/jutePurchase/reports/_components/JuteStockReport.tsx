@@ -10,8 +10,8 @@ import { fetchJuteStockReport, type JuteReportBasis } from "@/utils/juteReportSe
 import { tokens } from "@/styles/tokens";
 import type { JuteStockReportRow } from "../types/reportTypes";
 import {
-  GRAND_TOTAL_ID,
   roundStockRowsToKg,
+  stockSplit,
   withStockGrandTotal,
   type StockWeightField,
 } from "./juteStockRows";
@@ -39,23 +39,20 @@ const getRowId = (r: JuteStockReportRow) => `${r.item_grp_id}-${r.item_id}`;
 /**
  * The weight columns the summary cards total, in grid order.
  *
- * `split` marks the MOVEMENT columns — jute moves in and out through two
- * different stock sources, so their totals are shown broken into purchased raw
- * jute vs process waste. Sold is raw-jute invoices only, and opening/closing
- * are positions rather than movements, so those stay single numbers.
+ * EVERY column is broken into purchased raw jute vs process waste (owner, on
+ * top of TKT-000155): the two are batched together so the total is the figure
+ * that matters, but the position and the movement of each is read separately.
+ * Waste does get sold — sls br 29/87 carry 18 waste lines on raw-jute invoices
+ * — so Sold splits like the rest rather than being assumed raw-only.
  */
-const TOTAL_FIELDS: {
-  field: StockWeightField;
-  label: string;
-  split?: boolean;
-}[] = [
+const TOTAL_FIELDS: { field: StockWeightField; label: string }[] = [
   { field: "opening_weight", label: "Opening" },
-  { field: "receipt_weight", label: "Receipt", split: true },
-  { field: "issue_weight", label: "Issue", split: true },
+  { field: "receipt_weight", label: "Receipt" },
+  { field: "issue_weight", label: "Issue" },
   { field: "sold_weight", label: "Sold" },
   { field: "closing_weight", label: "Closing" },
-  { field: "mtd_receipt_weight", label: "MTD Receipt", split: true },
-  { field: "mtd_issue_weight", label: "MTD Issue", split: true },
+  { field: "mtd_receipt_weight", label: "MTD Receipt" },
+  { field: "mtd_issue_weight", label: "MTD Issue" },
 ];
 
 const fmtKg = (n: number) =>
@@ -91,8 +88,8 @@ function TotalCard({
 }
 
 /**
- * Cards above the grid carrying the same totals as its Grand Total row, with
- * the movement columns broken into raw jute vs jute waste.
+ * Cards above the grid carrying the same totals as its Grand Total row, each
+ * broken into raw jute vs jute waste.
  *
  * Summed off the REAL rows (the appended Grand Total row is skipped, or it
  * would be counted twice). The rows are already whole kg, so a card and the
@@ -101,25 +98,16 @@ function TotalCard({
  * group.
  */
 function SummaryCards(rows: JuteStockReportRow[]) {
-  const real = rows.filter((r) => r.item_id !== GRAND_TOTAL_ID);
-  const sum = (f: StockWeightField, only?: (r: JuteStockReportRow) => boolean) =>
-    Math.round(
-      real
-        .filter((r) => !only || only(r))
-        .reduce((acc, r) => acc + (Number(r[f]) || 0), 0) * 100,
-    ) / 100;
-
   return (
     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, mb: 2 }}>
-      {TOTAL_FIELDS.map(({ field, label, split }) => {
-        const waste = split ? sum(field, (r) => Boolean(r.is_waste)) : 0;
-        const raw = split ? sum(field, (r) => !r.is_waste) : 0;
+      {TOTAL_FIELDS.map(({ field, label }) => {
+        const { total, raw, waste } = stockSplit(rows, field);
         return (
           <TotalCard
             key={field}
             label={label}
-            value={sum(field)}
-            sub={split ? `Raw ${fmtKg(raw)} · Waste ${fmtKg(waste)}` : undefined}
+            value={total}
+            sub={`Raw ${fmtKg(raw)} · Waste ${fmtKg(waste)}`}
           />
         );
       })}

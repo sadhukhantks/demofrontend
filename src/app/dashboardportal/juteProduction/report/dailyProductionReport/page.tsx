@@ -36,6 +36,8 @@ import type { BranchOption } from "@/components/reports/types";
 import {
   fetchDailyProductionReport,
   type DailyProductionReport,
+  type DprJuteGroupRow,
+  type DprJuteSection,
 } from "@/utils/juteProductionReportService";
 import {
   DprTable,
@@ -74,6 +76,27 @@ function daysStockState(days: number | null): KpiState {
 }
 
 /** Emulsion oil %: inside the std band is good, LOW and HIGH are both off-band. */
+type JuteWeights = Omit<DprJuteGroupRow, "item_group_name" | "is_waste">;
+
+/** Jute / waste subtotals are shown only when there is waste to set apart. */
+function hasWasteSplit(jute: DprJuteSection): boolean {
+  return Boolean(jute.jute_totals && jute.waste_totals && jute.groups.some((g) => g.is_waste));
+}
+
+function JuteGroupRow({ label, row, total }: { label: string; row: JuteWeights; total?: boolean }) {
+  return (
+    <Tr sx={total ? totalRowSx() : undefined}>
+      <Td>{label}</Td>
+      <NumTd value={row.opening_weight} digits={0} bold={total} />
+      <NumTd value={row.receipt_weight} digits={0} bold={total} />
+      <NumTd value={row.issue_weight} digits={0} bold={total} />
+      <NumTd value={row.closing_weight} digits={0} bold={total} />
+      <NumTd value={row.mtd_receipt_weight} digits={0} bold={total} />
+      <NumTd value={row.mtd_issue_weight} digits={0} bold={total} />
+    </Tr>
+  );
+}
+
 function oilState(status: "OK" | "LOW" | "HIGH" | null): KpiState {
   if (status === null) return undefined;
   return status === "OK" ? "good" : "warn";
@@ -658,26 +681,30 @@ function Content() {
                   </Tr>
                 }
               >
-                {data.jute.groups.map((g) => (
-                  <Tr key={g.item_group_name}>
-                    <Td>{g.item_group_name}</Td>
-                    <NumTd value={g.opening_weight} digits={0} />
-                    <NumTd value={g.receipt_weight} digits={0} />
-                    <NumTd value={g.issue_weight} digits={0} />
-                    <NumTd value={g.closing_weight} digits={0} />
-                    <NumTd value={g.mtd_receipt_weight} digits={0} />
-                    <NumTd value={g.mtd_issue_weight} digits={0} />
-                  </Tr>
-                ))}
-                <Tr sx={totalRowSx()}>
-                  <Td>Total</Td>
-                  <NumTd value={data.jute.totals.opening_weight} digits={0} bold />
-                  <NumTd value={data.jute.totals.receipt_weight} digits={0} bold />
-                  <NumTd value={data.jute.totals.issue_weight} digits={0} bold />
-                  <NumTd value={data.jute.totals.closing_weight} digits={0} bold />
-                  <NumTd value={data.jute.totals.mtd_receipt_weight} digits={0} bold />
-                  <NumTd value={data.jute.totals.mtd_issue_weight} digits={0} bold />
-                </Tr>
+                {/* Owner on TKT-000172: waste stays in the total (the batch is
+                    made with it) but jute and waste stock are stated separately.
+                    Groups arrive jute first, waste after. */}
+                {data.jute.groups
+                  .filter((g) => !g.is_waste)
+                  .map((g) => (
+                    <JuteGroupRow key={g.item_group_name} label={g.item_group_name} row={g} />
+                  ))}
+                {hasWasteSplit(data.jute) ? (
+                  <>
+                    <JuteGroupRow label="Jute Stock" row={data.jute.jute_totals!} total />
+                    {data.jute.groups
+                      .filter((g) => g.is_waste)
+                      .map((g) => (
+                        <JuteGroupRow key={g.item_group_name} label={g.item_group_name} row={g} />
+                      ))}
+                    <JuteGroupRow label="Waste Stock" row={data.jute.waste_totals!} total />
+                  </>
+                ) : null}
+                <JuteGroupRow
+                  label={hasWasteSplit(data.jute) ? "Total (Jute + Waste)" : "Total"}
+                  row={data.jute.totals}
+                  total
+                />
               </DprTable>
             </SectionCard>
           ) : null}

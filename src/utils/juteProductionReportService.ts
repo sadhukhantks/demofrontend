@@ -186,6 +186,8 @@ export interface DprYarnHeavyLightRow {
 
 export interface DprJuteGroupRow {
   item_group_name: string;
+  /** Process-waste item group (dust, caddies, thread waste …). */
+  is_waste?: boolean;
   opening_weight: number;
   receipt_weight: number;
   issue_weight: number;
@@ -217,7 +219,7 @@ export interface DprJuteCoverBasis {
 
 export interface DprJuteSection {
   groups: DprJuteGroupRow[];
-  totals: Omit<DprJuteGroupRow, "item_group_name">;
+  totals: Omit<DprJuteGroupRow, "item_group_name" | "is_waste">;
   /** Total closing stock ÷ `cover_basis.production_kg` (both kg). null when
    * spinning produced nothing in the look-back window. */
   days_stock: number | null;
@@ -225,6 +227,11 @@ export interface DprJuteSection {
   days_stock_raw_jute: number | null;
   raw_jute_closing_weight: number;
   waste_closing_weight: number;
+  /** Cover on the process-waste stock alone, same divisor. */
+  days_stock_waste?: number | null;
+  /** Subtotals of the non-waste / waste item groups (they sum to `totals`). */
+  jute_totals?: Omit<DprJuteGroupRow, "item_group_name" | "is_waste">;
+  waste_totals?: Omit<DprJuteGroupRow, "item_group_name" | "is_waste">;
   cover_basis: DprJuteCoverBasis | null;
   /** Superseded basis (closing ÷ MTD jute issue per calendar day) — kept for
    * comparison only; it drifts whenever jute-issue entry lags production. */

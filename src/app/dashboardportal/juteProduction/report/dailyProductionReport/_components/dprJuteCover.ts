@@ -38,13 +38,27 @@ function basisText(basis: DprJuteCoverBasis): string {
   return `${fmt(basis.production_kg, 0)} kg spinning on ${isoToDdMmYyyy(basis.date)}`;
 }
 
+/**
+ * "Jute 75,883 + Waste 49,611 kg" — the owner wants the two stated separately
+ * even though waste stays in the total (the batch is made with both). Empty
+ * when there is no waste in stock, since the total is then all jute.
+ */
+export function juteWasteSplitText(jute: DprJuteSection): string {
+  if (!(jute.waste_closing_weight > 0)) return "";
+  return `Jute ${fmt(jute.raw_jute_closing_weight, 0)} + Waste ${fmt(jute.waste_closing_weight, 0)} kg`;
+}
+
 /** Caption under the "Jute Closing Stock" KPI card. */
 export function juteCoverKpiSub(jute: DprJuteSection | null): string {
   if (!jute) return "select a branch";
-  if (jute.days_stock === null || !jute.cover_basis) return "no recent spinning production";
-  return `${fmt(jute.days_stock, 1)} days cover · ÷ ${basisText(jute.cover_basis)}${
+  const split = juteWasteSplitText(jute);
+  if (jute.days_stock === null || !jute.cover_basis) {
+    return [split, "no recent spinning production"].filter(Boolean).join(" · ");
+  }
+  const cover = `${fmt(jute.days_stock, 1)} days cover · ÷ ${basisText(jute.cover_basis)}${
     jute.cover_basis.is_report_date ? "" : ` — ${PART_DAY_NOTE}`
   }`;
+  return [split, cover].filter(Boolean).join(" · ");
 }
 
 /** Subtitle of the "Jute Stock Position" section — the full hand calculation. */
@@ -60,8 +74,12 @@ export function juteCoverSubtitle(jute: DprJuteSection): string {
     parts.push(PART_DAY_NOTE);
   }
   if (jute.waste_closing_weight > 0 && jute.days_stock_raw_jute !== null) {
+    const wasteDays =
+      jute.days_stock_waste !== null && jute.days_stock_waste !== undefined
+        ? ` (${fmt(jute.days_stock_waste, 1)} days)`
+        : "";
     parts.push(
-      `raw jute alone (excl. ${fmt(jute.waste_closing_weight, 0)} kg process waste): ${fmt(jute.days_stock_raw_jute, 1)} days`,
+      `of which jute stock ${fmt(jute.raw_jute_closing_weight, 0)} kg (${fmt(jute.days_stock_raw_jute, 1)} days) + waste stock ${fmt(jute.waste_closing_weight, 0)} kg${wasteDays}`,
     );
   }
   return parts.join(" · ");
