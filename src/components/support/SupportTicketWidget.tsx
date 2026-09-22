@@ -8,6 +8,11 @@
  * and — on the portal — the selected company/branch) and track the status of
  * their own tickets in a "My tickets" tab.
  *
+ * Ticket changes made by the VOW team (assignment, status, replies, files) are
+ * polled every 30s: the floating button carries an unread badge, new arrivals
+ * are toasted, and the "Updates" tab lists them. Opening a ticket marks its
+ * updates read.
+ *
  * @example
  *   <SupportTicketWidget variant="portal" />   // dashboardportal
  *   <SupportTicketWidget variant="admin" />    // dashboardadmin
@@ -17,18 +22,22 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Alert, Box, Button, Chip, CircularProgress, Dialog, DialogContent, DialogTitle, Divider, Fab, IconButton, Snackbar, Stack, Tab, Tabs, TextField, Tooltip, Typography } from "@mui/material";
+import { Alert, Badge, Box, Button, Chip, CircularProgress, Dialog, DialogContent, DialogTitle, Divider, Fab, IconButton, Snackbar, Stack, Tab, Tabs, TextField, Tooltip, Typography } from "@mui/material";
 import { ArrowLeft, LifeBuoy, Send, X } from "lucide-react";
 
 import { useSidebarContextSafe } from "@/components/dashboard/sidebarContext";
 import { AttachmentList, AttachmentUploadButton } from "@/components/support/AttachmentList";
+import { TicketNotificationList } from "@/components/support/TicketNotificationList";
+import { useTicketNotifications } from "@/components/support/useTicketNotifications";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import {
   addReporterComment,
   deleteReporterAttachment,
   getMyTickets,
   getReporterAttachmentUrl,
+  getReporterNotifications,
   getReporterTicket,
+  markReporterNotificationsRead,
   raiseTicket,
   uploadReporterAttachment,
   type WidgetVariant,
@@ -43,7 +52,9 @@ import {
   type RaiseTicketForm,
   type TicketAttachment,
   type TicketComment,
+  type MarkNotificationsReadPayload,
   type TicketDetail,
+  type TicketNotification,
   type TicketSummary,
 } from "@/utils/supportTicketTypes";
 
@@ -81,7 +92,7 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const [snack, setSnack] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
+  const [snack, setSnack] = useState<{ msg: string; severity: "success" | "error" | "info" } | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   // "My tickets" state
@@ -94,6 +105,30 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
   const [replyText, setReplyText] = useState("");
   const [replying, setReplying] = useState(false);
   const [uploadingDetail, setUploadingDetail] = useState(false);
+
+  // Ticket-change notifications (polled). Only the reporter's own tickets.
+  const fetchNotifications = useCallback(() => getReporterNotifications(variant), [variant]);
+  const markNotificationsRead = useCallback(
+    (payload: MarkNotificationsReadPayload) => markReporterNotificationsRead(variant, payload),
+    [variant],
+  );
+  const onNewNotifications = useCallback((fresh: TicketNotification[]) => {
+    setSnack({
+      msg: fresh.length === 1 ? fresh[0].title : `${fresh.length} updates on your support tickets`,
+      severity: "info",
+    });
+  }, []);
+  const {
+    items: notifications,
+    unread: unreadCount,
+    unreadTicketIds,
+    markTicketRead,
+    markAllRead,
+  } = useTicketNotifications({
+    fetch: fetchNotifications,
+    markRead: markNotificationsRead,
+    onNew: onNewNotifications,
+  });
 
   const {
     register,
@@ -182,8 +217,17 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
       setSelected(data.data);
       setComments(data.comments ?? []);
       setAttachments(data.attachments ?? []);
+      void markTicketRead(ticketId);
     },
-    [variant],
+    [variant, markTicketRead],
+  );
+
+  const openFromNotification = useCallback(
+    (n: TicketNotification) => {
+      setTab(1);
+      void openTicket(n.ticket_id);
+    },
+    [openTicket],
   );
 
   const openAttachment = useCallback(
@@ -261,7 +305,9 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
           onClick={() => setOpen(true)}
           sx={{ position: "fixed", bottom: 24, right: 24, zIndex: 1200 }}
         >
-          <LifeBuoy size={24} />
+          <Badge badgeContent={unreadCount} color="error" max={99} overlap="circular">
+            <LifeBuoy size={24} />
+          </Badge>
         </Fab>
       </Tooltip>
 
@@ -287,6 +333,13 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
         >
           <Tab label="Report an issue" />
           <Tab label="My tickets" />
+          <Tab
+            label={
+              <Badge badgeContent={unreadCount} color="error" max={99} sx={{ "& .MuiBadge-badge": { right: -12 } }}>
+                Updates
+              </Badge>
+            }
+          />
         </Tabs>
         <Divider />
 
@@ -429,19 +482,50 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
                         "&:hover": { backgroundColor: "action.hover" },
                       }}
                     >
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                      <Box sx={{ minWidth: 0, display: "flex", alignItems: "flex-start", gap: 1 }}>
+                        <Box
+                          aria-label={unreadTicketIds.has(t.ticket_id) ? "Has unread updates" : undefined}
+                          sx={{
+                            mt: 0.9,
+                            width: 8,
+                            height: 8,
+                            flexShrink: 0,
+                            borderRadius: "50%",
+                            backgroundColor: unreadTicketIds.has(t.ticket_id) ? "primary.main" : "transparent",
+                          }}
+                        />
+                        <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ fontWeight: unreadTicketIds.has(t.ticket_id) ? 700 : 600 }} noWrap>
                           {t.subject}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                           {t.ticket_no} · {formatDateTime(t.updated_date_time)}
                         </Typography>
+                        </Box>
                       </Box>
                       <StatusChip statusId={t.status_id} />
                     </Box>
                   ))}
                 </Stack>
               )}
+            </Box>
+          )}
+
+          {tab === 2 && (
+            <Box sx={{ mt: 1 }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.5 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Changes the support team made on your tickets.
+                </Typography>
+                <Button size="small" onClick={() => void markAllRead()} disabled={unreadCount === 0}>
+                  Mark all read
+                </Button>
+              </Stack>
+              <TicketNotificationList
+                items={notifications}
+                onSelect={openFromNotification}
+                emptyText="No updates yet — you'll see replies and status changes here."
+              />
             </Box>
           )}
 

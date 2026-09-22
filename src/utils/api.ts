@@ -1244,6 +1244,23 @@ const apiRoutesPortalMasters = {
     JUTE_WASTE_ENTRIES_BY_DATE: `${API_URL}/juteWasteProd/entries_by_date`,
     JUTE_WASTE_ENTRY_EDIT: `${API_URL}/juteWasteProd/entry_edit`,
     JUTE_WASTE_ENTRY_DELETE: `${API_URL}/juteWasteProd/entry_delete`,
+    // Bale Production (router prefix /api/baleProd) — BALE_PROD_ENTRY_EDIT/DELETE and
+    // BALE_SERIES_EDIT/DELETE are base paths; caller appends /${id}?co_id=...
+    BALE_PROD_ENTRY_SETUP: `${API_URL}/baleProd/entry_setup`,
+    BALE_PROD_NEXT_BALE_NO: `${API_URL}/baleProd/next_bale_no`,
+    BALE_PROD_ENTRIES_BY_DATE: `${API_URL}/baleProd/entries_by_date`,
+    BALE_PROD_ENTRY_CREATE: `${API_URL}/baleProd/entry_create`,
+    BALE_PROD_ENTRY_EDIT: `${API_URL}/baleProd/entry_edit`,
+    BALE_PROD_ENTRY_DELETE: `${API_URL}/baleProd/entry_delete`,
+    BALE_PROD_BALE_SEARCH: `${API_URL}/baleProd/bale_search`,
+    BALE_SERIES_SETUP: `${API_URL}/baleProd/series_setup`,
+    BALE_SERIES_LIST: `${API_URL}/baleProd/series_list`,
+    BALE_SERIES_CREATE: `${API_URL}/baleProd/series_create`,
+    BALE_SERIES_EDIT: `${API_URL}/baleProd/series_edit`,
+    BALE_SERIES_DELETE: `${API_URL}/baleProd/series_delete`,
+    // Bale reports (router prefix /api/juteProductionReports)
+    BALE_REPORT_DAILY_SHEET: `${API_URL}/juteProductionReports/bale_daily_sheet`,
+    BALE_REPORT_HEAVY_LIGHT: `${API_URL}/juteProductionReports/bale_heavy_light`,
     // Wastage Area master — same router; WASTAGE_AREA_EDIT is a base path, caller
     // appends /${id}?co_id=...
     WASTAGE_AREA_LIST: `${API_URL}/juteWasteProd/area_list`,
@@ -1308,6 +1325,14 @@ const apiRoutesPortalMasters = {
     FINISHING_PROD_EMPLOYEE_LOOKUP: `${API_URL}/finishingProd/employee_lookup`,
     // hemming/herackle: stamp eb_id onto the day+spell's rows from attendance.
     FINISHING_PROD_ENTRY_SYNC_EB: `${API_URL}/finishingProd/entry_sync_eb`,
+    // Finishing Stock — daily physical stock of bales + loose finishing WIP (router prefix /api/finishingStock).
+    FINISHING_STOCK_SETUP: `${API_URL}/finishingStock/setup`,
+    FINISHING_STOCK_ROWS_BY_DATE: `${API_URL}/finishingStock/rows_by_date`,
+    FINISHING_STOCK_ROW_CREATE: `${API_URL}/finishingStock/row_create`,
+    FINISHING_STOCK_ROW_EDIT: `${API_URL}/finishingStock/row_edit`,
+    FINISHING_STOCK_ROW_DELETE: `${API_URL}/finishingStock/row_delete`,
+    FINISHING_STOCK_COPY_PREVIOUS_DAY: `${API_URL}/finishingStock/copy_previous_day`,
+    FINISHING_STOCK_REPORT: `${API_URL}/finishingStock/report`,
     // Finishing SQC — ACTUALS ONLY (router prefix /api/juteSQC, shared with Spinning/Beaming SQC).
     // Proxies to finishingTargetMap with value_role='actual'.
     FINISHING_SQC_SETUP: `${API_URL}/juteSQC/finishing_sqc_setup`,
@@ -1455,12 +1480,16 @@ const apiRoutesSupport = {
     PORTAL_TICKET: `${API_URL}/supportTicket/portal/ticket`, // append /{id} (and /{id}/attachment)
     PORTAL_COMMENT: `${API_URL}/supportTicket/portal/comment`,
     PORTAL_ATTACHMENT: `${API_URL}/supportTicket/portal/attachment`, // append /{id}
+    PORTAL_NOTIFICATIONS: `${API_URL}/supportTicket/portal/notifications`,
+    PORTAL_NOTIFICATIONS_READ: `${API_URL}/supportTicket/portal/notifications/read`,
     // Reporter side — Tenant Admin
     ADMIN_RAISE: `${API_URL}/supportTicket/admin/raise`,
     ADMIN_MY_TICKETS: `${API_URL}/supportTicket/admin/my-tickets`,
     ADMIN_TICKET: `${API_URL}/supportTicket/admin/ticket`, // append /{id} (and /{id}/attachment)
     ADMIN_COMMENT: `${API_URL}/supportTicket/admin/comment`,
     ADMIN_ATTACHMENT: `${API_URL}/supportTicket/admin/attachment`, // append /{id}
+    ADMIN_NOTIFICATIONS: `${API_URL}/supportTicket/admin/notifications`,
+    ADMIN_NOTIFICATIONS_READ: `${API_URL}/supportTicket/admin/notifications/read`,
     // VOW management — Control Desk
     MANAGE_LIST: `${API_URL}/supportTicket/manage/list`,
     MANAGE_STATS: `${API_URL}/supportTicket/manage/stats`,
@@ -1470,6 +1499,8 @@ const apiRoutesSupport = {
     MANAGE_TRANSITION: `${API_URL}/supportTicket/manage/transition`,
     MANAGE_COMMENT: `${API_URL}/supportTicket/manage/comment`,
     MANAGE_ATTACHMENT: `${API_URL}/supportTicket/manage/attachment`, // append /{id}
+    MANAGE_NOTIFICATIONS: `${API_URL}/supportTicket/manage/notifications`,
+    MANAGE_NOTIFICATIONS_READ: `${API_URL}/supportTicket/manage/notifications/read`,
 };
 
 export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters, apiRoutesSupport };

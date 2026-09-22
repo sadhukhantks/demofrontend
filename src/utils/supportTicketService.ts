@@ -11,10 +11,12 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import type {
   Assignee,
   ManageTicketRow,
+  MarkNotificationsReadPayload,
   RaiseTicketPayload,
   TicketAction,
   TicketComment,
   TicketDetailResponse,
+  TicketNotificationsResponse,
   TicketStatsResponse,
   TicketSummary,
 } from "@/utils/supportTicketTypes";
@@ -31,6 +33,8 @@ const reporterRoutes = (variant: WidgetVariant) =>
         ticket: apiRoutesSupport.PORTAL_TICKET,
         comment: apiRoutesSupport.PORTAL_COMMENT,
         attachment: apiRoutesSupport.PORTAL_ATTACHMENT,
+        notifications: apiRoutesSupport.PORTAL_NOTIFICATIONS,
+        notificationsRead: apiRoutesSupport.PORTAL_NOTIFICATIONS_READ,
       }
     : {
         raise: apiRoutesSupport.ADMIN_RAISE,
@@ -38,6 +42,8 @@ const reporterRoutes = (variant: WidgetVariant) =>
         ticket: apiRoutesSupport.ADMIN_TICKET,
         comment: apiRoutesSupport.ADMIN_COMMENT,
         attachment: apiRoutesSupport.ADMIN_ATTACHMENT,
+        notifications: apiRoutesSupport.ADMIN_NOTIFICATIONS,
+        notificationsRead: apiRoutesSupport.ADMIN_NOTIFICATIONS_READ,
       };
 
 // ── Reporter side ────────────────────────────────────────────────────────────────
@@ -116,6 +122,30 @@ export async function deleteReporterAttachment(
   const { data, error, status } = await fetchWithCookie(
     `${reporterRoutes(variant).attachment}/${attachmentId}`,
     "DELETE",
+  );
+  return { data: data?.data ?? null, error, status };
+}
+
+/** Latest ticket notifications for the logged-in reporter, plus their unread count. */
+export async function getReporterNotifications(
+  variant: WidgetVariant,
+  limit = 20,
+): Promise<ServiceResult<TicketNotificationsResponse>> {
+  const { data, error, status } = await fetchWithCookie(
+    `${reporterRoutes(variant).notifications}?limit=${limit}`,
+    "GET",
+  );
+  return { data: data ?? null, error, status };
+}
+
+export async function markReporterNotificationsRead(
+  variant: WidgetVariant,
+  payload: MarkNotificationsReadPayload,
+): Promise<ServiceResult<{ updated: number; unread: number }>> {
+  const { data, error, status } = await fetchWithCookie(
+    reporterRoutes(variant).notificationsRead,
+    "POST",
+    payload,
   );
   return { data: data?.data ?? null, error, status };
 }
@@ -244,6 +274,28 @@ export async function deleteManageAttachment(
   const { data, error, status } = await fetchWithCookie(
     `${apiRoutesSupport.MANAGE_ATTACHMENT}/${attachmentId}`,
     "DELETE",
+  );
+  return { data: data?.data ?? null, error, status };
+}
+
+/** Latest ticket notifications for the logged-in VOW member (assignee), plus unread count. */
+export async function getManageNotifications(
+  limit = 20,
+): Promise<ServiceResult<TicketNotificationsResponse>> {
+  const { data, error, status } = await fetchWithCookie(
+    `${apiRoutesSupport.MANAGE_NOTIFICATIONS}?limit=${limit}`,
+    "GET",
+  );
+  return { data: data ?? null, error, status };
+}
+
+export async function markManageNotificationsRead(
+  payload: MarkNotificationsReadPayload,
+): Promise<ServiceResult<{ updated: number; unread: number }>> {
+  const { data, error, status } = await fetchWithCookie(
+    apiRoutesSupport.MANAGE_NOTIFICATIONS_READ,
+    "POST",
+    payload,
   );
   return { data: data?.data ?? null, error, status };
 }
