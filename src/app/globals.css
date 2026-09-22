@@ -130,7 +130,7 @@
 
   /* Sidebar styles - shared across all sidebar variants */
   .sidebar-container {
-    @apply bg-[#006699] text-white transition-all duration-300 h-screen flex flex-col;
+    @apply bg-[#006699] text-white transition-all duration-300 h-dvh flex flex-col;
   }
 
   /* Reset link styles inside sidebar */

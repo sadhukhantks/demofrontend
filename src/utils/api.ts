@@ -9,6 +9,7 @@ const apiRoutes ={
     USERLOGINCONSOLE : `${API_URL}/authRoutes/login`,
     PROTECTED : `${API_URL}/authRoutes/protected`,
     VERIFYSESSION : `${API_URL}/authRoutes/verify-session`,
+    LOGOUT : `${API_URL}/authRoutes/logout`,
     VALIDATE_SUBDOMAIN : `${API_URL}/authRoutes/validate-subdomain`,
     MENU_CONSOLE: `${API_URL}/companyAdmin/company_console_menu_items`,
     ROLES_CONSOLE: `${API_URL}/companyRoutes/roles`,
