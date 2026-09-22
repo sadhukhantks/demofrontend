@@ -24,6 +24,9 @@ export interface FrameCardItem {
   doffs?: number | null;
   doffMedian?: number | null;
   netWt?: number | null;
+  /** Production target + target-minus-actual (positive = short); null = standards not entered. */
+  targetWt?: number | null;
+  diffWt?: number | null;
 }
 
 const EDGE: Record<PerfStatus, string> = {
@@ -48,13 +51,22 @@ function worstPct(c: FrameCardItem): number | null {
   return live.length ? Math.min(...live) : null;
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  /** Theme palette key, e.g. "error.main". */
+  color?: string;
+}) {
   return (
     <Box sx={{ minWidth: 72 }}>
       <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
         {label}
       </Typography>
-      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+      <Typography variant="body2" sx={{ fontWeight: 600, color }}>
         {value}
       </Typography>
     </Box>
@@ -118,6 +130,20 @@ export default function FrameCards({
                 />
               ) : null}
               {c.netWt != null ? <Metric label="Net" value={`${fmt(c.netWt)} kg`} /> : null}
+              {c.netWt != null ? (
+                <Metric label="Target" value={c.targetWt == null ? "—" : `${fmt(c.targetWt)} kg`} />
+              ) : null}
+              {c.netWt != null ? (
+                <Metric
+                  label="Diff"
+                  value={
+                    c.diffWt == null ? "—" : `${c.diffWt > 0 ? "+" : ""}${fmt(c.diffWt)} kg`
+                  }
+                  color={
+                    c.diffWt == null ? undefined : c.diffWt > 0 ? "error.main" : "success.main"
+                  }
+                />
+              ) : null}
             </Box>
           </Box>
         </Paper>

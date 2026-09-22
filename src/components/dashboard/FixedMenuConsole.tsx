@@ -1,29 +1,16 @@
 'use client';
 import Link from "next/link";
 import { Users, LogOut,  Key } from "lucide-react";
-import {  useState } from "react"
-import { useRouter } from "next/navigation"
- 
+import { useState } from "react";
+import { logout } from "@/utils/auth";
 
 export function FixedMenuConsole({ isCollapsed }: { isCollapsed: boolean }) {
- 
   const [open, setOpen] = useState(false);
-  const router = useRouter()
-   
 
-const handleLogout = (e: React.MouseEvent<HTMLAnchorElement>) => {
-  e.preventDefault(); // Prevent default navigation behavior
-  console.log("Logging out...");
-  localStorage.removeItem("user");  // Remove user data
-  localStorage.removeItem("jwtToken"); 
-  // Clear localStorage
-  localStorage.removeItem("user");
-  localStorage.removeItem("jwtToken");
-  localStorage.clear();
-  console.log(localStorage.user,'for user')
-  // Redirect to login page manually
-  router.push("/");
-};
+  const handleLogout = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    void logout();
+  };
 
   return (
     <div className="sidebar-section-border">

@@ -45,6 +45,7 @@ import {
 } from "../perf";
 import FrameCards, { type FrameCardItem } from "./FrameCards";
 import QuickFilters from "./QuickFilters";
+import { targetColumns } from "./targetColumns";
 
 type WithId<T> = T & { id: number };
 type ScoredPivotRow = FramePivotRow & {
@@ -69,6 +70,7 @@ const dateShiftColumns: GridColDef<WithId<FrameDateShiftRow>>[] = [
   { field: "date", headerName: "Date", width: 120 },
   { field: "shift", headerName: "Shift", width: 90 },
   numCol("net_wt", "Net Wt (kg)", 130),
+  ...targetColumns<WithId<FrameDateShiftRow>>(),
 ];
 
 const doffEventColumns: GridColDef<WithId<FrameDoffEventRow>>[] = [
