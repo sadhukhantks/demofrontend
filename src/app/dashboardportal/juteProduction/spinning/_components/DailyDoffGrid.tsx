@@ -2,14 +2,31 @@
 
 import * as React from "react";
 import { Alert, Box, Button, Chip, IconButton, Snackbar, Tooltip, Typography } from "@mui/material";
-import { Pencil as EditIcon, Trash2 as DeleteIcon, Layers as DedupIcon } from "lucide-react";
+import {
+	Pencil as EditIcon,
+	Trash2 as DeleteIcon,
+	Layers as DedupIcon,
+	FileSpreadsheet as ExcelIcon,
+	FileText as PdfIcon,
+	Printer as PrintIcon,
+} from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { usePathname } from "next/navigation";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
+import type { ReportExportHeader } from "@/components/reports/exportExcel";
+import {
+	exportGridSectionsToExcel,
+	exportGridSectionsToPdf,
+	printGridSections,
+	printHeaderLines,
+	type GridSection,
+} from "@/components/reports/gridSections";
+import { resolveReportMenuId } from "@/utils/reportMenuService";
 import type { DoffEntryRow } from "../types/spinningTypes";
 import { useDoffEntriesByDate } from "../hooks/useDoffEntriesByDate";
+import { doffEntriesSection, doffPeriodLabel } from "../utils/doffEntriesExport";
 import DoffSyncButton from "./DoffSyncButton";
 
 type Props = {
@@ -47,7 +64,7 @@ export default function DailyDoffGrid({
 	// (edit / delete / dedup-deactivate) needs level 4; write-only users create
 	// new doffs via the form but must not see these.
 	const pathname = usePathname();
-	const { hasMenuAccess } = useSidebarContext();
+	const { hasMenuAccess, selectedCompany } = useSidebarContext();
 	const canEdit = hasMenuAccess(pathname, "edit");
 
 	const { rows, unsynced, loading, error, refresh } = useDoffEntriesByDate(
@@ -60,6 +77,51 @@ export default function DailyDoffGrid({
 	);
 	const [snack, setSnack] = React.useState<string | null>(null);
 	const [busy, setBusy] = React.useState(false);
+
+	// TKT-000189: the day's doff entries machine-wise as Excel / PDF / paper,
+	// for the department in-charge. Every loaded row goes out, not the grid page.
+	const [exporting, setExporting] = React.useState(false);
+	const EXPORT_TITLE = "Spinning Doff Entries";
+	const exportHeader = React.useCallback(
+		(): ReportExportHeader => ({
+			companyName: selectedCompany?.co_name ?? null,
+			branchName:
+				selectedCompany?.branches.find((b) => Number(b.branch_id) === branchId)?.branch_name ??
+				null,
+			reportName: EXPORT_TITLE,
+			reportFor: doffPeriodLabel(date, rows, spellId),
+		}),
+		[selectedCompany, branchId, date, rows, spellId]
+	);
+	const exportSections = React.useCallback(
+		(): GridSection[] => [doffEntriesSection(rows) as unknown as GridSection],
+		[rows]
+	);
+	const runExport = React.useCallback(
+		(fn: (s: GridSection[], prefix: string, h: ReportExportHeader) => Promise<void>) => {
+			void (async () => {
+				setExporting(true);
+				try {
+					await fn(exportSections(), "spinning-doff-entries", {
+						...exportHeader(),
+						reportNo: await resolveReportMenuId(pathname),
+					});
+				} catch (e) {
+					setSnack(e instanceof Error ? e.message : "Export failed");
+				} finally {
+					setExporting(false);
+				}
+			})();
+		},
+		[exportSections, exportHeader, pathname]
+	);
+	const handlePrint = React.useCallback(() => {
+		const ok = printGridSections(
+			{ title: EXPORT_TITLE, headerLines: printHeaderLines(exportHeader()), landscape: true },
+			exportSections()
+		);
+		if (!ok) setSnack("Please allow popups to print the doff entries.");
+	}, [exportHeader, exportSections]);
 
 	const handleDelete = React.useCallback(
 		async (id: number) => {
@@ -212,6 +274,33 @@ export default function DailyDoffGrid({
 						onMutated?.();
 					}}
 				/>
+				<Button
+					variant="outlined"
+					size="small"
+					startIcon={<ExcelIcon size={16} />}
+					onClick={() => runExport(exportGridSectionsToExcel)}
+					disabled={exporting || rows.length === 0}
+				>
+					Excel
+				</Button>
+				<Button
+					variant="outlined"
+					size="small"
+					startIcon={<PdfIcon size={16} />}
+					onClick={() => runExport(exportGridSectionsToPdf)}
+					disabled={exporting || rows.length === 0}
+				>
+					PDF
+				</Button>
+				<Button
+					variant="outlined"
+					size="small"
+					startIcon={<PrintIcon size={16} />}
+					onClick={handlePrint}
+					disabled={rows.length === 0}
+				>
+					Print
+				</Button>
 				{/* Spec 5.6.4: the DOFF table itself is not fully stamped — Sync fixes it. */}
 				{unsynced && unsynced.no_item > 0 ? (
 					<Chip
