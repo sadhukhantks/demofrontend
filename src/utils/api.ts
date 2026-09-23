@@ -274,6 +274,16 @@ const apiRoutesPortalMasters = {
     BATCH_PLAN_EDIT: `${API_URL}/batchPlanMaster/batch_plan_edit`,
     BATCH_PLAN_QUALITIES_FOR_ITEM: `${API_URL}/batchPlanMaster/get_qualities_for_item`,
 
+    // Jute Market Rate (daily rate per source) + source / rate-difference masters
+    JUTE_MARKET_RATE_SETUP: `${API_URL}/juteMarketRate/setup`,
+    JUTE_MARKET_RATE_SOURCE_SAVE: `${API_URL}/juteMarketRate/sources/save`,
+    JUTE_MARKET_RATE_SOURCE_DELETE: `${API_URL}/juteMarketRate/sources/delete`,
+    JUTE_RATE_DIFF_TABLE: `${API_URL}/juteMarketRate/rate_diff`,
+    JUTE_RATE_DIFF_SAVE: `${API_URL}/juteMarketRate/rate_diff/save`,
+    JUTE_RATE_DIFF_DELETE: `${API_URL}/juteMarketRate/rate_diff/delete`,
+    JUTE_MARKET_RATES: `${API_URL}/juteMarketRate/rates`,
+    JUTE_MARKET_RATES_SAVE: `${API_URL}/juteMarketRate/rates/save`,
+
     // Jute PO endpoints
     JUTE_PO_TABLE: `${API_URL}/jutePO/get_jute_po_table`,
     JUTE_PO_BY_ID: `${API_URL}/jutePO/get_jute_po_by_id`,

@@ -64,6 +64,7 @@ const mockLineItems: MRLineItem[] = [
 		actualWeight: 11850,
 		allowableMoisture: 18,
 		actualMoisture: 19.5,
+		millMoisture: 21.25,
 		claimDust: 2.0,
 		shortageKgs: 0,
 		acceptedWeight: 11850,
@@ -126,6 +127,17 @@ describe("MRPreview", () => {
 		expect(screen.getByText("37 / 20/05/2025")).toBeInTheDocument();
 		expect(screen.getByText("24/25-26 / 22/05/2025")).toBeInTheDocument();
 		expect(screen.getByText("WB/57B/0592")).toBeInTheDocument();
+	});
+
+	it("renders Bale / Loose from header unit_conversion", () => {
+		const { unmount } = render(
+			<MRPreview header={{ ...mockHeader, unit_conversion: "LOOSE" }} lineItems={[]} totalAcceptedWeight={0} />,
+		);
+		expect(screen.getByText("Bale / Loose")).toBeInTheDocument();
+		expect(screen.getByText("Loose")).toBeInTheDocument();
+		unmount();
+		render(<MRPreview header={{ ...mockHeader, unit_conversion: "Select..." }} lineItems={[]} totalAcceptedWeight={0} />);
+		expect(screen.queryByText("Select...")).not.toBeInTheDocument();
 	});
 
 	it("renders full formatted PO number when po_num is present", () => {
@@ -204,6 +216,13 @@ describe("MRPreview", () => {
 		const lastRow = mainTable?.querySelectorAll("tbody tr")[0];
 		const conditionCell = lastRow?.querySelectorAll("td")[8]; // 9th column (0-indexed)
 		expect(conditionCell?.textContent?.trim()).toBe("");
+	});
+
+	it("renders mill moisture in its own last column", () => {
+		const { container } = render(<MRPreview header={mockHeader} lineItems={mockLineItems} totalAcceptedWeight={16550} />);
+		const rows = container.querySelectorAll("table:last-of-type tbody tr");
+		expect(rows[0].querySelectorAll("td")[9].textContent).toBe("21.25");
+		expect(rows[1].querySelectorAll("td")[9].textContent).toBe("");
 	});
 
 	// ── Totals row ──
