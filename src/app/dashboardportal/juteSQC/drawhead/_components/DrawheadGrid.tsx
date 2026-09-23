@@ -46,14 +46,22 @@ type Props = {
 // can share every server-visible label, so we pair the server id with the index.
 type GridRow = DrawheadReadingRow & { _gridId: string };
 
-// Human-friendly labels for the three drawing sub-sections.
+// Human-friendly labels for the drawing sub-sections.
 const SECTION_LABEL: Record<DrawSection, string> = {
 	DRAWHEAD_SWT: "Drawhead SWT",
 	DRAWHEAD_SWP: "Drawhead SWP",
+	DRAWHEAD_HWT: "Drawhead HWT",
+	DRAWHEAD_HWP: "Drawhead HWP",
 	FINISHER_CARD: "Finisher Card",
 };
 // Fixed display order so both the grid sort and the averages table are stable.
-const SECTION_ORDER: DrawSection[] = ["DRAWHEAD_SWT", "DRAWHEAD_SWP", "FINISHER_CARD"];
+const SECTION_ORDER: DrawSection[] = [
+	"DRAWHEAD_SWT",
+	"DRAWHEAD_SWP",
+	"DRAWHEAD_HWT",
+	"DRAWHEAD_HWP",
+	"FINISHER_CARD",
+];
 const sectionLabel = (s: DrawSection | null | undefined): string =>
 	s ? SECTION_LABEL[s] ?? s : "—";
 const sectionRank = (s: DrawSection | null | undefined): number => {
@@ -156,7 +164,8 @@ export default function DrawheadGrid({
 			{
 				field: "machine_name",
 				headerName: "Machine",
-				width: 170,
+				// fits the full "DRAW HEAD MC NO nn" names without ellipsis
+				width: 240,
 				valueGetter: (_value, row) => machineLabel(row),
 			},
 			{

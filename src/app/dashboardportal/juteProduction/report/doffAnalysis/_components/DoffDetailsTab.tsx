@@ -35,6 +35,7 @@ import {
 } from "../perf";
 import FrameCards, { type FrameCardItem } from "./FrameCards";
 import QuickFilters from "./QuickFilters";
+import { diffCol, targetColumns } from "./targetColumns";
 
 type WithId<T> = T & { id: number };
 type ScoredSummaryRow = DoffSummaryRow & {
@@ -63,6 +64,7 @@ const summaryColumns: GridColDef<WithId<ScoredSummaryRow>>[] = [
   { field: "frame", headerName: "Frame", width: 110 },
   { field: "quality_name", headerName: "Quality", flex: 1, minWidth: 160 },
   numCol("net_wt", "Net Wt (kg)", 120),
+  ...targetColumns<WithId<ScoredSummaryRow>>(),
   { field: "num_doffs", headerName: "Doffs", type: "number", width: 90 },
   numCol("avg_wt", "Avg Wt", 100),
   numCol("max_wt", "Max Wt", 100),
@@ -72,7 +74,17 @@ const summaryColumns: GridColDef<WithId<ScoredSummaryRow>>[] = [
 
 const spellTotalColumns: GridColDef<WithId<DoffSpellTotalRow>>[] = [
   { field: "spell_code", headerName: "Spell", width: 100 },
-  numCol("net_wt", "Net Wt (kg)", 140),
+  numCol("net_wt", "Net Wt (kg)", 130),
+  numCol("target_wt", "Target (kg)", 130),
+  diffCol<WithId<DoffSpellTotalRow>>(),
+  {
+    // Target and Diff only cover the frames that HAVE a target.
+    field: "target_rows",
+    headerName: "Frames with target",
+    width: 160,
+    sortable: false,
+    valueGetter: (_, row) => `${row.target_rows ?? 0} of ${row.rows ?? 0}`,
+  },
 ];
 
 const rawColumns: GridColDef<WithId<DoffRawRow>>[] = [
@@ -181,6 +193,8 @@ export default function DoffDetailsTab({
         doffs: r.num_doffs,
         doffMedian: r.doff_median,
         netWt: r.net_wt,
+        targetWt: r.target_wt,
+        diffWt: r.diff_wt,
       })),
     [filteredSummary],
   );
@@ -208,7 +222,7 @@ export default function DoffDetailsTab({
 
       <SectionCard
         title="Doff Summary"
-        subtitle="Per spell and frame — red/amber rows are below their quality peers on weight or doff count"
+        subtitle="Per spell and frame — red/amber rows are below their quality peers on weight or doff count. Target / Diff are blank where the Spinning Standards are not entered."
       >
         {isPhone ? (
           filteredSummary.length ? (
@@ -237,7 +251,10 @@ export default function DoffDetailsTab({
           gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1fr) minmax(0, 2fr)" },
         }}
       >
-        <SectionCard title="Spell Totals" subtitle="Net weight per spell (filtered)">
+        <SectionCard
+          title="Spell Totals"
+          subtitle="Net weight per spell (filtered); Target and Diff count only the frames that have a target"
+        >
           <ReportGrid
             rows={withId(spellTotals)}
             columns={spellTotalColumns}

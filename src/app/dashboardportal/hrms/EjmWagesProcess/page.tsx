@@ -38,6 +38,8 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 const ACTION_HOLIDAY_DATA = "1";
 /** Legacy oattprdprocess — rebuilds tbl_daily_cash_outsider_payment_production. */
 const ACTION_CASH_OUTSIDER = "14";
+/** The only branch action 14 may run for (EJM FACTORY, sls). */
+const EJM_CASH_BRANCH_ID = 29;
 /** Legacy `hol_get` code for Main Payroll FN Attendance Incentive. */
 const ACTION_ATT_INCENTIVE = "2";
 /** Legacy exportdbfdata holget 20 — posts the pay period into cumulative_data_table. */
@@ -228,6 +230,18 @@ interface WagesDataRow {
   eb_id: number | null;
   eb_no: string;
   emp_name: string;
+  /** daily_attendance.spell_id — attendance rows only. */
+  spell_id: number | null;
+  /** spell_mst.spell_code for spell_id (A1, B1, ...). */
+  spell_name: string | null;
+  /** daily_attendance.worked_department_id (a sub-department id) — attendance rows only. */
+  dept_id: number | null;
+  /** sub_dept_mst.sub_dept_desc for dept_id. */
+  sub_dept_name: string | null;
+  /** daily_attendance.worked_designation_id — attendance rows only. */
+  desig_id: number | null;
+  /** designation_mst.desig for desig_id. */
+  desig_name: string | null;
   dept_code: string | null;
   occu_code: string | null;
   shift: string | null;
@@ -278,8 +292,14 @@ const numCol = (field: string, headerName: string): GridColDef => ({
 const WAGES_GRID_COLUMNS: GridColDef[] = [
   { field: "eb_no", headerName: "EB No", width: 90 },
   { field: "emp_name", headerName: "Employee", width: 180 },
+  { field: "dept_id", headerName: "Dept ID", width: 80 },
   { field: "dept_code", headerName: "Dept", width: 70 },
+  { field: "sub_dept_name", headerName: "Sub Dept", width: 150 },
+  { field: "desig_id", headerName: "Desig ID", width: 80 },
+  { field: "desig_name", headerName: "Designation", width: 170 },
   { field: "occu_code", headerName: "Occu", width: 70 },
+  { field: "spell_id", headerName: "Spell ID", width: 80 },
+  { field: "spell_name", headerName: "Spell", width: 70 },
   { field: "shift", headerName: "Shift", width: 60, editable: true },
   { field: "mc_nos", headerName: "MC Nos", width: 90, editable: true },
   numCol("working_hours", "Work Hrs"),
@@ -669,9 +689,9 @@ export default function EjmWagesProcessPage() {
       }
 
       if (action === ACTION_CASH_OUTSIDER) {
-        // Rebuilds per branch per day, so the sidebar branch is required.
-        if (branchId == null) {
-          notify("Select a branch in the sidebar before processing", "error");
+        // EJM FACTORY only — T-numbered outsiders of branch 29.
+        if (branchId !== EJM_CASH_BRANCH_ID) {
+          notify("EJM Cash/Outsider Daily Payment runs only for EJM FACTORY (branch 29) — select it in the sidebar", "error");
           return;
         }
         const { data, error } = await fetchWithCookie<{ data: { message: string } }>(

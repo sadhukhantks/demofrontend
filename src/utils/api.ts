@@ -9,6 +9,7 @@ const apiRoutes ={
     USERLOGINCONSOLE : `${API_URL}/authRoutes/login`,
     PROTECTED : `${API_URL}/authRoutes/protected`,
     VERIFYSESSION : `${API_URL}/authRoutes/verify-session`,
+    LOGOUT : `${API_URL}/authRoutes/logout`,
     VALIDATE_SUBDOMAIN : `${API_URL}/authRoutes/validate-subdomain`,
     MENU_CONSOLE: `${API_URL}/companyAdmin/company_console_menu_items`,
     ROLES_CONSOLE: `${API_URL}/companyRoutes/roles`,
@@ -1270,6 +1271,15 @@ const apiRoutesPortalMasters = {
     // Bale reports (router prefix /api/juteProductionReports)
     BALE_REPORT_DAILY_SHEET: `${API_URL}/juteProductionReports/bale_daily_sheet`,
     BALE_REPORT_HEAVY_LIGHT: `${API_URL}/juteProductionReports/bale_heavy_light`,
+    // Selection Trolley Weight (router prefix /api/selectionProd) — SELECTION_TW_ENTRY_EDIT/
+    // DELETE are base paths; caller appends /${id}?co_id=...
+    SELECTION_TW_ENTRY_SETUP: `${API_URL}/selectionProd/entry_setup`,
+    SELECTION_TW_ENTRIES_BY_DATE: `${API_URL}/selectionProd/entries_by_date`,
+    SELECTION_TW_ENTRY_CREATE: `${API_URL}/selectionProd/entry_create`,
+    SELECTION_TW_ENTRY_EDIT: `${API_URL}/selectionProd/entry_edit`,
+    SELECTION_TW_ENTRY_DELETE: `${API_URL}/selectionProd/entry_delete`,
+    // Selection vs Jute Issue report (router prefix /api/juteProductionReports)
+    SELECTION_VS_ISSUE_REPORT: `${API_URL}/juteProductionReports/selection_vs_issue`,
     // Wastage Area master — same router; WASTAGE_AREA_EDIT is a base path, caller
     // appends /${id}?co_id=...
     WASTAGE_AREA_LIST: `${API_URL}/juteWasteProd/area_list`,
