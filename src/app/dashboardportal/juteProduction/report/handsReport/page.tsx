@@ -12,6 +12,10 @@
  * The shift-wise columns are a client-side toggle only — the endpoint always
  * returns them, and hiding them is a reading preference, not a different query.
  *
+ * MTD Actual / Target / Excess / Short (TKT-000154) come from the endpoint too:
+ * month-to-date as at the To Date on the rollup views, a running figure up to
+ * each row's date on Detailed and By Date.
+ *
  * "Machines Run" is the fifth view: the machine-wise sheet behind the variable
  * targets. One row per date x shift x machine from every machine-keyed entry
  * (deduplicated server-side), a per-type summary block above it, and a
@@ -81,9 +85,9 @@ const STOP_SOURCES = new Set(["Stoppage", "Breakdown"]);
 
 /** Hours short of the norm, called out in red. Never fired on a null target
  * (norm unresolved) — a blank cell there is the honest answer. */
-function shortCol(): GridColDef<Row> {
+function shortCol(field: "short" | "mtd_short" = "short", header = "Short"): GridColDef<Row> {
   return {
-    ...numCol<Row>("short", "Short", 100),
+    ...numCol<Row>(field, header, 100),
     renderCell: (params) => {
       const n = Number(params.value);
       if (params.value == null || !Number.isFinite(n)) return "";
@@ -115,6 +119,14 @@ const totalCols: GridColDef<Row>[] = [
   numCol("total_target", "Total Target", 120),
   numCol("excess", "Excess", 100),
   shortCol(),
+];
+
+/** Month-to-date block, after the day/window totals on every manning view. */
+const mtdCols: GridColDef<Row>[] = [
+  numCol("mtd_actual", "MTD Actual", 110),
+  numCol("mtd_target", "MTD Target", 110),
+  numCol("mtd_excess", "MTD Excess", 110),
+  shortCol("mtd_short", "MTD Short"),
 ];
 
 const dateCol: GridColDef<Row> = { field: "date", headerName: "Date", width: 110 };
@@ -206,6 +218,7 @@ function buildColumns(view: HandsView, showShiftDetail: boolean): GridColDef<Row
     ...lead,
     ...(showShiftDetail ? shiftCols : []),
     ...totalCols,
+    ...mtdCols,
     ...(view === "by_date" ? splitCols : []),
   ];
 }
@@ -535,6 +548,19 @@ function Content() {
               </Typography>
               <Typography variant="body2" color="error.main">
                 <strong>Short:</strong> {fmtNum(meta.total_short) || "—"}
+              </Typography>
+              <Typography variant="body2">
+                <strong>MTD actual{meta.mtd_from ? ` (from ${meta.mtd_from})` : ""}:</strong>{" "}
+                {fmtNum(meta.mtd_actual) || "—"}
+              </Typography>
+              <Typography variant="body2">
+                <strong>MTD target:</strong> {fmtNum(meta.mtd_target) || "—"}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                <strong>MTD excess:</strong> {fmtNum(meta.mtd_excess) || "—"}
+              </Typography>
+              <Typography variant="body2" color="error.main">
+                <strong>MTD short:</strong> {fmtNum(meta.mtd_short) || "—"}
               </Typography>
             </Stack>
           ) : null}
