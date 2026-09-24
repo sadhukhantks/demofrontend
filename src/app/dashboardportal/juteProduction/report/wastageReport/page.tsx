@@ -37,7 +37,10 @@ import {
   Typography,
 } from "@mui/material";
 import { alpha, type Theme } from "@mui/material/styles";
-import { Printer } from "lucide-react";
+import { FileSpreadsheet, Printer } from "lucide-react";
+import { usePathname } from "next/navigation";
+import type { ReportExportHeader } from "@/components/reports/exportExcel";
+import { resolveReportMenuId } from "@/utils/reportMenuService";
 import { useReportBranches } from "@/components/reports/useReportBranches";
 import type { BranchOption } from "@/components/reports/types";
 import {
@@ -55,6 +58,7 @@ import {
   fmt,
   totalRowSx,
 } from "../dailyProductionReport/_components/DprPieces";
+import { exportWastageReportWorkbook } from "./wastageReportExcel";
 import { PRINT_PAGE_MARGIN_MM, printScaleFor } from "./printScale";
 
 const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
@@ -184,6 +188,8 @@ function Content() {
   const [data, setData] = useState<WastageReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const pathname = usePathname();
   const fetchedOnce = useRef(false);
   const branchSeeded = useRef(false);
   const lastCoId = useRef<number | null>(null);
@@ -270,6 +276,29 @@ function Content() {
   const isEmpty = data != null && (data.days.length === 0 || orderedGroups.length === 0);
   const hasData = data != null && !isEmpty;
 
+  // Excel download of the sheet on screen (TKT-000176): same bands, same
+  // day rows and TOTAL, under the standard report letterhead.
+  const exportExcel = useCallback(() => {
+    if (!data) return;
+    void (async () => {
+      setExporting(true);
+      try {
+        const header: ReportExportHeader = {
+          companyName,
+          branchName: selectedBranch?.branch_name ?? null,
+          reportName: "Wastage Report",
+          reportFor: monthLongLabel(data.month),
+          reportNo: await resolveReportMenuId(pathname),
+        };
+        await exportWastageReportWorkbook(data, orderedGroups, header, dayLabel);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to export the report");
+      } finally {
+        setExporting(false);
+      }
+    })();
+  }, [data, orderedGroups, companyName, selectedBranch, pathname]);
+
   return (
     <Box sx={{ p: 2 }}>
       {/* On print, show ONLY the report content: the portal shell (sidebar,
@@ -349,6 +378,14 @@ function Content() {
             onClick={() => window.print()}
           >
             Print
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<FileSpreadsheet size={16} />}
+            disabled={!hasData || exporting}
+            onClick={exportExcel}
+          >
+            Excel
           </Button>
         </Stack>
       )}
