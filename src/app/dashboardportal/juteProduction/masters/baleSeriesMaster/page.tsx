@@ -86,7 +86,7 @@ export default function BaleSeriesMasterPage() {
 		void refresh();
 	}, [refresh]);
 
-	// Dropdown sources for the dialog (cloth items, states, parties).
+	// Dropdown source for the dialog (cloth items).
 	React.useEffect(() => {
 		if (!coId || branchId == null) {
 			setSetup(null);
@@ -209,8 +209,6 @@ export default function BaleSeriesMasterPage() {
 			minWidth: 200,
 			valueGetter: (value, row) => value ?? (row.item_id != null ? String(row.item_id) : "— any of type —"),
 		},
-		{ field: "state", headerName: "State", width: 140, valueGetter: (value) => value ?? "" },
-		{ field: "party_name", headerName: "Party", width: 160, valueGetter: (value) => value ?? "" },
 		{
 			field: "last_bale_no",
 			headerName: "Last Bale No",

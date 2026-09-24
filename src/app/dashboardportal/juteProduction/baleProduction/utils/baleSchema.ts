@@ -164,8 +164,6 @@ export const baleSeriesSchema = z.object({
 		message: "Quality type is required",
 	}),
 	item_id: z.string(),
-	state_id: z.string(),
-	party_id: z.string(),
 	last_bale_no: z
 		.string()
 		.min(1, "Last bale no is required (0 for a new series)")
@@ -182,8 +180,6 @@ export const DEFAULT_BALE_SERIES_FORM_VALUES: BaleSeriesFormValues = Object.free
 	series_name: "",
 	quality_type: String(BALE_QUALITY_TYPE_SACKING),
 	item_id: "",
-	state_id: "",
-	party_id: "",
 	last_bale_no: "0",
 });
 
@@ -199,8 +195,9 @@ export function buildBaleSeriesPayload(
 		series_name: values.series_name.trim(),
 		quality_type: Number(values.quality_type),
 		item_id: values.item_id === "" ? null : Number(values.item_id),
-		state_id: values.state_id === "" ? null : Number(values.state_id),
-		party_id: values.party_id === "" ? null : Number(values.party_id),
+		// State / party links stay blank for now (columns kept, no picker).
+		state_id: null,
+		party_id: null,
 		last_bale_no: Number(values.last_bale_no),
 	};
 }

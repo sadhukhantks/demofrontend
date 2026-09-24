@@ -162,6 +162,19 @@ export function useMRLineItems({
 						: undefined,
 			},
 			{
+				id: "millMoisture",
+				header: "Mill Moisture (%)",
+				width: "1fr",
+				// Read-only: original QC-recorded moisture (avg of readings); settled value is actualMoisture.
+				renderCell: ({ item }) => (
+					<span className="text-xs">
+						{item.millMoisture != null ? item.millMoisture.toFixed(2) : "—"}
+					</span>
+				),
+				getTooltip: ({ item }) =>
+					item.millMoisture != null ? `Mill Moisture: ${item.millMoisture.toFixed(2)}%` : undefined,
+			},
+			{
 				id: "actualMoisture",
 				header: "Actual Moisture (%)",
 				width: "1.1fr",
