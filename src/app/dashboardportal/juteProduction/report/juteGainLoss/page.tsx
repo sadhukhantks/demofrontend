@@ -28,6 +28,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Printer } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useReportBranches } from "@/components/reports/useReportBranches";
 import type { BranchOption } from "@/components/reports/types";
 import {
@@ -103,7 +104,13 @@ function Content() {
     setMounted(true);
   }, []);
   const [branchId, setBranchId] = useState<number | null>(initialBranchId);
-  const [month, setMonth] = useState<string>(prevMonthYm());
+  // ?month=YYYY-MM lets the entry sheet link straight to its own statement
+  // (TKT-000157); anything else falls back to last month, the usual sheet.
+  const searchParams = useSearchParams();
+  const [month, setMonth] = useState<string>(() => {
+    const m = searchParams.get("month");
+    return m && /^\d{4}-(0[1-9]|1[0-2])$/.test(m) ? m : prevMonthYm();
+  });
   const [tab, setTab] = useState<GlStatementCode>("FNG");
   const [data, setData] = useState<GlReport | null>(null);
   const [notFound, setNotFound] = useState(false);
