@@ -15,6 +15,12 @@
  *
  * The TOTAL row's percentages use the monthly denominator, which can differ
  * from summing the day-level bases — that mirrors the Excel and is intended.
+ *
+ * Printing (TKT-000183): the sheet is far wider than a landscape page (35+
+ * columns on sls), and a scrolling table simply gets clipped on paper — both
+ * edges were cut off in "Save as PDF". On `beforeprint` the natural width of
+ * the table is measured and the print root is scaled down to the printable
+ * width of an A4 landscape page, so the whole sheet always lands on the page.
  */
 
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -49,6 +55,7 @@ import {
   fmt,
   totalRowSx,
 } from "../dailyProductionReport/_components/DprPieces";
+import { PRINT_PAGE_MARGIN_MM, printScaleFor } from "./printScale";
 
 const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
@@ -99,6 +106,8 @@ const otherHeadSx = {
 } as const;
 
 const OTHER_TOOLTIP = "Waste entries with no mapping row in jute_waste_report_map";
+
+
 
 /** Right-aligned whole-kg cell; zeros stay visible but dimmed. */
 function KgTd({ value, bold }: { value: number | null | undefined; bold?: boolean }) {
@@ -178,6 +187,24 @@ function Content() {
   const fetchedOnce = useRef(false);
   const branchSeeded = useRef(false);
   const lastCoId = useRef<number | null>(null);
+  const printRootRef = useRef<HTMLDivElement | null>(null);
+
+  // Fit-to-width on print: measure the table at its natural (nowrap) width
+  // and shrink the print root so it spans exactly the printable page width.
+  // The scale is reset to 1 first so a previous print's value cannot mask a
+  // table that has since become narrower or wider.
+  useEffect(() => {
+    const fit = () => {
+      const root = printRootRef.current;
+      const table = root?.querySelector("table");
+      if (!root || !table) return;
+      root.style.setProperty("--wsr-print-scale", "1");
+      void table.offsetWidth; // flush layout before measuring
+      root.style.setProperty("--wsr-print-scale", String(printScaleFor(table.scrollWidth)));
+    };
+    window.addEventListener("beforeprint", fit);
+    return () => window.removeEventListener("beforeprint", fit);
+  }, []);
 
   const runFetch = useCallback(
     async (bId: number | null, m: string) => {
@@ -248,18 +275,34 @@ function Content() {
       {/* On print, show ONLY the report content: the portal shell (sidebar,
           hub back-button) and this page's controls all sit outside
           .wsr-print-root and get visibility-hidden. The sheet is a wide
-          landscape document, hence the @page rule. */}
+          landscape document, hence the @page rule, and it is scaled to the
+          printable width (--wsr-print-scale, set on beforeprint) because a
+          scrolling table cannot scroll on paper — it was being clipped at
+          both edges. The root is widened by the inverse of the scale so
+          that, once scaled, it spans exactly the page width. */}
       <GlobalStyles
         styles={{
           "@media print": {
-            "@page": { size: "landscape" },
+            "@page": { size: "A4 landscape", margin: `${PRINT_PAGE_MARGIN_MM}mm` },
             "body *": { visibility: "hidden" },
             ".wsr-print-root, .wsr-print-root *": { visibility: "visible" },
             ".wsr-print-root": {
               position: "absolute",
               top: 0,
               left: 0,
-              width: "100%",
+              width: "calc(100% / var(--wsr-print-scale, 1))",
+              transform: "scale(var(--wsr-print-scale, 1))",
+              transformOrigin: "top left",
+            },
+            // The table shell must not clip the sheet on paper.
+            ".wsr-print-root .MuiTableContainer-root": { overflow: "visible" },
+            // Compact cells: figures never wrap (a wrapped number is a
+            // misread number); the scale above does the fitting.
+            ".wsr-print-root table td, .wsr-print-root table th": {
+              whiteSpace: "nowrap",
+              padding: "1px 3px",
+              fontSize: "8px",
+              lineHeight: 1.25,
             },
           },
         }}
@@ -328,7 +371,7 @@ function Content() {
       ) : null}
 
       {!loading && hasData && data ? (
-        <Box className="wsr-print-root">
+        <Box className="wsr-print-root" ref={printRootRef}>
           {/* Print letterhead */}
           <Box sx={{ display: "none", displayPrint: "block", mb: 1, textAlign: "center" }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
@@ -363,6 +406,15 @@ function Content() {
                           <Tooltip title={OTHER_TOOLTIP}>
                             <span>{g.group_name}</span>
                           </Tooltip>
+                          {/* The tooltip cannot be read on paper: say on the
+                              printed sheet why this band has no %. */}
+                          <Box
+                            component="span"
+                            sx={{ display: "none", displayPrint: "inline", fontWeight: 400 }}
+                          >
+                            {" "}
+                            (no mapping row — % not computed)
+                          </Box>
                         </Td>
                       ) : (
                         <Td key={g.group_code} colSpan={g.components.length + 2} align="center">
