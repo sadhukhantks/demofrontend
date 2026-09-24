@@ -80,6 +80,7 @@ export type JuteMRLineItemAPI = {
 	actual_weight: number | null;
 	allowable_moisture: number | null;
 	actual_moisture: string | null;
+	mill_moisture?: number | string | null; // jute_mr_li.mill_moisture — written by material inspection only, read-only here
 	claim_dust: number | null;
 	shortage_kgs: number | null;
 	accepted_weight: number | null;
@@ -110,6 +111,7 @@ export type MRLineItem = {
 	actualWeight: number | null;
 	allowableMoisture: number | null;
 	actualMoisture: number | null;
+	millMoisture?: number | null; // factory QC moisture, display-only (MR save never sends it)
 	claimDust: number | null;
 	shortageKgs: number | null;
 	acceptedWeight: number | null;

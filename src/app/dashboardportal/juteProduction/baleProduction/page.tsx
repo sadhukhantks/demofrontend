@@ -118,18 +118,15 @@ export default function BaleProductionPage() {
 		if (setup.machines.length === 1) setMachineId(setup.machines[0].machine_id);
 	}, [setup, spellId]);
 
-	// Pre-fill source: the server's next_bale_no, advanced by any save made here
-	// since (F9), falling back to the setup counter while the fetch is in flight.
+	// Pre-fill source: the server's next_bale_no once fetched; while a (re)fetch is
+	// in flight, the counter echoed by this page's last save / delete, else the
+	// setup counter. Not a max — a delete of the top bale winds the counter back.
 	const nextBaleNo = React.useMemo(() => {
 		if (formSeriesId == null) return null;
-		const fromHook = nextState?.bale_series_id === formSeriesId ? nextState.next_bale_no : null;
-		const fromLive = liveCounters[formSeriesId] != null ? calcNextBaleNo(liveCounters[formSeriesId]) : null;
-		const fromSetup = setup?.series.find((s) => s.bale_series_id === formSeriesId)?.last_bale_no;
-		const candidates = [fromHook, fromLive, fromSetup != null ? calcNextBaleNo(fromSetup) : null].filter(
-			(n): n is number => n != null
-		);
-		return candidates.length ? Math.max(...candidates) : null;
-	}, [formSeriesId, nextState, liveCounters, setup]);
+		if (!nextLoading && nextState?.bale_series_id === formSeriesId) return nextState.next_bale_no;
+		const last = liveCounters[formSeriesId] ?? setup?.series.find((s) => s.bale_series_id === formSeriesId)?.last_bale_no;
+		return last != null ? calcNextBaleNo(last) : null;
+	}, [formSeriesId, nextState, nextLoading, liveCounters, setup]);
 
 	const headerIncomplete = spellId === "";
 
@@ -212,6 +209,9 @@ export default function BaleProductionPage() {
 				return;
 			}
 			if (editingEntry?.bale_entry_id === row.bale_entry_id) setEditingEntry(null);
+			if (result.lastBaleNo != null) {
+				setLiveCounters((prev) => ({ ...prev, [row.bale_series_id]: result.lastBaleNo as number }));
+			}
 			setSnack(`Deleted bale #${row.bale_no}`);
 			refreshEntries();
 			refreshNext();

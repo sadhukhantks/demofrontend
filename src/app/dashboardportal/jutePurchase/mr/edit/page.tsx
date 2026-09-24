@@ -424,6 +424,7 @@ function JuteMREditPageContent() {
 					actualWeight: li.actual_weight,
 					allowableMoisture: li.allowable_moisture,
 					actualMoisture: actualMoistureNum,
+					millMoisture: li.mill_moisture != null ? Number(li.mill_moisture) : null,
 					claimDust: li.claim_dust,
 					shortageKgs: shortageKgs ?? li.shortage_kgs,
 					acceptedWeight,

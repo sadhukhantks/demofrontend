@@ -65,7 +65,8 @@ export function useBaleMutations() {
 	);
 
 	// DELETE /entry_delete/{id}?co_id — co_id is the company-scoping guard on
-	// the by-id route. Soft delete (active = 0).
+	// the by-id route. Soft delete (active = 0); echoes the series' counter,
+	// which winds back when the deleted bale was the top number.
 	const deleteEntry = React.useCallback(
 		async (baleEntryId: number, coId: number): Promise<BaleMutationResult<BaleEntryDeleteResponse>> => {
 			setDeleting(true);
@@ -75,7 +76,7 @@ export function useBaleMutations() {
 				"DELETE"
 			);
 			setDeleting(false);
-			return { ok: !error, error, status, row: data?.data ?? null, lastBaleNo: null };
+			return { ok: !error, error, status, row: data?.data ?? null, lastBaleNo: data?.data?.last_bale_no ?? null };
 		},
 		[]
 	);
