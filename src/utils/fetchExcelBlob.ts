@@ -13,8 +13,7 @@ export type ExcelBlobParams = {
 
 /**
  * GET an .xlsx blob from a backend route, applying optional filters as query
- * params. Mirrors the axios pattern in jutePurchase/mr/utils/mrService.ts so
- * that error JSON inside a Blob response gets surfaced as a string.
+ * params. Error JSON inside a Blob response is surfaced as the Error message.
  */
 export async function fetchExcelBlob(url: string, params: ExcelBlobParams): Promise<Blob> {
 	const qs = new URLSearchParams();
@@ -40,13 +39,14 @@ export async function fetchExcelBlob(url: string, params: ExcelBlobParams): Prom
 		return response.data;
 	} catch (err: unknown) {
 		if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
+			// Throw outside the try — a throw inside it was swallowed by its own catch.
+			let detail: string | undefined;
 			try {
-				const text = await err.response.data.text();
-				const parsed = JSON.parse(text) as { detail?: string };
-				throw new Error(parsed.detail ?? "Excel download failed");
+				detail = (JSON.parse(await err.response.data.text()) as { detail?: string }).detail;
 			} catch {
-				throw new Error("Excel download failed");
+				// non-JSON error body
 			}
+			throw new Error(detail ?? "Excel download failed");
 		}
 		throw err instanceof Error ? err : new Error(String(err));
 	}

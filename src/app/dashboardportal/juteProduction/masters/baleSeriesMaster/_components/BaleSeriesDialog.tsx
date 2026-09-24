@@ -13,8 +13,6 @@ import {
 	type BaleSeriesRow,
 	type BaleSeriesSetup,
 	type BaleSeriesSetupItem,
-	type BaleSeriesSetupParty,
-	type BaleSeriesSetupState,
 } from "../../../baleProduction/types/baleTypes";
 import {
 	baleSeriesSchema,
@@ -43,16 +41,12 @@ const QUALITY_TYPE_OPTIONS = [
 ];
 
 const itemLabel = (i: BaleSeriesSetupItem) => `${i.item_code} — ${i.item_name}`;
-const stateLabel = (s: BaleSeriesSetupState) => s.state;
-const partyLabel = (p: BaleSeriesSetupParty) => p.supp_name;
 
 function rowToForm(row: BaleSeriesRow): BaleSeriesFormValues {
 	return {
 		series_name: row.series_name,
 		quality_type: String(row.quality_type === BALE_QUALITY_TYPE_HESSIAN ? BALE_QUALITY_TYPE_HESSIAN : BALE_QUALITY_TYPE_SACKING),
 		item_id: row.item_id == null ? "" : String(row.item_id),
-		state_id: row.state_id == null ? "" : String(row.state_id),
-		party_id: row.party_id == null ? "" : String(row.party_id),
 		last_bale_no: String(row.last_bale_no ?? 0),
 	};
 }
@@ -92,8 +86,6 @@ export default function BaleSeriesDialog({
 	}, [open, row, reset]);
 
 	const items = setup?.items ?? [];
-	const states = setup?.states ?? [];
-	const parties = setup?.parties ?? [];
 
 	const itemId = useWatch({ control, name: "item_id" });
 	const lastBaleNo = useWatch({ control, name: "last_bale_no" });
@@ -183,45 +175,6 @@ export default function BaleSeriesDialog({
 						)}
 					/>
 
-					<Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}>
-						<Controller
-							name="state_id"
-							control={control}
-							render={({ field }) => (
-								<SearchableSelect<BaleSeriesSetupState>
-									variant="outlined"
-									label="State (optional)"
-									options={states}
-									value={states.find((s) => String(s.state_id) === field.value) ?? null}
-									onChange={(opt) => field.onChange(opt ? String(opt.state_id) : "")}
-									getOptionLabel={stateLabel}
-									getOptionKey={(s) => s.state_id}
-									isOptionEqualToValue={(a, b) => a.state_id === b.state_id}
-									loading={setup == null}
-									textFieldProps={{ onBlur: field.onBlur }}
-								/>
-							)}
-						/>
-						<Controller
-							name="party_id"
-							control={control}
-							render={({ field }) => (
-								<SearchableSelect<BaleSeriesSetupParty>
-									variant="outlined"
-									label="Party (optional)"
-									options={parties}
-									value={parties.find((p) => String(p.party_id) === field.value) ?? null}
-									onChange={(opt) => field.onChange(opt ? String(opt.party_id) : "")}
-									getOptionLabel={partyLabel}
-									getOptionKey={(p) => p.party_id}
-									isOptionEqualToValue={(a, b) => a.party_id === b.party_id}
-									loading={setup == null}
-									textFieldProps={{ onBlur: field.onBlur }}
-								/>
-							)}
-						/>
-					</Box>
-
 					<Controller
 						name="last_bale_no"
 						control={control}
@@ -241,7 +194,7 @@ export default function BaleSeriesDialog({
 											? counterChanged
 												? "Changing this RESETS the counter — you will be asked to confirm"
 												: `Next bale takes #${(Number(lastBaleNo) + 1).toLocaleString()}`
-											: "0 for a fresh series; the next bale takes last + 1")
+											: "Last bale number already pressed in this series (from the old register) — the first entry here takes last + 1. 0 for a brand-new series.")
 								}
 								color={counterChanged ? "warning" : undefined}
 								focused={counterChanged || undefined}
