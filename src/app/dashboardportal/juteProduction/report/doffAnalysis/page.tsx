@@ -25,6 +25,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useReportBranches } from "@/components/reports/useReportBranches";
+import type { ReportExportHeader } from "@/components/reports/exportExcel";
 import { useMounted } from "@/components/reports/useMounted";
 import { lastDaysRange, yesterdayIso } from "@/components/reports/reportDates";
 import type { BranchOption } from "@/components/reports/types";
@@ -46,7 +47,7 @@ function errText(e: unknown): string {
 }
 
 function Content() {
-  const { branches, coId, initialBranchId, dateParam } = useReportBranches();
+  const { branches, coId, companyName, initialBranchId, dateParam } = useReportBranches();
   // Branch and dates come from the localStorage-backed sidebar context, so the
   // server HTML and the first client render disagree — hold the filter bar
   // back until mount (same gate as the other report pages).
@@ -187,6 +188,18 @@ function Content() {
   const selectedBranch: BranchOption | null =
     branches.find((b) => b.branch_id === branchId) ?? null;
 
+  // Letterhead for the Excel / print export (TKT-000190) — the period is the
+  // one the shown data was fetched for, not the (possibly edited) inputs.
+  const header: ReportExportHeader = {
+    companyName,
+    branchName: selectedBranch?.branch_name ?? null,
+    reportName: "Doff Analysis",
+    reportFor:
+      tab === 0
+        ? details?.meta?.date_from ?? reportDate
+        : `${frames?.meta?.date_from ?? dateFrom} To ${frames?.meta?.date_to ?? dateTo}`,
+  };
+
   return (
     <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
       <Typography variant="h5" sx={{ color: "#0C3C60", fontWeight: "bold", mb: 2 }}>
@@ -306,7 +319,7 @@ function Content() {
       {/* Unmounted, not hidden: DataGrid measures its container and a
           display:none mount collapses it. */}
       {!loading && branchId != null && tab === 0 ? (
-        <DoffDetailsTab data={details} branchId={branchId} />
+        <DoffDetailsTab data={details} branchId={branchId} header={header} />
       ) : null}
       {!loading && branchId != null && tab === 1 ? (
         <FrameAnalysisTab
@@ -314,6 +327,7 @@ function Content() {
           branchId={branchId}
           selectedFrame={frame}
           onSelectFrame={selectFrame}
+          header={header}
         />
       ) : null}
 

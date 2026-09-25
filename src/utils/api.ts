@@ -300,6 +300,12 @@ const apiRoutesPortalMasters = {
     JUTE_PO_REJECT: `${API_URL}/jutePO/reject_jute_po`,
     JUTE_PO_CANCEL_DRAFT: `${API_URL}/jutePO/cancel_draft_jute_po`,
     JUTE_PO_REOPEN: `${API_URL}/jutePO/reopen_jute_po`,
+    // PO settlement (docs/claude/modules/jute-purchase/po-settlement-spec.md)
+    JUTE_PO_CLOSE: `${API_URL}/jutePO/close_jute_po`,
+    JUTE_PO_BULK_CLOSE: `${API_URL}/jutePO/bulk_close_jute_po`,
+    JUTE_PO_RECOMPUTE_SETTLEMENT: `${API_URL}/jutePO/recompute_settlement`,
+    JUTE_PO_SETTLE_RULE: `${API_URL}/jutePO/settle_rule`,
+    JUTE_PO_STATUS_LOG: `${API_URL}/jutePO/status_log`,
     JUTE_PO_DOWNLOAD: `${API_URL}/jutePO/download_po_table`,
 
     // Jute Gate Entry endpoints
@@ -369,6 +375,34 @@ const apiRoutesPortalMasters = {
     JUTE_ISSUE_DOWNLOAD: `${API_URL}/juteIssue/download_issue_table`,
     JUTE_ISSUE_SYNC_WEIGHTS: `${API_URL}/juteIssue/sync_issue_weights`,
 
+    // Yarn Purchase (receipt of purchased yarn, kg) — vowerp3be/docs/superpowers/specs/2026-09-25-yarn-purchase-issue-consumption-design.md §3.1
+    YARN_PURCHASE_SETUP: `${API_URL}/yarnPurchase/setup`,
+    YARN_PURCHASE_LIST: `${API_URL}/yarnPurchase/list`,
+    YARN_PURCHASE_GET: `${API_URL}/yarnPurchase/get`,          // append `/${id}` at call site
+    YARN_PURCHASE_CREATE: `${API_URL}/yarnPurchase/create`,
+    YARN_PURCHASE_UPDATE: `${API_URL}/yarnPurchase/update`,    // append `/${id}` at call site
+    YARN_PURCHASE_OPEN: `${API_URL}/yarnPurchase/open`,
+    YARN_PURCHASE_CANCEL: `${API_URL}/yarnPurchase/cancel`,
+    YARN_PURCHASE_SEND_FOR_APPROVAL: `${API_URL}/yarnPurchase/send_for_approval`,
+    YARN_PURCHASE_APPROVE: `${API_URL}/yarnPurchase/approve`,
+    YARN_PURCHASE_REJECT: `${API_URL}/yarnPurchase/reject`,
+    YARN_PURCHASE_REOPEN: `${API_URL}/yarnPurchase/reopen`,
+
+    // Yarn Issue / Return (purchased yarn godown <-> department floor, kg) — same spec §3.2
+    YARN_ISSUE_SETUP: `${API_URL}/yarnIssue/setup`,
+    YARN_ISSUE_GODOWN_LOTS: `${API_URL}/yarnIssue/godown_lots`,   // ISSUE lot picker (oldest first)
+    YARN_ISSUE_DEPT_LOTS: `${API_URL}/yarnIssue/dept_lots`,       // RETURN lot picker for one department
+    YARN_ISSUE_LIST: `${API_URL}/yarnIssue/list`,
+    YARN_ISSUE_GET: `${API_URL}/yarnIssue/get`,                   // append `/${id}` at call site
+    YARN_ISSUE_CREATE: `${API_URL}/yarnIssue/create`,
+    YARN_ISSUE_UPDATE: `${API_URL}/yarnIssue/update`,             // append `/${id}` at call site
+    YARN_ISSUE_OPEN: `${API_URL}/yarnIssue/open`,
+    YARN_ISSUE_CANCEL: `${API_URL}/yarnIssue/cancel`,
+    YARN_ISSUE_SEND_FOR_APPROVAL: `${API_URL}/yarnIssue/send_for_approval`,
+    YARN_ISSUE_APPROVE: `${API_URL}/yarnIssue/approve`,
+    YARN_ISSUE_REJECT: `${API_URL}/yarnIssue/reject`,
+    YARN_ISSUE_REOPEN: `${API_URL}/yarnIssue/reopen`,
+
     // Batch Daily Assign
     BATCH_DAILY_ASSIGN_TABLE: `${API_URL}/batchDailyAssign/get_assign_table`,
     BATCH_DAILY_ASSIGN_BY_DATE: `${API_URL}/batchDailyAssign/get_assigns_by_date`,
@@ -402,6 +436,7 @@ const apiRoutesPortalMasters = {
     JUTE_REPORT_PO_OPTIONS: `${API_URL}/juteReports/po-options`,
     JUTE_REPORT_PO_MR_RECEIPT_DETAIL: `${API_URL}/juteReports/po-mr-receipt-detail`,
     JUTE_REPORT_PO_PENDING: `${API_URL}/juteReports/po-pending`,
+    JUTE_REPORT_PO_OUTSTANDING_POSITION: `${API_URL}/juteReports/po-outstanding-position`,
     SALES_REPORT_JUTE_TALLY_DOWNLOAD: `${API_URL}/salesReports/jute-tally-download`,
     SALES_REPORT_JUTE_MR_SUMMARY: `${API_URL}/salesReports/jute-mr-summary`,
     SALES_REPORT_SALES_ORDER_LIST: `${API_URL}/salesReports/sales-order-list`,

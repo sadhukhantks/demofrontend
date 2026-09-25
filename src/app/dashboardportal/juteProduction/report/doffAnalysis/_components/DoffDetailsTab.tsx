@@ -15,6 +15,8 @@ import React from "react";
 import { Alert, Box, Stack, useMediaQuery, useTheme } from "@mui/material";
 import type { GridColDef } from "@mui/x-data-grid";
 import ReportGrid, { numCol } from "@/components/reports/ReportGrid";
+import type { ReportExportHeader } from "@/components/reports/exportExcel";
+import type { GridSection } from "@/components/reports/gridSections";
 import { SectionCard } from "../../dailyProductionReport/_components/DprPieces";
 import {
   withId,
@@ -33,6 +35,7 @@ import {
   type FilterSel,
   type PerfStatus,
 } from "../perf";
+import ExportActions from "./ExportActions";
 import FrameCards, { type FrameCardItem } from "./FrameCards";
 import QuickFilters from "./QuickFilters";
 import { diffCol, targetColumns } from "./targetColumns";
@@ -126,9 +129,11 @@ function uniqueSorted(values: (string | null)[]): string[] {
 export default function DoffDetailsTab({
   data,
   branchId,
+  header,
 }: {
   data: DoffDetailsData | null;
   branchId: number | null;
+  header: ReportExportHeader;
 }) {
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down("sm"));
@@ -199,6 +204,17 @@ export default function DoffDetailsTab({
     [filteredSummary],
   );
 
+  // Export / print exactly the four grids as filtered (TKT-000190).
+  const sections = React.useMemo<GridSection[]>(
+    () => [
+      { title: "Doff Summary", columns: summaryColumns, rows: withId(filteredSummary) },
+      { title: "Spell Totals", columns: spellTotalColumns, rows: withId(spellTotals) },
+      { title: "Weight Bands", columns: bandCols, rows: withId(bands) },
+      { title: "Doffs", columns: rawColumns, rows: withId(filteredRaw) },
+    ] as GridSection[],
+    [filteredSummary, spellTotals, bands, bandCols, filteredRaw],
+  );
+
   if (!data) return null;
 
   const empty =
@@ -218,6 +234,13 @@ export default function DoffDetailsTab({
         frames={uniqueSorted(summary.map((r) => r.frame))}
         sel={sel}
         onChange={setSel}
+      />
+
+      <ExportActions
+        sections={sections}
+        fileNamePrefix="doff-analysis-details"
+        header={{ ...header, reportName: "Doff Analysis — Doff Details" }}
+        disabled={branchId == null}
       />
 
       <SectionCard
