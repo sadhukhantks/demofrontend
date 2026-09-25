@@ -49,6 +49,8 @@ interface MuiDataGridProps {
   getRowClassName?: (params: GridRowClassNameParams) => string;
   /** Grid text overrides, e.g. a page-specific `noRowsLabel`. */
   localeText?: DataGridProps['localeText'];
+  /** Row click handler, e.g. to open the record behind a row. */
+  onRowClick?: DataGridProps['onRowClick'];
 }
 
 const MuiDataGrid: React.FC<MuiDataGridProps> = ({
@@ -78,6 +80,7 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
   disableExport = false,
   getRowClassName,
   localeText,
+  onRowClick,
 }) => {
   // Ensure component is mounted before rendering DataGrid to avoid
   // "Can't perform a React state update on a component that hasn't mounted yet"
@@ -156,6 +159,7 @@ const MuiDataGrid: React.FC<MuiDataGridProps> = ({
         disableDensitySelector={disableDensitySelector}
         getRowClassName={getRowClassName}
         localeText={localeText}
+        onRowClick={onRowClick}
         sx={{
           ...wrappingGridSx,
           '& .MuiDataGrid-columnHeader': {
