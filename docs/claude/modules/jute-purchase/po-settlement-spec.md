@@ -315,3 +315,16 @@ does not meet the half-a-lorry weight criterion. So `lorry_rule_enabled` default
 rewritten; `2026-09-25c_jute_po_settle_rule_lorry_default_off.sql` applied on dev3 and sls). The
 weight test is the deciding rule; the lorry-count OR remains available as a per-company opt-in.
 Caption when off: "Settles when weight is within half a lorry of the PO · stale after N days".
+
+### 11.6 Edit access is enforced server-side (owner, 2026-09-25)
+
+Re-evaluate, Close (single and bulk), Reopen of a closed PO and saving the settlement rule are for
+users with **edit** access only. The frontend hides the buttons behind `hasMenuAccess(path, "edit")`;
+the backend now enforces the same: every one of those endpoints takes an optional `?menu_path=` (the
+page the user acts from, sent automatically by the service layer), resolves it to a `menu_mst` row the
+way the sidebar does (walking up the path, so the report page resolves to the Jute Report hub), falls
+back to the Jute PO menu when the path matches nothing, and returns **403** unless
+`role_menu_map.access_type_id >= 4` for the user on the PO's branch (rule save: any branch of the
+company). Read endpoints (`GET settle_rule`, `status_log`, the report) stay open to view access.
+Implementation: `edit_access_check` / `resolve_menu_id` in `po_settlement.py`, `_require_edit_access`
+in `jutePO.py`; tests in `test_jute_po_settlement.py::TestEditAccessGuard`.

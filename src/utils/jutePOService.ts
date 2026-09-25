@@ -171,6 +171,20 @@ async function call<T>(
   return parsed.data;
 }
 
+/**
+ * The page the user is acting from, sent as `menu_path` so the backend can check
+ * edit access on the same menu the sidebar gates the buttons with. Client-only
+ * (these functions run from click handlers); empty on the server.
+ */
+export function currentMenuPath(): string {
+  return typeof window === "undefined" ? "" : window.location.pathname;
+}
+
+function menuPathParam(): string {
+  const p = currentMenuPath();
+  return p ? `&menu_path=${encodeURIComponent(p)}` : "";
+}
+
 // ---------------------------------------------------------------------------
 // API
 // ---------------------------------------------------------------------------
@@ -182,7 +196,7 @@ export async function closeJutePo(params: {
   remark: string;
 }): Promise<JutePOCloseResult> {
   return call(
-    `${apiRoutesPortalMasters.JUTE_PO_CLOSE}/${params.jutePoId}?co_id=${params.coId}`,
+    `${apiRoutesPortalMasters.JUTE_PO_CLOSE}/${params.jutePoId}?co_id=${params.coId}${menuPathParam()}`,
     "POST",
     jutePOCloseResultSchema,
     { remark: params.remark },
@@ -199,7 +213,7 @@ export async function reopenJutePo(params: {
   coId: number | string;
 }): Promise<JutePOReopenResult> {
   return call(
-    `${apiRoutesPortalMasters.JUTE_PO_REOPEN}/${params.jutePoId}?co_id=${params.coId}`,
+    `${apiRoutesPortalMasters.JUTE_PO_REOPEN}/${params.jutePoId}?co_id=${params.coId}${menuPathParam()}`,
     "POST",
     jutePOReopenResultSchema,
     undefined,
@@ -224,7 +238,7 @@ export async function saveSettleRule(
   input: JutePOSettleRuleInput,
 ): Promise<JutePOSettleRuleSaveResult> {
   return call(
-    `${apiRoutesPortalMasters.JUTE_PO_SETTLE_RULE}?co_id=${coId}`,
+    `${apiRoutesPortalMasters.JUTE_PO_SETTLE_RULE}?co_id=${coId}${menuPathParam()}`,
     "PUT",
     jutePOSettleRuleSaveResultSchema,
     jutePOSettleRuleInputSchema.parse(input),

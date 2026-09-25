@@ -138,10 +138,17 @@ async function fetchPoPosition(p: FetchParams): Promise<PoPositionReport> {
   };
 }
 
+/** `menu_path` tells the backend which menu to check edit access on — the same
+ * page path the sidebar's hasMenuAccess gates the buttons with. */
+function menuPathParam(): string {
+  const p = typeof window === "undefined" ? "" : window.location.pathname;
+  return p ? `&menu_path=${encodeURIComponent(p)}` : "";
+}
+
 /** `POST /jutePO/close_jute_po/{id}?co_id=` — short-close one live PO. */
 async function closeOnePo(coId: number, jutePoId: number, remark: string): Promise<void> {
   const res = await fetchWithCookie<{ data: unknown }>(
-    `${apiRoutesPortalMasters.JUTE_PO_CLOSE}/${jutePoId}?co_id=${coId}`,
+    `${apiRoutesPortalMasters.JUTE_PO_CLOSE}/${jutePoId}?co_id=${coId}${menuPathParam()}`,
     "POST",
     { remark },
   );
@@ -156,7 +163,7 @@ async function bulkClosePos(
   remark: string,
 ): Promise<BulkCloseResult> {
   const res = await fetchWithCookie<{ data: BulkCloseResult }>(
-    `${apiRoutesPortalMasters.JUTE_PO_BULK_CLOSE}?co_id=${coId}&branch_id=${branchId}`,
+    `${apiRoutesPortalMasters.JUTE_PO_BULK_CLOSE}?co_id=${coId}&branch_id=${branchId}${menuPathParam()}`,
     "POST",
     { jute_po_ids: jutePoIds, remark },
   );
@@ -167,7 +174,7 @@ async function bulkClosePos(
 /** `POST /jutePO/recompute_settlement?co_id=&branch_id=` — re-run the engine. */
 async function recomputeSettlement(coId: number, branchId: number): Promise<RecomputeResult> {
   const res = await fetchWithCookie<{ data: RecomputeResult }>(
-    `${apiRoutesPortalMasters.JUTE_PO_RECOMPUTE_SETTLEMENT}?co_id=${coId}&branch_id=${branchId}`,
+    `${apiRoutesPortalMasters.JUTE_PO_RECOMPUTE_SETTLEMENT}?co_id=${coId}&branch_id=${branchId}${menuPathParam()}`,
     "POST",
   );
   if (res.error || !res.data?.data) throw new Error(res.error ?? "Re-evaluate failed");
