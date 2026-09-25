@@ -8,8 +8,10 @@
 
 import * as React from "react";
 import { Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { CircularProgress, Box } from "@mui/material";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { CircularProgress, Box, Snackbar, Alert } from "@mui/material";
+import { useSidebarContextSafe } from "@/components/dashboard/sidebarContext";
+import { fetchPoStatusLog } from "@/utils/jutePOService";
 import TransactionWrapper, { type TransactionAction } from "@/components/ui/TransactionWrapper";
 import { useLineItems, SearchableSelect } from "@/components/ui/transaction";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
@@ -24,6 +26,7 @@ import type {
   JutePOLineItem,
   JutePOSetupData,
   JutePODetails,
+  JutePOStatusLogEntry,
   Option,
 } from "./types/jutePOTypes";
 
@@ -56,7 +59,12 @@ import { useJutePOFormState } from "./hooks/useJutePOFormState";
 import { useJutePOLineItems } from "./hooks/useJutePOLineItems";
 import { useJutePOSelectOptions } from "./hooks/useJutePOSelectOptions";
 import { useJutePOFormSchemas } from "./hooks/useJutePOFormSchemas";
-import { useJutePOApproval } from "./hooks/useJutePOApproval";
+import { useJutePOApproval, type JutePONotify } from "./hooks/useJutePOApproval";
+import {
+  buildClosedInfo,
+  buildStatusHistoryRows,
+  priorStatusBeforeClose,
+} from "./utils/jutePOSettlement";
 
 // Components
 import {
@@ -65,12 +73,23 @@ import {
   JutePOApprovalBar,
   JutePOTotalsDisplay,
   JutePOPreview,
+  JutePOClosedPanel,
+  JutePOStatusHistory,
 } from "./components";
 
 function JutePOCreatePageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const pathname = usePathname();
   const { coId } = useSelectedCompanyCoId();
+
+  // Edit access on the PO menu gates the settlement actions (Close PO / Reopen closed).
+  const sidebarContext = useSidebarContextSafe();
+  const hasMenuAccess = sidebarContext?.hasMenuAccess;
+  const canEditMenu = React.useMemo(
+    () => (hasMenuAccess ? hasMenuAccess(pathname, "edit") : false),
+    [hasMenuAccess, pathname]
+  );
 
   // Derive mode and ID from URL
   const modeParam = searchParams?.get("mode") ?? "create";
@@ -93,6 +112,22 @@ function JutePOCreatePageContent() {
   const [setupData, setSetupData] = React.useState<JutePOSetupData | null>(null);
   const [details, setDetails] = React.useState<JutePODetails | null>(null);
   const [isLegacyPO, setIsLegacyPO] = React.useState(false);
+
+  // Settlement: bumping the key re-runs the details + status-log fetches (after close / reopen).
+  const [detailsRefreshKey, setDetailsRefreshKey] = React.useState(0);
+  const refreshDetails = React.useCallback(() => setDetailsRefreshKey((k) => k + 1), []);
+  const [statusLog, setStatusLog] = React.useState<JutePOStatusLogEntry[]>([]);
+  const [snackbar, setSnackbar] = React.useState<{
+    open: boolean;
+    message: string;
+    severity: "success" | "error";
+  }>({ open: false, message: "", severity: "success" });
+  const notify = React.useCallback<JutePONotify>((severity, message) => {
+    setSnackbar({ open: true, severity, message });
+  }, []);
+  const handleSnackbarClose = React.useCallback(() => {
+    setSnackbar((prev) => ({ ...prev, open: false }));
+  }, []);
 
   // Cascading dropdown state - parties only (suppliers come from setupData)
   const [parties, setParties] = React.useState<Option[]>([]);
@@ -212,13 +247,29 @@ function JutePOCreatePageContent() {
     handleReject,
     handleCancelDraft,
     handleReopen,
+    handleClose,
   } = useJutePOApproval({
     mode,
     jutePOId,
     coId: coId ?? "",
     details,
     setDetails,
+    canEdit: canEditMenu,
+    onSettlementChange: refreshDetails,
+    notify,
   });
+
+  // Settlement view models
+  const closedInfo = React.useMemo(() => buildClosedInfo(details, statusLog), [details, statusLog]);
+  const statusHistoryRows = React.useMemo(() => buildStatusHistoryRows(statusLog), [statusLog]);
+  const reopenConfirm = React.useMemo(() => {
+    if (statusId !== JUTE_PO_STATUS_IDS.CLOSED) return null;
+    const prior = priorStatusBeforeClose(statusLog);
+    return {
+      title: "Reopen closed PO",
+      message: `Reopen closed PO — it goes back to ${JUTE_PO_STATUS_LABELS[prior]}.`,
+    };
+  }, [statusId, statusLog]);
 
   // Calculate totals
   const { totalWeight, totalAmount, validLineCount } = React.useMemo(
@@ -333,7 +384,26 @@ function JutePOCreatePageContent() {
 
     void fetchDetails();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coId, jutePOId, mode]);
+  }, [coId, jutePOId, mode, detailsRefreshKey]);
+
+  // Status history (settlement log). Quiet on failure: the section hides itself when empty.
+  React.useEffect(() => {
+    if (!coId || !jutePOId || mode === "create") {
+      setStatusLog([]);
+      return;
+    }
+    let cancelled = false;
+    fetchPoStatusLog({ jutePoId: jutePOId, coId })
+      .then((rows) => {
+        if (!cancelled) setStatusLog(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setStatusLog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [coId, jutePOId, mode, detailsRefreshKey]);
 
   // ========== Cascading Handlers ==========
 
@@ -661,13 +731,17 @@ function JutePOCreatePageContent() {
                 approvalInfo={approvalInfo}
                 permissions={approvalPermissions}
                 loading={approvalLoading}
+                poLabel={details?.po_num}
                 onOpen={handleOpen}
                 onApprove={handleApprove}
                 onReject={handleReject}
                 onCancelDraft={handleCancelDraft}
                 onReopen={handleReopen}
+                reopenConfirm={reopenConfirm}
+                onClose={handleClose}
               />
             )}
+            {closedInfo ? <JutePOClosedPanel info={closedInfo} /> : null}
             <JutePOTotalsDisplay
               totalWeight={totalWeight}
               totalAmount={totalAmount}
@@ -680,7 +754,11 @@ function JutePOCreatePageContent() {
               vehicleQty={parseInt(formValues.vehicleQty, 10) || 1}
               percentageSum={percentageSum}
               isLegacyPO={isLegacyPO}
+              returnedLorries={mode !== "create" ? details?.returned_lorries ?? null : null}
             />
+            {mode !== "create" ? (
+              <JutePOStatusHistory rows={statusHistoryRows} defaultExpanded={closedInfo !== null} />
+            ) : null}
           </>
         }
       >
@@ -718,6 +796,17 @@ function JutePOCreatePageContent() {
         percentageSum={percentageSum}
         isLegacyPO={isLegacyPO}
       />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert severity={snackbar.severity} onClose={handleSnackbarClose} sx={{ width: "100%" }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </>
   );
 }

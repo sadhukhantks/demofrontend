@@ -73,6 +73,14 @@ export interface HandsRow {
   excess: number | null;
   short: number | null;
 
+  /** Month-to-date (TKT-000154): the 1st of the To Date's month up to the To
+   * Date on the rollup views; on Detailed / By Date each row runs up to its
+   * own date. Same per-day excess/short rule, summed — never netted. */
+  mtd_actual?: number | null;
+  mtd_target?: number | null;
+  mtd_excess?: number | null;
+  mtd_short?: number | null;
+
   /** by_date only — the direct/indirect split of that day's hands. */
   direct_actual?: number | null;
   direct_target?: number | null;
@@ -147,6 +155,12 @@ export interface HandsMeta {
   total_target: number | null;
   total_excess: number | null;
   total_short: number | null;
+  /** Month-to-date as at date_to, from mtd_from (the 1st of its month). */
+  mtd_from?: string;
+  mtd_actual?: number | null;
+  mtd_target?: number | null;
+  mtd_excess?: number | null;
+  mtd_short?: number | null;
   /** Machines Run figures for the whole window, present on every view. */
   machine_shifts_run?: number;
   machines_run?: number;
