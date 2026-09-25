@@ -19,6 +19,7 @@ import type {
   Option,
 } from "../types/jutePOTypes";
 import { buildDefaultFormValues, generateLineId } from "./jutePOFactories";
+import { parseCloseType, parseOptionalCount } from "./jutePOSettlement";
 import {
   calculateWeight,
   calculateWeightFromPercentage,
@@ -415,6 +416,13 @@ export const mapJutePODetailsResponse = (data: unknown): JutePODetails => {
     created_by: raw?.created_by ? Number(raw.created_by) : undefined,
     updated_date_time: raw?.updated_date_time ? String(raw.updated_date_time) : undefined,
     line_items: Array.isArray(raw?.line_items) ? (raw.line_items as JutePOLineItemDetails[]) : undefined,
+    // Settlement columns (optional until the backend migration is applied on the tenant)
+    closed_date: raw?.closed_date ? String(raw.closed_date) : null,
+    closed_by: raw?.closed_by != null && raw.closed_by !== "" ? Number(raw.closed_by) : null,
+    closed_by_name: raw?.closed_by_name ? String(raw.closed_by_name) : null,
+    close_type: parseCloseType(raw?.close_type),
+    close_remark: raw?.close_remark ? String(raw.close_remark) : null,
+    returned_lorries: parseOptionalCount(raw?.returned_lorries),
   } satisfies JutePODetails;
 };
 

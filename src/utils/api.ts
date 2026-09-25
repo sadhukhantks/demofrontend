@@ -300,6 +300,12 @@ const apiRoutesPortalMasters = {
     JUTE_PO_REJECT: `${API_URL}/jutePO/reject_jute_po`,
     JUTE_PO_CANCEL_DRAFT: `${API_URL}/jutePO/cancel_draft_jute_po`,
     JUTE_PO_REOPEN: `${API_URL}/jutePO/reopen_jute_po`,
+    // PO settlement (docs/claude/modules/jute-purchase/po-settlement-spec.md)
+    JUTE_PO_CLOSE: `${API_URL}/jutePO/close_jute_po`,
+    JUTE_PO_BULK_CLOSE: `${API_URL}/jutePO/bulk_close_jute_po`,
+    JUTE_PO_RECOMPUTE_SETTLEMENT: `${API_URL}/jutePO/recompute_settlement`,
+    JUTE_PO_SETTLE_RULE: `${API_URL}/jutePO/settle_rule`,
+    JUTE_PO_STATUS_LOG: `${API_URL}/jutePO/status_log`,
     JUTE_PO_DOWNLOAD: `${API_URL}/jutePO/download_po_table`,
 
     // Jute Gate Entry endpoints
@@ -402,6 +408,7 @@ const apiRoutesPortalMasters = {
     JUTE_REPORT_PO_OPTIONS: `${API_URL}/juteReports/po-options`,
     JUTE_REPORT_PO_MR_RECEIPT_DETAIL: `${API_URL}/juteReports/po-mr-receipt-detail`,
     JUTE_REPORT_PO_PENDING: `${API_URL}/juteReports/po-pending`,
+    JUTE_REPORT_PO_OUTSTANDING_POSITION: `${API_URL}/juteReports/po-outstanding-position`,
     SALES_REPORT_JUTE_TALLY_DOWNLOAD: `${API_URL}/salesReports/jute-tally-download`,
     SALES_REPORT_JUTE_MR_SUMMARY: `${API_URL}/salesReports/jute-mr-summary`,
     SALES_REPORT_SALES_ORDER_LIST: `${API_URL}/salesReports/sales-order-list`,
