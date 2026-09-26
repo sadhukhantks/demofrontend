@@ -25,6 +25,7 @@ export const mapApiLineItemsToEditable = (
     jute_issue_id: item.jute_issue_id,
     stock_key: buildStockKey(item.source, item.jute_mr_li_id, item.waste_entry_id),
     source: item.source ?? "MR",
+    is_waste: Boolean(item.is_waste),
     jute_mr_li_id: String(item.jute_mr_li_id || ""),
     waste_entry_id: String(item.waste_entry_id || ""),
     yarn_type_id: String(item.yarn_type_id || ""),
@@ -56,14 +57,85 @@ export const mapApiLineItemsToEditable = (
  * line only carries its link column — so the key is reconstructed here using
  * the same format the backend emits. Keep the two in step: this string is what
  * nets a draft line against the balance it is drawing on.
+ *
+ * A line carries exactly ONE key, and the key column wins over `source`: a
+ * purchased-waste slice is saved with jute_mr_li_id (its MR line) and must key
+ * as "MR-<id>" whatever the backend labels it, or every such line would
+ * collapse onto the empty key "W-".
  */
 export const buildStockKey = (
   source: JuteIssueLineItem["source"],
   juteMrLiId: number | null | undefined,
   wasteEntryId: number | null | undefined
 ): string => {
+  if (juteMrLiId) return `MR-${juteMrLiId}`;
   if (source === "WASTE" || wasteEntryId) return `W-${wasteEntryId ?? ""}`;
   return `MR-${juteMrLiId ?? ""}`;
+};
+
+/** The fields a saved or draft line needs for its source label. */
+export type LineSourceFields = Pick<EditableLineItem, "source" | "item_id"> & {
+  is_waste?: boolean | number | null;
+};
+
+/**
+ * Item ids the page KNOWS are jute waste, from the data it already holds.
+ *
+ * Used only as the fallback when a saved line does not carry `is_waste` (a
+ * backend older than the 2026-09-25 line-items query, which derives the flag
+ * from the item group): an item is waste if the picker serves it as a grouped
+ * waste row, or if another saved line on the same item is a Waste Entry
+ * (PROD) slice — the usual sibling of a purchased slice, since one draw from
+ * the pool fans out over both legs. Neither is guaranteed to exist — a mill
+ * that only BUYS waste and drains the pool in one draw has no WI row and no
+ * PROD sibling — which is why the backend flag is the primary path.
+ */
+export const collectWasteItemIds = (
+  stock: readonly Pick<StockOutstandingItem, "source" | "item_id">[],
+  lines: readonly LineSourceFields[]
+): ReadonlySet<string> => {
+  const ids = new Set<string>();
+  stock.forEach((s) => {
+    if (s.source === "WASTE" && s.item_id) ids.add(String(s.item_id));
+  });
+  lines.forEach((l) => {
+    if ((l.source === "WASTE" || Boolean(l.is_waste)) && l.item_id) ids.add(String(l.item_id));
+  });
+  return ids;
+};
+
+/**
+ * Is this saved line a slice of PURCHASED waste — an MR line (source "MR",
+ * keyed on jute_mr_li_id) whose item is jute waste?
+ *
+ * The backend flag wins; `wasteItemIds` (from collectWasteItemIds) covers the
+ * case where the flag is absent. Group NAMES are deliberately not matched.
+ */
+export const isPurchasedWasteLine = (
+  line: LineSourceFields,
+  wasteItemIds?: ReadonlySet<string>
+): boolean =>
+  line.source === "MR" &&
+  (Boolean(line.is_waste) || (wasteItemIds?.has(String(line.item_id)) ?? false));
+
+/** Label for a saved/draft line's Source chip. */
+export type LineSourceLabel = "Waste" | "Waste (purchased)" | "MR";
+
+/**
+ * Describe the source of a saved or draft line for its Source chip.
+ *
+ * One draw from a grouped waste row can reload as TWO kinds of saved line —
+ * a Waste Entry slice (source "WASTE") and a purchased-waste slice (source
+ * "MR", keyed on its MR line). Both are waste; the purchased one is called out
+ * so it is not read as ordinary raw-jute MR stock next to its sibling.
+ */
+export const describeLineSource = (
+  line: LineSourceFields,
+  wasteItemIds?: ReadonlySet<string>
+): LineSourceLabel => {
+  if (line.source === "WASTE") return "Waste";
+  if (isPurchasedWasteLine(line, wasteItemIds)) return "Waste (purchased)";
+  return "MR";
 };
 
 /**
@@ -184,9 +256,12 @@ export const createLineFromStock = (
  * Exactly one stock source is sent — the backend rejects zero or many, since a
  * line has to draw on one identifiable balance:
  *   MR    -> jute_mr_li_id (the MR line);
- *   WASTE -> waste_item_id (the grouped item balance). The server picks the
- *            individual Waste Entry bookings FIFO and writes one row per
- *            booking consumed, so ONE POST here can create several lines.
+ *   WASTE -> waste_item_id (the grouped item balance). The server walks that
+ *            item's pool FIFO — Waste Entry bookings AND purchased-waste MR
+ *            lines, by inward date — and writes one jute_issue row per slice
+ *            consumed, carrying waste_entry_id (PROD) or jute_mr_li_id
+ *            (purchased). So ONE POST here can create several lines, of both
+ *            kinds; they reload as source "WASTE" and source "MR" + is_waste.
  */
 export const mapEditableToCreatePayload = (
   line: EditableLineItem,

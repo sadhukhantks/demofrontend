@@ -1,7 +1,7 @@
 /**
  * @file yarnPurchaseCalc.ts
  * @description Pure line arithmetic for Yarn Purchase: package-derived weight,
- * amount (kg / 100 × rate per quintal) and footer totals. No React, fully unit-tested.
+ * amount (kg × rate per kg) and footer totals. No React, fully unit-tested.
  */
 import type { EditableLineField, EditableYarnPurchaseLine, LineTotals } from "../types/yarnPurchaseTypes";
 
@@ -11,7 +11,7 @@ export type LineCalcInput = {
 	noOfPackages: NumericInput;
 	wtPerPackage: NumericInput;
 	weightKg: NumericInput;
-	ratePerQtl: NumericInput;
+	ratePerKg: NumericInput;
 	weightAutoFilled: boolean;
 };
 
@@ -20,7 +20,7 @@ export type LineCalcResult = {
 	weightKg: number | null;
 	/** Whether `weightKg` is (still) derived from packages × wt/package. */
 	weightAutoFilled: boolean;
-	/** kg / 100 × rate per quintal, 2 dp; null when weight or rate is missing. */
+	/** kg × rate per kg, 2 dp; null when weight or rate is missing. */
 	amount: number | null;
 };
 
@@ -35,21 +35,23 @@ export const toNumber = (value: NumericInput): number | null => {
 };
 
 export const round2 = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
+/** Weight is kept in whole kilograms (owner ruling 2026-09-26). */
+export const round0 = (value: number): number => Math.round(value + Number.EPSILON);
 
-/** packages × wt/package (2 dp) when both are positive numbers, else null. */
+/** packages × wt/package, whole kg, when both are positive numbers, else null. */
 export const packagesWeight = (line: { noOfPackages: NumericInput; wtPerPackage: NumericInput }): number | null => {
 	const packages = toNumber(line.noOfPackages);
 	const wtPerPackage = toNumber(line.wtPerPackage);
 	if (packages == null || wtPerPackage == null || packages <= 0 || wtPerPackage <= 0) return null;
-	return round2(packages * wtPerPackage);
+	return round0(packages * wtPerPackage);
 };
 
-/** kg / 100 × rate per quintal, 2 dp; null when either side is missing. */
-export const computeAmount = (weightKg: NumericInput, ratePerQtl: NumericInput): number | null => {
+/** whole kg × rate per kg, 2 dp; null when either side is missing. */
+export const computeAmount = (weightKg: NumericInput, ratePerKg: NumericInput): number | null => {
 	const kg = toNumber(weightKg);
-	const rate = toNumber(ratePerQtl);
+	const rate = toNumber(ratePerKg);
 	if (kg == null || rate == null) return null;
-	return round2((kg / 100) * rate);
+	return round2(round0(kg) * rate);
 };
 
 /**
@@ -69,12 +71,12 @@ export const computeLine = (input: LineCalcInput): LineCalcResult => {
 	return {
 		weightKg,
 		weightAutoFilled,
-		amount: computeAmount(weightKg, input.ratePerQtl),
+		amount: computeAmount(weightKg, input.ratePerKg),
 	};
 };
 
 /** Amount for an editable line as rendered in the grid. */
-export const lineAmount = (line: EditableYarnPurchaseLine): number | null => computeAmount(line.weightKg, line.ratePerQtl);
+export const lineAmount = (line: EditableYarnPurchaseLine): number | null => computeAmount(line.weightKg, line.ratePerKg);
 
 /**
  * State transition for one text-box edit. Keeps the raw string the user typed in
@@ -117,7 +119,7 @@ export const lineHasAnyData = (line: EditableYarnPurchaseLine): boolean =>
 	line.noOfPackages.trim() !== "" ||
 	line.wtPerPackage.trim() !== "" ||
 	line.weightKg.trim() !== "" ||
-	line.ratePerQtl.trim() !== "" ||
+	line.ratePerKg.trim() !== "" ||
 	line.remarks.trim() !== "";
 
 /** Footer totals over the lines that hold data. */
@@ -131,5 +133,5 @@ export const sumLines = (lines: ReadonlyArray<EditableYarnPurchaseLine>): LineTo
 		weightKg += toNumber(line.weightKg) ?? 0;
 		amount += lineAmount(line) ?? 0;
 	}
-	return { packages: round2(packages), weightKg: round2(weightKg), amount: round2(amount) };
+	return { packages: round2(packages), weightKg: round0(weightKg), amount: round2(amount) };
 };

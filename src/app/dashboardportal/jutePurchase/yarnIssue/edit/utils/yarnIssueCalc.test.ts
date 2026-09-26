@@ -167,10 +167,10 @@ describe("lineHasAnyData / sumLines", () => {
 	it("totals packages and kg over real lines only", () => {
 		const totals = sumLines([
 			line({ id: "a", yarnPurchaseLiId: 101, noOfPackages: "10", weightKg: "500" }),
-			line({ id: "b", yarnPurchaseLiId: 102, noOfPackages: "4", weightKg: "201.25" }),
+			line({ id: "b", yarnPurchaseLiId: 102, noOfPackages: "4", weightKg: "201" }),
 			line({ id: "c" }),
 		]);
-		expect(totals).toEqual({ packages: 14, weightKg: 701.25 });
+		expect(totals).toEqual({ packages: 14, weightKg: 701 });
 	});
 });
 
@@ -201,10 +201,10 @@ describe("mappers", () => {
 			lot_tran_date: "2026-09-01",
 			lot_bal_kg: 600,
 			no_of_packages: 2,
-			weight_kg: 98.5,
+			weight_kg: 98,
 			remarks: null,
 		});
-		expect(editable.weightKg).toBe("98.5");
+		expect(editable.weightKg).toBe("98");
 		expect(editable.noOfPackages).toBe("2");
 		expect(lotOptionFromLine(editable)).toMatchObject({ yarn_purchase_li_id: 101, item_name: "13 LBS SKWP", bal_kg: 600 });
 		expect(lotOptionFromLine(line())).toBeNull();
@@ -215,11 +215,11 @@ describe("mappers", () => {
 			coId: 1,
 			branchId: 29,
 			form: { tranDate: "2026-09-25", issueType: "ISSUE", deptId: 3, remarks: "  " },
-			lines: [line({ id: "a", yarnPurchaseLiId: 101, itemId: 335556, noOfPackages: "2", weightKg: "98.5", remarks: " floor A " }), line({ id: "b" })],
+			lines: [line({ id: "a", yarnPurchaseLiId: 101, itemId: 335556, noOfPackages: "2", weightKg: "98", remarks: " floor A " }), line({ id: "b" })],
 		});
 		expect(input.remarks).toBeNull();
 		expect(input.issue_type).toBe("ISSUE");
 		expect(input.dept_id).toBe(3);
-		expect(input.lines).toEqual([{ item_id: 335556, yarn_purchase_li_id: 101, no_of_packages: 2, weight_kg: 98.5, remarks: "floor A" }]);
+		expect(input.lines).toEqual([{ item_id: 335556, yarn_purchase_li_id: 101, no_of_packages: 2, weight_kg: 98, remarks: "floor A" }]);
 	});
 });

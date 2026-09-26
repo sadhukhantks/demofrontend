@@ -3,8 +3,11 @@ import { describe, expect, it } from "vitest";
 import type { JuteIssueLineItem, StockOutstandingItem } from "../types/juteIssueTypes";
 import {
 	buildStockKey,
+	collectWasteItemIds,
 	createLineFromStock,
+	describeLineSource,
 	describeStockOrigin,
+	isPurchasedWasteLine,
 	mapApiLineItemsToEditable,
 	buildItemFilterOptions,
 	mapEditableToCreatePayload,
@@ -92,6 +95,26 @@ describe("buildStockKey", () => {
 		// against an unrelated MR line's balance.
 		expect(buildStockKey("MR", 1, null)).not.toBe(buildStockKey("WASTE", null, 1));
 	});
+
+	it("prefers the MR line id over the source label", () => {
+		// A purchased-waste slice is keyed on its MR line. Should a backend ever
+		// label such a line source "WASTE", it must still key on that line and
+		// not collapse onto the empty key "W-" with every other such line.
+		expect(buildStockKey("WASTE", 31005, null)).toBe("MR-31005");
+		expect(buildStockKey("MR", 31005, null)).toBe("MR-31005");
+	});
+});
+
+describe("createLineFromStock on a grouped waste row with no waste rate", () => {
+	it("previews a zero value — the server prices purchased slices itself", () => {
+		// The grouped row's actual_rate is the Waste Rate master rate only; with
+		// none on file the client preview is 0 even if the pool holds purchased
+		// waste, which the server values at its MR line rate on save.
+		const line = createLineFromStock({ ...wasteStock, actual_rate: 0 }, "5", 120, 120);
+		expect(line.issue_value).toBe(0);
+		expect(line.actual_rate).toBe(0);
+		expect(line.stock_key).toBe("WI-335637");
+	});
 });
 
 describe("createLineFromStock", () => {
@@ -151,6 +174,18 @@ describe("mapEditableToCreatePayload", () => {
 		expect(payload.jute_mr_li_id).toBeNull();
 	});
 
+	it("sends only waste_item_id for a grouped row even when purchased waste is in the pool", () => {
+		// The picker cannot see the legs of the pool; whichever MR lines and
+		// Waste Entry bookings sit behind "WI-<item>", the draw is by item and the
+		// server splits it. No jute_mr_li_id is ever sent from a WI row.
+		const payload = mapEditableToCreatePayload(
+			createLineFromStock({ ...wasteStock, actual_rate: 0 }, "5", 100, 100),
+			29,
+			"2026-08-10"
+		);
+		expect(payload).toMatchObject({ waste_item_id: 335637, jute_mr_li_id: null, waste_entry_id: null });
+	});
+
 	it("never sends more than one stock link — the backend rejects that", () => {
 		for (const stock of [mrStock, wasteStock]) {
 			const payload = mapEditableToCreatePayload(
@@ -206,6 +241,112 @@ describe("mapApiLineItemsToEditable", () => {
 		// waste line legitimately lacks.
 		const [line] = mapApiLineItemsToEditable([savedWasteLine]);
 		expect(lineIsComplete(line)).toBe(true);
+	});
+
+	/**
+	 * Purchased waste (owner ruling 2026-09-25): a jute_mr_li line on a type-3
+	 * item joins the waste pool. The FIFO slice drawn from it is saved with
+	 * jute_mr_li_id, so it reloads as source "MR" — plus is_waste so the page
+	 * can still call it waste.
+	 */
+	const savedPurchasedWasteLine = {
+		...savedWasteLine,
+		jute_issue_id: 9002,
+		source: "MR",
+		jute_mr_li_id: 31005,
+		waste_entry_id: null,
+		dept_name: null,
+		area_name: null,
+		jute_mr_id: 15300,
+		jute_gate_entry_no: 1501,
+		gate_entry_num: "EJM/F/JGE/26-27/01501",
+		branch_mr_no: 910,
+		is_waste: 1,
+		jute_group_name: "Jute Waste",
+		actual_rate: 1200,
+		issue_value: 1200,
+	} as unknown as JuteIssueLineItem;
+
+	it("keys a saved purchased-waste slice on its MR line and keeps it complete", () => {
+		const [line] = mapApiLineItemsToEditable([savedPurchasedWasteLine]);
+		expect(line.stock_key).toBe("MR-31005");
+		expect(line.source).toBe("MR");
+		expect(line.jute_mr_li_id).toBe("31005");
+		expect(line.waste_entry_id).toBe("");
+		expect(line.is_waste).toBe(true);
+		expect(lineIsComplete(line)).toBe(true);
+	});
+
+	it("labels a purchased-waste slice as waste, not as a plain MR line", () => {
+		const [line] = mapApiLineItemsToEditable([savedPurchasedWasteLine]);
+		expect(describeLineSource(line)).toBe("Waste (purchased)");
+		expect(isPurchasedWasteLine(line)).toBe(true);
+	});
+
+	it("needs neither a picker row nor a sibling slice when the backend flag is set", () => {
+		// get_jute_issues_by_date_query sends is_waste from the item group, so
+		// the label holds after the pool is drained in one draw: no 'WI-<item>'
+		// row is left in the picker and no PROD slice sits beside the line.
+		const [line] = mapApiLineItemsToEditable([savedPurchasedWasteLine]);
+		expect(isPurchasedWasteLine(line, new Set())).toBe(true);
+		expect(describeLineSource(line, new Set())).toBe("Waste (purchased)");
+	});
+
+	it("accepts the flag as 1, true or '1' and treats 0 / null as raw jute", () => {
+		const withFlag = (is_waste: unknown) =>
+			mapApiLineItemsToEditable([{ ...savedPurchasedWasteLine, is_waste } as unknown as JuteIssueLineItem])[0];
+		expect(withFlag(1).is_waste).toBe(true);
+		expect(withFlag(true).is_waste).toBe(true);
+		expect(withFlag(0).is_waste).toBe(false);
+		expect(withFlag(null).is_waste).toBe(false);
+		expect(describeLineSource(withFlag(0), new Set())).toBe("MR");
+	});
+
+	it("falls back to the picker / sibling set only when an older backend omits the flag", () => {
+		const [line] = mapApiLineItemsToEditable([
+			{ ...savedPurchasedWasteLine, is_waste: undefined } as unknown as JuteIssueLineItem,
+		]);
+		expect(line.is_waste).toBe(false);
+		// the picker still lists the item as a grouped waste row
+		expect(describeLineSource(line, collectWasteItemIds([wasteStock], []))).toBe("Waste (purchased)");
+		// nothing to see: the old backend cannot tell it from raw-jute MR stock
+		expect(describeLineSource(line, new Set())).toBe("MR");
+	});
+
+	it("still labels a Waste Entry slice 'Waste'", () => {
+		const [line] = mapApiLineItemsToEditable([savedWasteLine]);
+		expect(describeLineSource(line)).toBe("Waste");
+	});
+});
+
+describe("collectWasteItemIds / describeLineSource fallback", () => {
+	const savedRawMrLine = {
+		source: "MR",
+		item_id: "72",
+	} as const;
+
+	it("recognises a waste item from the picker's grouped waste row", () => {
+		// Older backend, no is_waste: the picker still serves the item as a WI
+		// row, which is proof enough that it is jute waste.
+		const ids = collectWasteItemIds([mrStock, wasteStock], []);
+		expect(ids.has("335637")).toBe(true);
+		expect(ids.has("72")).toBe(false);
+		expect(describeLineSource({ source: "MR", item_id: "335637" }, ids)).toBe("Waste (purchased)");
+		expect(describeLineSource(savedRawMrLine, ids)).toBe("MR");
+	});
+
+	it("recognises a waste item from a sibling Waste Entry slice of the same issue", () => {
+		// The pool is fully consumed (no WI row left), but the PROD slice saved
+		// next to the purchased one names the item.
+		const ids = collectWasteItemIds([], [{ source: "WASTE", item_id: "335637" }]);
+		expect(describeLineSource({ source: "MR", item_id: "335637" }, ids)).toBe("Waste (purchased)");
+	});
+
+	it("never matches on the group name", () => {
+		const ids = collectWasteItemIds([], []);
+		expect(
+			describeLineSource({ source: "MR", item_id: "335637", jute_group_name: "Jute Waste" } as never, ids)
+		).toBe("MR");
 	});
 });
 

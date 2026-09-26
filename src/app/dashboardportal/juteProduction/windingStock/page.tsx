@@ -29,7 +29,13 @@ import {
 } from "@/utils/windingStockService";
 import WindingStockForm from "./_components/WindingStockForm";
 import WindingStockGrid from "./_components/WindingStockGrid";
-import { bucketTotals, grandTotal, rowActionsDisabled, todayISO } from "./utils/stockCalc";
+import {
+	bucketTotals,
+	grandTotal,
+	locationTotals,
+	rowActionsDisabled,
+	todayISO,
+} from "./utils/stockCalc";
 import { buildCreatePayload, buildEditPayload, type WindingStockFormValues } from "./utils/stockSchema";
 
 /**
@@ -163,6 +169,7 @@ export default function WindingStockPage() {
 	// separate aggregate.
 	const totals = React.useMemo(() => bucketTotals(rows), [rows]);
 	const grand = React.useMemo(() => grandTotal(rows), [rows]);
+	const locTotals = React.useMemo(() => locationTotals(rows), [rows]);
 
 	// ---------------------------------------------------------------------
 	// Mutations
@@ -422,6 +429,7 @@ export default function WindingStockPage() {
 							loading={dayLoading}
 							bucketTotals={totals}
 							grandTotal={grand}
+							locationTotals={locTotals}
 							onEdit={onEdit}
 							onDelete={(row) => {
 								void onDelete(row);

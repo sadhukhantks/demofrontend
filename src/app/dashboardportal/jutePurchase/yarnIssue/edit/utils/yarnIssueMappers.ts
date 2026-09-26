@@ -33,7 +33,11 @@ export const buildDefaultHeaderForm = (): YarnIssueHeaderFormValues => ({
 	remarks: "",
 });
 
-const numToStr = (value: number | null | undefined): string => (value == null ? "" : String(value));
+// Figures on this document are kept at 2 dp (owner ruling 2026-09-26); the API may still carry 3.
+const numToStr = (value: number | null | undefined): string =>
+	value == null ? "" : String(Math.round((value + Number.EPSILON) * 100) / 100);
+/** Weight is whole kg. */
+const kgToStr = (value: number | null | undefined): string => (value == null ? "" : String(Math.round(value + Number.EPSILON)));
 const emptyToNull = (value: string): string | null => {
 	const trimmed = value.trim();
 	return trimmed === "" ? null : trimmed;
@@ -56,7 +60,7 @@ export const mapApiLineToEditable = (line: YarnIssueLine): EditableYarnIssueLine
 	lotTranDate: line.lot_tran_date ?? null,
 	lotBalKg: toNumber(line.lot_bal_kg),
 	noOfPackages: numToStr(line.no_of_packages),
-	weightKg: numToStr(line.weight_kg),
+	weightKg: kgToStr(line.weight_kg),
 	remarks: line.remarks ?? "",
 });
 
@@ -118,7 +122,7 @@ export const buildSaveInput = (args: {
 		item_id: line.itemId,
 		yarn_purchase_li_id: line.yarnPurchaseLiId,
 		no_of_packages: toNumber(line.noOfPackages),
-		weight_kg: toNumber(line.weightKg),
+		weight_kg: (() => { const kg = toNumber(line.weightKg); return kg == null ? null : Math.round(kg + Number.EPSILON); })(),
 		remarks: emptyToNull(line.remarks),
 	})),
 });

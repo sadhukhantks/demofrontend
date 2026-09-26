@@ -23,8 +23,11 @@ type UseYarnPurchaseLineColumnsParams = {
 };
 
 /** "13 LBS SKWP (13 lbs)" — item name plus the yarn count when the master has one. */
-export const yarnItemLabel = (item: YarnPurchaseYarnItem): string =>
-	item.yarn_count?.trim() ? `${item.item_name} (${item.yarn_count.trim()})` : item.item_name;
+export const yarnItemLabel = (item: YarnPurchaseYarnItem): string => {
+	// The API sends the count as a number (10, 13.5); older rows may carry a string.
+	const count = item.yarn_count == null ? "" : String(item.yarn_count).trim();
+	return count ? `${item.item_name} (${count} lbs)` : item.item_name;
+};
 
 const CELL_INPUT_SX = { "& .MuiInputBase-input": { fontSize: "0.75rem", py: 0.5 } } as const;
 
@@ -33,9 +36,11 @@ type NumberCellProps = {
 	onChange: (value: string) => void;
 	caption?: string;
 	ariaLabel: string;
+	/** HTML step; weight uses "1" (whole kg). */
+	step?: string;
 };
 
-function NumberCell({ value, onChange, caption, ariaLabel }: NumberCellProps) {
+function NumberCell({ value, onChange, caption, ariaLabel, step = "0.01" }: NumberCellProps) {
 	return (
 		<Box>
 			<TextField
@@ -44,7 +49,7 @@ function NumberCell({ value, onChange, caption, ariaLabel }: NumberCellProps) {
 				fullWidth
 				value={value}
 				onChange={(event) => onChange(event.target.value)}
-				inputProps={{ min: 0, step: "any", "aria-label": ariaLabel }}
+				inputProps={{ min: 0, step, "aria-label": ariaLabel }}
 				sx={CELL_INPUT_SX}
 			/>
 			{caption ? (
@@ -170,6 +175,7 @@ export function useYarnPurchaseLineColumns({
 					canEdit ? (
 						<NumberCell
 							ariaLabel="Weight in kg"
+							step="1"
 							value={item.weightKg}
 							onChange={(value) => onLineChange(item.id, "weightKg", value)}
 							caption={item.weightAutoFilled && item.weightKg ? "auto: packages × wt" : undefined}
@@ -180,19 +186,19 @@ export function useYarnPurchaseLineColumns({
 				getTooltip: () => "Authoritative weight for stock. Auto-filled from packages × wt/package until you type it.",
 			},
 			{
-				id: "ratePerQtl",
-				header: "Rate / Qtl",
+				id: "ratePerKg",
+				header: "Rate / kg",
 				width: "0.9fr",
 				minWidth: "100px",
 				renderCell: ({ item }) =>
 					canEdit ? (
 						<NumberCell
-							ariaLabel="Rate per quintal"
-							value={item.ratePerQtl}
-							onChange={(value) => onLineChange(item.id, "ratePerQtl", value)}
+							ariaLabel="Rate per kg"
+							value={item.ratePerKg}
+							onChange={(value) => onLineChange(item.id, "ratePerKg", value)}
 						/>
 					) : (
-						<span className="text-xs">{item.ratePerQtl || "-"}</span>
+						<span className="text-xs">{item.ratePerKg || "-"}</span>
 					),
 			},
 			{
@@ -201,7 +207,7 @@ export function useYarnPurchaseLineColumns({
 				width: "1fr",
 				minWidth: "100px",
 				renderCell: ({ item }) => <span className="text-xs">{formatNumber(lineAmount(item))}</span>,
-				getTooltip: () => "kg ÷ 100 × rate per quintal",
+				getTooltip: () => "kg × rate per kg",
 			},
 			{
 				id: "remarks",

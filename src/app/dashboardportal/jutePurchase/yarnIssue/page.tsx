@@ -168,7 +168,7 @@ function YarnIssueIndexPageContent() {
 				minWidth: 110,
 				align: "right",
 				headerAlign: "right",
-				valueFormatter: (value: number | null) => formatNumber(value, 2),
+				valueFormatter: (value: number | null) => formatNumber(value, 0),
 			},
 			{
 				field: "status_id",
