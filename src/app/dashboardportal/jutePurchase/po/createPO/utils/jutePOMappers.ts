@@ -112,7 +112,9 @@ export const mapJuteItemRecords = (records: unknown[]): JuteItemRecord[] =>
       return {
         item_id: Number(id),
         item_code: String(data?.item_grp_code ?? data?.item_code ?? id),
-        // API returns item_grp_name (with recursive path like "Jute > Raw Jute")
+        // API returns item_grp_name (with recursive path like "Jute > Raw Jute" for a
+        // raw-jute subgroup, or the bare root name for a jute-waste group whose items
+        // hang directly on it — both shapes land in the same "Item" picker)
         item_desc: String(data?.item_grp_name ?? data?.item_grp_desc ?? data?.item_name ?? data?.item_desc ?? id),
         item_grp_id: data?.parent_grp_id ? Number(data.parent_grp_id) : undefined,
         item_grp_desc: data?.parent_grp_name ? String(data.parent_grp_name) : undefined,

@@ -121,6 +121,44 @@ describe("mergePoLinesIntoLineItems", () => {
 		});
 	});
 
+	it("merges a jute-waste PO line whose item hangs directly on its root group", () => {
+		// Owner ruling 2026-09-25: type-3 (jute waste) groups have no subgroup or
+		// quality level — the "quality" IS the waste item on the root group. The
+		// merge keys on item_id and copies item_grp_id, so the shape is invisible.
+		const wastePoLine = poLine({
+			jute_po_li_id: 7,
+			item_grp_id: 2681,
+			jute_group_name: "Jute Waste",
+			item_id: 335637,
+			quality_name: "Thread Wastage",
+			quantity: 50,
+		});
+
+		const merged = mergePoLinesIntoLineItems([], [wastePoLine], "LOOSE");
+
+		expect(merged).toHaveLength(1);
+		expect(merged[0]).toMatchObject({
+			jutePoLiId: "7",
+			challanItem: "2681",
+			challanQuality: "335637",
+			actualItem: "2681",
+			actualQuality: "335637",
+			challanQty: "50",
+		});
+	});
+
+	it("links a waste PO line to a typed row of the same waste item", () => {
+		const existing = [row({ id: "w1", challanItem: "2681", challanQuality: "335637", challanQty: "12" })];
+		const wastePoLine = poLine({ jute_po_li_id: 8, item_grp_id: 2681, item_id: 335637 });
+
+		const merged = mergePoLinesIntoLineItems(existing, [wastePoLine], "LOOSE");
+
+		expect(merged).toHaveLength(1);
+		expect(merged[0].id).toBe("w1");
+		expect(merged[0].jutePoLiId).toBe("8");
+		expect(merged[0].challanQty).toBe("12");
+	});
+
 	it("matches on the PO line id when the quality does not line up", () => {
 		const existing = [row({ id: "r1", jutePoLiId: "99", challanQty: "7" })];
 

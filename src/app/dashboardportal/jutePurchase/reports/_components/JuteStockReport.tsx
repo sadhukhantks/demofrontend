@@ -39,9 +39,11 @@ const getRowId = (r: JuteStockReportRow) => `${r.item_grp_id}-${r.item_id}`;
 /**
  * The weight columns the summary cards total, in grid order.
  *
- * EVERY column is broken into purchased raw jute vs process waste (owner, on
- * top of TKT-000155): the two are batched together so the total is the figure
- * that matters, but the position and the movement of each is read separately.
+ * EVERY column is broken into raw jute vs jute waste (owner, on top of
+ * TKT-000155): the two are batched together so the total is the figure that
+ * matters, but the position and the movement of each is read separately.
+ * "Waste" is the item's group type (is_waste), so it covers process waste from
+ * the Waste Entry page AND purchased waste booked on an MR (ruling 2026-09-25).
  * Waste does get sold — sls br 29/87 carry 18 waste lines on raw-jute invoices
  * — so Sold splits like the rest rather than being assumed raw-only.
  */
@@ -89,7 +91,7 @@ function TotalCard({
 
 /**
  * Cards above the grid carrying the same totals as its Grand Total row, each
- * broken into raw jute vs jute waste.
+ * broken into raw jute vs jute waste (process + purchased).
  *
  * Summed off the REAL rows (the appended Grand Total row is skipped, or it
  * would be counted twice). The rows are already whole kg, so a card and the

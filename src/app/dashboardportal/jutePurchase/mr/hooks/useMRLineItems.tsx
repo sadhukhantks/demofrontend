@@ -30,7 +30,9 @@ export function useMRLineItems({
 			},
 			{
 				id: "actualQualityName",
-				header: "Actual Quality",
+				// Raw jute shows its quality; jute waste has no quality level, so the
+				// waste item itself is shown here.
+				header: "Actual Quality / Item",
 				width: "1.2fr",
 				renderCell: ({ item }) => (
 					<span className="text-xs">{item.actualQualityName || "-"}</span>

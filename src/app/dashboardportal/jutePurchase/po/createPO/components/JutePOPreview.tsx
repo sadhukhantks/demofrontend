@@ -221,7 +221,7 @@ export function JutePOPreview({
             <thead>
               <tr>
                 <th style={thStyle}>Item</th>
-                <th style={thStyle}>Quality</th>
+                <th style={thStyle}>Quality / Item</th>
                 <th style={thStyle}>Crop<br/>Year</th>
                 <th style={thStyle}>Marka</th>
                 {!isLegacyPO && <th style={thRight}>%</th>}
