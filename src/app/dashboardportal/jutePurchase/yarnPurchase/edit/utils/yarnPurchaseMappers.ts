@@ -24,7 +24,7 @@ export const createBlankLine = (): EditableYarnPurchaseLine => ({
 	noOfPackages: "",
 	wtPerPackage: "",
 	weightKg: "",
-	ratePerQtl: "",
+	ratePerKg: "",
 	remarks: "",
 	weightAutoFilled: true,
 });
@@ -38,7 +38,11 @@ export const buildDefaultHeaderForm = (): YarnPurchaseHeaderFormValues => ({
 	remarks: "",
 });
 
-const numToStr = (value: number | null | undefined): string => (value == null ? "" : String(value));
+// Figures on this document are kept at 2 dp (owner ruling 2026-09-26); the API may still carry 3.
+const numToStr = (value: number | null | undefined): string =>
+	value == null ? "" : String(Math.round((value + Number.EPSILON) * 100) / 100);
+/** Weight is whole kg. */
+const kgToStr = (value: number | null | undefined): string => (value == null ? "" : String(Math.round(value + Number.EPSILON)));
 const emptyToNull = (value: string): string | null => {
 	const trimmed = value.trim();
 	return trimmed === "" ? null : trimmed;
@@ -67,8 +71,8 @@ export const mapApiLineToEditable = (line: YarnPurchaseLine): EditableYarnPurcha
 		packageType: line.package_type ?? "",
 		noOfPackages: numToStr(line.no_of_packages),
 		wtPerPackage: numToStr(line.wt_per_package),
-		weightKg: numToStr(line.weight_kg),
-		ratePerQtl: numToStr(line.rate_per_qtl),
+		weightKg: kgToStr(line.weight_kg),
+		ratePerKg: numToStr(line.rate_per_kg),
 		remarks: line.remarks ?? "",
 		weightAutoFilled: stored == null || (derived != null && round2(stored) === derived),
 	};
@@ -97,8 +101,8 @@ export const buildSaveInput = (args: {
 		package_type: emptyToNull(line.packageType),
 		no_of_packages: toNumber(line.noOfPackages),
 		wt_per_package: toNumber(line.wtPerPackage),
-		weight_kg: toNumber(line.weightKg),
-		rate_per_qtl: toNumber(line.ratePerQtl),
+		weight_kg: (() => { const kg = toNumber(line.weightKg); return kg == null ? null : Math.round(kg + Number.EPSILON); })(),
+		rate_per_kg: toNumber(line.ratePerKg),
 		remarks: emptyToNull(line.remarks),
 	})),
 });

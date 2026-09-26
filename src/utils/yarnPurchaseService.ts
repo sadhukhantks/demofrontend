@@ -19,7 +19,7 @@ export type YarnPurchaseYarnItem = {
   item_code: string | null;
   item_name: string;
   quality_name: string | null;
-  yarn_count: string | null;
+  yarn_count: number | string | null;
 };
 
 /** Supplier (party) the yarn was bought from. */
@@ -85,7 +85,7 @@ export type YarnPurchaseLine = {
   wt_per_package: number | null;
   /** Authoritative figure for stock; always in kilograms. */
   weight_kg: number;
-  rate_per_qtl: number | null;
+  rate_per_kg: number | null;
   amount: number | null;
   remarks: string | null;
 };
@@ -117,7 +117,7 @@ export type YarnPurchaseLinePayload = {
   no_of_packages?: number | null;
   wt_per_package?: number | null;
   weight_kg: number;
-  rate_per_qtl?: number | null;
+  rate_per_kg?: number | null;
   remarks?: string | null;
 };
 

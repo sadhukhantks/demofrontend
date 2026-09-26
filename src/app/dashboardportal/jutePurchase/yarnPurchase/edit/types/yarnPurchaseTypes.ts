@@ -20,7 +20,7 @@ export type EditableYarnPurchaseLine = {
 	wtPerPackage: string;
 	/** Authoritative weight; always editable. */
 	weightKg: string;
-	ratePerQtl: string;
+	ratePerKg: string;
 	remarks: string;
 	/**
 	 * True while `weightKg` is derived from packages × wt/package (or is empty), so
@@ -31,7 +31,7 @@ export type EditableYarnPurchaseLine = {
 };
 
 /** String-valued line fields that route through `applyLineChange`. */
-export type EditableLineField = "packageType" | "noOfPackages" | "wtPerPackage" | "weightKg" | "ratePerQtl" | "remarks";
+export type EditableLineField = "packageType" | "noOfPackages" | "wtPerPackage" | "weightKg" | "ratePerKg" | "remarks";
 
 export type YarnPurchaseHeaderFormValues = {
 	tranDate: string;
@@ -66,7 +66,7 @@ export type YarnPurchaseSaveInput = {
 		no_of_packages: number | null;
 		wt_per_package: number | null;
 		weight_kg: number | null;
-		rate_per_qtl: number | null;
+		rate_per_kg: number | null;
 		remarks: string | null;
 	}>;
 };

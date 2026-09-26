@@ -32,7 +32,7 @@ export type YarnIssueYarnItem = {
   item_code: string | null;
   item_name: string;
   quality_name: string | null;
-  yarn_count: string | null;
+  yarn_count: number | string | null;
 };
 
 export type YarnIssueSetup = {

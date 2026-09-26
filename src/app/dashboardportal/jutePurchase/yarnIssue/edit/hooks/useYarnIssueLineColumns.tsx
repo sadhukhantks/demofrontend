@@ -37,8 +37,8 @@ type UseYarnIssueLineColumnsParams = {
 export const lotLabel = (lot: YarnIssueLot, issueType: YarnIssueType | null): string => {
 	const head = `PUR-${lot.purchase_no ?? `#${lot.yarn_purchase_id || lot.yarn_purchase_li_id}`} · ${formatDisplayDate(lot.tran_date)} · ${lot.item_name}`;
 	return issueType === YARN_ISSUE_TYPES.RETURN
-		? `${head} · floor ${formatNumber(lot.floor_bal_kg ?? null)} kg`
-		: `${head} · bal ${formatNumber(lot.bal_kg)} kg`;
+		? `${head} · floor ${formatNumber(lot.floor_bal_kg ?? null, 0)} kg`
+		: `${head} · bal ${formatNumber(lot.bal_kg, 0)} kg`;
 };
 
 const CELL_INPUT_SX = { "& .MuiInputBase-input": { fontSize: "0.75rem", py: 0.5 } } as const;
@@ -50,9 +50,11 @@ type NumberCellProps = {
 	captionColor?: string;
 	error?: boolean;
 	ariaLabel: string;
+	/** HTML step; weight uses "1" (whole kg). */
+	step?: string;
 };
 
-function NumberCell({ value, onChange, caption, captionColor = "text.secondary", error = false, ariaLabel }: NumberCellProps) {
+function NumberCell({ value, onChange, caption, captionColor = "text.secondary", error = false, ariaLabel , step = "0.01" }: NumberCellProps) {
 	return (
 		<Box>
 			<TextField
@@ -62,7 +64,7 @@ function NumberCell({ value, onChange, caption, captionColor = "text.secondary",
 				error={error}
 				value={value}
 				onChange={(event) => onChange(event.target.value)}
-				inputProps={{ min: 0, step: "any", "aria-label": ariaLabel }}
+				inputProps={{ min: 0, step, "aria-label": ariaLabel }}
 				sx={CELL_INPUT_SX}
 			/>
 			{caption ? (
@@ -79,10 +81,10 @@ const describeBalance = (balance: LineBalance | undefined, issueType: YarnIssueT
 	if (!balance || balance.available == null) return { text: "-", color: "text.secondary" };
 	if (balance.overBy > 0) {
 		return issueType === YARN_ISSUE_TYPES.RETURN
-			? { text: `${formatNumber(balance.available)} kg · over floor by ${formatNumber(balance.overBy)} kg`, color: "warning.main" }
-			: { text: `${formatNumber(balance.available)} kg · over by ${formatNumber(balance.overBy)} kg`, color: "error.main" };
+			? { text: `${formatNumber(balance.available, 0)} kg · over floor by ${formatNumber(balance.overBy, 0)} kg`, color: "warning.main" }
+			: { text: `${formatNumber(balance.available, 0)} kg · over by ${formatNumber(balance.overBy, 0)} kg`, color: "error.main" };
 	}
-	return { text: `${formatNumber(balance.available)} kg`, color: "text.primary" };
+	return { text: `${formatNumber(balance.available, 0)} kg`, color: "text.primary" };
 };
 
 export function useYarnIssueLineColumns({
@@ -174,8 +176,8 @@ export function useYarnIssueLineColumns({
 				getTooltip: ({ item }) => {
 					const balance = balances.get(item.id);
 					if (!balance || balance.lotBalance == null) return "Available once a lot is chosen.";
-					const other = balance.usedByOtherLines > 0 ? ` minus ${formatNumber(balance.usedByOtherLines)} kg on other lines of this document` : "";
-					return `Lot balance ${formatNumber(balance.lotBalance)} kg${other}.`;
+					const other = balance.usedByOtherLines > 0 ? ` minus ${formatNumber(balance.usedByOtherLines, 0)} kg on other lines of this document` : "";
+					return `Lot balance ${formatNumber(balance.lotBalance, 0)} kg${other}.`;
 				},
 			},
 			{
@@ -209,6 +211,7 @@ export function useYarnIssueLineColumns({
 					return (
 						<NumberCell
 							ariaLabel="Weight in kg"
+							step="1"
 							value={item.weightKg}
 							onChange={(value) => onLineChange(item.id, "weightKg", value)}
 							error={Boolean(zodError) || hardOver}

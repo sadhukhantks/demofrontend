@@ -23,6 +23,8 @@ export const toNumber = (value: NumericInput): number | null => {
 };
 
 export const round2 = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
+/** Weight is kept in whole kilograms (owner ruling 2026-09-26). */
+export const round0 = (value: number): number => Math.round(value + Number.EPSILON);
 
 /** The balance a line of the given type draws on: godown for ISSUE, floor for RETURN. */
 export const lotBalanceForType = (
@@ -149,5 +151,5 @@ export const sumLines = (lines: ReadonlyArray<EditableYarnIssueLine>): LineTotal
 		packages += toNumber(line.noOfPackages) ?? 0;
 		weightKg += toNumber(line.weightKg) ?? 0;
 	}
-	return { packages: round2(packages), weightKg: round2(weightKg) };
+	return { packages: round2(packages), weightKg: round0(weightKg) };
 };
