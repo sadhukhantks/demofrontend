@@ -27,7 +27,7 @@ export function YarnPurchaseTotals({ totals }: { totals: LineTotals }) {
 		<Paper variant="outlined" sx={{ p: 2 }}>
 			<Stack direction={{ xs: "column", sm: "row" }} spacing={{ xs: 1.5, sm: 4 }} justifyContent="flex-end">
 				<Stat label="Total Packages" value={formatNumber(totals.packages, 0)} />
-				<Stat label="Total Weight (kg)" value={formatNumber(totals.weightKg, 2)} />
+				<Stat label="Total Weight (kg)" value={formatNumber(totals.weightKg, 0)} />
 				<Stat label="Total Amount" value={formatNumber(totals.amount, 2)} />
 			</Stack>
 		</Paper>

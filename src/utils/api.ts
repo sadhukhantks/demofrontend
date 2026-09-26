@@ -1113,6 +1113,8 @@ const apiRoutesPortalMasters = {
     // Daily Production Report (whole-mill one-pager)
     JUTE_PROD_DPR: `${API_URL}/juteProductionReports/daily_production_report`,
     WINDING_WEAVING_DIFFERENCE: `${API_URL}/juteProductionReports/winding_weaving_difference`,
+    // Purchased Yarn Ledger — godown/floor movement of bought yarn, per month
+    PURCHASED_YARN_LEDGER: `${API_URL}/juteProductionReports/purchased_yarn_ledger`,
     LOOM_CHECKLIST: `${API_URL}/juteProductionReports/loom_checklist`,
     WINDING_CHECKLIST: `${API_URL}/juteProductionReports/winding_checklist`,
     BEAMING_CHECKLIST: `${API_URL}/juteProductionReports/beaming_checklist`,

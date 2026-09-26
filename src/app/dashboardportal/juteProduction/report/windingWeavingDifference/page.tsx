@@ -48,6 +48,7 @@ import {
   fmt,
   totalRowSx,
 } from "../dailyProductionReport/_components/DprPieces";
+import { purchaseDetailMatches, purchaseDetailTotalKg, purchaseDetailTotalMt } from "./purchaseDetail";
 
 // Stock blocks in the printed sheet's order. Backend always returns every
 // bucket (possibly empty) so the shape is stable, but empty buckets are
@@ -167,6 +168,9 @@ function Content() {
   // Mill-use details start minimized (owner's call on TKT-000182): the
   // consolidated table above it is what should be read first.
   const [millUseOpen, setMillUseOpen] = useState(false);
+  // Purchase documents start minimized too: the reconciliation table above
+  // carries the figure, the documents are the audit trail behind it.
+  const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fetchedOnce = useRef(false);
@@ -234,6 +238,11 @@ function Content() {
   const day = data?.production.day;
   const mtd = data?.production.mtd;
   const millUseBlock = data ? bucketOf(data.stock, MILL_USE_BUCKET) : null;
+  // Absent (not empty) on a backend that predates the Yarn Purchase document.
+  const purchaseRows = data?.purchase_detail;
+  const purchaseTotalMt = purchaseRows ? purchaseDetailTotalMt(purchaseRows) : 0;
+  const purchaseMatches =
+    purchaseRows && mtd ? purchaseDetailMatches(purchaseRows, mtd.purchase_mt) : true;
 
   return (
     <Box sx={{ p: 2 }}>
@@ -373,6 +382,18 @@ function Content() {
               </Alert>
             ) : null}
 
+            {/* Legacy Stores receipts warning: Purchase Yarn (MT) reads Yarn
+                Purchase documents only, so yarn still arriving through a
+                Stores receipt of the old item is NOT in the figures. */}
+            {data.warnings.legacy_stores_yarn_warning ? (
+              <Alert severity="warning">
+                {data.warnings.legacy_stores_yarn_warning}
+                {typeof data.warnings.legacy_stores_yarn_mt === "number"
+                  ? ` Stores receipts of the legacy yarn item this month: ${fmt(data.warnings.legacy_stores_yarn_mt, 3)} MT — not included in Purchase Yarn (MT).`
+                  : ""}
+              </Alert>
+            ) : null}
+
             {/* Production details */}
             <SectionCard
               title="Production Reconciliation"
@@ -450,6 +471,105 @@ function Content() {
                 </Typography>
               ) : null}
             </SectionCard>
+
+            {/* Purchase yarn documents — the approved Yarn Purchase lines
+                behind Purchase Yarn (MTD). Minimized on screen like the
+                mill-use detail, never unmounted, forced visible in print so the
+                signed sheet keeps its audit trail. */}
+            {purchaseRows ? (
+              <Paper variant="outlined" sx={{ p: 1.5, breakInside: "avoid" }}>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={purchaseOpen}
+                  onClick={() => setPurchaseOpen((o) => !o)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setPurchaseOpen((o) => !o);
+                    }
+                  }}
+                  sx={{ cursor: "pointer", userSelect: "none" }}
+                >
+                  <Box sx={{ display: "flex", displayPrint: "none" }}>
+                    {purchaseOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      Purchase yarn (documents)
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: "block", displayPrint: "none" }}
+                    >
+                      {purchaseRows.length} document line(s) since {data.date_from} · Total{" "}
+                      {fmt(purchaseTotalMt, 3)} MT —{" "}
+                      {purchaseOpen ? "tap to minimize" : "tap to show the documents"}
+                      {/* The full note below is hidden while minimized, so the
+                          header must carry the mismatch too. */}
+                      {!purchaseMatches ? (
+                        <Box component="span" sx={{ color: "error.main", fontWeight: 700 }}>
+                          {" — does not match Purchase Yarn (MTD)"}
+                        </Box>
+                      ) : null}
+                    </Typography>
+                  </Box>
+                </Stack>
+                <Box
+                  sx={{
+                    mt: 0.75,
+                    display: purchaseOpen ? "block" : "none",
+                    displayPrint: "block",
+                  }}
+                >
+                  {purchaseRows.length > 0 ? (
+                    <DprTable
+                      head={
+                        <Tr>
+                          <Td>Purchase No</Td>
+                          <Td>Date</Td>
+                          <Td>Yarn Item</Td>
+                          <Td align="right">Count</Td>
+                          <Td align="right">Kg</Td>
+                        </Tr>
+                      }
+                    >
+                      {purchaseRows.map((r) => (
+                        <Tr key={`yp-${r.yarn_purchase_id}-${r.item_id}`}>
+                          <Td>{r.purchase_no}</Td>
+                          <Td>{r.tran_date ?? "—"}</Td>
+                          <Td>{r.item_name ?? "—"}</Td>
+                          <NumTd value={r.yarn_count} />
+                          <NumTd value={r.kg} digits={3} />
+                        </Tr>
+                      ))}
+                      <Tr sx={totalRowSx()}>
+                        <Td colSpan={4}>Total ({fmt(purchaseTotalMt, 3)} MT)</Td>
+                        <NumTd value={purchaseDetailTotalKg(purchaseRows)} digits={3} bold />
+                      </Tr>
+                    </DprTable>
+                  ) : (
+                    <Typography variant="caption" color="text.secondary">
+                      No approved Yarn Purchase document since {data.date_from}.
+                    </Typography>
+                  )}
+                  {/* The documents ARE the figure: if they do not add up to
+                      Purchase Yarn (MTD), say so rather than print two totals
+                      that disagree. */}
+                  {!purchaseMatches ? (
+                    <Typography variant="caption" color="error.main" sx={{ mt: 0.5, display: "block" }}>
+                      Documents total {fmt(purchaseTotalMt, 3)} MT but Purchase Yarn (MTD) above reads{" "}
+                      {fmt(mtd.purchase_mt, 3)} MT — the two were not built from the same
+                      documents.
+                    </Typography>
+                  ) : null}
+                </Box>
+              </Paper>
+            ) : null}
 
             {/* Cloth split */}
             <SectionCard title="Weaving Cloth Split (MT)" subtitle="Weaving production split by cloth quality type">

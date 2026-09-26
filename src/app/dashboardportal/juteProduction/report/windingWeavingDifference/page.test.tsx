@@ -27,10 +27,15 @@ vi.mock("@/utils/juteProductionReportService", () => ({
   fetchWindingWeavingDifference: vi.fn(),
 }));
 
-import { fetchWindingWeavingDifference } from "@/utils/juteProductionReportService";
+import {
+  fetchWindingWeavingDifference,
+  type WindingWeavingDifference,
+  type WwdPurchaseDetailRow,
+  type WwdReconciliation,
+} from "@/utils/juteProductionReportService";
 import Page from "./page";
 
-const RECON = {
+const RECON: WwdReconciliation = {
   opening_mt: 0.5,
   spinning_mt: 20.138,
   winding_mt: 1.2,
@@ -47,7 +52,7 @@ const RECON = {
 
 /** Mill use holds one quality over two lines (1.000 + 0.567); ball holds 0.014
  *  of the SAME quality, which the consolidated table must NOT absorb. */
-const DATA = {
+const DATA: WindingWeavingDifference = {
   report_date: "2026-09-18",
   date_from: "2026-09-01",
   stock: {
@@ -138,10 +143,7 @@ const DATA = {
 
 describe("Winding & Weaving Difference — mill-use consolidated block", () => {
   beforeEach(() => {
-    vi.mocked(fetchWindingWeavingDifference).mockResolvedValue(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      DATA as any,
-    );
+    vi.mocked(fetchWindingWeavingDifference).mockResolvedValue(DATA);
   });
 
   it("puts the consolidated table above the mill-use detail table", async () => {
@@ -209,5 +211,121 @@ describe("Winding & Weaving Difference — mill-use consolidated block", () => {
     // Exactly one collapsible section on the page.
     expect(screen.queryAllByText(/tap to (show the full table|minimize)/)).toHaveLength(1);
     expect(screen.queryAllByText(/Consolidated Position/)).toHaveLength(1);
+  });
+});
+
+/** Purchased-yarn additions (yarn purchase / issue / consumption feature):
+ *  the Yarn Purchase documents behind Purchase Yarn (MTD) and the legacy
+ *  Stores-receipt transition warning. */
+const PURCHASE_LINES: WwdPurchaseDetailRow[] = [
+  {
+    yarn_purchase_id: 11,
+    purchase_no: "YP/26-27/0007",
+    tran_date: "2026-09-03",
+    item_id: 335556,
+    item_name: "13 LBS SKWP",
+    yarn_count: 13,
+    kg: 1250,
+  },
+  {
+    yarn_purchase_id: 12,
+    purchase_no: "YP/26-27/0009",
+    tran_date: "2026-09-11",
+    item_id: 335557,
+    item_name: "8 LBS HESSIAN",
+    yarn_count: 8,
+    kg: 3401,
+  },
+];
+
+const PURCHASE_DATA: WindingWeavingDifference = {
+  ...DATA,
+  production: {
+    day: { ...RECON, purchase_mt: 1.25 },
+    mtd: { ...RECON, purchase_mt: 4.651 },
+  },
+  purchase_detail: PURCHASE_LINES,
+  warnings: {
+    ...DATA.warnings,
+    legacy_stores_yarn_mt: 0.42,
+    legacy_stores_yarn_warning:
+      "Stores receipts of the legacy purchased-yarn item exist this month but no Yarn Purchase document does.",
+  },
+};
+
+describe("Winding & Weaving Difference — purchase documents and legacy warning", () => {
+  beforeEach(() => {
+    vi.mocked(fetchWindingWeavingDifference).mockResolvedValue(PURCHASE_DATA);
+  });
+
+  it("lists the documents under the production block, minimized, with an MT total equal to Purchase Yarn (MTD)", async () => {
+    const { container } = render(<Page />);
+    await waitFor(() =>
+      expect(screen.getByText("Purchase yarn (documents)")).toBeInTheDocument(),
+    );
+    const html = container.innerHTML;
+    expect(html.indexOf("Production Reconciliation")).toBeLessThan(
+      html.indexOf("Purchase yarn (documents)"),
+    );
+    expect(html.indexOf("Purchase yarn (documents)")).toBeLessThan(
+      html.indexOf("Weaving Cloth Split"),
+    );
+    // Minimized but mounted — print must keep every document line.
+    expect(screen.getByText(/tap to show the documents/)).toBeInTheDocument();
+    expect(screen.getByText("YP/26-27/0007")).toBeInTheDocument();
+    expect(screen.getByText("YP/26-27/0009")).toBeInTheDocument();
+    // 1250 + 3401 kg = 4.651 MT = mtd.purchase_mt, and no mismatch note.
+    expect(screen.getByText("Total (4.651 MT)")).toBeInTheDocument();
+    expect(screen.queryByText(/were not built from the same/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Purchase yarn (documents)"));
+    expect(screen.getByText(/tap to minimize/)).toBeInTheDocument();
+  });
+
+  it("calls out a documents total that disagrees with Purchase Yarn (MTD)", async () => {
+    vi.mocked(fetchWindingWeavingDifference).mockResolvedValue({
+      ...PURCHASE_DATA,
+      production: { day: RECON, mtd: { ...RECON, purchase_mt: 3.4 } },
+    });
+    render(<Page />);
+    await waitFor(() =>
+      expect(screen.getByText(/were not built from the same/)).toBeInTheDocument(),
+    );
+    // The block starts minimized, so the header caption must carry it too.
+    expect(screen.getByText(/does not match Purchase Yarn \(MTD\)/)).toBeInTheDocument();
+  });
+
+  it("does not flag a kg total the backend rounds half-even (4062.5 kg -> 4.062)", async () => {
+    vi.mocked(fetchWindingWeavingDifference).mockResolvedValue({
+      ...PURCHASE_DATA,
+      production: { day: RECON, mtd: { ...RECON, purchase_mt: 4.062 } },
+      purchase_detail: [
+        { ...PURCHASE_LINES[0], kg: 4000 },
+        { ...PURCHASE_LINES[1], kg: 62.5 },
+      ],
+    });
+    render(<Page />);
+    await waitFor(() =>
+      expect(screen.getByText("Purchase yarn (documents)")).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/were not built from the same/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/does not match Purchase Yarn/)).not.toBeInTheDocument();
+  });
+
+  it("shows the legacy Stores warning as an amber alert carrying the MT figure", async () => {
+    render(<Page />);
+    await waitFor(() =>
+      expect(screen.getByText(/legacy purchased-yarn item exist/)).toBeInTheDocument(),
+    );
+    const alert = screen.getByText(/legacy purchased-yarn item exist/).closest(".MuiAlert-root");
+    expect(alert).toHaveClass("MuiAlert-colorWarning");
+    expect(alert).toHaveTextContent("0.420 MT");
+  });
+
+  it("renders neither block on a backend without the new keys", async () => {
+    vi.mocked(fetchWindingWeavingDifference).mockResolvedValue(DATA);
+    render(<Page />);
+    await waitFor(() => expect(screen.getByText("Ball Stock")).toBeInTheDocument());
+    expect(screen.queryByText("Purchase yarn (documents)")).not.toBeInTheDocument();
+    expect(screen.queryByText(/legacy purchased-yarn item/)).not.toBeInTheDocument();
   });
 });

@@ -4,7 +4,7 @@
  * truth for what a valid purchase looks like (CLAUDE.md: Zod on every form).
  *
  * Rules: tran_date required, at least one line, weight_kg > 0, item_id required;
- * no_of_packages / wt_per_package / rate_per_qtl optional but never negative.
+ * no_of_packages / wt_per_package / rate_per_kg optional but never negative.
  */
 import { z } from "zod";
 
@@ -24,7 +24,7 @@ export const yarnPurchaseLineSchema = z.object({
 	no_of_packages: optionalNonNegative,
 	wt_per_package: optionalNonNegative,
 	weight_kg: z.number({ error: "Weight (kg) is required" }).positive("Weight (kg) must be greater than 0"),
-	rate_per_qtl: optionalNonNegative,
+	rate_per_kg: optionalNonNegative,
 	remarks: z.string().max(500, "Remarks are too long").nullable().optional(),
 });
 
@@ -61,7 +61,7 @@ const LINE_FIELD_LABELS: Record<string, string> = {
 	no_of_packages: "No. of Packages",
 	wt_per_package: "Wt / Package",
 	weight_kg: "Weight (kg)",
-	rate_per_qtl: "Rate / Qtl",
+	rate_per_kg: "Rate / kg",
 	remarks: "Remarks",
 };
 

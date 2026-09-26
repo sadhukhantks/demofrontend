@@ -41,17 +41,17 @@ describe("toNumber / packagesWeight / computeAmount", () => {
 		expect(packagesWeight({ noOfPackages: 10, wtPerPackage: "" })).toBeNull();
 	});
 
-	it("amount is kg / 100 × rate per quintal, rounded to 2 dp", () => {
-		expect(computeAmount(1234.5, 8100)).toBe(99994.5);
-		expect(computeAmount("333.333", "100")).toBe(333.33);
+	it("amount is kg × rate per kg, rounded to 2 dp", () => {
+		expect(computeAmount(1234.5, 81)).toBe(100035); // weight rounds to 1235 kg first
+		expect(computeAmount("333.333", "1")).toBe(333);
 		expect(computeAmount(500, null)).toBeNull();
-		expect(computeAmount(null, 8100)).toBeNull();
+		expect(computeAmount(null, 81)).toBeNull();
 	});
 });
 
 describe("computeLine", () => {
 	it("auto-fills weight from packages when the weight is empty", () => {
-		expect(computeLine({ noOfPackages: 10, wtPerPackage: 50, weightKg: "", ratePerQtl: null, weightAutoFilled: false })).toEqual({
+		expect(computeLine({ noOfPackages: 10, wtPerPackage: 50, weightKg: "", ratePerKg: null, weightAutoFilled: false })).toEqual({
 			weightKg: 500,
 			weightAutoFilled: true,
 			amount: null,
@@ -59,20 +59,20 @@ describe("computeLine", () => {
 	});
 
 	it("keeps a manually typed weight even though packages would give a different figure", () => {
-		const result = computeLine({ noOfPackages: 10, wtPerPackage: 50, weightKg: 498.5, ratePerQtl: 8000, weightAutoFilled: false });
-		expect(result.weightKg).toBe(498.5);
+		const result = computeLine({ noOfPackages: 10, wtPerPackage: 50, weightKg: 498, ratePerKg: 80, weightAutoFilled: false });
+		expect(result.weightKg).toBe(498);
 		expect(result.weightAutoFilled).toBe(false);
-		expect(result.amount).toBe(39880);
+		expect(result.amount).toBe(39840);
 	});
 
 	it("re-derives an auto-filled weight when packages change", () => {
-		const result = computeLine({ noOfPackages: 12, wtPerPackage: 50, weightKg: 500, ratePerQtl: null, weightAutoFilled: true });
+		const result = computeLine({ noOfPackages: 12, wtPerPackage: 50, weightKg: 500, ratePerKg: null, weightAutoFilled: true });
 		expect(result.weightKg).toBe(600);
 		expect(result.weightAutoFilled).toBe(true);
 	});
 
 	it("leaves weight unknown when nothing can be derived", () => {
-		expect(computeLine({ noOfPackages: "", wtPerPackage: "", weightKg: "", ratePerQtl: 8100, weightAutoFilled: true })).toEqual({
+		expect(computeLine({ noOfPackages: "", wtPerPackage: "", weightKg: "", ratePerKg: 8100, weightAutoFilled: true })).toEqual({
 			weightKg: null,
 			weightAutoFilled: true,
 			amount: null,
@@ -90,10 +90,10 @@ describe("applyLineChange", () => {
 	});
 
 	it("a typed weight becomes authoritative and stops following packages", () => {
-		let next = applyLineChange(line({ noOfPackages: "10", wtPerPackage: "50", weightKg: "500" }), "weightKg", "498.5");
+		let next = applyLineChange(line({ noOfPackages: "10", wtPerPackage: "50", weightKg: "500" }), "weightKg", "498");
 		expect(next.weightAutoFilled).toBe(false);
 		next = applyLineChange(next, "noOfPackages", "12");
-		expect(next.weightKg).toBe("498.5");
+		expect(next.weightKg).toBe("498");
 	});
 
 	it("keeps the partial text the operator is still typing in the weight box", () => {
@@ -103,7 +103,7 @@ describe("applyLineChange", () => {
 	});
 
 	it("clearing the weight returns it to auto-fill immediately", () => {
-		const manual = line({ noOfPackages: "12", wtPerPackage: "50", weightKg: "498.5", weightAutoFilled: false });
+		const manual = line({ noOfPackages: "12", wtPerPackage: "50", weightKg: "498", weightAutoFilled: false });
 		const next = applyLineChange(manual, "weightKg", "");
 		expect(next.weightKg).toBe("600");
 		expect(next.weightAutoFilled).toBe(true);
@@ -118,7 +118,7 @@ describe("applyLineChange", () => {
 
 	it("rate and remarks edits never touch the weight", () => {
 		const auto = line({ noOfPackages: "10", wtPerPackage: "50", weightKg: "500", weightAutoFilled: true });
-		expect(applyLineChange(auto, "ratePerQtl", "8100").weightKg).toBe("500");
+		expect(applyLineChange(auto, "ratePerKg", "8100").weightKg).toBe("500");
 		expect(applyLineChange(auto, "remarks", "lot A").weightKg).toBe("500");
 	});
 });
@@ -132,11 +132,11 @@ describe("lineHasAnyData / sumLines", () => {
 
 	it("totals packages, kg and amount over real lines only", () => {
 		const totals = sumLines([
-			line({ id: "a", itemId: 1, noOfPackages: "10", wtPerPackage: "50", weightKg: "500", ratePerQtl: "8000" }),
-			line({ id: "b", itemId: 2, noOfPackages: "4", weightKg: "201.25", ratePerQtl: "10000" }),
+			line({ id: "a", itemId: 1, noOfPackages: "10", wtPerPackage: "50", weightKg: "500", ratePerKg: "80" }),
+			line({ id: "b", itemId: 2, noOfPackages: "4", weightKg: "201", ratePerKg: "100" }),
 			line({ id: "c" }),
 		]);
-		expect(totals).toEqual({ packages: 14, weightKg: 701.25, amount: 40000 + 20125 });
+		expect(totals).toEqual({ packages: 14, weightKg: 701, amount: 40000 + 20100 });
 	});
 });
 
@@ -151,13 +151,13 @@ describe("mappers", () => {
 			package_type: "BALE",
 			no_of_packages: 10,
 			wt_per_package: 50,
-			rate_per_qtl: 8100,
+			rate_per_kg: 81,
 			amount: 40500,
 			remarks: null,
 		};
 		expect(mapApiLineToEditable({ ...base, weight_kg: 500 }).weightAutoFilled).toBe(true);
-		expect(mapApiLineToEditable({ ...base, weight_kg: 498.5 }).weightAutoFilled).toBe(false);
-		expect(mapApiLineToEditable({ ...base, weight_kg: 498.5 }).weightKg).toBe("498.5");
+		expect(mapApiLineToEditable({ ...base, weight_kg: 498 }).weightAutoFilled).toBe(false);
+		expect(mapApiLineToEditable({ ...base, weight_kg: 498 }).weightKg).toBe("498");
 	});
 
 	it("builds the save body with numbers, nulls for blanks, and no trailing blank line", () => {
@@ -166,7 +166,7 @@ describe("mappers", () => {
 			branchId: 29,
 			form: { tranDate: "2026-09-25", partyId: 5, challanNo: " CH-1 ", challanDate: "", vehicleNo: "", remarks: "" },
 			lines: [
-				line({ id: "a", itemId: 335556, packageType: "BALE", noOfPackages: "10", wtPerPackage: "50", weightKg: "500", ratePerQtl: "8100" }),
+				line({ id: "a", itemId: 335556, packageType: "BALE", noOfPackages: "10", wtPerPackage: "50", weightKg: "500", ratePerKg: "81" }),
 				line({ id: "b" }),
 			],
 		});
@@ -180,7 +180,7 @@ describe("mappers", () => {
 				no_of_packages: 10,
 				wt_per_package: 50,
 				weight_kg: 500,
-				rate_per_qtl: 8100,
+				rate_per_kg: 81,
 				remarks: null,
 			},
 		]);

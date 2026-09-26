@@ -8,7 +8,7 @@ const validLine = {
 	no_of_packages: 10,
 	wt_per_package: 50,
 	weight_kg: 500,
-	rate_per_qtl: 8100,
+	rate_per_kg: 81,
 	remarks: null,
 };
 
@@ -38,7 +38,7 @@ describe("yarnPurchaseSchema", () => {
 			challan_date: null,
 			vehicle_no: null,
 			remarks: null,
-			lines: [{ item_id: 1, package_type: null, no_of_packages: null, wt_per_package: null, weight_kg: 0.5, rate_per_qtl: null, remarks: null }],
+			lines: [{ item_id: 1, package_type: null, no_of_packages: null, wt_per_package: null, weight_kg: 0.5, rate_per_kg: null, remarks: null }],
 		});
 		expect(result.success).toBe(true);
 	});
@@ -78,14 +78,14 @@ describe("yarnPurchaseSchema", () => {
 	it("rejects negative packages, wt/package and rate", () => {
 		const result = yarnPurchaseSchema.safeParse({
 			...valid,
-			lines: [{ ...validLine, no_of_packages: -1, wt_per_package: -2, rate_per_qtl: -3 }],
+			lines: [{ ...validLine, no_of_packages: -1, wt_per_package: -2, rate_per_kg: -3 }],
 		});
 		expect(result.success).toBe(false);
 		if (!result.success) {
 			expect(formatIssues(result.error)).toEqual([
 				"Line 1 (No. of Packages): Cannot be negative",
 				"Line 1 (Wt / Package): Cannot be negative",
-				"Line 1 (Rate / Qtl): Cannot be negative",
+				"Line 1 (Rate / kg): Cannot be negative",
 			]);
 		}
 	});

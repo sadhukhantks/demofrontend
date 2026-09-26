@@ -91,11 +91,13 @@ export interface StockSplit {
 }
 
 /**
- * Total one weight column, split into purchased raw jute and process waste.
+ * Total one weight column, split into raw jute and jute waste (process waste
+ * from the Waste Entry page plus PURCHASED waste — MR lines on a type-3 item).
  *
  * The appended Grand Total row is skipped, or every figure would double. The
  * waste share comes from `is_waste` — the item group's own item_type_id — not
- * from a name match on the group. `raw + waste === total` always holds, since
+ * from a name match on the group, which is also why purchased waste lands in
+ * the waste bucket on receipt. `raw + waste === total` always holds, since
  * a row is one or the other.
  */
 export function stockSplit(

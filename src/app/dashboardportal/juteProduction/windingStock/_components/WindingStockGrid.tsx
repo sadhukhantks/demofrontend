@@ -4,8 +4,8 @@ import * as React from "react";
 import { Box, IconButton, Tooltip } from "@mui/material";
 import { Pencil as EditIcon, Trash2 as Trash2Icon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
-import type { WindingStockRow } from "@/utils/windingStockService";
-import { BUCKET_LABELS, formatMt } from "../utils/stockCalc";
+import type { StockLocation, WindingStockRow } from "@/utils/windingStockService";
+import { BUCKET_LABELS, LOCATION_LABELS, formatMt, type LocationTotals } from "../utils/stockCalc";
 import StockTotalsFooter from "./StockTotalsFooter";
 
 export interface WindingStockGridProps {
@@ -16,6 +16,8 @@ export interface WindingStockGridProps {
 	/** MT total per bucket, rendered beneath the grid. */
 	bucketTotals: Record<string, number>;
 	grandTotal: number;
+	/** MT split godown vs floor, rendered beneath the bucket totals. */
+	locationTotals: LocationTotals;
 	/** Lift a row into the entry form for editing. */
 	onEdit: (row: WindingStockRow) => void;
 	/** Ask the page to soft-delete the row (the page owns the API call). */
@@ -37,6 +39,7 @@ export default function WindingStockGrid({
 	loading,
 	bucketTotals,
 	grandTotal,
+	locationTotals,
 	onEdit,
 	onDelete,
 	actionsDisabled,
@@ -106,6 +109,22 @@ export default function WindingStockGrid({
 				width: 150,
 				valueGetter: (value) => value ?? "— Not set —",
 			},
+			{
+				field: "stock_loc",
+				headerName: "Location",
+				width: 110,
+				// A row without stock_loc (older backend) is on the floor — the
+				// server's own default — so it never renders as a blank location.
+				valueGetter: (value: StockLocation | null | undefined) =>
+					LOCATION_LABELS[value === "GODOWN" ? "GODOWN" : "FLOOR"],
+			},
+			{
+				field: "dept_desc",
+				headerName: "Dept",
+				width: 150,
+				// Blank for godown lines and for floor lines counted without one.
+				valueGetter: (value) => value ?? "",
+			},
 			{ field: "no_of_samples", headerName: "Samples", width: 110, type: "number" },
 			{ field: "wt_per_sample", headerName: "Kg/Sample", width: 110, type: "number" },
 			{
@@ -135,7 +154,11 @@ export default function WindingStockGrid({
 				}}
 				sx={{ width: "100%" }}
 			/>
-			<StockTotalsFooter bucketTotals={bucketTotals} grandTotal={grandTotal} />
+			<StockTotalsFooter
+				bucketTotals={bucketTotals}
+				grandTotal={grandTotal}
+				locationTotals={locationTotals}
+			/>
 		</Box>
 	);
 }
