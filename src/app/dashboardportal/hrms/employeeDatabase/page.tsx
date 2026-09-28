@@ -9,7 +9,7 @@ import { useSelectedCompanyCoId } from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchEmployeeList } from "@/utils/hrmsService";
 import type { EmployeeListRow } from "./types/employeeTypes";
-import { EMPLOYEE_STATUS } from "./types/employeeTypes";
+import { EMPLOYEE_STATUS, EMPLOYEE_LIFECYCLE_STATUS } from "./types/employeeTypes";
 
 const STATUS_COLOR: Record<number, "default" | "primary" | "warning" | "success" | "error" | "info"> = {
   [EMPLOYEE_STATUS.DRAFT]: "default",
@@ -158,7 +158,11 @@ export default function EmployeeDatabasePage() {
         createAction={{ label: "Add Employee", onClick: handleCreate }}
         onView={handleView}
         onEdit={handleEdit}
-        isRowEditable={(row) => row.status_id === EMPLOYEE_STATUS.DRAFT || row.status_id === EMPLOYEE_STATUS.OPEN}
+        // Pending/Approved/Joined rows open in restricted edit (bank, salary, PF/ESI only) — see addEmployee/page.tsx
+        isRowEditable={(row) => ([
+          EMPLOYEE_STATUS.DRAFT, EMPLOYEE_STATUS.OPEN, EMPLOYEE_STATUS.PENDING_APPROVAL, EMPLOYEE_STATUS.APPROVED,
+          EMPLOYEE_LIFECYCLE_STATUS.JOINED,
+        ] as number[]).includes(row.status_id)}
         filterMode="server"
         filterModel={filterModel}
         onFilterModelChange={handleFilterModelChange}
