@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
-import { Menu } from "lucide-react"
+import MobileTopBar from "@/components/dashboard/MobileTopBar"
 import SidebarConsole from "@/components/dashboard/sidebarConsole"
+import SupportNotificationBell from "@/components/support/SupportNotificationBell"
 
 export default function DashboardLayout({
   children,
@@ -19,16 +20,8 @@ export default function DashboardLayout({
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-gray-100">
-      {/* Mobile top bar — visible only on small screens */}
-      <div className="md:hidden flex items-center justify-end bg-[#006699] px-4 py-3 shrink-0">
-        <button
-          onClick={() => setIsMobileMenuOpen(prev => !prev)}
-          className="text-white p-1"
-          aria-label="Toggle menu"
-        >
-          <Menu size={24} />
-        </button>
-      </div>
+      {/* Mobile top bar (hamburger + logout) — visible only on small screens */}
+      <MobileTopBar onMenuToggle={() => setIsMobileMenuOpen(prev => !prev)} />
 
       {isMobileMenuOpen && (
         <div
@@ -52,6 +45,12 @@ export default function DashboardLayout({
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-white">
           {children}
         </main>
+      </div>
+
+      {/* Ticket-notification bell — one instance (it polls), pinned top-right on every
+          ctrldesk page; sits left of the hamburger on the mobile bar. */}
+      <div className="fixed z-30 top-2 right-14 md:top-3 md:right-4 rounded-full bg-white/90 shadow-sm text-gray-700">
+        <SupportNotificationBell />
       </div>
     </div>
   );

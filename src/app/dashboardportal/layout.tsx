@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import Sidebar from "@/components/dashboard/sidebar"
 import { SidebarProvider, useSidebarContext } from "@/components/dashboard/sidebarContext"
 import { determinePortalAction } from "@/utils/portalPermissions"
-import { Menu } from "lucide-react"
+import MobileTopBar from "@/components/dashboard/MobileTopBar"
 import SupportTicketWidget from "@/components/support/SupportTicketWidget"
 
 function PortalPermissionBoundary({ children }: { children: ReactNode }) {
@@ -52,16 +52,8 @@ export default function DashboardLayout({
     <SidebarProvider>
       <PortalPermissionBoundary>
         <div className="flex flex-col md:flex-row h-screen bg-gray-100">
-          {/* Mobile top bar — visible only on small screens */}
-          <div className="md:hidden flex items-center justify-end bg-[#006699] px-4 py-3 shrink-0">
-            <button
-              onClick={() => setIsMobileMenuOpen(prev => !prev)}
-              className="text-white p-1"
-              aria-label="Toggle menu"
-            >
-              <Menu size={24} />
-            </button>
-          </div>
+          {/* Mobile top bar (hamburger + logout) — visible only on small screens */}
+          <MobileTopBar onMenuToggle={() => setIsMobileMenuOpen(prev => !prev)} />
 
           {/* Mobile sidebar overlay */}
           {isMobileMenuOpen && (

@@ -248,24 +248,28 @@ export default function ReportGrid<T extends GridValidRowModel>({
   );
 }
 
-/** 2-decimal number formatter shared by the report column defs. */
-export function fmtNum(value: unknown): string {
+/** Number formatter shared by the report column defs (2 decimals by default). */
+export function fmtNum(value: unknown, decimals = 2): string {
   if (value == null) return "";
   const n = Number(value);
-  return Number.isFinite(n) ? n.toFixed(2) : "";
+  return Number.isFinite(n) ? n.toFixed(decimals) : "";
 }
 
-/** Helper to build a right-aligned 2-decimal numeric column. */
+/**
+ * Helper to build a right-aligned numeric column — 2 decimals by default;
+ * pass `decimals = 0` for whole-unit columns (e.g. stock in kg).
+ */
 export function numCol<T extends GridValidRowModel>(
   field: string,
   headerName: string,
   width = 120,
+  decimals = 2,
 ): GridColDef<T> {
   return {
     field,
     headerName,
     type: "number",
     width,
-    valueFormatter: (value: unknown) => fmtNum(value),
+    valueFormatter: (value: unknown) => fmtNum(value, decimals),
   };
 }

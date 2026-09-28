@@ -27,6 +27,8 @@ import {
 } from "@mui/material";
 import type { GridColDef, GridValidRowModel } from "@mui/x-data-grid";
 import ReportGrid, { fmtNum, numCol } from "@/components/reports/ReportGrid";
+import type { ReportExportHeader } from "@/components/reports/exportExcel";
+import type { GridSection } from "@/components/reports/gridSections";
 import { SectionCard } from "../../dailyProductionReport/_components/DprPieces";
 import {
   withId,
@@ -43,8 +45,10 @@ import {
   type FilterSel,
   type PerfStatus,
 } from "../perf";
+import ExportActions from "./ExportActions";
 import FrameCards, { type FrameCardItem } from "./FrameCards";
 import QuickFilters from "./QuickFilters";
+import { targetColumns } from "./targetColumns";
 
 type WithId<T> = T & { id: number };
 type ScoredPivotRow = FramePivotRow & {
@@ -69,6 +73,7 @@ const dateShiftColumns: GridColDef<WithId<FrameDateShiftRow>>[] = [
   { field: "date", headerName: "Date", width: 120 },
   { field: "shift", headerName: "Shift", width: 90 },
   numCol("net_wt", "Net Wt (kg)", 130),
+  ...targetColumns<WithId<FrameDateShiftRow>>(),
 ];
 
 const doffEventColumns: GridColDef<WithId<FrameDoffEventRow>>[] = [
@@ -153,11 +158,13 @@ export default function FrameAnalysisTab({
   branchId,
   selectedFrame,
   onSelectFrame,
+  header,
 }: {
   data: FrameAnalysisData | null;
   branchId: number | null;
   selectedFrame: string | null;
   onSelectFrame: (frame: string | null) => void;
+  header: ReportExportHeader;
 }) {
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down("sm"));
@@ -216,6 +223,31 @@ export default function FrameAnalysisTab({
     [filteredPivot],
   );
 
+  // Export / print the grids as filtered, plus the open frame's drill-down
+  // when one is selected (TKT-000190).
+  const sections = React.useMemo<GridSection[]>(() => {
+    const out: GridSection[] = [
+      { title: "Quality x Shift Average", columns: qualityPivot.columns, rows: qualityPivot.rows },
+      { title: "Frame x Date", columns: framePivotCols, rows: withId(filteredPivot) },
+    ] as GridSection[];
+    const detail = data?.frame_detail;
+    if (selectedFrame && detail) {
+      out.push(
+        {
+          title: `Frame ${selectedFrame} - Day and Shift`,
+          columns: dateShiftColumns,
+          rows: withId(detail.date_shift),
+        } as GridSection,
+        {
+          title: `Frame ${selectedFrame} - Doff Events`,
+          columns: doffEventColumns,
+          rows: withId(detail.doff_events),
+        } as GridSection,
+      );
+    }
+    return out;
+  }, [qualityPivot, framePivotCols, filteredPivot, selectedFrame, data?.frame_detail]);
+
   if (!data) return null;
 
   if (data.quality_shift_avg.length === 0 && data.frame_pivot.length === 0) {
@@ -231,6 +263,13 @@ export default function FrameAnalysisTab({
         frames={uniqueSorted(pivot.map((r) => r.frame))}
         sel={sel}
         onChange={setSel}
+      />
+
+      <ExportActions
+        sections={sections}
+        fileNamePrefix="doff-analysis-frames"
+        header={{ ...header, reportName: "Doff Analysis — Frame Analysis" }}
+        disabled={branchId == null}
       />
 
       <SectionCard

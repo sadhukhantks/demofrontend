@@ -19,6 +19,7 @@ import type {
   Option,
 } from "../types/jutePOTypes";
 import { buildDefaultFormValues, generateLineId } from "./jutePOFactories";
+import { parseCloseType, parseOptionalCount } from "./jutePOSettlement";
 import {
   calculateWeight,
   calculateWeightFromPercentage,
@@ -111,7 +112,9 @@ export const mapJuteItemRecords = (records: unknown[]): JuteItemRecord[] =>
       return {
         item_id: Number(id),
         item_code: String(data?.item_grp_code ?? data?.item_code ?? id),
-        // API returns item_grp_name (with recursive path like "Jute > Raw Jute")
+        // API returns item_grp_name (with recursive path like "Jute > Raw Jute" for a
+        // raw-jute subgroup, or the bare root name for a jute-waste group whose items
+        // hang directly on it — both shapes land in the same "Item" picker)
         item_desc: String(data?.item_grp_name ?? data?.item_grp_desc ?? data?.item_name ?? data?.item_desc ?? id),
         item_grp_id: data?.parent_grp_id ? Number(data.parent_grp_id) : undefined,
         item_grp_desc: data?.parent_grp_name ? String(data.parent_grp_name) : undefined,
@@ -415,6 +418,13 @@ export const mapJutePODetailsResponse = (data: unknown): JutePODetails => {
     created_by: raw?.created_by ? Number(raw.created_by) : undefined,
     updated_date_time: raw?.updated_date_time ? String(raw.updated_date_time) : undefined,
     line_items: Array.isArray(raw?.line_items) ? (raw.line_items as JutePOLineItemDetails[]) : undefined,
+    // Settlement columns (optional until the backend migration is applied on the tenant)
+    closed_date: raw?.closed_date ? String(raw.closed_date) : null,
+    closed_by: raw?.closed_by != null && raw.closed_by !== "" ? Number(raw.closed_by) : null,
+    closed_by_name: raw?.closed_by_name ? String(raw.closed_by_name) : null,
+    close_type: parseCloseType(raw?.close_type),
+    close_remark: raw?.close_remark ? String(raw.close_remark) : null,
+    returned_lorries: parseOptionalCount(raw?.returned_lorries),
   } satisfies JutePODetails;
 };
 

@@ -9,6 +9,7 @@ const apiRoutes ={
     USERLOGINCONSOLE : `${API_URL}/authRoutes/login`,
     PROTECTED : `${API_URL}/authRoutes/protected`,
     VERIFYSESSION : `${API_URL}/authRoutes/verify-session`,
+    LOGOUT : `${API_URL}/authRoutes/logout`,
     VALIDATE_SUBDOMAIN : `${API_URL}/authRoutes/validate-subdomain`,
     MENU_CONSOLE: `${API_URL}/companyAdmin/company_console_menu_items`,
     ROLES_CONSOLE: `${API_URL}/companyRoutes/roles`,
@@ -274,6 +275,16 @@ const apiRoutesPortalMasters = {
     BATCH_PLAN_EDIT: `${API_URL}/batchPlanMaster/batch_plan_edit`,
     BATCH_PLAN_QUALITIES_FOR_ITEM: `${API_URL}/batchPlanMaster/get_qualities_for_item`,
 
+    // Jute Market Rate (daily rate per source) + source / rate-difference masters
+    JUTE_MARKET_RATE_SETUP: `${API_URL}/juteMarketRate/setup`,
+    JUTE_MARKET_RATE_SOURCE_SAVE: `${API_URL}/juteMarketRate/sources/save`,
+    JUTE_MARKET_RATE_SOURCE_DELETE: `${API_URL}/juteMarketRate/sources/delete`,
+    JUTE_RATE_DIFF_TABLE: `${API_URL}/juteMarketRate/rate_diff`,
+    JUTE_RATE_DIFF_SAVE: `${API_URL}/juteMarketRate/rate_diff/save`,
+    JUTE_RATE_DIFF_DELETE: `${API_URL}/juteMarketRate/rate_diff/delete`,
+    JUTE_MARKET_RATES: `${API_URL}/juteMarketRate/rates`,
+    JUTE_MARKET_RATES_SAVE: `${API_URL}/juteMarketRate/rates/save`,
+
     // Jute PO endpoints
     JUTE_PO_TABLE: `${API_URL}/jutePO/get_jute_po_table`,
     JUTE_PO_BY_ID: `${API_URL}/jutePO/get_jute_po_by_id`,
@@ -289,6 +300,12 @@ const apiRoutesPortalMasters = {
     JUTE_PO_REJECT: `${API_URL}/jutePO/reject_jute_po`,
     JUTE_PO_CANCEL_DRAFT: `${API_URL}/jutePO/cancel_draft_jute_po`,
     JUTE_PO_REOPEN: `${API_URL}/jutePO/reopen_jute_po`,
+    // PO settlement (docs/claude/modules/jute-purchase/po-settlement-spec.md)
+    JUTE_PO_CLOSE: `${API_URL}/jutePO/close_jute_po`,
+    JUTE_PO_BULK_CLOSE: `${API_URL}/jutePO/bulk_close_jute_po`,
+    JUTE_PO_RECOMPUTE_SETTLEMENT: `${API_URL}/jutePO/recompute_settlement`,
+    JUTE_PO_SETTLE_RULE: `${API_URL}/jutePO/settle_rule`,
+    JUTE_PO_STATUS_LOG: `${API_URL}/jutePO/status_log`,
     JUTE_PO_DOWNLOAD: `${API_URL}/jutePO/download_po_table`,
 
     // Jute Gate Entry endpoints
@@ -358,6 +375,34 @@ const apiRoutesPortalMasters = {
     JUTE_ISSUE_DOWNLOAD: `${API_URL}/juteIssue/download_issue_table`,
     JUTE_ISSUE_SYNC_WEIGHTS: `${API_URL}/juteIssue/sync_issue_weights`,
 
+    // Yarn Purchase (receipt of purchased yarn, kg) — vowerp3be/docs/superpowers/specs/2026-09-25-yarn-purchase-issue-consumption-design.md §3.1
+    YARN_PURCHASE_SETUP: `${API_URL}/yarnPurchase/setup`,
+    YARN_PURCHASE_LIST: `${API_URL}/yarnPurchase/list`,
+    YARN_PURCHASE_GET: `${API_URL}/yarnPurchase/get`,          // append `/${id}` at call site
+    YARN_PURCHASE_CREATE: `${API_URL}/yarnPurchase/create`,
+    YARN_PURCHASE_UPDATE: `${API_URL}/yarnPurchase/update`,    // append `/${id}` at call site
+    YARN_PURCHASE_OPEN: `${API_URL}/yarnPurchase/open`,
+    YARN_PURCHASE_CANCEL: `${API_URL}/yarnPurchase/cancel`,
+    YARN_PURCHASE_SEND_FOR_APPROVAL: `${API_URL}/yarnPurchase/send_for_approval`,
+    YARN_PURCHASE_APPROVE: `${API_URL}/yarnPurchase/approve`,
+    YARN_PURCHASE_REJECT: `${API_URL}/yarnPurchase/reject`,
+    YARN_PURCHASE_REOPEN: `${API_URL}/yarnPurchase/reopen`,
+
+    // Yarn Issue / Return (purchased yarn godown <-> department floor, kg) — same spec §3.2
+    YARN_ISSUE_SETUP: `${API_URL}/yarnIssue/setup`,
+    YARN_ISSUE_GODOWN_LOTS: `${API_URL}/yarnIssue/godown_lots`,   // ISSUE lot picker (oldest first)
+    YARN_ISSUE_DEPT_LOTS: `${API_URL}/yarnIssue/dept_lots`,       // RETURN lot picker for one department
+    YARN_ISSUE_LIST: `${API_URL}/yarnIssue/list`,
+    YARN_ISSUE_GET: `${API_URL}/yarnIssue/get`,                   // append `/${id}` at call site
+    YARN_ISSUE_CREATE: `${API_URL}/yarnIssue/create`,
+    YARN_ISSUE_UPDATE: `${API_URL}/yarnIssue/update`,             // append `/${id}` at call site
+    YARN_ISSUE_OPEN: `${API_URL}/yarnIssue/open`,
+    YARN_ISSUE_CANCEL: `${API_URL}/yarnIssue/cancel`,
+    YARN_ISSUE_SEND_FOR_APPROVAL: `${API_URL}/yarnIssue/send_for_approval`,
+    YARN_ISSUE_APPROVE: `${API_URL}/yarnIssue/approve`,
+    YARN_ISSUE_REJECT: `${API_URL}/yarnIssue/reject`,
+    YARN_ISSUE_REOPEN: `${API_URL}/yarnIssue/reopen`,
+
     // Batch Daily Assign
     BATCH_DAILY_ASSIGN_TABLE: `${API_URL}/batchDailyAssign/get_assign_table`,
     BATCH_DAILY_ASSIGN_BY_DATE: `${API_URL}/batchDailyAssign/get_assigns_by_date`,
@@ -391,6 +436,7 @@ const apiRoutesPortalMasters = {
     JUTE_REPORT_PO_OPTIONS: `${API_URL}/juteReports/po-options`,
     JUTE_REPORT_PO_MR_RECEIPT_DETAIL: `${API_URL}/juteReports/po-mr-receipt-detail`,
     JUTE_REPORT_PO_PENDING: `${API_URL}/juteReports/po-pending`,
+    JUTE_REPORT_PO_OUTSTANDING_POSITION: `${API_URL}/juteReports/po-outstanding-position`,
     SALES_REPORT_JUTE_TALLY_DOWNLOAD: `${API_URL}/salesReports/jute-tally-download`,
     SALES_REPORT_JUTE_MR_SUMMARY: `${API_URL}/salesReports/jute-mr-summary`,
     SALES_REPORT_SALES_ORDER_LIST: `${API_URL}/salesReports/sales-order-list`,
@@ -1101,6 +1147,8 @@ const apiRoutesPortalMasters = {
     // Daily Production Report (whole-mill one-pager)
     JUTE_PROD_DPR: `${API_URL}/juteProductionReports/daily_production_report`,
     WINDING_WEAVING_DIFFERENCE: `${API_URL}/juteProductionReports/winding_weaving_difference`,
+    // Purchased Yarn Ledger — godown/floor movement of bought yarn, per month
+    PURCHASED_YARN_LEDGER: `${API_URL}/juteProductionReports/purchased_yarn_ledger`,
     LOOM_CHECKLIST: `${API_URL}/juteProductionReports/loom_checklist`,
     WINDING_CHECKLIST: `${API_URL}/juteProductionReports/winding_checklist`,
     BEAMING_CHECKLIST: `${API_URL}/juteProductionReports/beaming_checklist`,
@@ -1278,6 +1326,32 @@ const apiRoutesPortalMasters = {
     JUTE_WASTE_ENTRIES_BY_DATE: `${API_URL}/juteWasteProd/entries_by_date`,
     JUTE_WASTE_ENTRY_EDIT: `${API_URL}/juteWasteProd/entry_edit`,
     JUTE_WASTE_ENTRY_DELETE: `${API_URL}/juteWasteProd/entry_delete`,
+    // Bale Production (router prefix /api/baleProd) — BALE_PROD_ENTRY_EDIT/DELETE and
+    // BALE_SERIES_EDIT/DELETE are base paths; caller appends /${id}?co_id=...
+    BALE_PROD_ENTRY_SETUP: `${API_URL}/baleProd/entry_setup`,
+    BALE_PROD_NEXT_BALE_NO: `${API_URL}/baleProd/next_bale_no`,
+    BALE_PROD_ENTRIES_BY_DATE: `${API_URL}/baleProd/entries_by_date`,
+    BALE_PROD_ENTRY_CREATE: `${API_URL}/baleProd/entry_create`,
+    BALE_PROD_ENTRY_EDIT: `${API_URL}/baleProd/entry_edit`,
+    BALE_PROD_ENTRY_DELETE: `${API_URL}/baleProd/entry_delete`,
+    BALE_PROD_BALE_SEARCH: `${API_URL}/baleProd/bale_search`,
+    BALE_SERIES_SETUP: `${API_URL}/baleProd/series_setup`,
+    BALE_SERIES_LIST: `${API_URL}/baleProd/series_list`,
+    BALE_SERIES_CREATE: `${API_URL}/baleProd/series_create`,
+    BALE_SERIES_EDIT: `${API_URL}/baleProd/series_edit`,
+    BALE_SERIES_DELETE: `${API_URL}/baleProd/series_delete`,
+    // Bale reports (router prefix /api/juteProductionReports)
+    BALE_REPORT_DAILY_SHEET: `${API_URL}/juteProductionReports/bale_daily_sheet`,
+    BALE_REPORT_HEAVY_LIGHT: `${API_URL}/juteProductionReports/bale_heavy_light`,
+    // Selection Trolley Weight (router prefix /api/selectionProd) — SELECTION_TW_ENTRY_EDIT/
+    // DELETE are base paths; caller appends /${id}?co_id=...
+    SELECTION_TW_ENTRY_SETUP: `${API_URL}/selectionProd/entry_setup`,
+    SELECTION_TW_ENTRIES_BY_DATE: `${API_URL}/selectionProd/entries_by_date`,
+    SELECTION_TW_ENTRY_CREATE: `${API_URL}/selectionProd/entry_create`,
+    SELECTION_TW_ENTRY_EDIT: `${API_URL}/selectionProd/entry_edit`,
+    SELECTION_TW_ENTRY_DELETE: `${API_URL}/selectionProd/entry_delete`,
+    // Selection vs Jute Issue report (router prefix /api/juteProductionReports)
+    SELECTION_VS_ISSUE_REPORT: `${API_URL}/juteProductionReports/selection_vs_issue`,
     // Wastage Area master — same router; WASTAGE_AREA_EDIT is a base path, caller
     // appends /${id}?co_id=...
     WASTAGE_AREA_LIST: `${API_URL}/juteWasteProd/area_list`,
@@ -1342,6 +1416,14 @@ const apiRoutesPortalMasters = {
     FINISHING_PROD_EMPLOYEE_LOOKUP: `${API_URL}/finishingProd/employee_lookup`,
     // hemming/herackle: stamp eb_id onto the day+spell's rows from attendance.
     FINISHING_PROD_ENTRY_SYNC_EB: `${API_URL}/finishingProd/entry_sync_eb`,
+    // Finishing Stock — daily physical stock of bales + loose finishing WIP (router prefix /api/finishingStock).
+    FINISHING_STOCK_SETUP: `${API_URL}/finishingStock/setup`,
+    FINISHING_STOCK_ROWS_BY_DATE: `${API_URL}/finishingStock/rows_by_date`,
+    FINISHING_STOCK_ROW_CREATE: `${API_URL}/finishingStock/row_create`,
+    FINISHING_STOCK_ROW_EDIT: `${API_URL}/finishingStock/row_edit`,
+    FINISHING_STOCK_ROW_DELETE: `${API_URL}/finishingStock/row_delete`,
+    FINISHING_STOCK_COPY_PREVIOUS_DAY: `${API_URL}/finishingStock/copy_previous_day`,
+    FINISHING_STOCK_REPORT: `${API_URL}/finishingStock/report`,
     // Finishing SQC — ACTUALS ONLY (router prefix /api/juteSQC, shared with Spinning/Beaming SQC).
     // Proxies to finishingTargetMap with value_role='actual'.
     FINISHING_SQC_SETUP: `${API_URL}/juteSQC/finishing_sqc_setup`,
@@ -1489,12 +1571,16 @@ const apiRoutesSupport = {
     PORTAL_TICKET: `${API_URL}/supportTicket/portal/ticket`, // append /{id} (and /{id}/attachment)
     PORTAL_COMMENT: `${API_URL}/supportTicket/portal/comment`,
     PORTAL_ATTACHMENT: `${API_URL}/supportTicket/portal/attachment`, // append /{id}
+    PORTAL_NOTIFICATIONS: `${API_URL}/supportTicket/portal/notifications`,
+    PORTAL_NOTIFICATIONS_READ: `${API_URL}/supportTicket/portal/notifications/read`,
     // Reporter side — Tenant Admin
     ADMIN_RAISE: `${API_URL}/supportTicket/admin/raise`,
     ADMIN_MY_TICKETS: `${API_URL}/supportTicket/admin/my-tickets`,
     ADMIN_TICKET: `${API_URL}/supportTicket/admin/ticket`, // append /{id} (and /{id}/attachment)
     ADMIN_COMMENT: `${API_URL}/supportTicket/admin/comment`,
     ADMIN_ATTACHMENT: `${API_URL}/supportTicket/admin/attachment`, // append /{id}
+    ADMIN_NOTIFICATIONS: `${API_URL}/supportTicket/admin/notifications`,
+    ADMIN_NOTIFICATIONS_READ: `${API_URL}/supportTicket/admin/notifications/read`,
     // VOW management — Control Desk
     MANAGE_LIST: `${API_URL}/supportTicket/manage/list`,
     MANAGE_STATS: `${API_URL}/supportTicket/manage/stats`,
@@ -1504,6 +1590,8 @@ const apiRoutesSupport = {
     MANAGE_TRANSITION: `${API_URL}/supportTicket/manage/transition`,
     MANAGE_COMMENT: `${API_URL}/supportTicket/manage/comment`,
     MANAGE_ATTACHMENT: `${API_URL}/supportTicket/manage/attachment`, // append /{id}
+    MANAGE_NOTIFICATIONS: `${API_URL}/supportTicket/manage/notifications`,
+    MANAGE_NOTIFICATIONS_READ: `${API_URL}/supportTicket/manage/notifications/read`,
 };
 
 export { apiRoutes, apiRoutesconsole, apiRoutesPortalMasters, apiRoutesSupport };

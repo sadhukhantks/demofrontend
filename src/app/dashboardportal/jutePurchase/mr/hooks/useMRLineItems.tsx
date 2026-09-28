@@ -30,7 +30,9 @@ export function useMRLineItems({
 			},
 			{
 				id: "actualQualityName",
-				header: "Actual Quality",
+				// Raw jute shows its quality; jute waste has no quality level, so the
+				// waste item itself is shown here.
+				header: "Actual Quality / Item",
 				width: "1.2fr",
 				renderCell: ({ item }) => (
 					<span className="text-xs">{item.actualQualityName || "-"}</span>
@@ -160,6 +162,19 @@ export function useMRLineItems({
 					item.allowableMoisture != null
 						? `Allowable Moisture: ${item.allowableMoisture.toFixed(2)}%`
 						: undefined,
+			},
+			{
+				id: "millMoisture",
+				header: "Mill Moisture (%)",
+				width: "1fr",
+				// Read-only: original QC-recorded moisture (avg of readings); settled value is actualMoisture.
+				renderCell: ({ item }) => (
+					<span className="text-xs">
+						{item.millMoisture != null ? item.millMoisture.toFixed(2) : "—"}
+					</span>
+				),
+				getTooltip: ({ item }) =>
+					item.millMoisture != null ? `Mill Moisture: ${item.millMoisture.toFixed(2)}%` : undefined,
 			},
 			{
 				id: "actualMoisture",

@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, TextField, Tooltip, IconButton, Typography, Stack } from "@mui/material";
 import { GridColDef, GridFilterModel, GridPaginationModel, GridRenderCellParams, GridValidRowModel } from "@mui/x-data-grid";
+import type { GridRowParams } from "@mui/x-data-grid";
 import { usePathname } from "next/navigation";
 import { Eye, Edit } from "lucide-react";
 import MuiDataGrid from "./muiDataGrid";
@@ -48,6 +49,8 @@ type IndexWrapperProps<RowType extends GridValidRowModel & { id?: string | numbe
    * even if the user has page-level edit permission.
    * When not provided, all rows follow page-level permission (current behavior). */
   isRowEditable?: (row: RowType) => boolean;
+  /** Fired when a row body is clicked (the action icons keep working independently). */
+  onRowClick?: (row: RowType) => void;
   toolbarContent?: React.ReactNode;
   /** Rendered between the title block and the toolbar row (e.g. summary cards) */
   headerContent?: React.ReactNode;
@@ -78,6 +81,7 @@ function IndexWrapper<RowType extends GridValidRowModel & { id?: string | number
   onView,
   onEdit,
   isRowEditable,
+  onRowClick,
   toolbarContent,
   headerContent,
   children,
@@ -275,6 +279,7 @@ function IndexWrapper<RowType extends GridValidRowModel & { id?: string | number
           rowCount={rowCount}
           paginationModel={paginationModel}
           onPaginationModelChange={onPaginationModelChange}
+          onRowClick={onRowClick ? (params: GridRowParams<RowType>) => onRowClick(params.row) : undefined}
           paginationMode="server"
           loading={loading}
           showLoadingUntilLoaded={showLoadingUntilLoaded}

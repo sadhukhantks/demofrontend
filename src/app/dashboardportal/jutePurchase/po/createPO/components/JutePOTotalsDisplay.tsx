@@ -3,10 +3,11 @@
 /**
  * @component JutePOTotalsDisplay
  * @description Displays the calculated totals for Jute PO (total weight and amount).
- * Shows vehicle weight validation status.
+ * Shows vehicle weight validation status and, when any, the lorries returned against the PO.
  */
 
 import * as React from "react";
+import { Typography } from "@mui/material";
 import { formatWeight, formatAmount, validateVehicleWeight, VEHICLE_WEIGHT_TOLERANCE_PERCENT } from "../utils/jutePOCalculations";
 
 type JutePOTotalsDisplayProps = {
@@ -17,6 +18,8 @@ type JutePOTotalsDisplayProps = {
   vehicleQty?: number;
   percentageSum?: number;
   isLegacyPO?: boolean;
+  /** Returned lorries (MR status 48) on this PO; the line is hidden when absent or 0. */
+  returnedLorries?: number | null;
 };
 
 export function JutePOTotalsDisplay({
@@ -27,6 +30,7 @@ export function JutePOTotalsDisplay({
   vehicleQty = 1,
   percentageSum = 0,
   isLegacyPO = false,
+  returnedLorries = null,
 }: JutePOTotalsDisplayProps) {
   const weightValidation = React.useMemo(
     () => validateVehicleWeight(totalWeight, vehicleCapacityQtl, vehicleQty),
@@ -103,6 +107,12 @@ export function JutePOTotalsDisplay({
           <span className="text-lg font-semibold text-green-700">₹ {formatAmount(totalAmount)}</span>
         </div>
       </div>
+
+      {returnedLorries != null && returnedLorries > 0 ? (
+        <Typography variant="body2" color="error.main" sx={{ mt: 1, fontWeight: 600 }}>
+          Returned lorries: {returnedLorries}
+        </Typography>
+      ) : null}
     </div>
   );
 }

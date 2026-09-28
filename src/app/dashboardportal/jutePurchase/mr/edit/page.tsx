@@ -177,6 +177,9 @@ function JuteMREditPageContent() {
 	const [header, setHeader] = React.useState<JuteMRHeader | null>(null);
 	const [lineItems, setLineItems] = React.useState<MRLineItem[]>([]);
 	const [saving, setSaving] = React.useState(false);
+	// Backend warning from the last save (TKT-000196): a line now holds less weight
+	// than the floor has already issued from it. Shown until the next save/reload.
+	const [saveWarning, setSaveWarning] = React.useState<string | null>(null);
 	const [warehouseOptions, setWarehouseOptions] = React.useState<Array<{ value: number; label: string }>>([]);
 	const [partyOptions, setPartyOptions] = React.useState<Array<{ value: string; label: string }>>([]);
 	const [partyBranchOptions, setPartyBranchOptions] = React.useState<PartyBranchOption[]>([]);
@@ -424,6 +427,7 @@ function JuteMREditPageContent() {
 					actualWeight: li.actual_weight,
 					allowableMoisture: li.allowable_moisture,
 					actualMoisture: actualMoistureNum,
+					millMoisture: li.mill_moisture != null ? Number(li.mill_moisture) : null,
 					claimDust: li.claim_dust,
 					shortageKgs: shortageKgs ?? li.shortage_kgs,
 					acceptedWeight,
@@ -556,6 +560,7 @@ function JuteMREditPageContent() {
 
 		setSaving(true);
 		setPageError(null);
+		setSaveWarning(null);
 
 		try {
 			const payload = {
@@ -585,12 +590,13 @@ function JuteMREditPageContent() {
 			};
 
 			const url = `${apiRoutesPortalMasters.JUTE_MR_UPDATE}/${header.jute_mr_id}?co_id=${coId}`;
-			const { error } = await fetchWithCookie(url, "PUT", payload);
+			const { data, error } = await fetchWithCookie<{ warning?: string | null }>(url, "PUT", payload);
 			if (error) {
 				setPageError(error);
 				setSaving(false);
 				return;
 			}
+			setSaveWarning(data?.warning ?? null);
 
 			// Reload data to get updated values
 			await loadData();
@@ -703,6 +709,11 @@ function JuteMREditPageContent() {
 				{reopenWarning ? (
 					<Alert severity="warning" sx={{ mb: 2 }}>
 						{reopenWarning}
+					</Alert>
+				) : null}
+				{saveWarning ? (
+					<Alert severity="warning" sx={{ mb: 2 }} onClose={() => setSaveWarning(null)}>
+						{saveWarning}
 					</Alert>
 				) : null}
 				<MRHeaderForm

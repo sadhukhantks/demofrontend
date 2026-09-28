@@ -2,21 +2,28 @@
 
 import * as React from "react";
 import { Box, Chip, Divider, Typography } from "@mui/material";
-import { BUCKET_LABELS, formatMt } from "../utils/stockCalc";
+import { BUCKET_LABELS, LOCATION_LABELS, formatMt, type LocationTotals } from "../utils/stockCalc";
 
 export interface StockTotalsFooterProps {
 	/** MT total per bucket for the rows currently in the grid. */
 	bucketTotals: Record<string, number>;
 	/** Sum of every bucket's MT for the selected date. */
 	grandTotal: number;
+	/** MT split by where the yarn sits (godown vs floor); sums to grandTotal. */
+	locationTotals: LocationTotals;
 }
 
 /**
  * Footer under the day grid: one chip per bucket (fixed set, always shown so
  * a zero-count bucket still reads as "counted, none on hand" rather than
- * vanishing), plus the day's grand total. Same shape as WasteTotalsFooter.
+ * vanishing), plus the day's grand total, with the godown / floor split on a
+ * second line. Same shape as WasteTotalsFooter.
  */
-export default function StockTotalsFooter({ bucketTotals, grandTotal }: StockTotalsFooterProps) {
+export default function StockTotalsFooter({
+	bucketTotals,
+	grandTotal,
+	locationTotals,
+}: StockTotalsFooterProps) {
 	return (
 		<Box
 			sx={{
@@ -46,6 +53,10 @@ export default function StockTotalsFooter({ bucketTotals, grandTotal }: StockTot
 					All buckets: {formatMt(grandTotal)} MT
 				</Typography>
 			</Box>
+			<Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+				{LOCATION_LABELS.GODOWN} {formatMt(locationTotals.GODOWN)} MT · {LOCATION_LABELS.FLOOR}{" "}
+				{formatMt(locationTotals.FLOOR)} MT
+			</Typography>
 		</Box>
 	);
 }

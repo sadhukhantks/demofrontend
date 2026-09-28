@@ -150,6 +150,12 @@ Both login functions send `X-Subdomain` header extracted from hostname.
 
 ### Cookies
 
-- `access_token` -- JWT auth token (all dashboards)
-- `portal_permission_token` -- permission data (Portal only)
+- `access_token` -- JWT auth token (all dashboards). httpOnly, persisted for the refresh-token
+  lifetime (7 days). The JWT inside lasts 30 minutes; every cookie-protected backend endpoint
+  silently reissues it while the user's stored refresh token is valid, so the frontend never
+  refreshes explicitly.
+- `portal_permission_token` -- permission data (Portal only), same lifetime.
 - `subdomain` -- tenant identifier
+- Logging out: call `logout()` from `src/utils/auth.ts` (it POSTs `apiRoutes.LOGOUT` to expire the
+  httpOnly cookies, which `document.cookie` cannot touch, then clears localStorage and redirects).
+  On phone widths every dashboard layout shows a Logout button in `MobileTopBar`.

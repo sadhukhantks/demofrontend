@@ -880,7 +880,7 @@ function JuteGateEntryCreatePageContent() {
 			(li) => !li.actualQuality || !li.actualQty
 		);
 		if (incompleteLines.length > 0) {
-			setPageError("Please fill in Actual Quality and Actual Qty for all line items");
+			setPageError("Please fill in Actual Quality / Item and Actual Qty for all line items");
 			return;
 		}
 

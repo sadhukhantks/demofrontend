@@ -2,11 +2,10 @@
 import Link from "next/link";
 import { Users, LogOut, Key } from "lucide-react";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { logout } from "@/utils/auth";
 
 export function FixedMenu({ isCollapsed }: { isCollapsed: boolean }) {
   const [open, setOpen] = useState(false);
-  const router = useRouter();
   let compshow = 1;
   const currentHost = typeof window !== "undefined" ? window.location.host : "";
   // console.log("Detected Host:", currentHost, typeof window !== "undefined" ? window.location.href : "");
@@ -18,10 +17,7 @@ export function FixedMenu({ isCollapsed }: { isCollapsed: boolean }) {
 
   const handleLogout = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
-    // Remove access_token from cookies if needed
-    localStorage.removeItem("user");
-    localStorage.clear();
-    router.push("/");
+    void logout();
   };
 
   return (

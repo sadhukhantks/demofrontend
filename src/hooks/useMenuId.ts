@@ -2,7 +2,7 @@ import React from "react";
 import { usePathname } from "next/navigation";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 
-type TransactionType = "indent" | "po" | "purchaseorder" | "grn" | "invoice" | "stock-transfer" | "delivery-order" | "quotation" | "salesOrder" | "sales-invoice" | "mr" | "priceEnquiry";
+type TransactionType = "indent" | "po" | "purchaseorder" | "grn" | "invoice" | "stock-transfer" | "delivery-order" | "quotation" | "salesOrder" | "sales-invoice" | "mr" | "priceEnquiry" | "yarnPurchase" | "yarnIssue";
 
 /**
  * Menu path patterns for each transaction type.
@@ -66,6 +66,22 @@ const TRANSACTION_MENU_PATTERNS: Record<TransactionType, { pathIncludes: string[
 		pathIncludes: ["jutepurchase/mr", "jute/mr"],
 		nameIncludes: ["material receipt"],
 		excludes: [],
+	},
+	yarnPurchase: {
+		// Yarn Purchase (purchased yarn receipt) under Jute Procurement; the sidebar
+		// menu_path is `jutePurchase/yarnPurchase`. Name matching is deliberately
+		// off so a "Yarn Purchase Ledger" report can never be picked instead.
+		pathIncludes: ["jutepurchase/yarnpurchase"],
+		nameIncludes: [],
+		excludes: ["ledger", "report"],
+	},
+	yarnIssue: {
+		// Yarn Issue / Return (purchased yarn godown <-> department floor) under Jute
+		// Procurement; the sidebar menu_path is `jutePurchase/yarnIssue`. Path-only
+		// matching, as for yarnPurchase, so no report menu can be picked instead.
+		pathIncludes: ["jutepurchase/yarnissue"],
+		nameIncludes: [],
+		excludes: ["ledger", "report"],
 	},
 	priceEnquiry: {
 		pathIncludes: ["procurement/priceenquiry", "procurement/price-enquiry"],
