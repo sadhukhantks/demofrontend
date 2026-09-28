@@ -13,6 +13,8 @@ export interface ReportExportHeader {
 
 export const BLUE = "FF3EA6DA";
 export const WHITE = "FFFFFFFF";
+/** Light green cell fill (Excel's "Good" shade) for highlighted cells. */
+export const GOOD_FILL = "FFC6EFCE";
 export const GRID_LINE = { style: "thin", color: { argb: "FF9E9E9E" } } as const;
 export const HEADER_LINE = { style: "thin", color: { argb: WHITE } } as const;
 
