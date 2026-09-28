@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { Box, Alert, CircularProgress, Typography } from "@mui/material";
+import { alpha, type Theme } from "@mui/material/styles";
 import {
   DataGrid,
   GridColDef,
@@ -36,7 +37,8 @@ interface ReportGridProps<T extends GridValidRowModel> {
   onRowDoubleClick?: (row: T) => void;
   /** Extra class for data rows (total rows keep their own class). The shared
    * styles ship two: "report-perf-low" (red tint) and "report-perf-watch"
-   * (amber tint) for performance-highlight reports. */
+   * (amber tint) for performance-highlight reports. For a single cell, give
+   * the column a cellClassName of "report-cell-good" (light green). */
   getRowClass?: (row: T) => string;
 }
 
@@ -234,6 +236,11 @@ export default function ReportGrid<T extends GridValidRowModel>({
               {
                 backgroundColor: "#fff8e1",
               },
+            // Cell-level highlight (a column's cellClassName), e.g. a day that
+            // earned an incentive.
+            "& .MuiDataGrid-cell.report-cell-good": {
+              backgroundColor: (t: Theme) => alpha(t.palette.success.main, 0.2),
+            },
           }}
         />
       </Box>

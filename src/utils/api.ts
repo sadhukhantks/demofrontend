@@ -916,6 +916,40 @@ const apiRoutesPortalMasters = {
     LEAVE_TYPE_CREATE: `${API_URL}/hrmsMasters/leave_type_create`,
     LEAVE_TYPE_EDIT: `${API_URL}/hrmsMasters/leave_type_edit`,
 
+    // EJM Efficiency Code Entry (wages/ejm/effCodeEntry)
+    EJM_EFF_CODE_TYPE_TABLE: `${API_URL}/hrmsMasters/get_ejm_eff_code_type_table`,
+    EJM_EFF_CODE_TYPE_BY_ID: `${API_URL}/hrmsMasters/get_ejm_eff_code_type_by_id`,
+    EJM_EFF_CODE_TYPE_CREATE: `${API_URL}/hrmsMasters/ejm_eff_code_type_create`,
+    EJM_EFF_CODE_TYPE_EDIT: `${API_URL}/hrmsMasters/ejm_eff_code_type_edit`,
+
+    // EJM Fortnight-wise Efficiency Code Entry (wages/ejm/efffneCodeEntry)
+    FORTHNIGHT_PERIODS: `${API_URL}/hrmsMasters/get_forthnight_periods`,
+    EJM_FNE_EFF_CODE_TABLE: `${API_URL}/hrmsMasters/get_ejm_fne_eff_code_type`,
+    EJM_FNE_EFF_CODE_SAVE: `${API_URL}/hrmsMasters/ejm_fne_eff_code_type_save`,
+    EJM_FNE_EFF_CODE_STATUS: `${API_URL}/hrmsMasters/ejm_fne_eff_code_type_status`,
+
+    // EJM Piece Rate / Occupation Entry (wages/ejm/pieceRateOccuEntry)
+    EJM_PIECE_OCCU_DESIGNATIONS: `${API_URL}/hrmsMasters/get_ejm_piece_occupation_designations`,
+    EJM_PIECE_OCCU_RATE_TABLE: `${API_URL}/hrmsMasters/get_ejm_piece_occupation_rate_table`,
+    EJM_PIECE_OCCU_RATE_BY_ID: `${API_URL}/hrmsMasters/get_ejm_piece_occupation_rate_by_id`,
+    EJM_PIECE_OCCU_RATE_CREATE: `${API_URL}/hrmsMasters/ejm_piece_occupation_rate_create`,
+    EJM_PIECE_OCCU_RATE_EDIT: `${API_URL}/hrmsMasters/ejm_piece_occupation_rate_edit`,
+
+    // EJM Fortnightly Wages Quality Target (wages/ejm/fnewagesEntry)
+    EJM_FNE_QUAL_TARGET_DEPARTMENTS: `${API_URL}/hrmsMasters/get_ejm_fne_qual_target_departments`,
+    EJM_FNE_QUAL_TARGET_QUALITIES: `${API_URL}/hrmsMasters/get_ejm_fne_qual_target_qualities`,
+    EJM_FNE_QUAL_TARGET_TABLE: `${API_URL}/hrmsMasters/get_ejm_fne_qual_target_table`,
+    EJM_FNE_QUAL_TARGET_BY_ID: `${API_URL}/hrmsMasters/get_ejm_fne_qual_target_by_id`,
+    EJM_FNE_QUAL_TARGET_CREATE: `${API_URL}/hrmsMasters/ejm_fne_qual_target_create`,
+    EJM_FNE_QUAL_TARGET_EDIT: `${API_URL}/hrmsMasters/ejm_fne_qual_target_edit`,
+
+    // EJM Wages Quality Rate (wages/ejm/qualityRateEntry) — department and
+    // quality pickers are shared with EJM_FNE_QUAL_TARGET_* above.
+    EJM_WAGES_QUALITY_RATE_TABLE: `${API_URL}/hrmsMasters/get_ejm_wages_quality_rate_table`,
+    EJM_WAGES_QUALITY_RATE_BY_ID: `${API_URL}/hrmsMasters/get_ejm_wages_quality_rate_by_id`,
+    EJM_WAGES_QUALITY_RATE_CREATE: `${API_URL}/hrmsMasters/ejm_wages_quality_rate_create`,
+    EJM_WAGES_QUALITY_RATE_EDIT: `${API_URL}/hrmsMasters/ejm_wages_quality_rate_edit`,
+
     // HRMS Bio Attendance (employee↔device mapping + bio data process)
     BIO_EMP_LINK_SETUP: `${API_URL}/hrmsMasters/bio_emp_link_setup`,
     BIO_EMP_LINK_TABLE: `${API_URL}/hrmsMasters/get_bio_emp_link_table`,
@@ -1074,6 +1108,7 @@ const apiRoutesPortalMasters = {
     ATTENDANCE_CHECKLIST: `${API_URL}/juteProductionReports/attendance_checklist`,
     // MIS port — low producer / doff / hands reports
     JP_WEAVING_LOW_PRODUCER: `${API_URL}/juteProductionReports/weaving_low_producer`,
+    JP_S4_INCENTIVE: `${API_URL}/juteProductionReports/s4_incentive`,
     JP_SPINNING_LOW_PRODUCER: `${API_URL}/juteProductionReports/spinning_low_producer`,
     JP_WINDING_LOW_PRODUCER: `${API_URL}/juteProductionReports/winding_low_producer`,
     JP_DOFF_ANALYSIS: `${API_URL}/juteProductionReports/doff_analysis`,

@@ -17,6 +17,8 @@ interface OfficialInformationStepProps {
     bank: BankDetails | null;
   };
   disabled: boolean;
+  /** Work Details read-only (record past Draft/Open); salary + bank stay editable. */
+  workDetailsLocked?: boolean;
   setup: ReturnType<typeof useEmployeeSetup>;
   sidebarBranchId: string;
   ebId: number | null;
@@ -32,6 +34,7 @@ const SUB_TABS = ["Work Details", "Salary Structure", "Bank Details"] as const;
 export default function OfficialInformationStep({
   data,
   disabled,
+  workDetailsLocked = false,
   setup,
   sidebarBranchId,
   ebId,
@@ -80,7 +83,7 @@ export default function OfficialInformationStep({
       {/* Tab content */}
       <Box className="rounded-lg border bg-white p-6 shadow-sm">
         {activeTab === 0 && (
-          <OfficialStep data={data.official} onChange={onOfficialChange} disabled={disabled} setup={setup} sidebarBranchId={sidebarBranchId} ebId={ebId} />
+          <OfficialStep data={data.official} onChange={onOfficialChange} disabled={disabled || workDetailsLocked} setup={setup} sidebarBranchId={sidebarBranchId} ebId={ebId} />
         )}
         {activeTab === 1 && (
           <SalaryStructureStep ebId={ebId} branchId={sidebarBranchId} disabled={disabled} saving={saving} />
