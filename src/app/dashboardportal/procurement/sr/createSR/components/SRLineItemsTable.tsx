@@ -332,40 +332,58 @@ export const useSRLineItemColumns = ({
 						effectiveOptions = [...warehouseOptions, selectedOption];
 					}
 
+					// TKT-000194: no warehouse picked yet — show where this item was
+					// stored last time as a non-blocking hint under the field. Purely
+					// informational; does not auto-select.
+					const lastWarehouseHint =
+						!item.warehouse_id && item.last_warehouse_id
+							? `Last: ${item.last_warehouse_path || item.last_warehouse_name}`
+							: null;
+
 					return (
-						<Autocomplete
-							size="small"
-							options={effectiveOptions}
-							value={selectedOption}
-							onChange={(_, newValue) => {
-								onLineItemChange(item.id, "warehouse_id", newValue ? Number(newValue.value) : null);
-							}}
-							getOptionLabel={(opt) => opt.label}
-							isOptionEqualToValue={(opt, val) => opt.value === val.value}
-							renderOption={(props, option) => {
-								const { key, ...rest } = props;
-								return (
-									<li key={`wh-${option.value}-${item.id}`} {...rest}>
-										{option.label}
-									</li>
-								);
-							}}
-							renderInput={(params) => (
-								<TextField
-									{...params}
-									placeholder="Select warehouse"
-									variant="outlined"
-									size="small"
-									error={item.warehouse_id === null || item.warehouse_id === undefined}
-								/>
+						<div className="flex flex-col gap-0.5 w-full">
+							<Autocomplete
+								size="small"
+								options={effectiveOptions}
+								value={selectedOption}
+								onChange={(_, newValue) => {
+									onLineItemChange(item.id, "warehouse_id", newValue ? Number(newValue.value) : null);
+								}}
+								getOptionLabel={(opt) => opt.label}
+								isOptionEqualToValue={(opt, val) => opt.value === val.value}
+								renderOption={(props, option) => {
+									const { key, ...rest } = props;
+									return (
+										<li key={`wh-${option.value}-${item.id}`} {...rest}>
+											{option.label}
+										</li>
+									);
+								}}
+								renderInput={(params) => (
+									<TextField
+										{...params}
+										placeholder="Select warehouse"
+										variant="outlined"
+										size="small"
+										error={item.warehouse_id === null || item.warehouse_id === undefined}
+									/>
+								)}
+								sx={{ width: "100%" }}
+							/>
+							{lastWarehouseHint && (
+								<span className="text-[11px] leading-tight text-slate-500 truncate">
+									{lastWarehouseHint}
+								</span>
 							)}
-							sx={{ width: "100%" }}
-						/>
+						</div>
 					);
 				},
 				getTooltip: ({ item }) => {
 					if (item.warehouse_id) {
 						return warehouseLabelMap[String(item.warehouse_id)] || item.warehouse_path || item.warehouse_name || undefined;
+					}
+					if (item.last_warehouse_id) {
+						return `Warehouse is required (last used: ${item.last_warehouse_path || item.last_warehouse_name})`;
 					}
 					return "Warehouse is required";
 				},
