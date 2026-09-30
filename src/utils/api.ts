@@ -828,6 +828,14 @@ const apiRoutesPortalMasters = {
     EJM_DRAWING_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_drawing_eff_process`,
     // Spinner efficiency (legacy DOFFEFF1.PRG) -> ejm_fne_wages_eff_data
     EJM_SPINNING_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_spinning_eff_process`,
+    // Doff mazdoor / sliver feeder / piecer efficiency (legacy DOFMAZRP.PRG)
+    EJM_DOFF_MAZDOOR_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_doff_mazdoor_eff_process`,
+    // Loom / weaver efficiency (legacy LOOMEFF1.PRG)
+    EJM_LOOM_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_loom_eff_process`,
+    // Beaming efficiency (legacy BEAMEFF1.PRG)
+    EJM_BEAMING_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_beaming_eff_process`,
+    // Finishing efficiency (legacy FINISHEF.PRG)
+    EJM_FINISHING_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_finishing_eff_process`,
     EJM_WAGES_PAYROLL_EXCEL: `${API_URL}/hrmsMasters/ejm_wages_payroll_excel`,
     // EJM Pay Register / OT Register grids (legacy pay_register_payslip.php / ot_register_payslip.php)
     EJM_PAY_REGISTER_REPORT: `${API_URL}/hrmsMasters/ejm_pay_register_report`,
