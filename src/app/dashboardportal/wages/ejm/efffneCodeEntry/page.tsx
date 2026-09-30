@@ -1,45 +1,22 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Box, Card, CardContent, Snackbar, Typography } from "@mui/material";
+import { Alert, Box, Button, Card, CardContent, Chip, Snackbar, Typography } from "@mui/material";
 import { DataGrid, GridColDef, GridRowModel } from "@mui/x-data-grid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import type { ApprovalStatusId } from "@/components/ui/transaction";
 import {
-	ApprovalActionsBar,
-	type ApprovalActionPermissions,
-	type ApprovalInfo,
-	type ApprovalStatusId,
-} from "@/components/ui/transaction";
-import {
-	EDITABLE_STATUSES,
 	STATUS_LABELS,
 	fneSavePayloadSchema,
+	isEditableStatus,
 	type FneEffCodeRow,
-	type FneStatusAction,
 	type ForthnightPeriod,
 } from "./types";
 
 const formatPeriod = (p: ForthnightPeriod) =>
 	`${p.start_date} → ${p.end_date}${p.type_of_period === 1 ? " (1st half)" : " (2nd half)"}`;
-
-/** Only the six actions the backend accepts; permissions follow the status. */
-const permissionsFor = (statusId: ApprovalStatusId): ApprovalActionPermissions => {
-	switch (statusId) {
-		case 21:
-			return { canSave: true, canOpen: true, canCancelDraft: true };
-		case 1:
-			return { canSave: true, canSendForApproval: true };
-		case 20:
-			return { canApprove: true, canReject: true };
-		case 4:
-		case 6:
-			return { canReopen: true };
-		default:
-			return {};
-	}
-};
 
 export default function EffFneCodeEntryPage() {
 	const [periods, setPeriods] = useState<ForthnightPeriod[]>([]);
@@ -116,7 +93,7 @@ export default function EffFneCodeEntryPage() {
 		if (period) loadRows(period.forthnight_id);
 	}, [period, loadRows]);
 
-	const editable = EDITABLE_STATUSES.includes(statusId);
+	const editable = isEditableStatus(statusId);
 
 	const handleRowUpdate = useCallback((updated: GridRowModel) => {
 		const raw = updated.eff_pc;
@@ -126,16 +103,13 @@ export default function EffFneCodeEntryPage() {
 		return next;
 	}, []);
 
-	const handleSave = useCallback(async () => {
-		if (!period) return notify("Select a fortnight period first", "error");
-		setBusy(true);
-		try {
-			const parsed = fneSavePayloadSchema.safeParse({
-				forthnig_id: period.forthnight_id,
-				lines: rows
-					.filter((r) => r.eff_pc !== null)
-					.map((r) => ({ eff_code: r.eff_code, eff_pc: r.eff_pc as number })),
-			});
+	/** Persists the grid; throws on failure. Blank % lines are not sent. */
+	const saveRows = useCallback(
+		async (forthnightId: number) => {
+			const lines = rows
+				.filter((r) => r.eff_pc !== null)
+				.map((r) => ({ eff_code: r.eff_code, eff_pc: r.eff_pc as number }));
+			const parsed = fneSavePayloadSchema.safeParse({ forthnig_id: forthnightId, lines });
 			if (!parsed.success) throw new Error(parsed.error.issues[0].message);
 
 			const { error } = await fetchWithCookie(
@@ -144,7 +118,15 @@ export default function EffFneCodeEntryPage() {
 				parsed.data
 			);
 			if (error) throw new Error(error);
+		},
+		[rows]
+	);
 
+	const handleSave = useCallback(async () => {
+		if (!period) return notify("Select a fortnight period first", "error");
+		setBusy(true);
+		try {
+			await saveRows(period.forthnight_id);
 			notify("Efficiency codes saved");
 			await loadRows(period.forthnight_id);
 		} catch (err: unknown) {
@@ -152,44 +134,29 @@ export default function EffFneCodeEntryPage() {
 		} finally {
 			setBusy(false);
 		}
-	}, [period, rows, notify, loadRows]);
+	}, [period, saveRows, notify, loadRows]);
 
-	const runAction = useCallback(
-		async (action: FneStatusAction) => {
-			if (!period) return;
-			setBusy(true);
-			try {
-				const { data, error } = await fetchWithCookie(
-					apiRoutesPortalMasters.EJM_FNE_EFF_CODE_STATUS,
-					"POST",
-					{ forthnig_id: period.forthnight_id, action }
-				);
-				if (error) throw new Error(error);
+	/** Saves unsaved grid edits first, then locks the fortnight as Approved. */
+	const handleApprove = useCallback(async () => {
+		if (!period) return notify("Select a fortnight period first", "error");
+		setBusy(true);
+		try {
+			await saveRows(period.forthnight_id);
+			const { data, error } = await fetchWithCookie(
+				apiRoutesPortalMasters.EJM_FNE_EFF_CODE_STATUS,
+				"POST",
+				{ forthnig_id: period.forthnight_id, action: "approve" }
+			);
+			if (error) throw new Error(error);
 
-				notify((data?.message as string) || "Status updated");
-				await loadRows(period.forthnight_id);
-			} catch (err: unknown) {
-				notify(err instanceof Error ? err.message : "Action failed", "error");
-			} finally {
-				setBusy(false);
-			}
-		},
-		[period, notify, loadRows]
-	);
-
-	const permissions = useMemo(() => permissionsFor(statusId), [statusId]);
-
-	const approvalInfo: ApprovalInfo = useMemo(
-		() => ({
-			statusId,
-			statusLabel: STATUS_LABELS[statusId] ?? "Drafted",
-			// Single level: ejm_fne_eff_code_type has no approval_level column.
-			approvalLevel: statusId === 20 ? 1 : null,
-			maxApprovalLevel: 1,
-			isFinalLevel: true,
-		}),
-		[statusId]
-	);
+			notify((data?.message as string) || "Fortnight approved");
+			await loadRows(period.forthnight_id);
+		} catch (err: unknown) {
+			notify(err instanceof Error ? err.message : "Approve failed", "error");
+		} finally {
+			setBusy(false);
+		}
+	}, [period, saveRows, notify, loadRows]);
 
 	const columns = useMemo<GridColDef<FneEffCodeRow>[]>(
 		() => [
@@ -261,24 +228,28 @@ export default function EffFneCodeEntryPage() {
 				</CardContent>
 			</Card>
 
-			{/* The bar collects a reject reason, but ejm_fne_eff_code_type has nowhere
-			    to store it — add a column before persisting it. */}
-			<ApprovalActionsBar
-				approvalInfo={approvalInfo}
-				permissions={permissions}
-				menuCode="EJM_FNE_EFF_CODE"
-				onSave={permissions.canSave ? handleSave : undefined}
-				onOpen={permissions.canOpen ? () => runAction("open") : undefined}
-				onCancelDraft={permissions.canCancelDraft ? () => runAction("cancel") : undefined}
-				onReopen={permissions.canReopen ? () => runAction("reopen") : undefined}
-				onSendForApproval={
-					permissions.canSendForApproval ? () => runAction("send-for-approval") : undefined
-				}
-				onApprove={permissions.canApprove ? () => runAction("approve") : undefined}
-				onReject={permissions.canReject ? () => runAction("reject") : undefined}
-				loading={busy}
-				disabled={loading || !period}
-			/>
+			<Box className="flex flex-wrap items-center gap-3">
+				<Chip
+					label={STATUS_LABELS[statusId] ?? "Drafted"}
+					color={editable ? "default" : "success"}
+					size="small"
+				/>
+				{editable && (
+					<>
+						<Button variant="contained" onClick={handleSave} disabled={busy || loading || !period}>
+							Save
+						</Button>
+						<Button
+							variant="contained"
+							color="success"
+							onClick={handleApprove}
+							disabled={busy || loading || !period}
+						>
+							Approve
+						</Button>
+					</>
+				)}
+			</Box>
 
 			<Snackbar
 				open={snackbar.open}
