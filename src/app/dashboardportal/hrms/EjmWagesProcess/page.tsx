@@ -54,12 +54,24 @@ const ACTION_SPREADER_EFF = "28";
 const ACTION_DRAWING_EFF = "29";
 /** New: legacy DOFFEFF1.PRG — spinner individual / group efficiency, same table. */
 const ACTION_SPINNING_EFF = "30";
+/** New: legacy DOFMAZRP.PRG — doff mazdoor / sliver feeder / piecer efficiency. */
+const ACTION_DOFF_MAZDOOR_EFF = "31";
+/** New: legacy LOOMEFF1.PRG — weaver individual / weaving group efficiency. */
+const ACTION_LOOM_EFF = "32";
+/** New: legacy BEAMEFF1.PRG — beaming group efficiency. */
+const ACTION_BEAMING_EFF = "33";
+/** New: legacy FINISHEF.PRG — hemming / herackle / sack sewing / lapping / cutting efficiency. */
+const ACTION_FINISHING_EFF = "34";
 /** The fortnight efficiency processes: each its own Report option and a step
  *  (in this order) at the end of the Wages Data Process pipeline. */
 const EFF_PROCESSES: Record<string, { label: string; route: string }> = {
   [ACTION_SPREADER_EFF]: { label: "Spreader Efficiency", route: apiRoutesPortalMasters.EJM_SPREADER_EFF_PROCESS },
   [ACTION_DRAWING_EFF]: { label: "Drawing Efficiency", route: apiRoutesPortalMasters.EJM_DRAWING_EFF_PROCESS },
   [ACTION_SPINNING_EFF]: { label: "Spinning Efficiency", route: apiRoutesPortalMasters.EJM_SPINNING_EFF_PROCESS },
+  [ACTION_DOFF_MAZDOOR_EFF]: { label: "Doff Mazdoor Efficiency", route: apiRoutesPortalMasters.EJM_DOFF_MAZDOOR_EFF_PROCESS },
+  [ACTION_LOOM_EFF]: { label: "Loom Efficiency", route: apiRoutesPortalMasters.EJM_LOOM_EFF_PROCESS },
+  [ACTION_BEAMING_EFF]: { label: "Beaming Efficiency", route: apiRoutesPortalMasters.EJM_BEAMING_EFF_PROCESS },
+  [ACTION_FINISHING_EFF]: { label: "Finishing Efficiency", route: apiRoutesPortalMasters.EJM_FINISHING_EFF_PROCESS },
 };
 
 /** The Wages Data Process pipeline, run in this order on Submit. Each step is
@@ -134,6 +146,10 @@ const ACTION_OPTIONS: Option[] = [
   { label: "EJM Spreader Efficiency Process", value: ACTION_SPREADER_EFF },
   { label: "EJM Drawing Efficiency Process", value: ACTION_DRAWING_EFF },
   { label: "EJM Spinning Efficiency Process", value: ACTION_SPINNING_EFF },
+  { label: "EJM Doff Mazdoor Efficiency Process", value: ACTION_DOFF_MAZDOOR_EFF },
+  { label: "EJM Loom Efficiency Process", value: ACTION_LOOM_EFF },
+  { label: "EJM Beaming Efficiency Process", value: ACTION_BEAMING_EFF },
+  { label: "EJM Finishing Efficiency Process", value: ACTION_FINISHING_EFF },
 ];
 
 /** Legacy `$holget` from pay_register_payslip.php — "Pay Ragister/ Pay Slip
@@ -480,6 +496,10 @@ export default function EjmWagesProcessPage() {
    *  6 Spreader Efficiency       → ejm_fne_wages_eff_data (EJM FACTORY only)
    *  7 Drawing Efficiency        → ejm_fne_wages_eff_data (EJM FACTORY only)
    *  8 Spinning Efficiency       → ejm_fne_wages_eff_data (EJM FACTORY only)
+   *  9 Doff Mazdoor Efficiency   → ejm_fne_wages_eff_data (EJM FACTORY only)
+   * 10 Loom Efficiency           → ejm_fne_wages_eff_data (EJM FACTORY only)
+   * 11 Beaming Efficiency        → ejm_fne_wages_eff_data (EJM FACTORY only)
+   * 12 Finishing Efficiency      → ejm_fne_wages_eff_data (EJM FACTORY only)
    *  Stops at the first failure; whatever was collected is still listed. */
   const runWagesPipeline = useCallback(
     async (p: { date_from: string; date_to: string; pay_scheme_id: string }) => {
