@@ -3,36 +3,60 @@
 /**
  * @component JutePOApprovalBar
  * @description Renders the approval status chip and action buttons for Jute PO.
+ * Includes the settlement actions: "Close PO" (remark dialog) for live POs and a
+ * confirm step when reopening a CLOSED PO.
  */
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Chip, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from "@mui/material";
+import {
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  TextField,
+} from "@mui/material";
 import type { ApprovalInfo, ApprovalActionPermissions } from "../types/jutePOTypes";
+import { JutePOCloseDialog } from "./JutePOCloseDialog";
 
 type JutePOApprovalBarProps = {
   approvalInfo: ApprovalInfo;
   permissions: ApprovalActionPermissions;
   loading: boolean;
+  /** PO number shown in the Close PO dialog title. */
+  poLabel?: string;
   onOpen?: () => void;
   onApprove?: () => void;
   onReject?: (reason: string) => void;
   onCancelDraft?: () => void;
   onReopen?: () => void;
+  /**
+   * When set, Reopen first asks for confirmation with this text (used for CLOSED
+   * POs: "goes back to <prior status>"). Rejected/cancelled reopen stays one-click.
+   */
+  reopenConfirm?: { title: string; message: string } | null;
+  onClose?: (remark: string) => void | Promise<void>;
 };
 
 export function JutePOApprovalBar({
   approvalInfo,
   permissions,
   loading,
+  poLabel,
   onOpen,
   onApprove,
   onReject,
   onCancelDraft,
   onReopen,
+  reopenConfirm = null,
+  onClose,
 }: JutePOApprovalBarProps) {
   const [rejectDialogOpen, setRejectDialogOpen] = React.useState(false);
   const [rejectReason, setRejectReason] = React.useState("");
+  const [closeDialogOpen, setCloseDialogOpen] = React.useState(false);
+  const [reopenConfirmOpen, setReopenConfirmOpen] = React.useState(false);
 
   const handleRejectConfirm = () => {
     if (onReject) {
@@ -40,6 +64,30 @@ export function JutePOApprovalBar({
     }
     setRejectDialogOpen(false);
     setRejectReason("");
+  };
+
+  const handleReopenClick = () => {
+    if (!onReopen) return;
+    if (reopenConfirm) {
+      setReopenConfirmOpen(true);
+    } else {
+      onReopen();
+    }
+  };
+
+  const handleReopenConfirmed = () => {
+    setReopenConfirmOpen(false);
+    onReopen?.();
+  };
+
+  const handleCloseConfirm = async (remark: string) => {
+    if (!onClose) return;
+    try {
+      await onClose(remark);
+      setCloseDialogOpen(false);
+    } catch {
+      // The caller has already shown the error toast; keep the dialog open for a retry.
+    }
   };
 
   const getChipColor = () => {
@@ -69,7 +117,7 @@ export function JutePOApprovalBar({
         />
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {permissions.canOpen && onOpen && (
             <Button
               variant="outline"
@@ -116,11 +164,23 @@ export function JutePOApprovalBar({
             </Button>
           )}
 
+          {permissions.canClose && onClose && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCloseDialogOpen(true)}
+              disabled={loading}
+              className="text-red-600 border-red-300 hover:bg-red-50"
+            >
+              Close PO
+            </Button>
+          )}
+
           {permissions.canReopen && onReopen && (
             <Button
               variant="outline"
               size="sm"
-              onClick={onReopen}
+              onClick={handleReopenClick}
               disabled={loading}
             >
               Reopen
@@ -156,6 +216,36 @@ export function JutePOApprovalBar({
             disabled={!rejectReason.trim()}
           >
             Confirm Reject
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Close PO (short close) */}
+      <JutePOCloseDialog
+        open={closeDialogOpen}
+        poLabel={poLabel}
+        loading={loading}
+        onCancel={() => setCloseDialogOpen(false)}
+        onConfirm={handleCloseConfirm}
+      />
+
+      {/* Reopen a CLOSED PO — confirm first */}
+      <Dialog
+        open={reopenConfirmOpen}
+        onClose={() => setReopenConfirmOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>{reopenConfirm?.title ?? "Reopen PO"}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{reopenConfirm?.message}</DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button variant="outline" onClick={() => setReopenConfirmOpen(false)} disabled={loading}>
+            Cancel
+          </Button>
+          <Button variant="default" onClick={handleReopenConfirmed} disabled={loading}>
+            Reopen
           </Button>
         </DialogActions>
       </Dialog>

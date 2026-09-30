@@ -14,10 +14,15 @@ export type Option = {
 /**
  * Which stock source a row came from.
  *
- * "MR"    — purchased jute, one row per MR line (vw_jute_stock_outstanding).
- * "WASTE" — process waste booked on the Waste Entry page, GROUPED to one row
- *           per waste item (vw_jute_waste_stock_outstanding). Waste is kg-only
- *           and is priced from the Waste Rate master, not from a purchase.
+ * "MR"    — purchased RAW jute, one row per MR line (vw_jute_stock_outstanding).
+ *           The MR arm excludes waste items (item_type_id 3), so purchased
+ *           waste never shows up here as its own row.
+ * "WASTE" — the grouped waste POOL of one item (vw_jute_waste_stock_outstanding):
+ *           process waste booked on the Waste Entry page (jute_prod_waste_entry)
+ *           PLUS purchased waste, i.e. jute_mr_li lines whose item belongs to a
+ *           type-3 (jute waste) group. One row per waste item, kg-only. The
+ *           server draws FIFO across both legs; each PROD slice is priced from
+ *           the Waste Rate master, each purchased slice at its MR line rate.
  */
 export type StockSource = "MR" | "WASTE";
 
@@ -28,9 +33,15 @@ export type StockSource = "MR" | "WASTE";
  * (gate entry, MR number, warehouse, jute_mr_li_id) are null on a waste row.
  *
  * A waste row is a GROUPED item balance, not one booking (TKT-000147): it sums
- * every open Waste Entry for that item, so waste_entry_id / dept_name /
- * area_name are null on it too. Issuing it sends `waste_item_id` and the server
- * fans the draw out FIFO across the underlying bookings.
+ * every open Waste Entry for that item AND every open purchased-waste MR line
+ * of that item, so waste_entry_id / jute_mr_li_id / dept_name / area_name are
+ * null on it too. Issuing it sends `waste_item_id` and the server fans the draw
+ * out FIFO across the underlying bookings and MR lines.
+ *
+ * `actual_rate` on a grouped waste row is the Waste Rate master rate (0 when
+ * none is on file). It only prices the PROD slices — purchased slices are
+ * priced server-side at their own MR line rate — so the client-side value is
+ * indicative; the saved lines reload with the final per-slice value.
  *
  * Always key rows on `stock_key` — jute_mr_li_id is NOT unique across the
  * merged list because it is null for every waste row.
@@ -81,6 +92,15 @@ export type JuteIssueLineItem = {
   source: StockSource;
   jute_mr_li_id: number | null;
   waste_entry_id: number | null;
+  /**
+   * Set when the line's item belongs to a jute-waste (type-3) group. A saved
+   * slice drawn from the waste pool comes back as `source: "MR"` when it was
+   * PURCHASED waste (it is keyed on jute_mr_li_id, not waste_entry_id); this
+   * flag is what lets the UI still label it as waste. Optional because older
+   * backends do not send it — the page then falls back to what it can see in
+   * the stock list.
+   */
+  is_waste?: number | boolean | null;
   /** Waste only — provenance of the originating Waste Entry booking. */
   dept_name?: string | null;
   area_name?: string | null;
@@ -120,6 +140,8 @@ export type EditableLineItem = {
    */
   stock_key: string;
   source: StockSource;
+  /** True when the item is jute waste — see JuteIssueLineItem.is_waste. */
+  is_waste?: boolean;
   jute_mr_li_id: string;
   waste_entry_id: string;
   yarn_type_id: string;

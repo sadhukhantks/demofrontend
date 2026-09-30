@@ -444,13 +444,13 @@ export async function fetchJuteTallyDownload(
     return response.data;
   } catch (err: unknown) {
     if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
+      let detail: string | undefined;
       try {
-        const text = await err.response.data.text();
-        const parsed = JSON.parse(text) as { detail?: string };
-        throw new Error(parsed.detail ?? "Tally download failed");
+        detail = (JSON.parse(await err.response.data.text()) as { detail?: string }).detail;
       } catch {
-        throw new Error("Tally download failed");
+        // non-JSON error body
       }
+      throw new Error(detail ?? "Tally download failed");
     }
     throw err instanceof Error ? err : new Error(String(err));
   }

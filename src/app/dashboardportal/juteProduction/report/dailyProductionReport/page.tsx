@@ -36,6 +36,8 @@ import type { BranchOption } from "@/components/reports/types";
 import {
   fetchDailyProductionReport,
   type DailyProductionReport,
+  type DprJuteGroupRow,
+  type DprJuteSection,
 } from "@/utils/juteProductionReportService";
 import {
   DprTable,
@@ -49,6 +51,9 @@ import {
   totalRowSx,
   type KpiState,
 } from "./_components/DprPieces";
+import { DprAvgCountTable, avgCountKpi } from "./_components/DprAvgCountTable";
+import { DprWindingTable } from "./_components/DprWindingTable";
+import { juteCoverKpiSub, juteCoverSubtitle } from "./_components/dprJuteCover";
 
 // Status thresholds for the KPI strip.
 const UTIL_GOOD_PCT = 80;
@@ -71,6 +76,27 @@ function daysStockState(days: number | null): KpiState {
 }
 
 /** Emulsion oil %: inside the std band is good, LOW and HIGH are both off-band. */
+type JuteWeights = Omit<DprJuteGroupRow, "item_group_name" | "is_waste">;
+
+/** Jute / waste subtotals are shown only when there is waste to set apart. */
+function hasWasteSplit(jute: DprJuteSection): boolean {
+  return Boolean(jute.jute_totals && jute.waste_totals && jute.groups.some((g) => g.is_waste));
+}
+
+function JuteGroupRow({ label, row, total }: { label: string; row: JuteWeights; total?: boolean }) {
+  return (
+    <Tr sx={total ? totalRowSx() : undefined}>
+      <Td>{label}</Td>
+      <NumTd value={row.opening_weight} digits={0} bold={total} />
+      <NumTd value={row.receipt_weight} digits={0} bold={total} />
+      <NumTd value={row.issue_weight} digits={0} bold={total} />
+      <NumTd value={row.closing_weight} digits={0} bold={total} />
+      <NumTd value={row.mtd_receipt_weight} digits={0} bold={total} />
+      <NumTd value={row.mtd_issue_weight} digits={0} bold={total} />
+    </Tr>
+  );
+}
+
 function oilState(status: "OK" | "LOW" | "HIGH" | null): KpiState {
   if (status === null) return undefined;
   return status === "OK" ? "good" : "warn";
@@ -292,13 +318,9 @@ function Content() {
             <KpiCard
               label="Jute Closing Stock"
               value={fmt(data.kpi.jute_closing_weight, 0)}
-              sub={
-                data.kpi.jute_days_stock !== null
-                  ? `${fmt(data.kpi.jute_days_stock, 1)} days cover`
-                  : data.jute
-                    ? "no MTD issue"
-                    : "select a branch"
-              }
+              // TKT-000172: cover = stock ÷ last full working day's spinning
+              // production; the divisor and its date ride on the card.
+              sub={juteCoverKpiSub(data.jute)}
               state={daysStockState(data.kpi.jute_days_stock)}
             />
             <KpiCard
@@ -307,6 +329,11 @@ function Content() {
               sub={`Doff eff ${fmt(data.kpi.spinning_eff_pct, 1)}%`}
               state={utilState(data.kpi.frame_utilization_pct)}
             />
+            {/* Average count by frames / production / std production
+                (TKT-000173) — the detail table sits under the quality section. */}
+            {spinning?.avg_count ? (
+              <KpiCard label="Avg Count (lb)" {...avgCountKpi(spinning.avg_count)} />
+            ) : null}
             <KpiCard
               label="Loom Utilization"
               value={`${fmt(data.kpi.loom_utilization_pct, 1)}%`}
@@ -418,6 +445,8 @@ function Content() {
                   Target Map to see efficiency.
                 </Typography>
               ) : null}
+              {/* Average count by frames / actual / std production (TKT-000173). */}
+              {spinning.avg_count ? <DprAvgCountTable avg={spinning.avg_count} /> : null}
             </SectionCard>
           ) : null}
 
@@ -425,72 +454,10 @@ function Content() {
           {data.winding ? (
             <SectionCard
               title="Winder Production — Quality Wise"
-              subtitle={`Reconciled kg (doff − opening jugar + closing jugar) per winder · MTD ${fmt(data.winding.total.mtd_production_kg, 0)} kg`}
+              subtitle={`Reconciled kg (doff − opening jugar + closing jugar) per winder · MTD winding ${fmt(data.winding.total.mtd_production_kg, 0)} kg`}
             >
-              <DprTable
-                head={
-                  <Tr>
-                    <Td>Quality</Td>
-                    <Td align="right">Production (kg)</Td>
-                    <Td align="right">Winders</Td>
-                    <Td align="right">Kg/Winder</Td>
-                    <Td align="right">MTD (kg)</Td>
-                    <Td align="right">MTD Kg/Winder-Shift</Td>
-                  </Tr>
-                }
-              >
-                {data.winding.qualities.map((q) => (
-                  <Tr key={q.item_id ?? "na"}>
-                    <Td>
-                      {q.is_twisted === 1 ? (
-                        <Stack direction="row" spacing={0.5} alignItems="center">
-                          <span>{q.item_name ?? q.item_code ?? "Unmapped"}</span>
-                          <Chip label="Twisting" size="small" variant="outlined" />
-                        </Stack>
-                      ) : (
-                        (q.item_name ?? q.item_code ?? "Unmapped")
-                      )}
-                    </Td>
-                    <NumTd value={q.production_kg} digits={0} />
-                    <NumTd value={q.winders} digits={0} />
-                    <NumTd value={q.kg_per_winder} digits={1} />
-                    <NumTd value={q.mtd_production_kg} digits={0} />
-                    <NumTd value={q.mtd_kg_per_winder_shift} digits={1} />
-                  </Tr>
-                ))}
-                <Tr sx={totalRowSx()}>
-                  <Td>
-                    {data.winding.total.twisting_kg > 0 ? "Total (net of twisting)" : "Total"}
-                  </Td>
-                  <NumTd value={data.winding.total.production_kg} digits={0} bold />
-                  <NumTd value={data.winding.total.winders} digits={0} bold />
-                  <NumTd value={data.winding.total.kg_per_winder} digits={1} bold />
-                  <NumTd value={data.winding.total.mtd_production_kg} digits={0} bold />
-                  <Td align="right">—</Td>
-                </Tr>
-              </DprTable>
-              {data.winding.twisting_available === false ? (
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ mt: 0.5, display: "block" }}
-                >
-                  Twisting is not split out on this tenant yet — the is_twisted yarn-master flag
-                  is missing, so any twisted (ply) yarn is still included in the winding total.
-                </Typography>
-              ) : data.winding.total.twisting_kg > 0 ? (
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ mt: 0.5, display: "block" }}
-                >
-                  Gross winder output {fmt(data.winding.total.gross_production_kg, 0)} kg includes{" "}
-                  {fmt(data.winding.total.twisting_kg, 0)} kg of twisted (ply) yarn, which is
-                  re-wound single yarn — excluded from the winding total so it is not counted
-                  twice. MTD: gross {fmt(data.winding.total.mtd_gross_production_kg, 0)} kg,
-                  twisting {fmt(data.winding.total.mtd_twisting_kg, 0)} kg.
-                </Typography>
-              ) : null}
+              {/* Twisting sits in its own block after the winding Total (TKT-000174). */}
+              <DprWindingTable winding={data.winding} />
             </SectionCard>
           ) : null}
 
@@ -699,7 +666,7 @@ function Content() {
           {data.jute ? (
             <SectionCard
               title="Jute Stock Position (kg)"
-              subtitle={`Days of cover at MTD issue rate: ${fmt(data.jute.days_stock, 1)}`}
+              subtitle={juteCoverSubtitle(data.jute)}
             >
               <DprTable
                 head={
@@ -714,26 +681,30 @@ function Content() {
                   </Tr>
                 }
               >
-                {data.jute.groups.map((g) => (
-                  <Tr key={g.item_group_name}>
-                    <Td>{g.item_group_name}</Td>
-                    <NumTd value={g.opening_weight} digits={0} />
-                    <NumTd value={g.receipt_weight} digits={0} />
-                    <NumTd value={g.issue_weight} digits={0} />
-                    <NumTd value={g.closing_weight} digits={0} />
-                    <NumTd value={g.mtd_receipt_weight} digits={0} />
-                    <NumTd value={g.mtd_issue_weight} digits={0} />
-                  </Tr>
-                ))}
-                <Tr sx={totalRowSx()}>
-                  <Td>Total</Td>
-                  <NumTd value={data.jute.totals.opening_weight} digits={0} bold />
-                  <NumTd value={data.jute.totals.receipt_weight} digits={0} bold />
-                  <NumTd value={data.jute.totals.issue_weight} digits={0} bold />
-                  <NumTd value={data.jute.totals.closing_weight} digits={0} bold />
-                  <NumTd value={data.jute.totals.mtd_receipt_weight} digits={0} bold />
-                  <NumTd value={data.jute.totals.mtd_issue_weight} digits={0} bold />
-                </Tr>
+                {/* Owner on TKT-000172: waste stays in the total (the batch is
+                    made with it) but jute and waste stock are stated separately.
+                    Groups arrive jute first, waste after. */}
+                {data.jute.groups
+                  .filter((g) => !g.is_waste)
+                  .map((g) => (
+                    <JuteGroupRow key={g.item_group_name} label={g.item_group_name} row={g} />
+                  ))}
+                {hasWasteSplit(data.jute) ? (
+                  <>
+                    <JuteGroupRow label="Jute Stock" row={data.jute.jute_totals!} total />
+                    {data.jute.groups
+                      .filter((g) => g.is_waste)
+                      .map((g) => (
+                        <JuteGroupRow key={g.item_group_name} label={g.item_group_name} row={g} />
+                      ))}
+                    <JuteGroupRow label="Waste Stock" row={data.jute.waste_totals!} total />
+                  </>
+                ) : null}
+                <JuteGroupRow
+                  label={hasWasteSplit(data.jute) ? "Total (Jute + Waste)" : "Total"}
+                  row={data.jute.totals}
+                  total
+                />
               </DprTable>
             </SectionCard>
           ) : null}

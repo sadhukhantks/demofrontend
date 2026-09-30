@@ -24,11 +24,12 @@ import {
   Button,
   CircularProgress,
   GlobalStyles,
+  Paper,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
-import { Printer } from "lucide-react";
+import { ChevronDown, ChevronRight, Printer } from "lucide-react";
 import { useReportBranches } from "@/components/reports/useReportBranches";
 import { yesterdayIso } from "@/components/reports/reportDates";
 import type { BranchOption } from "@/components/reports/types";
@@ -47,6 +48,7 @@ import {
   fmt,
   totalRowSx,
 } from "../dailyProductionReport/_components/DprPieces";
+import { purchaseDetailMatches, purchaseDetailTotalKg, purchaseDetailTotalMt } from "./purchaseDetail";
 
 // Stock blocks in the printed sheet's order. Backend always returns every
 // bucket (possibly empty) so the shape is stable, but empty buckets are
@@ -61,6 +63,11 @@ const BUCKET_LABELS: Record<string, string> = {
   WASTE: "Waste",
 };
 
+// Mill use is the only block with a consolidated table and the only collapsible
+// one (TKT-000182); the rest render exactly as before, in the sheet's order.
+const MILL_USE_BUCKET = "MILL_USE";
+const OTHER_BUCKET_ORDER = BUCKET_ORDER.filter((b) => b !== MILL_USE_BUCKET);
+
 const CLOTH_SPLIT_ORDER = ["HESSIAN", "SACKING", "OTHER"] as const;
 const CLOTH_SPLIT_LABELS: Record<string, string> = {
   HESSIAN: "Hessian",
@@ -74,6 +81,9 @@ const CLOTH_SPLIT_LABELS: Record<string, string> = {
 const RECON_ROWS: { key: keyof WwdReconciliation; label: string }[] = [
   { key: "jute_issue_mt", label: "Jute Issue (MT)" },
   { key: "opening_mt", label: "Opening Stock (MT)" },
+  // Spinning feeds winding, so it reads directly above it. Context only: it is
+  // not part of the book-stock arithmetic (see the backend's build_reconciliation).
+  { key: "spinning_mt", label: "Spinning Production (MT)" },
   { key: "winding_mt", label: "Winding Production (MT)" },
   { key: "twisting_mt", label: "Twisting (Consumed) (MT)" },
   { key: "weaving_mt", label: "Weaving Production (MT)" },
@@ -97,6 +107,52 @@ function bucketOf(
   return v && typeof v === "object" ? v : null;
 }
 
+/** One stock block's counted lines — the printed sheet's eight columns. Shared
+ *  by the collapsible mill-use block and the four plain ones so both can never
+ *  drift apart. */
+function StockBlockTable({
+  bucket,
+  block,
+}: {
+  bucket: string;
+  block: { rows: WwdStockRow[]; subtotal_mt: number };
+}) {
+  return (
+    <DprTable
+      head={
+        <Tr>
+          <Td align="right">Count</Td>
+          <Td>Quality</Td>
+          <Td>Package</Td>
+          <Td align="right">No. of Samples</Td>
+          <Td align="right">Weight/Sample (kg)</Td>
+          <Td align="right">Prvs Stock (MT)</Td>
+          <Td align="right">Stock Position (MT)</Td>
+          <Td>Place</Td>
+        </Tr>
+      }
+    >
+      {block.rows.map((r, i) => (
+        <Tr key={`${bucket}-${i}`}>
+          <NumTd value={r.yarn_count} />
+          <Td>{r.item_name ?? r.item_code ?? r.quality_name ?? "—"}</Td>
+          <Td>{r.package_label || "—"}</Td>
+          <NumTd value={r.no_of_samples} digits={0} />
+          <NumTd value={r.wt_per_sample} />
+          <NumTd value={r.prvs_stock_mt} digits={3} />
+          <NumTd value={r.stock_mt} digits={3} />
+          <Td>{r.area_name ?? "—"}</Td>
+        </Tr>
+      ))}
+      <Tr sx={totalRowSx()}>
+        <Td colSpan={6}>Subtotal</Td>
+        <NumTd value={block.subtotal_mt} digits={3} bold />
+        <Td />
+      </Tr>
+    </DprTable>
+  );
+}
+
 function Content() {
   const { branches, coId, companyName, initialBranchId, dateParam } = useReportBranches();
   // Branch/date come from the localStorage-backed sidebar context, so the
@@ -109,6 +165,12 @@ function Content() {
   const [branchId, setBranchId] = useState<number | null>(initialBranchId);
   const [reportDate, setReportDate] = useState<string>(dateParam || yesterdayIso());
   const [data, setData] = useState<WindingWeavingDifference | null>(null);
+  // Mill-use details start minimized (owner's call on TKT-000182): the
+  // consolidated table above it is what should be read first.
+  const [millUseOpen, setMillUseOpen] = useState(false);
+  // Purchase documents start minimized too: the reconciliation table above
+  // carries the figure, the documents are the audit trail behind it.
+  const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fetchedOnce = useRef(false);
@@ -175,6 +237,12 @@ function Content() {
   const mtdOpeningUnknown = data != null && data.chain.month_opening_date == null;
   const day = data?.production.day;
   const mtd = data?.production.mtd;
+  const millUseBlock = data ? bucketOf(data.stock, MILL_USE_BUCKET) : null;
+  // Absent (not empty) on a backend that predates the Yarn Purchase document.
+  const purchaseRows = data?.purchase_detail;
+  const purchaseTotalMt = purchaseRows ? purchaseDetailTotalMt(purchaseRows) : 0;
+  const purchaseMatches =
+    purchaseRows && mtd ? purchaseDetailMatches(purchaseRows, mtd.purchase_mt) : true;
 
   return (
     <Box sx={{ p: 2 }}>
@@ -314,6 +382,18 @@ function Content() {
               </Alert>
             ) : null}
 
+            {/* Legacy Stores receipts warning: Purchase Yarn (MT) reads Yarn
+                Purchase documents only, so yarn still arriving through a
+                Stores receipt of the old item is NOT in the figures. */}
+            {data.warnings.legacy_stores_yarn_warning ? (
+              <Alert severity="warning">
+                {data.warnings.legacy_stores_yarn_warning}
+                {typeof data.warnings.legacy_stores_yarn_mt === "number"
+                  ? ` Stores receipts of the legacy yarn item this month: ${fmt(data.warnings.legacy_stores_yarn_mt, 3)} MT — not included in Purchase Yarn (MT).`
+                  : ""}
+              </Alert>
+            ) : null}
+
             {/* Production details */}
             <SectionCard
               title="Production Reconciliation"
@@ -392,6 +472,105 @@ function Content() {
               ) : null}
             </SectionCard>
 
+            {/* Purchase yarn documents — the approved Yarn Purchase lines
+                behind Purchase Yarn (MTD). Minimized on screen like the
+                mill-use detail, never unmounted, forced visible in print so the
+                signed sheet keeps its audit trail. */}
+            {purchaseRows ? (
+              <Paper variant="outlined" sx={{ p: 1.5, breakInside: "avoid" }}>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={purchaseOpen}
+                  onClick={() => setPurchaseOpen((o) => !o)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setPurchaseOpen((o) => !o);
+                    }
+                  }}
+                  sx={{ cursor: "pointer", userSelect: "none" }}
+                >
+                  <Box sx={{ display: "flex", displayPrint: "none" }}>
+                    {purchaseOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      Purchase yarn (documents)
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: "block", displayPrint: "none" }}
+                    >
+                      {purchaseRows.length} document line(s) since {data.date_from} · Total{" "}
+                      {fmt(purchaseTotalMt, 3)} MT —{" "}
+                      {purchaseOpen ? "tap to minimize" : "tap to show the documents"}
+                      {/* The full note below is hidden while minimized, so the
+                          header must carry the mismatch too. */}
+                      {!purchaseMatches ? (
+                        <Box component="span" sx={{ color: "error.main", fontWeight: 700 }}>
+                          {" — does not match Purchase Yarn (MTD)"}
+                        </Box>
+                      ) : null}
+                    </Typography>
+                  </Box>
+                </Stack>
+                <Box
+                  sx={{
+                    mt: 0.75,
+                    display: purchaseOpen ? "block" : "none",
+                    displayPrint: "block",
+                  }}
+                >
+                  {purchaseRows.length > 0 ? (
+                    <DprTable
+                      head={
+                        <Tr>
+                          <Td>Purchase No</Td>
+                          <Td>Date</Td>
+                          <Td>Yarn Item</Td>
+                          <Td align="right">Count</Td>
+                          <Td align="right">Kg</Td>
+                        </Tr>
+                      }
+                    >
+                      {purchaseRows.map((r) => (
+                        <Tr key={`yp-${r.yarn_purchase_id}-${r.item_id}`}>
+                          <Td>{r.purchase_no}</Td>
+                          <Td>{r.tran_date ?? "—"}</Td>
+                          <Td>{r.item_name ?? "—"}</Td>
+                          <NumTd value={r.yarn_count} />
+                          <NumTd value={r.kg} digits={3} />
+                        </Tr>
+                      ))}
+                      <Tr sx={totalRowSx()}>
+                        <Td colSpan={4}>Total ({fmt(purchaseTotalMt, 3)} MT)</Td>
+                        <NumTd value={purchaseDetailTotalKg(purchaseRows)} digits={3} bold />
+                      </Tr>
+                    </DprTable>
+                  ) : (
+                    <Typography variant="caption" color="text.secondary">
+                      No approved Yarn Purchase document since {data.date_from}.
+                    </Typography>
+                  )}
+                  {/* The documents ARE the figure: if they do not add up to
+                      Purchase Yarn (MTD), say so rather than print two totals
+                      that disagree. */}
+                  {!purchaseMatches ? (
+                    <Typography variant="caption" color="error.main" sx={{ mt: 0.5, display: "block" }}>
+                      Documents total {fmt(purchaseTotalMt, 3)} MT but Purchase Yarn (MTD) above reads{" "}
+                      {fmt(mtd.purchase_mt, 3)} MT — the two were not built from the same
+                      documents.
+                    </Typography>
+                  ) : null}
+                </Box>
+              </Paper>
+            ) : null}
+
             {/* Cloth split */}
             <SectionCard title="Weaving Cloth Split (MT)" subtitle="Weaving production split by cloth quality type">
               <DprTable
@@ -413,44 +592,111 @@ function Content() {
               </DprTable>
             </SectionCard>
 
-            {/* Five stock blocks — skip a bucket entirely when it has no rows */}
-            {BUCKET_ORDER.map((bucket) => {
+            {/* ---- MILL USE (TKT-000182) -------------------------------
+                 The consolidated position comes FIRST, then the detail table,
+                 which renders MINIMIZED and expands when its header is pressed.
+                 The detail table is hidden with CSS and never unmounted, and is
+                 forced visible in print: the printed sheet must keep every
+                 counted line whatever the screen state. Only this block is
+                 collapsible and only this block has a consolidated table — the
+                 other four sections below are untouched. */}
+            {data.stock_summary && data.stock_summary.rows.length > 0
+              ? (() => {
+                  const summary = data.stock_summary;
+                  const lineCount = summary.rows.reduce((a, r) => a + r.line_count, 0);
+                  return (
+                    <SectionCard
+                      title={`${BUCKET_LABELS[MILL_USE_BUCKET]} — Consolidated Position (Yarn Quality wise)`}
+                      subtitle={`${summary.rows.length} quality/qualities consolidated from ${lineCount} counted mill-use line(s); a quality counted yesterday but not today shows 0.000`}
+                    >
+                      <DprTable
+                        head={
+                          <Tr>
+                            <Td align="right">Count</Td>
+                            <Td>Quality</Td>
+                            <Td>Group</Td>
+                            <Td align="right">Prvs Stock (MT)</Td>
+                            <Td align="right">Stock Position (MT)</Td>
+                          </Tr>
+                        }
+                      >
+                        {summary.rows.map((r, i) => (
+                          <Tr key={`mus-${r.item_id ?? i}`}>
+                            <NumTd value={r.yarn_count} />
+                            <Td>{r.item_name ?? r.item_code ?? r.quality_name ?? "—"}</Td>
+                            <Td>{r.quality_name ?? "—"}</Td>
+                            <NumTd value={r.prvs_stock_mt} digits={3} />
+                            <NumTd value={r.total_mt} digits={3} bold />
+                          </Tr>
+                        ))}
+                        <Tr sx={totalRowSx()}>
+                          <Td colSpan={3}>Total (Mill Use)</Td>
+                          <NumTd value={summary.prvs_total_mt} digits={3} bold />
+                          <NumTd value={summary.total_mt} digits={3} bold />
+                        </Tr>
+                      </DprTable>
+                    </SectionCard>
+                  );
+                })()
+              : null}
+
+            {/* Mill-use detail table — minimized by default */}
+            {millUseBlock && millUseBlock.rows.length > 0 ? (
+              <Paper variant="outlined" sx={{ p: 1.5, breakInside: "avoid" }}>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={millUseOpen}
+                  onClick={() => setMillUseOpen((o) => !o)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setMillUseOpen((o) => !o);
+                    }
+                  }}
+                  sx={{ cursor: "pointer", userSelect: "none" }}
+                >
+                  <Box sx={{ display: "flex", displayPrint: "none" }}>
+                    {millUseOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      {BUCKET_LABELS[MILL_USE_BUCKET]} — Details
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: "block", displayPrint: "none" }}
+                    >
+                      {millUseBlock.rows.length} counted line(s) · Subtotal{" "}
+                      {fmt(millUseBlock.subtotal_mt, 3)} MT —{" "}
+                      {millUseOpen ? "tap to minimize" : "tap to show the full table"}
+                    </Typography>
+                  </Box>
+                </Stack>
+                <Box
+                  sx={{
+                    mt: 0.75,
+                    display: millUseOpen ? "block" : "none",
+                    displayPrint: "block",
+                  }}
+                >
+                  <StockBlockTable bucket={MILL_USE_BUCKET} block={millUseBlock} />
+                </Box>
+              </Paper>
+            ) : null}
+
+            {/* The other four stock blocks, unchanged — skip one entirely when
+                it has no rows */}
+            {OTHER_BUCKET_ORDER.map((bucket) => {
               const block = bucketOf(data.stock, bucket);
               if (!block || block.rows.length === 0) return null;
               return (
                 <SectionCard key={bucket} title={BUCKET_LABELS[bucket]}>
-                  <DprTable
-                    head={
-                      <Tr>
-                        <Td align="right">Count</Td>
-                        <Td>Quality</Td>
-                        <Td>Package</Td>
-                        <Td align="right">No. of Samples</Td>
-                        <Td align="right">Weight/Sample (kg)</Td>
-                        <Td align="right">Prvs Stock (MT)</Td>
-                        <Td align="right">Stock Position (MT)</Td>
-                        <Td>Place</Td>
-                      </Tr>
-                    }
-                  >
-                    {block.rows.map((r, i) => (
-                      <Tr key={`${bucket}-${i}`}>
-                        <NumTd value={r.yarn_count} />
-                        <Td>{r.item_name ?? r.item_code ?? r.quality_name ?? "—"}</Td>
-                        <Td>{r.package_label || "—"}</Td>
-                        <NumTd value={r.no_of_samples} digits={0} />
-                        <NumTd value={r.wt_per_sample} />
-                        <NumTd value={r.prvs_stock_mt} digits={3} />
-                        <NumTd value={r.stock_mt} digits={3} />
-                        <Td>{r.area_name ?? "—"}</Td>
-                      </Tr>
-                    ))}
-                    <Tr sx={totalRowSx()}>
-                      <Td colSpan={6}>Subtotal</Td>
-                      <NumTd value={block.subtotal_mt} digits={3} bold />
-                      <Td />
-                    </Tr>
-                  </DprTable>
+                  <StockBlockTable bucket={bucket} block={block} />
                 </SectionCard>
               );
             })}

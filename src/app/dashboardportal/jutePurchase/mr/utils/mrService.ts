@@ -3,8 +3,8 @@
  * @description API service functions for Jute Material Receipt (MR) module.
  */
 
-import axios from "axios";
 import { fetchWithCookie } from "@/utils/apiClient2";
+import { fetchExcelBlob } from "@/utils/fetchExcelBlob";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { ApprovalActionPermissions } from "@/components/ui/transaction";
 
@@ -295,34 +295,6 @@ export interface FetchJuteMRDownloadParams {
  * Download the Jute MR list as an .xlsx blob, applying the same filters
  * (search, from_date, to_date) used by the index grid.
  */
-export async function fetchJuteMRDownload(
-	params: FetchJuteMRDownloadParams,
-): Promise<Blob> {
-	const { coId, search, fromDate, toDate, statusId } = params;
-	const qs = new URLSearchParams();
-	qs.append("co_id", String(coId));
-	if (search && search.trim()) qs.append("search", search.trim());
-	if (fromDate) qs.append("from_date", fromDate);
-	if (toDate) qs.append("to_date", toDate);
-	if (statusId != null) qs.append("status_id", String(statusId));
-
-	const url = `${apiRoutesPortalMasters.JUTE_MR_DOWNLOAD}?${qs.toString()}`;
-	try {
-		const response = await axios.get<Blob>(url, {
-			responseType: "blob",
-			withCredentials: true,
-		});
-		return response.data;
-	} catch (err: unknown) {
-		if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
-			try {
-				const text = await err.response.data.text();
-				const parsed = JSON.parse(text) as { detail?: string };
-				throw new Error(parsed.detail ?? "Jute MR download failed");
-			} catch {
-				throw new Error("Jute MR download failed");
-			}
-		}
-		throw err instanceof Error ? err : new Error(String(err));
-	}
+export function fetchJuteMRDownload(params: FetchJuteMRDownloadParams): Promise<Blob> {
+	return fetchExcelBlob(apiRoutesPortalMasters.JUTE_MR_DOWNLOAD, params);
 }

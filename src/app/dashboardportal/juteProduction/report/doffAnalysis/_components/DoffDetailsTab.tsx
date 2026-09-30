@@ -15,6 +15,8 @@ import React from "react";
 import { Alert, Box, Stack, useMediaQuery, useTheme } from "@mui/material";
 import type { GridColDef } from "@mui/x-data-grid";
 import ReportGrid, { numCol } from "@/components/reports/ReportGrid";
+import type { ReportExportHeader } from "@/components/reports/exportExcel";
+import type { GridSection } from "@/components/reports/gridSections";
 import { SectionCard } from "../../dailyProductionReport/_components/DprPieces";
 import {
   withId,
@@ -33,8 +35,10 @@ import {
   type FilterSel,
   type PerfStatus,
 } from "../perf";
+import ExportActions from "./ExportActions";
 import FrameCards, { type FrameCardItem } from "./FrameCards";
 import QuickFilters from "./QuickFilters";
+import { diffCol, targetColumns } from "./targetColumns";
 
 type WithId<T> = T & { id: number };
 type ScoredSummaryRow = DoffSummaryRow & {
@@ -63,6 +67,7 @@ const summaryColumns: GridColDef<WithId<ScoredSummaryRow>>[] = [
   { field: "frame", headerName: "Frame", width: 110 },
   { field: "quality_name", headerName: "Quality", flex: 1, minWidth: 160 },
   numCol("net_wt", "Net Wt (kg)", 120),
+  ...targetColumns<WithId<ScoredSummaryRow>>(),
   { field: "num_doffs", headerName: "Doffs", type: "number", width: 90 },
   numCol("avg_wt", "Avg Wt", 100),
   numCol("max_wt", "Max Wt", 100),
@@ -72,7 +77,17 @@ const summaryColumns: GridColDef<WithId<ScoredSummaryRow>>[] = [
 
 const spellTotalColumns: GridColDef<WithId<DoffSpellTotalRow>>[] = [
   { field: "spell_code", headerName: "Spell", width: 100 },
-  numCol("net_wt", "Net Wt (kg)", 140),
+  numCol("net_wt", "Net Wt (kg)", 130),
+  numCol("target_wt", "Target (kg)", 130),
+  diffCol<WithId<DoffSpellTotalRow>>(),
+  {
+    // Target and Diff only cover the frames that HAVE a target.
+    field: "target_rows",
+    headerName: "Frames with target",
+    width: 160,
+    sortable: false,
+    valueGetter: (_, row) => `${row.target_rows ?? 0} of ${row.rows ?? 0}`,
+  },
 ];
 
 const rawColumns: GridColDef<WithId<DoffRawRow>>[] = [
@@ -114,9 +129,11 @@ function uniqueSorted(values: (string | null)[]): string[] {
 export default function DoffDetailsTab({
   data,
   branchId,
+  header,
 }: {
   data: DoffDetailsData | null;
   branchId: number | null;
+  header: ReportExportHeader;
 }) {
   const theme = useTheme();
   const isPhone = useMediaQuery(theme.breakpoints.down("sm"));
@@ -181,8 +198,21 @@ export default function DoffDetailsTab({
         doffs: r.num_doffs,
         doffMedian: r.doff_median,
         netWt: r.net_wt,
+        targetWt: r.target_wt,
+        diffWt: r.diff_wt,
       })),
     [filteredSummary],
+  );
+
+  // Export / print exactly the four grids as filtered (TKT-000190).
+  const sections = React.useMemo<GridSection[]>(
+    () => [
+      { title: "Doff Summary", columns: summaryColumns, rows: withId(filteredSummary) },
+      { title: "Spell Totals", columns: spellTotalColumns, rows: withId(spellTotals) },
+      { title: "Weight Bands", columns: bandCols, rows: withId(bands) },
+      { title: "Doffs", columns: rawColumns, rows: withId(filteredRaw) },
+    ] as GridSection[],
+    [filteredSummary, spellTotals, bands, bandCols, filteredRaw],
   );
 
   if (!data) return null;
@@ -206,9 +236,16 @@ export default function DoffDetailsTab({
         onChange={setSel}
       />
 
+      <ExportActions
+        sections={sections}
+        fileNamePrefix="doff-analysis-details"
+        header={{ ...header, reportName: "Doff Analysis — Doff Details" }}
+        disabled={branchId == null}
+      />
+
       <SectionCard
         title="Doff Summary"
-        subtitle="Per spell and frame — red/amber rows are below their quality peers on weight or doff count"
+        subtitle="Per spell and frame — red/amber rows are below their quality peers on weight or doff count. Target / Diff are blank where the Spinning Standards are not entered."
       >
         {isPhone ? (
           filteredSummary.length ? (
@@ -237,7 +274,10 @@ export default function DoffDetailsTab({
           gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1fr) minmax(0, 2fr)" },
         }}
       >
-        <SectionCard title="Spell Totals" subtitle="Net weight per spell (filtered)">
+        <SectionCard
+          title="Spell Totals"
+          subtitle="Net weight per spell (filtered); Target and Diff count only the frames that have a target"
+        >
           <ReportGrid
             rows={withId(spellTotals)}
             columns={spellTotalColumns}

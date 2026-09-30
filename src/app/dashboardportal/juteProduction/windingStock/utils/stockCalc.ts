@@ -1,4 +1,4 @@
-import type { WindingStockRow } from "@/utils/windingStockService";
+import type { StockLocation, WindingStockRow } from "@/utils/windingStockService";
 
 /** The column scale the mill's sheet prints MT at. */
 export const MT_SCALE = 3;
@@ -38,6 +38,25 @@ export function grandTotal(rows: ReadonlyArray<WindingStockRow>): number {
   );
 }
 
+export type LocationTotals = Record<StockLocation, number>;
+
+/**
+ * MT on hand per location (yarn-purchase design §3.3). Both keys are always
+ * present so the footer can print "Godown 0.000" for a day with no godown
+ * count. A row with no stock_loc (counted before the column existed, or
+ * served by an older backend) is FLOOR — the same default the server applies.
+ * Godown + Floor always equals grandTotal: the split never changes the day's
+ * total the difference report uses.
+ */
+export function locationTotals(rows: ReadonlyArray<WindingStockRow>): LocationTotals {
+  const totals: LocationTotals = { GODOWN: 0, FLOOR: 0 };
+  rows.forEach((r) => {
+    const loc: StockLocation = r.stock_loc === "GODOWN" ? "GODOWN" : "FLOOR";
+    totals[loc] = roundMt(totals[loc] + stockMt(r.no_of_samples, r.wt_per_sample));
+  });
+  return totals;
+}
+
 /**
  * Whether the grid's row Edit/Delete actions should be disabled.
  *
@@ -68,6 +87,11 @@ export function todayISO(): string {
   const tzOffset = d.getTimezoneOffset() * 60000;
   return new Date(d.getTime() - tzOffset).toISOString().slice(0, 10);
 }
+
+export const LOCATION_LABELS: Record<StockLocation, string> = {
+  GODOWN: "Godown",
+  FLOOR: "Floor",
+};
 
 export const BUCKET_LABELS: Record<string, string> = {
   MILL_USE: "Yarn for Mill Use",

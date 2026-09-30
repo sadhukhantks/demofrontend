@@ -153,6 +153,9 @@ export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAc
 
 	const companyAddress = formatCompanyAddress(header);
 	const poDisplay = header.po_num ?? (header.po_no != null ? String(header.po_no) : null);
+	// jute_mr.unit_conversion holds "BALE" / "LOOSE" from gate entry.
+	const juteUnit = String(header.unit_conversion ?? "").trim().toUpperCase();
+	const juteUnitLabel = juteUnit === "BALE" ? "Bale" : juteUnit === "LOOSE" ? "Loose" : "-";
 
 	// Same document as the print window, rebuilt with jsPDF + autotable so it
 	// saves as a file instead of opening the print dialog (SQC report pattern).
@@ -219,7 +222,10 @@ export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAc
 				`PO No / Date : ${poDisplay ?? "-"}${header.po_date ? `  /  ${formatDate(header.po_date)}` : ""}`,
 				`Lorry No : ${header.vehicle_no ?? "-"}`,
 			);
-			metaRow(`Challan No / Date : ${header.challan_no ?? "-"}${header.challan_date ? `  /  ${formatDate(header.challan_date)}` : ""}`);
+			metaRow(
+				`Challan No / Date : ${header.challan_no ?? "-"}${header.challan_date ? `  /  ${formatDate(header.challan_date)}` : ""}`,
+				`Bale / Loose : ${juteUnitLabel}`,
+			);
 			y += 2;
 			doc.text("Against the above we have received the consignment as follows:", marginX, y);
 			y += 4;
@@ -238,6 +244,7 @@ export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAc
 						{ content: "Approved\nWeight", rowSpan: 2 },
 						{ content: "Rate per\nQtls Rs", rowSpan: 2 },
 						{ content: "CLAIM FOR", colSpan: 2 },
+						{ content: "Mill\nMoist %", rowSpan: 2 },
 					],
 					["QUALITY", "CONDITION"],
 				],
@@ -252,6 +259,7 @@ export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAc
 						fmt(li.rate, 2),
 						formatClaimQuality(li.claimQuality, li.claimRate, li.claimDust),
 						formatMoistureCondition(li.actualMoisture, li.allowableMoisture),
+						fmt(li.millMoisture, 2),
 					]),
 					[
 						boldCell(fmt(totals.qty, 2)),
@@ -260,6 +268,7 @@ export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAc
 						boldCell(fmt(totals.mill, 2)),
 						boldCell(totals.claimKgs ? fmt(totals.claimKgs) : ""),
 						boldCell(fmt(totals.approved, 2)),
+						boldCell(""),
 						boldCell(""),
 						boldCell(""),
 						boldCell(""),
@@ -275,6 +284,7 @@ export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAc
 					4: { halign: "right" },
 					5: { halign: "right" },
 					6: { halign: "right" },
+					9: { halign: "right" },
 				},
 				margin: { left: marginX, right: marginX },
 			});
@@ -395,7 +405,8 @@ export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAc
 						<tr>
 							<td style={metaLbl}>Challan No / Date</td><td style={metaSep}>:</td>
 							<td style={metaVal}>{header.challan_no ?? "-"}{header.challan_date ? `  /  ${formatDate(header.challan_date)}` : ""}</td>
-							<td style={metaLblRight} /><td style={metaSep} /><td style={metaVal} />
+							<td style={metaLblRight}>Bale / Loose</td><td style={metaSep}>:</td>
+							<td style={metaVal}>{juteUnitLabel}</td>
 						</tr>
 					</tbody>
 				</table>
@@ -416,6 +427,7 @@ export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAc
 							<th style={thRight} rowSpan={2}>Approved<br/>Weight</th>
 							<th style={thRight} rowSpan={2}>Rate per<br/>Qtls Rs</th>
 							<th style={{ ...thStyle, textAlign: "center" }} colSpan={2}>CLAIM FOR</th>
+							<th style={thRight} rowSpan={2}>Mill<br/>Moist %</th>
 						</tr>
 						<tr>
 							<th style={thStyle}>QUALITY</th>
@@ -441,6 +453,7 @@ export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAc
 								<td style={tdStyle}>
 									{formatMoistureCondition(li.actualMoisture, li.allowableMoisture)}
 								</td>
+								<td style={tdRight}>{fmt(li.millMoisture, 2)}</td>
 							</tr>
 						))}
 						{/* Totals row */}
@@ -451,6 +464,7 @@ export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAc
 							<td style={tdTotalRight}>{fmt(totals.mill, 2)}</td>
 							<td style={tdTotalRight}>{totals.claimKgs ? fmt(totals.claimKgs) : ""}</td>
 							<td style={tdTotalRight}>{fmt(totals.approved, 2)}</td>
+							<td style={tdTotal} />
 							<td style={tdTotal} />
 							<td style={tdTotal} />
 							<td style={tdTotal} />

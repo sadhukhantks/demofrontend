@@ -1,14 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Chip, Typography } from "@mui/material";
+import { Alert, Chip, IconButton, Tooltip, Typography } from "@mui/material";
+import { Settings } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import type { GridColDef, GridPaginationModel, GridRenderCellParams } from "@mui/x-data-grid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import DateRangeToolbar from "@/components/ui/DateRangeToolbar";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+import { useSidebarContextSafe } from "@/components/dashboard/sidebarContext";
+import { JutePOSettleRuleDialog } from "./createPO/components/JutePOSettleRuleDialog";
+import { useJutePOSettleRule } from "./createPO/hooks/useJutePOSettleRule";
 import { createStatusBasedEditCheck } from "@/utils/editability";
 import { useExcelDownload } from "@/hooks/useExcelDownload";
 import { fetchExcelBlob } from "@/utils/fetchExcelBlob";
@@ -69,7 +73,7 @@ const getStatusColor = (status: string): "success" | "error" | "warning" | "info
 };
 
 // Jute PO status ids — from jutePO.py status-change endpoints
-// (21=Draft, 1=Open, 20=Pending Approval, 3=Approved, 4=Rejected, 6=Cancelled).
+// (21=Draft, 1=Open, 20=Pending Approval, 3=Approved, 4=Rejected, 5=Closed, 6=Cancelled).
 /** Status filter option; `null` is the "All statuses" (no filter) sentinel. */
 type JutePOStatusFilterOption = { value: number | null; label: string };
 
@@ -79,11 +83,20 @@ const JUTE_PO_STATUS_OPTIONS: ReadonlyArray<{ value: number; label: string }> = 
 	{ value: 20, label: "Pending Approval" },
 	{ value: 3, label: "Approved" },
 	{ value: 4, label: "Rejected" },
+	{ value: 5, label: "Closed" },
 	{ value: 6, label: "Cancelled" },
 ];
 
 export default function JutePOIndexPage() {
 	const router = useRouter();
+	const pathname = usePathname();
+	// Settlement rules gear: edit access on this menu only.
+	const sidebarContext = useSidebarContextSafe();
+	const hasMenuAccess = sidebarContext?.hasMenuAccess;
+	const canEditMenu = React.useMemo(
+		() => (hasMenuAccess ? hasMenuAccess(pathname, "edit") : false),
+		[hasMenuAccess, pathname]
+	);
 	const [rows, setRows] = React.useState<JutePORow[]>([]);
 	const [totalRows, setTotalRows] = React.useState(0);
 	const [loading, setLoading] = React.useState(false);
@@ -358,6 +371,21 @@ export default function JutePOIndexPage() {
 		download({ coId: coIdState, search: searchValue, fromDate, toDate, statusId: statusFilter });
 	}, [download, coIdState, searchValue, fromDate, toDate, statusFilter]);
 
+	// Settlement rules dialog
+	const [ruleDialogOpen, setRuleDialogOpen] = React.useState(false);
+	const settleRule = useJutePOSettleRule(coIdState);
+	const { load: loadSettleRule, reset: resetSettleRule, save: saveSettleRule, saveSummary: settleRuleSummary } = settleRule;
+	const handleOpenRuleDialog = React.useCallback(() => {
+		setRuleDialogOpen(true);
+		void loadSettleRule();
+	}, [loadSettleRule]);
+	const handleCloseRuleDialog = React.useCallback(() => {
+		setRuleDialogOpen(false);
+		resetSettleRule();
+		// A saved rule re-evaluates every PO — refresh the list so statuses are current.
+		if (settleRuleSummary) void fetchJutePOs();
+	}, [resetSettleRule, settleRuleSummary, fetchJutePOs]);
+
 	const handleCreateJutePO = React.useCallback(() => {
 		router.push("/dashboardportal/jutePurchase/po/createPO");
 	}, [router]);
@@ -435,6 +463,19 @@ export default function JutePOIndexPage() {
 						downloadDisabled={!coIdState || loading}
 						mounted={mounted}
 					/>
+					{canEditMenu ? (
+						<Tooltip title="Settlement rules">
+							<IconButton
+								aria-label="Settlement rules"
+								onClick={handleOpenRuleDialog}
+								disabled={!coIdState}
+								size="medium"
+								sx={{ minWidth: 44, minHeight: 44 }}
+							>
+								<Settings size={20} />
+							</IconButton>
+						</Tooltip>
+					) : null}
 				</>
 			}
 			onView={handleView}
@@ -451,6 +492,16 @@ export default function JutePOIndexPage() {
 					{downloadError}
 				</Alert>
 			) : null}
+			<JutePOSettleRuleDialog
+				open={ruleDialogOpen}
+				rule={settleRule.rule}
+				loading={settleRule.loading}
+				saving={settleRule.saving}
+				error={settleRule.error}
+				saveSummary={settleRule.saveSummary}
+				onClose={handleCloseRuleDialog}
+				onSave={saveSettleRule}
+			/>
 		</IndexWrapper>
 	);
 }

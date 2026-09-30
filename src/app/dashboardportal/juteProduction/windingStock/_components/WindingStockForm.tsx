@@ -5,15 +5,20 @@ import { Alert, Autocomplete, Box, Button, TextField, Typography } from "@mui/ma
 import { Save as SaveIcon, X as CancelIcon } from "lucide-react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { WindingStockRow, WindingStockSetup } from "@/utils/windingStockService";
+import {
+	STOCK_LOCATIONS,
+	type WindingStockRow,
+	type WindingStockSetup,
+} from "@/utils/windingStockService";
 import {
 	buildDefaultFormValues,
 	windingStockSchema,
 	MAX_SAMPLES,
 	MAX_WT,
+	type WindingStockFormInput,
 	type WindingStockFormValues,
 } from "../utils/stockSchema";
-import { BUCKET_LABELS } from "../utils/stockCalc";
+import { BUCKET_LABELS, LOCATION_LABELS } from "../utils/stockCalc";
 
 /** An option row reduced to what a picker needs: an id (numeric or, for the
  * bucket field, its string code) and its label. */
@@ -145,7 +150,7 @@ export default function WindingStockForm({
 		setValue,
 		getValues,
 		formState: { errors },
-	} = useForm<WindingStockFormValues>({
+	} = useForm<WindingStockFormInput, unknown, WindingStockFormValues>({
 		resolver: zodResolver(windingStockSchema),
 		defaultValues: buildDefaultFormValues(tranDate),
 		mode: "onTouched",
@@ -172,6 +177,18 @@ export default function WindingStockForm({
 		[setup.areas]
 	);
 
+	// Location / department (yarn-purchase design §3.3). The `??` fallbacks keep
+	// the page usable against a backend that predates these two setup keys.
+	const locationOptions = React.useMemo<PickerOption[]>(
+		() => (setup.locations ?? STOCK_LOCATIONS).map((l) => ({ id: l, label: LOCATION_LABELS[l] ?? l })),
+		[setup.locations]
+	);
+
+	const deptOptions = React.useMemo<PickerOption[]>(
+		() => (setup.departments ?? []).map((d) => ({ id: d.dept_id, label: d.dept_desc })),
+		[setup.departments]
+	);
+
 	// The edit endpoint reads a null item_id / wastage_area_id as "leave
 	// unchanged", not "clear" — so an already-attributed one cannot be un-set
 	// through edit. Offer the blank option only when it is truthful: while
@@ -183,6 +200,19 @@ export default function WindingStockForm({
 	// change — declared before the effects that consume them.
 	const bucket = useWatch({ control, name: "bucket" });
 	const itemId = useWatch({ control, name: "item_id" });
+	const stockLoc = useWatch({ control, name: "stock_loc" });
+	const deptId = useWatch({ control, name: "dept_id" });
+	const isFloor = stockLoc !== "GODOWN";
+
+	// A godown line has no department: the moment Location becomes GODOWN the
+	// department is cleared so the payload (and the schema refine) never sees
+	// GODOWN + dept together. Watched values drive this rather than the picker's
+	// onChange so it also covers a row lifted into edit mode.
+	React.useEffect(() => {
+		if (!isFloor && deptId != null) {
+			setValue("dept_id", null, { shouldValidate: true });
+		}
+	}, [isFloor, deptId, setValue]);
 
 	// Ask for the last-saved kg/sample once bucket + item + package are all
 	// filled and the operator hasn't typed a weight yet. Re-checks the field
@@ -215,6 +245,8 @@ export default function WindingStockForm({
 			package_label: editingEntry.package_label,
 			wastage_area_id:
 				editingEntry.wastage_area_id == null ? "" : String(editingEntry.wastage_area_id),
+			stock_loc: editingEntry.stock_loc === "GODOWN" ? "GODOWN" : "FLOOR",
+			dept_id: editingEntry.stock_loc === "GODOWN" ? null : (editingEntry.dept_id ?? null),
 			no_of_samples: String(editingEntry.no_of_samples),
 			wt_per_sample: String(editingEntry.wt_per_sample),
 			remarks: editingEntry.remarks ?? "",
@@ -354,6 +386,44 @@ export default function WindingStockForm({
 								(allowClearArea
 									? "Optional"
 									: "Cannot be cleared on edit — delete and re-add for a blank area")
+							}
+						/>
+					)}
+				/>
+
+				<Controller
+					name="stock_loc"
+					control={control}
+					render={({ field }) => (
+						<PickerField
+							value={field.value ?? "FLOOR"}
+							onChange={field.onChange}
+							onBlur={field.onBlur}
+							options={locationOptions}
+							label="Location"
+							required
+							allowClear={false}
+							error={!!errors.stock_loc}
+							helperText={errors.stock_loc?.message ?? "Godown or floor"}
+						/>
+					)}
+				/>
+
+				<Controller
+					name="dept_id"
+					control={control}
+					render={({ field }) => (
+						<PickerField
+							value={field.value == null ? "" : String(field.value)}
+							onChange={(next) => field.onChange(next === "" ? null : Number(next))}
+							onBlur={field.onBlur}
+							options={deptOptions}
+							label="Department"
+							disabled={!isFloor}
+							error={!!errors.dept_id}
+							helperText={
+								errors.dept_id?.message ??
+								(isFloor ? "Optional — floor lines only" : "Not applicable to a godown line")
 							}
 						/>
 					)}

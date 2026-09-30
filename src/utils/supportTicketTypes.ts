@@ -210,6 +210,37 @@ export interface TicketStatsResponse {
   };
 }
 
+// ── Notifications ───────────────────────────────────────────────────────────────
+/** Event kinds stored in `support_ticket_notification.event_type` (backend `notifications.py`). */
+export type TicketNotificationEvent = "assigned" | "status_changed" | "comment" | "attachment";
+
+export interface TicketNotification {
+  notification_id: number;
+  ticket_id: number;
+  ticket_no: string | null;
+  subject: string;
+  status_id: number;
+  event_type: TicketNotificationEvent | string;
+  title: string;
+  message: string | null;
+  actor_name: string | null;
+  is_read: number;
+  read_date_time: string | null;
+  created_date_time: string | null;
+}
+
+export interface TicketNotificationsResponse {
+  data: TicketNotification[];
+  unread: number;
+}
+
+/** Exactly one scope is used, in this precedence: ids, then ticket, then all. */
+export interface MarkNotificationsReadPayload {
+  notification_ids?: number[];
+  ticket_id?: number;
+  all?: boolean;
+}
+
 // ── Raise form (Zod is the single source of truth) ──────────────────────────────
 export const raiseTicketSchema = z.object({
   subject: z
