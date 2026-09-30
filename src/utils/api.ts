@@ -776,6 +776,12 @@ const apiRoutesPortalMasters = {
   EJM_CASH_OUTSIDER_PROCESS: `${API_URL}/hrmsMasters/ejm_cash_outsider_process`,
     // EJM-Cumulative Data Transfer (legacy hol_get=20) -> cumulative_data_table
     EJM_CUMULATIVE_TRANSFER: `${API_URL}/hrmsMasters/ejm_cumulative_transfer`,
+    // Spreader efficiency (legacy SPREDEFF.PRG) -> ejm_fne_wages_eff_data
+    EJM_SPREADER_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_spreader_eff_process`,
+    // Drawing efficiency (legacy DRAWEFF1.PRG) -> ejm_fne_wages_eff_data
+    EJM_DRAWING_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_drawing_eff_process`,
+    // Spinner efficiency (legacy DOFFEFF1.PRG) -> ejm_fne_wages_eff_data
+    EJM_SPINNING_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_spinning_eff_process`,
     EJM_WAGES_PAYROLL_EXCEL: `${API_URL}/hrmsMasters/ejm_wages_payroll_excel`,
     // EJM Pay Register / OT Register grids (legacy pay_register_payslip.php / ot_register_payslip.php)
     EJM_PAY_REGISTER_REPORT: `${API_URL}/hrmsMasters/ejm_pay_register_report`,
@@ -939,9 +945,20 @@ const apiRoutesPortalMasters = {
     EJM_FNE_QUAL_TARGET_DEPARTMENTS: `${API_URL}/hrmsMasters/get_ejm_fne_qual_target_departments`,
     EJM_FNE_QUAL_TARGET_QUALITIES: `${API_URL}/hrmsMasters/get_ejm_fne_qual_target_qualities`,
     EJM_FNE_QUAL_TARGET_TABLE: `${API_URL}/hrmsMasters/get_ejm_fne_qual_target_table`,
-    EJM_FNE_QUAL_TARGET_BY_ID: `${API_URL}/hrmsMasters/get_ejm_fne_qual_target_by_id`,
-    EJM_FNE_QUAL_TARGET_CREATE: `${API_URL}/hrmsMasters/ejm_fne_qual_target_create`,
-    EJM_FNE_QUAL_TARGET_EDIT: `${API_URL}/hrmsMasters/ejm_fne_qual_target_edit`,
+    EJM_FNE_QUAL_TARGET_GRID: `${API_URL}/hrmsMasters/get_ejm_fne_qual_target_grid`,
+    EJM_FNE_QUAL_TARGET_SAVE: `${API_URL}/hrmsMasters/ejm_fne_qual_target_save`,
+
+    // EJM MC Group Production (wages/ejm/fneGroupProduction)
+    EJM_FNE_GROUP_PROD_SETUP: `${API_URL}/hrmsMasters/ejm_fne_group_production_setup`,
+    EJM_FNE_GROUP_PROD_TABLE: `${API_URL}/hrmsMasters/get_ejm_fne_group_production_table`,
+    EJM_FNE_GROUP_PROD_ROWS: `${API_URL}/hrmsMasters/get_ejm_fne_group_production_rows`,
+    EJM_FNE_GROUP_PROD_SAVE: `${API_URL}/hrmsMasters/ejm_fne_group_production_save`,
+
+    // EJM Group Machine Hours (wages/ejm/fneGroupMachineHours)
+    EJM_GROUP_MC_HOURS_SETUP: `${API_URL}/hrmsMasters/ejm_group_mc_hours_setup`,
+    EJM_GROUP_MC_HOURS_TABLE: `${API_URL}/hrmsMasters/get_ejm_group_mc_hours_table`,
+    EJM_GROUP_MC_HOURS_ROWS: `${API_URL}/hrmsMasters/get_ejm_group_mc_hours_rows`,
+    EJM_GROUP_MC_HOURS_SAVE: `${API_URL}/hrmsMasters/ejm_group_mc_hours_save`,
 
     // EJM Wages Quality Rate (wages/ejm/qualityRateEntry) — department and
     // quality pickers are shared with EJM_FNE_QUAL_TARGET_* above.

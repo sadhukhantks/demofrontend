@@ -22,19 +22,8 @@ export type FneEffCodeRow = {
 	eff_pc: number | null;
 };
 
-/** The approval actions the page can ask the backend to perform. */
-export const FNE_STATUS_ACTIONS = [
-	"open",
-	"cancel",
-	"send-for-approval",
-	"approve",
-	"reject",
-	"reopen",
-] as const;
-export type FneStatusAction = (typeof FNE_STATUS_ACTIONS)[number];
-
-/** Statuses in which the grid may still be edited (mirrors the backend). */
-export const EDITABLE_STATUSES: readonly ApprovalStatusId[] = [21, 1] as const;
+/** Save + Approve only: the grid stays editable until the fortnight is Approved (3). */
+export const isEditableStatus = (statusId: ApprovalStatusId) => statusId !== 3;
 
 export const STATUS_LABELS: Record<ApprovalStatusId, string> = {
 	21: "Drafted",

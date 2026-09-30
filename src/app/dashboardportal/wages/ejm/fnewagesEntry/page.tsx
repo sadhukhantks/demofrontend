@@ -1,29 +1,26 @@
 "use client";
 
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Snackbar } from "@mui/material";
+import { useRouter } from "next/navigation";
+import { Alert, Chip, Snackbar } from "@mui/material";
 import { GridColDef, GridPaginationModel } from "@mui/x-data-grid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { BranchScopePicker } from "@/components/reports/BranchScopePicker";
 import { useReportBranches } from "@/components/reports/useReportBranches";
-import CreateFneQualTargetPage from "./CreateFneQualTargetPage";
-import type {
-	DepartmentOption,
-	FneQualTargetRow,
-	WagesQualityOption,
-} from "./types";
+import type { FneQualTargetEntryRow } from "./types";
+
+const CREATE_PATH = "/dashboardportal/wages/ejm/fnewagesEntry/createFneQualTarget";
 
 function FneWagesEntry() {
+	const router = useRouter();
 	// Branch scope comes from the sidebar; the picker only appears when more than
 	// one branch is in scope (standing norm in CLAUDE.md).
-	const { branches, coId, initialBranchId } = useReportBranches();
+	const { branches, initialBranchId } = useReportBranches();
 	const [branchId, setBranchId] = useState<number | null>(initialBranchId);
 
-	const [rows, setRows] = useState<FneQualTargetRow[]>([]);
-	const [departments, setDepartments] = useState<DepartmentOption[]>([]);
-	const [qualities, setQualities] = useState<WagesQualityOption[]>([]);
+	const [rows, setRows] = useState<FneQualTargetEntryRow[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [totalRows, setTotalRows] = useState(0);
 	const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
@@ -31,128 +28,92 @@ function FneWagesEntry() {
 		page: 0,
 	});
 	const [searchQuery, setSearchQuery] = useState("");
-	const [snackbar, setSnackbar] = useState<{
-		open: boolean;
-		message: string;
-		severity: "success" | "error";
-	}>({ open: false, message: "", severity: "success" });
-
-	const [dialogOpen, setDialogOpen] = useState(false);
-	const [selectedId, setSelectedId] = useState<number | undefined>(undefined);
+	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
 		if (branchId === null && initialBranchId !== null) setBranchId(initialBranchId);
 	}, [initialBranchId, branchId]);
 
-	const notify = useCallback(
-		(message: string, severity: "success" | "error" = "success") =>
-			setSnackbar({ open: true, message, severity }),
-		[]
-	);
-
-	useEffect(() => {
-		if (branchId === null) return;
-		(async () => {
-			const { data, error } = await fetchWithCookie(
-				`${apiRoutesPortalMasters.EJM_FNE_QUAL_TARGET_DEPARTMENTS}?branch_id=${branchId}`,
-				"GET"
-			);
-			if (error || !data) {
-				notify(error || "Failed to load departments", "error");
-				return;
-			}
-			setDepartments(data.data || []);
-		})();
-	}, [branchId, notify]);
-
-	useEffect(() => {
-		if (branchId === null || coId === null) return;
-		(async () => {
-			const { data, error } = await fetchWithCookie(
-				`${apiRoutesPortalMasters.EJM_FNE_QUAL_TARGET_QUALITIES}?co_id=${coId}&branch_id=${branchId}`,
-				"GET"
-			);
-			if (error || !data) {
-				notify(error || "Failed to load wages qualities", "error");
-				return;
-			}
-			setQualities(data.data || []);
-		})();
-	}, [branchId, coId, notify]);
-
-	const fetchTargets = useCallback(async () => {
+	const fetchEntries = useCallback(async () => {
 		if (branchId === null) return;
 		setLoading(true);
 		try {
-			const queryParams = new URLSearchParams({
+			const params = new URLSearchParams({
 				branch_id: String(branchId),
 				page: String((paginationModel.page ?? 0) + 1),
 				limit: String(paginationModel.pageSize ?? 10),
 			});
-			if (searchQuery) queryParams.append("search", searchQuery);
+			if (searchQuery) params.append("search", searchQuery);
 
-			const { data, error } = await fetchWithCookie(
-				`${apiRoutesPortalMasters.EJM_FNE_QUAL_TARGET_TABLE}?${queryParams}`,
+			const { data, error: err } = await fetchWithCookie(
+				`${apiRoutesPortalMasters.EJM_FNE_QUAL_TARGET_TABLE}?${params}`,
 				"GET"
 			);
-			if (error || !data) throw new Error(error || "Failed to fetch quality targets");
+			if (err || !data) throw new Error(err || "Failed to fetch quality targets");
 
 			setRows(
 				(data.data || []).map((r: Record<string, unknown>) => ({
-					id: r.fne_qual_traget_id as number,
-					fne_qual_traget_id: r.fne_qual_traget_id as number,
-					dept_id: (r.dept_id as number) ?? null,
+					id: `${r.period_id}-${r.dept_id}`,
+					period_id: r.period_id as number,
+					start_date: (r.start_date as string) ?? null,
+					end_date: (r.end_date as string) ?? null,
+					dept_id: r.dept_id as number,
 					dept_desc: (r.dept_desc as string) ?? "",
-					quality_it: (r.quality_it as number) ?? null,
-					q_code: (r.q_code as string) ?? "",
-					quality: (r.quality as string) ?? "",
-					eff_pc: r.eff_pc === null || r.eff_pc === undefined ? null : Number(r.eff_pc),
+					quality_count: Number(r.quality_count ?? 0),
+					approved_count: Number(r.approved_count ?? 0),
 				}))
 			);
 			setTotalRows(data.total || 0);
-		} catch (err: unknown) {
-			notify(err instanceof Error ? err.message : "Error fetching quality targets", "error");
+		} catch (e: unknown) {
+			setError(e instanceof Error ? e.message : "Error fetching quality targets");
 		} finally {
 			setLoading(false);
 		}
-	}, [branchId, paginationModel.page, paginationModel.pageSize, searchQuery, notify]);
+	}, [branchId, paginationModel.page, paginationModel.pageSize, searchQuery]);
 
 	useEffect(() => {
-		fetchTargets();
-	}, [fetchTargets]);
+		fetchEntries();
+	}, [fetchEntries]);
 
-	const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		setSearchQuery(e.target.value);
-		setPaginationModel((prev) => ({ ...prev, page: 0 }));
-	};
+	const openEntry = useCallback(
+		(row?: FneQualTargetEntryRow) => {
+			const params = new URLSearchParams();
+			if (branchId !== null) params.set("branch_id", String(branchId));
+			if (row) {
+				params.set("period_id", String(row.period_id));
+				params.set("dept_id", String(row.dept_id));
+			}
+			router.push(`${CREATE_PATH}?${params}`);
+		},
+		[branchId, router]
+	);
 
-	const handleCreate = useCallback(() => {
-		setSelectedId(undefined);
-		setDialogOpen(true);
-	}, []);
-
-	const handleEdit = useCallback((row: FneQualTargetRow) => {
-		setSelectedId(row.fne_qual_traget_id);
-		setDialogOpen(true);
-	}, []);
-
-	const handleDialogClose = useCallback(() => {
-		setDialogOpen(false);
-		setSelectedId(undefined);
-	}, []);
-
-	const columns = useMemo<GridColDef<FneQualTargetRow>[]>(
+	const columns = useMemo<GridColDef<FneQualTargetEntryRow>[]>(
 		() => [
-			{ field: "dept_desc", headerName: "Department", flex: 1.4, minWidth: 180 },
-			{ field: "q_code", headerName: "Quality Code", width: 140 },
-			{ field: "quality", headerName: "Wages Quality", flex: 1.6, minWidth: 220 },
 			{
-				field: "eff_pc",
-				headerName: "Target Eff %",
-				width: 150,
-				type: "number",
-				valueFormatter: (value: number | null) =>
-					value === null || value === undefined ? "" : value.toFixed(2),
+				field: "start_date",
+				headerName: "Fortnight",
+				flex: 1,
+				minWidth: 220,
+				valueGetter: (_v, row) =>
+					row.start_date ? `${row.start_date} → ${row.end_date ?? ""}` : `Period ${row.period_id}`,
+			},
+			{ field: "dept_desc", headerName: "Department", flex: 1.2, minWidth: 200 },
+			{ field: "quality_count", headerName: "Qualities", width: 110, type: "number" },
+			{
+				field: "approved_count",
+				headerName: "Status",
+				width: 170,
+				renderCell: ({ row }) => {
+					const all = row.approved_count === row.quality_count;
+					return (
+						<Chip
+							size="small"
+							color={all ? "success" : "default"}
+							label={all ? "Approved" : `${row.approved_count}/${row.quality_count} approved`}
+						/>
+					);
+				},
 			},
 		],
 		[]
@@ -170,36 +131,27 @@ function FneWagesEntry() {
 			showLoadingUntilLoaded
 			search={{
 				value: searchQuery,
-				onChange: handleSearchChange,
-				placeholder: "Search by department or quality",
+				onChange: (e) => {
+					setSearchQuery(e.target.value);
+					setPaginationModel((prev) => ({ ...prev, page: 0 }));
+				},
+				placeholder: "Search by department",
 				debounceDelayMs: 500,
 			}}
-			createAction={{ label: "Create Quality Target", onClick: handleCreate }}
-			onEdit={handleEdit}
+			createAction={{ label: "Create", onClick: () => openEntry() }}
+			onEdit={openEntry}
 			headerContent={
 				<BranchScopePicker branches={branches} value={branchId} onChange={setBranchId} />
 			}
 		>
-			<CreateFneQualTargetPage
-				open={dialogOpen}
-				onClose={handleDialogClose}
-				onSaved={fetchTargets}
-				editId={selectedId}
-				departments={departments}
-				qualities={qualities}
-			/>
 			<Snackbar
-				open={snackbar.open}
+				open={error !== null}
 				autoHideDuration={4000}
-				onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+				onClose={() => setError(null)}
 				anchorOrigin={{ vertical: "top", horizontal: "center" }}
 			>
-				<Alert
-					severity={snackbar.severity}
-					onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-					sx={{ width: "100%" }}
-				>
-					{snackbar.message}
+				<Alert severity="error" onClose={() => setError(null)} sx={{ width: "100%" }}>
+					{error}
 				</Alert>
 			</Snackbar>
 		</IndexWrapper>
