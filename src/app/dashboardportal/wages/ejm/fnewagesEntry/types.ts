@@ -1,45 +1,59 @@
 import { z } from "zod";
 
-/** A department in the sidebar's branch scope. */
-export type DepartmentOption = {
+/** A department from `prod_wages_link_setup` — only weaving/winding/finishing/beaming ones. */
+export type QualityDepartmentOption = {
+	value: string;
+	label: string;
+	quality_type: string;
+};
+
+/** Index row: one saved (fortnight, department) entry. */
+export type FneQualTargetEntryRow = {
+	id: string;
+	period_id: number;
+	start_date: string | null;
+	end_date: string | null;
 	dept_id: number;
 	dept_desc: string;
-	dept_code: string | null;
-	branch_id: number;
+	quality_count: number;
+	approved_count: number;
 };
 
-/** A wages-quality rate card from `tbl_wages_quality_master`. */
-export type WagesQualityOption = {
-	q_code_id: number;
-	q_code: string;
-	quality: string;
-	master_dept_id: number | null;
-};
-
-/** Row shape the DataGrid renders. */
-export type FneQualTargetRow = {
-	id: number;
-	fne_qual_traget_id: number;
-	dept_id: number | null;
-	dept_desc: string;
-	quality_it: number | null;
-	q_code: string;
-	quality: string;
-	eff_pc: number | null;
-};
+/** A quality from the department's own quality master (weaving/winding/finishing/beaming). */
+export type QualityOption = { value: number; label: string };
 
 /**
- * Create/edit payload — mirrors `ejm_wages_fne_qual_target` (eff_pc is
- * DECIMAL(6,2)). The backend re-validates and enforces one target per
- * (dept_id, quality_it), since the table carries no unique key.
+ * One line of the entry grid. `savedId` is null for the trailing blank row;
+ * a new blank row appears only once the previous one is saved.
  */
-export const fneQualTargetSchema = z.object({
-	dept_id: z.number().int().positive("Department is required"),
-	quality_it: z.number().int().positive("Wages quality is required"),
-	eff_pc: z
-		.number("Target efficiency % must be a number")
-		.min(-9999.99, "Target efficiency % is out of range")
-		.max(9999.99, "Target efficiency % is out of range"),
+export type FneQualTargetLine = {
+	id: string;
+	savedId: number | null;
+	quality_it: number | null;
+	eff_pc: string;
+	status_id: number;
+};
+
+/** Save + Approve only, per row: 21 Drafted (editable) -> 3 Approved (locked). */
+export const FNE_QUAL_TARGET_STATUS = { DRAFT: 21, APPROVED: 3 } as const;
+
+/**
+ * Save payload — mirrors `ejm_wages_fne_qual_target` (eff_pc is DECIMAL(6,2)).
+ * The backend re-validates and keys rows on (period_id, dept_id, quality_it).
+ */
+export const fneQualTargetSaveSchema = z.object({
+	period_id: z.number().int().positive("Select a fortnight period"),
+	dept_id: z.number().int().positive("Select a department"),
+	approve: z.boolean(),
+	lines: z.array(
+		z.object({
+			quality_it: z.number().int().positive(),
+			eff_pc: z
+				.number("Target Prod/Eff(5) must be a number")
+				.min(-9999.99, "Target Prod/Eff(5) is out of range")
+				.max(9999.99, "Target Prod/Eff(5) is out of range"),
+		})
+	),
 });
 
-export type FneQualTargetInput = z.infer<typeof fneQualTargetSchema>;
+export type FneQualTargetSavePayload = z.infer<typeof fneQualTargetSaveSchema>;
