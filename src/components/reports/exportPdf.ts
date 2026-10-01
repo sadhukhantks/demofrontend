@@ -8,6 +8,9 @@ import type { ReportExportHeader } from "./exportExcel";
  * the line to fix. */
 type CellFn<T> = (value: unknown, row: T, column: unknown, apiRef: unknown) => unknown;
 
+/** Light green for highlighted cells — same shade as GOOD_FILL in exportExcel. */
+const GOOD_FILL_RGB: [number, number, number] = [198, 239, 206];
+
 /**
  * Render one cell exactly as the grid shows it — valueGetter, then
  * valueFormatter — so the PDF carries the displayed text (e.g. "Not synced",
@@ -41,6 +44,8 @@ export async function exportRowsToPdf<T extends GridValidRowModel>(
   rows: T[],
   fileNamePrefix = "report",
   header?: ReportExportHeader,
+  /** Body cells to shade light green (e.g. a day that earned an incentive). */
+  highlight?: (row: T, column: GridColDef<T>) => boolean,
 ): Promise<void> {
   if (typeof window === "undefined") return;
   const { jsPDF } = await import("jspdf");
@@ -86,6 +91,14 @@ export async function exportRowsToPdf<T extends GridValidRowModel>(
       columns.map((c, i) => [i, { halign: c.type === "number" ? "right" : "left" }]),
     ),
     margin: { left: marginX, right: marginX },
+    didParseCell: highlight
+      ? (data) => {
+          if (data.section !== "body") return;
+          const row = rows[data.row.index];
+          const col = columns[data.column.index];
+          if (row && col && highlight(row, col)) data.cell.styles.fillColor = GOOD_FILL_RGB;
+        }
+      : undefined,
   });
 
   const pages = doc.getNumberOfPages();

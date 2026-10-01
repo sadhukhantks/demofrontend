@@ -47,6 +47,32 @@ const ACTION_CUMULATIVE_TRANSFER = "20";
 /** New (not a legacy code): run the five collection steps below over
  *  tbl_ejm_wages_data_collection, then browse/correct the result. */
 const ACTION_WAGES_DATA = "27";
+/** New (not a legacy code): legacy SPREDEFF.PRG — spreader individual / shift /
+ *  overall efficiency for the fortnight into ejm_fne_wages_eff_data. */
+const ACTION_SPREADER_EFF = "28";
+/** New: legacy DRAWEFF1.PRG — drawing operator / group efficiency, same table. */
+const ACTION_DRAWING_EFF = "29";
+/** New: legacy DOFFEFF1.PRG — spinner individual / group efficiency, same table. */
+const ACTION_SPINNING_EFF = "30";
+/** New: legacy DOFMAZRP.PRG — doff mazdoor / sliver feeder / piecer efficiency. */
+const ACTION_DOFF_MAZDOOR_EFF = "31";
+/** New: legacy LOOMEFF1.PRG — weaver individual / weaving group efficiency. */
+const ACTION_LOOM_EFF = "32";
+/** New: legacy BEAMEFF1.PRG — beaming group efficiency. */
+const ACTION_BEAMING_EFF = "33";
+/** New: legacy FINISHEF.PRG — hemming / herackle / sack sewing / lapping / cutting efficiency. */
+const ACTION_FINISHING_EFF = "34";
+/** The fortnight efficiency processes: each its own Report option and a step
+ *  (in this order) at the end of the Wages Data Process pipeline. */
+const EFF_PROCESSES: Record<string, { label: string; route: string }> = {
+  [ACTION_SPREADER_EFF]: { label: "Spreader Efficiency", route: apiRoutesPortalMasters.EJM_SPREADER_EFF_PROCESS },
+  [ACTION_DRAWING_EFF]: { label: "Drawing Efficiency", route: apiRoutesPortalMasters.EJM_DRAWING_EFF_PROCESS },
+  [ACTION_SPINNING_EFF]: { label: "Spinning Efficiency", route: apiRoutesPortalMasters.EJM_SPINNING_EFF_PROCESS },
+  [ACTION_DOFF_MAZDOOR_EFF]: { label: "Doff Mazdoor Efficiency", route: apiRoutesPortalMasters.EJM_DOFF_MAZDOOR_EFF_PROCESS },
+  [ACTION_LOOM_EFF]: { label: "Loom Efficiency", route: apiRoutesPortalMasters.EJM_LOOM_EFF_PROCESS },
+  [ACTION_BEAMING_EFF]: { label: "Beaming Efficiency", route: apiRoutesPortalMasters.EJM_BEAMING_EFF_PROCESS },
+  [ACTION_FINISHING_EFF]: { label: "Finishing Efficiency", route: apiRoutesPortalMasters.EJM_FINISHING_EFF_PROCESS },
+};
 
 /** The Wages Data Process pipeline, run in this order on Submit. Each step is
  *  its own request so progress is visible and a failure stops the chain
@@ -116,7 +142,14 @@ const ACTION_OPTIONS: Option[] = [
   { label: "Pay Roll Posting", value: "26" },
   // 27 is ours, not a legacy hol_get code — the legacy modal had this as the
   // "Attendance Preparation & Updation" grid over tbl_ejm_wages_data_collection.
-  { label: "Wages Data Process", value: ACTION_WAGES_DATA },
+  { label: "EJM Wages Data Process", value: ACTION_WAGES_DATA },
+  { label: "EJM Spreader Efficiency Process", value: ACTION_SPREADER_EFF },
+  { label: "EJM Drawing Efficiency Process", value: ACTION_DRAWING_EFF },
+  { label: "EJM Spinning Efficiency Process", value: ACTION_SPINNING_EFF },
+  { label: "EJM Doff Mazdoor Efficiency Process", value: ACTION_DOFF_MAZDOOR_EFF },
+  { label: "EJM Loom Efficiency Process", value: ACTION_LOOM_EFF },
+  { label: "EJM Beaming Efficiency Process", value: ACTION_BEAMING_EFF },
+  { label: "EJM Finishing Efficiency Process", value: ACTION_FINISHING_EFF },
 ];
 
 /** Legacy `$holget` from pay_register_payslip.php — "Pay Ragister/ Pay Slip
@@ -292,6 +325,7 @@ const numCol = (field: string, headerName: string): GridColDef => ({
 const WAGES_GRID_COLUMNS: GridColDef[] = [
   { field: "eb_no", headerName: "EB No", width: 90 },
   { field: "emp_name", headerName: "Employee", width: 180 },
+  { field: "update_for", headerName: "Source", width: 80 },
   { field: "dept_id", headerName: "Dept ID", width: 80 },
   { field: "dept_code", headerName: "Dept", width: 70 },
   { field: "sub_dept_name", headerName: "Sub Dept", width: 150 },
@@ -326,7 +360,6 @@ const WAGES_GRID_COLUMNS: GridColDef[] = [
   { ...numCol("prev_cuml_pf_contribution", "Prev PF Cont"), editable: false },
   { ...numCol("prev_cuml_bonus_gross", "Prev Bonus Gross"), editable: false },
   { ...numCol("prev_cuml_fpf_contribution", "Prev FPF Cont"), editable: false },
-  { field: "update_for", headerName: "Source", width: 80 },
 ];
 
 /** Eligible days needed to earn any incentive — mirrors the backend's
@@ -460,6 +493,13 @@ export default function EjmWagesProcessPage() {
    *                                from cumulative_data_table), then this
    *                                period's payroll into cumulative_data_table
    *                                when a pay period already exists
+   *  6 Spreader Efficiency       → ejm_fne_wages_eff_data (EJM FACTORY only)
+   *  7 Drawing Efficiency        → ejm_fne_wages_eff_data (EJM FACTORY only)
+   *  8 Spinning Efficiency       → ejm_fne_wages_eff_data (EJM FACTORY only)
+   *  9 Doff Mazdoor Efficiency   → ejm_fne_wages_eff_data (EJM FACTORY only)
+   * 10 Loom Efficiency           → ejm_fne_wages_eff_data (EJM FACTORY only)
+   * 11 Beaming Efficiency        → ejm_fne_wages_eff_data (EJM FACTORY only)
+   * 12 Finishing Efficiency      → ejm_fne_wages_eff_data (EJM FACTORY only)
    *  Stops at the first failure; whatever was collected is still listed. */
   const runWagesPipeline = useCallback(
     async (p: { date_from: string; date_to: string; pay_scheme_id: string }) => {
@@ -467,6 +507,23 @@ export default function EjmWagesProcessPage() {
         notify("Select a branch in the sidebar before processing", "error");
         return;
       }
+      // From/To must be an existing pay period of this scheme — nothing runs otherwise.
+      setSubmitting(true);
+      const { error: periodError } = await fetchNjmPayPeriod({
+        branchId,
+        dateFrom: p.date_from,
+        dateTo: p.date_to,
+        paySchemeId: p.pay_scheme_id,
+      });
+      setSubmitting(false);
+      if (periodError) {
+        notify(
+          `From/To dates do not match a pay period of this pay scheme — nothing processed. ${periodError}`,
+          "error",
+        );
+        return;
+      }
+
       // Rebuilding discards corrections made to the generated rows.
       const existing = result?.kind === "wages" ? result.rows.length : 0;
       if (
@@ -523,6 +580,23 @@ export default function EjmWagesProcessPage() {
             return { message: `${c.message}; ${t.message}` };
           },
         },
+        ...Object.values(EFF_PROCESSES).map(({ label, route }) => ({
+          label: `${label} Process`,
+          go: async () => {
+            // EJM FACTORY only — other branches have no spreader/drawing wages codes.
+            if (branchId !== EJM_CASH_BRANCH_ID) {
+              return { message: "EJM FACTORY (branch 29) only", skipped: true };
+            }
+            const s = await unwrap(
+              fetchWithCookie<{ data: Msg }>(route, "POST", {
+                branch_id: branchId,
+                date_from: p.date_from,
+                date_to: p.date_to,
+              }).then((r) => ({ ...r, data: r.data?.data ?? null })),
+            );
+            return { message: s.message };
+          },
+        })),
       ];
 
       const setStep = (i: number, patch: Partial<PipelineStep>) =>
@@ -564,9 +638,12 @@ export default function EjmWagesProcessPage() {
     // Cash/Outsider preparation is period-only — it never reads the pay
     // scheme, so an empty selection must not block it. The placeholder only
     // satisfies the schema; that branch never sends pay_scheme_id.
-    const cashOutsider = kind === "action" && filters.action === ACTION_CASH_OUTSIDER;
+    // Spreader / drawing efficiency are period-only too.
+    const periodOnly =
+      kind === "action" &&
+      (filters.action === ACTION_CASH_OUTSIDER || filters.action in EFF_PROCESSES);
     const parsed = submitSchema.safeParse(
-      cashOutsider && !filters.pay_scheme_id
+      periodOnly && !filters.pay_scheme_id
         ? { ...filters, pay_scheme_id: "-" }
         : filters,
     );
@@ -708,6 +785,30 @@ export default function EjmWagesProcessPage() {
           return;
         }
         notify(data.data.message, "success");
+        return;
+      }
+
+      const effProcess = EFF_PROCESSES[action];
+      if (effProcess) {
+        // EJM FACTORY only, and the dates must be a fortnight — the backend checks both.
+        if (branchId !== EJM_CASH_BRANCH_ID) {
+          notify(`${effProcess.label} runs only for EJM FACTORY (branch 29) — select it in the sidebar`, "error");
+          return;
+        }
+        const { data, error } = await fetchWithCookie<{ data: { message: string; rows: number } }>(
+          effProcess.route,
+          "POST",
+          {
+            branch_id: branchId,
+            date_from: parsed.data.date_from,
+            date_to: parsed.data.date_to,
+          },
+        );
+        if (error || !data) {
+          notify(error || `"${label}" failed`, "error");
+          return;
+        }
+        notify(data.data.message, data.data.rows > 0 ? "success" : "info");
         return;
       }
 
@@ -979,14 +1080,36 @@ export default function EjmWagesProcessPage() {
                 " (double-click a cell to correct it)"}
             </Typography>
             {result.kind === "wages" && (
-              <Button
-                variant="outline"
-                className="shrink-0"
-                disabled={submitting}
-                onClick={() => void handlePayrollExcel()}
-              >
-                Excel for Pay Roll
-              </Button>
+              <Box className="flex shrink-0 gap-2">
+                <Button
+                  variant="outline"
+                  disabled={result.rows.length === 0}
+                  onClick={() =>
+                    void exportRowsToExcel(
+                      WAGES_GRID_COLUMNS,
+                      result.rows,
+                      "ejm-wages-data-process",
+                      {
+                        companyName: selectedCompany?.co_name,
+                        branchName: selectedCompany?.branches.find(
+                          (b) => b.branch_id === branchId,
+                        )?.branch_name,
+                        reportName: "EJM Wages Data Process",
+                        reportFor: `${filters.date_from} To ${filters.date_to}`,
+                      },
+                    )
+                  }
+                >
+                  Export to Excel
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={submitting}
+                  onClick={() => void handlePayrollExcel()}
+                >
+                  Excel for Pay Roll
+                </Button>
+              </Box>
             )}
             {/* The legacy "Print" was a dot-matrix text dump of these rows;
                 the workbook is its replacement. */}
