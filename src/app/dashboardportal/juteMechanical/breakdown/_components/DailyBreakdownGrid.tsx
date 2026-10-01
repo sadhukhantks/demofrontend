@@ -1,8 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Box, Chip, IconButton, Tooltip, Typography } from "@mui/material";
-import { Pencil as EditIcon, Trash2 as Trash2Icon } from "lucide-react";
+import { Box, Button, Chip, IconButton, Tooltip, Typography } from "@mui/material";
+import {
+	ClipboardCheck as ConfirmIcon,
+	Pencil as EditIcon,
+	Trash2 as Trash2Icon,
+} from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import type { MechBreakdown } from "@/utils/juteMechanicalService";
 import {
@@ -11,6 +15,7 @@ import {
 	MOBILE_ONLY_SX,
 	MobileCard,
 	TOUCH_ICON_BUTTON_SX,
+	TOUCH_TARGET,
 } from "@/components/ui/responsiveEntry";
 import {
 	BREAKDOWN_STATUS,
@@ -26,8 +31,39 @@ export interface DailyBreakdownGridProps {
 	statusLabels: ReadonlyMap<string, string>;
 	onEdit: (row: MechBreakdown) => void;
 	onDelete: (row: MechBreakdown) => void;
-	/** Disables both row actions while a write is in flight. */
+	/** Opens production's reconfirmation dialog — offered on closed incidents only. */
+	onConfirmFix: (row: MechBreakdown) => void;
+	/** Disables the row actions while a write is in flight. */
 	busy?: boolean;
+}
+
+/** Production's verdict on the fix, as shown in the grid and on the cards. */
+function prodCheck(row: MechBreakdown): {
+	label: string;
+	color: "success" | "warning" | "default";
+	detail: string;
+} | null {
+	if (row.status !== BREAKDOWN_STATUS.CLOSED) return null;
+	const who = row.prod_confirm_by_name ? ` by ${row.prod_confirm_by_name}` : "";
+	const when = row.prod_confirm_date_time
+		? ` on ${formatDateTimeDisplay(row.prod_confirm_date_time)}`
+		: "";
+	if (row.prod_confirm_status === "CONFIRMED") {
+		const remark = row.prod_confirm_remarks ? ` — ${row.prod_confirm_remarks}` : "";
+		return { label: "Confirmed", color: "success", detail: `Confirmed${who}${when}${remark}` };
+	}
+	if (row.prod_confirm_status === "DISPUTED") {
+		const time = row.prod_restart_datetime
+			? ` — restarted ${formatDateTimeDisplay(row.prod_restart_datetime)}`
+			: "";
+		const remark = row.prod_confirm_remarks ? ` — ${row.prod_confirm_remarks}` : "";
+		return {
+			label: "Differs",
+			color: "warning",
+			detail: `Production differs${who}${when}${time}${remark}`,
+		};
+	}
+	return { label: "Not checked", color: "default", detail: "Production has not checked this fix" };
 }
 
 /** Status chip colour — theme palette keys, never hardcoded hex. */
@@ -56,6 +92,7 @@ export default function DailyBreakdownGrid({
 	statusLabels,
 	onEdit,
 	onDelete,
+	onConfirmFix,
 	busy = false,
 }: DailyBreakdownGridProps) {
 	const columns = React.useMemo<GridColDef<MechBreakdown>[]>(
@@ -63,7 +100,7 @@ export default function DailyBreakdownGrid({
 			{
 				field: "actions",
 				headerName: "",
-				width: 96,
+				width: 136,
 				sortable: false,
 				filterable: false,
 				disableColumnMenu: true,
@@ -95,6 +132,21 @@ export default function DailyBreakdownGrid({
 								</IconButton>
 							</span>
 						</Tooltip>
+						{params.row.status === BREAKDOWN_STATUS.CLOSED ? (
+							<Tooltip title="Production: confirm the fix">
+								<span>
+									<IconButton
+										size="small"
+										color="success"
+										disabled={busy}
+										onClick={() => onConfirmFix(params.row)}
+										sx={{ minWidth: 40, minHeight: 40 }}
+									>
+										<ConfirmIcon size={16} />
+									</IconButton>
+								</span>
+							</Tooltip>
+						) : null}
 					</Box>
 				),
 			},
@@ -160,6 +212,40 @@ export default function DailyBreakdownGrid({
 						? `${row.reason_code}${row.reason_desc ? ` — ${row.reason_desc}` : ""}`
 						: "",
 			},
+			{
+				field: "reported_by_user_name",
+				headerName: "Reported by",
+				width: 150,
+				valueGetter: (_value, row) => row.reported_by_user_name ?? row.reported_by ?? "",
+			},
+			{ field: "fixed_by_user_name", headerName: "Fix entered by", width: 150 },
+			{
+				field: "prod_confirm_status",
+				headerName: "Production check",
+				width: 150,
+				sortable: false,
+				renderCell: (params) => {
+					const check = prodCheck(params.row);
+					if (!check) return null;
+					return (
+						<Tooltip title={check.detail}>
+							<Chip
+								size="small"
+								variant={check.color === "default" ? "outlined" : "filled"}
+								color={check.color}
+								label={check.label}
+							/>
+						</Tooltip>
+					);
+				},
+			},
+			{
+				field: "prod_restart_datetime",
+				headerName: "Prod. restart",
+				width: 150,
+				valueFormatter: (value) => formatDateTimeDisplay(value as string | null),
+			},
+			{ field: "prod_confirm_remarks", headerName: "Prod. remark", width: 200 },
 			{ field: "component_name", headerName: "Component", width: 140 },
 			{ field: "discipline", headerName: "Discipline", width: 120 },
 			{ field: "downtime_type", headerName: "Type", width: 120 },
@@ -174,12 +260,12 @@ export default function DailyBreakdownGrid({
 			},
 			{ field: "remarks", headerName: "Remarks", flex: 1, minWidth: 180 },
 		],
-		[busy, onDelete, onEdit, statusLabels]
+		[busy, onConfirmFix, onDelete, onEdit, statusLabels]
 	);
 
 	return (
 		<Box sx={{ width: "100%" }}>
-			{/* Desktop: the full 17-column log. */}
+			{/* Desktop: the full log. */}
 			<Box sx={DESKTOP_ONLY_SX}>
 				<DataGrid
 					autoHeight
@@ -216,6 +302,7 @@ export default function DailyBreakdownGrid({
 
 				{rows.map((row) => {
 					const code = String(row.status ?? "");
+					const check = prodCheck(row);
 					return (
 						<MobileCard
 							key={row.breakdown_id}
@@ -285,6 +372,33 @@ export default function DailyBreakdownGrid({
 								}
 							/>
 							<CardStat label="Spell" value={row.spell_code ?? "—"} align="right" />
+							<CardStat
+								label="Reported by"
+								value={row.reported_by_user_name ?? row.reported_by ?? "—"}
+							/>
+							<CardStat
+								label="Fix entered by"
+								value={row.fixed_by_user_name ?? "—"}
+								align="right"
+							/>
+							{check ? (
+								<Box sx={{ gridColumn: "1 / -1" }}>
+									<Typography variant="caption" color="text.secondary" display="block">
+										{check.detail}
+									</Typography>
+									<Button
+										size="small"
+										variant="outlined"
+										color={check.color === "warning" ? "warning" : "success"}
+										startIcon={<ConfirmIcon size={16} />}
+										disabled={busy}
+										onClick={() => onConfirmFix(row)}
+										sx={{ mt: 0.5, minHeight: TOUCH_TARGET, width: "100%" }}
+									>
+										{row.prod_confirm_status ? "Change production check" : "Confirm fix"}
+									</Button>
+								</Box>
+							) : null}
 						</MobileCard>
 					);
 				})}

@@ -23,6 +23,7 @@ import {
 	BREAKDOWN_STATUS,
 	deriveStatus,
 	durationMinutes,
+	formatDateTimeDisplay,
 	formatMinutes,
 	nowDateTimeLocal,
 	responseMinutes,
@@ -560,12 +561,15 @@ export default function BreakdownEntryForm({
 					render={({ field }) => (
 						<TextField
 							{...field}
-							label="Reported by"
+							label="Reported by (person on the floor)"
 							size="small"
 							fullWidth
 							inputProps={{ maxLength: 255 }}
 							error={!!errors.reported_by}
-							helperText={errors.reported_by?.message}
+							helperText={
+								errors.reported_by?.message ??
+								"Optional — your login is recorded automatically"
+							}
 						/>
 					)}
 				/>
@@ -712,6 +716,23 @@ export default function BreakdownEntryForm({
 			{editing ? (
 				<Typography variant="body2" color="text.secondary">
 					Editing incident #{editingEntry.breakdown_id}. Clearing the restart time reopens it.
+					{editingEntry.reported_by_user_name
+						? ` Reported by ${editingEntry.reported_by_user_name}${
+								editingEntry.reported_date_time
+									? ` on ${formatDateTimeDisplay(editingEntry.reported_date_time)}`
+									: ""
+							}.`
+						: ""}
+					{editingEntry.fixed_by_user_name
+						? ` Fix entered by ${editingEntry.fixed_by_user_name}${
+								editingEntry.fixed_date_time
+									? ` on ${formatDateTimeDisplay(editingEntry.fixed_date_time)}`
+									: ""
+							}.`
+						: ""}
+					{editingEntry.prod_confirm_status
+						? " Changing the restart time or duration resets production's check."
+						: ""}
 				</Typography>
 			) : null}
 

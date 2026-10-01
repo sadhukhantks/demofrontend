@@ -1583,6 +1583,7 @@ const apiRoutesPortalMasters = {
     MECH_BD_EDIT: `${API_URL}/mechBreakdown/entry_edit`,
     MECH_BD_DELETE: `${API_URL}/mechBreakdown/entry_delete`,
     MECH_BD_CLOSE: `${API_URL}/mechBreakdown/entry_close`,
+    MECH_BD_CONFIRM: `${API_URL}/mechBreakdown/entry_confirm`,
     MECH_BD_OPEN_LIST: `${API_URL}/mechBreakdown/open_breakdowns`,
     // Overhaul register (router prefix /api/mechOverhaul) — MECH_OVERHAUL_BY_ID /
     // _EDIT / _DELETE are base paths; caller appends /${overhaul_id}.

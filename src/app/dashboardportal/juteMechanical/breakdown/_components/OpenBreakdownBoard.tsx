@@ -160,7 +160,9 @@ export default function OpenBreakdownBoard({
 										{row.status === BREAKDOWN_STATUS.UNDER_REPAIR && row.response_min != null
 											? ` · attended after ${formatMinutes(row.response_min)}`
 											: " · not attended yet"}
-										{row.reported_by ? ` · reported by ${row.reported_by}` : ""}
+										{row.reported_by_user_name || row.reported_by
+											? ` · reported by ${row.reported_by_user_name ?? row.reported_by}`
+											: ""}
 									</Typography>
 								</Box>
 
