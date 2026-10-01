@@ -1126,6 +1126,9 @@ const apiRoutesPortalMasters = {
     JP_WINDING_LOW_PRODUCER: `${API_URL}/juteProductionReports/winding_low_producer`,
     JP_DOFF_ANALYSIS: `${API_URL}/juteProductionReports/doff_analysis`,
     JP_HANDS_REPORT: `${API_URL}/juteProductionReports/hands_report`,
+    // Loom Modification Impact report (router prefix /api/juteProductionReports)
+    JP_LOOM_MODIFICATION_IMPACT: `${API_URL}/juteProductionReports/loom_modification_impact`,
+    JP_LOOM_MODIFICATION_IMPACT_OPTIONS: `${API_URL}/juteProductionReports/loom_modification_impact_options`,
     // Spinning standards master (router prefix /api/spngTargetMap) — *_EDIT/*_DELETE are base paths; caller appends /${id}
     SPNG_TARGET_MAP_SETUP: `${API_URL}/spngTargetMap/target_map_setup`,
     SPNG_TARGET_MAP_LIST: `${API_URL}/spngTargetMap/target_map_list`,
@@ -1401,6 +1404,23 @@ const apiRoutesPortalMasters = {
     WEAVING_QUALITY_CREATE: `${API_URL}/weavingMasters/weaving_quality_create`,
     WEAVING_QUALITY_EDIT: `${API_URL}/weavingMasters/weaving_quality_edit`,
     WEAVING_QUALITY_DELETE: `${API_URL}/weavingMasters/weaving_quality_delete`,
+    // Loom Groups + Loom Modification register (router prefix /api/loomModification) —
+    // *_EDIT / *_DELETE / *_DETAIL / *_BY_ID / *_CHAIN / *_ADD_MEMBERS / *_INSERT_EARLIER are base paths; caller appends /${id}
+    LOOM_MODIFICATION_SETUP: `${API_URL}/loomModification/setup`,
+    LOOM_GROUP_LIST: `${API_URL}/loomModification/loom_group_list`,
+    LOOM_GROUP_CREATE: `${API_URL}/loomModification/loom_group_create`,
+    LOOM_GROUP_EDIT: `${API_URL}/loomModification/loom_group_edit`,
+    LOOM_GROUP_DETAIL: `${API_URL}/loomModification/loom_group_detail`,
+    LOOM_GROUP_DELETE: `${API_URL}/loomModification/loom_group_delete`,
+    LOOM_MODIFICATION_TABLE: `${API_URL}/loomModification/modification_table`,
+    LOOM_MODIFICATION_BY_ID: `${API_URL}/loomModification/modification_by_id`,
+    LOOM_MODIFICATION_CHAIN: `${API_URL}/loomModification/modification_chain`,
+    LOOM_MODIFICATION_TIMELINE: `${API_URL}/loomModification/machine_timeline`,
+    LOOM_MODIFICATION_CREATE: `${API_URL}/loomModification/modification_create`,
+    LOOM_MODIFICATION_EDIT: `${API_URL}/loomModification/modification_edit`,
+    LOOM_MODIFICATION_ADD_MEMBERS: `${API_URL}/loomModification/modification_add_members`,
+    LOOM_MODIFICATION_INSERT_EARLIER: `${API_URL}/loomModification/modification_insert_earlier`,
+    LOOM_MODIFICATION_DELETE: `${API_URL}/loomModification/modification_delete`,
     // Weaving Standards / Targets Map (router prefix /api/weavingTargetMap) — quality-only;
     // *_EDIT/*_DELETE are base paths; caller appends /${id}
     WEAVING_TARGET_MAP_SETUP: `${API_URL}/weavingTargetMap/target_map_setup`,
