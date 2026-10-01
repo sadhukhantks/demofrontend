@@ -1186,6 +1186,9 @@ const apiRoutesPortalMasters = {
     JP_WINDING_LOW_PRODUCER: `${API_URL}/juteProductionReports/winding_low_producer`,
     JP_DOFF_ANALYSIS: `${API_URL}/juteProductionReports/doff_analysis`,
     JP_HANDS_REPORT: `${API_URL}/juteProductionReports/hands_report`,
+    JP_HANDS_REPORT_MACHINE_OVERRIDE: `${API_URL}/juteProductionReports/hands_report_machine_override`,
+    JP_HANDS_REPORT_MACHINE_OVERRIDE_UNDO: `${API_URL}/juteProductionReports/hands_report_machine_override_undo`,
+    JP_HANDS_REPORT_MACHINES: `${API_URL}/juteProductionReports/hands_report_machines`,
     // Loom Modification Impact report (router prefix /api/juteProductionReports)
     JP_LOOM_MODIFICATION_IMPACT: `${API_URL}/juteProductionReports/loom_modification_impact`,
     JP_LOOM_MODIFICATION_IMPACT_OPTIONS: `${API_URL}/juteProductionReports/loom_modification_impact_options`,
