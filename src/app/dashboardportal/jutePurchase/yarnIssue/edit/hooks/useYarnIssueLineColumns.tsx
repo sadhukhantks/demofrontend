@@ -234,7 +234,7 @@ export function useYarnIssueLineColumns({
 							fullWidth
 							value={item.remarks}
 							onChange={(event) => onLineChange(item.id, "remarks", event.target.value)}
-							inputProps={{ "aria-label": "Line remarks", maxLength: 500 }}
+							inputProps={{ "aria-label": "Line remarks", maxLength: 255 }}
 							sx={CELL_INPUT_SX}
 						/>
 					) : (
