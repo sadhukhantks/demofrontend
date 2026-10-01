@@ -1442,6 +1442,18 @@ const apiRoutesPortalMasters = {
     JUTE_PROD_PLANNING_NORMS_LIST: `${API_URL}/juteProdPlanning/norms_list`,
     JUTE_PROD_PLANNING_NORMS_BULK_SAVE: `${API_URL}/juteProdPlanning/norms_bulk_save`,
     JUTE_PROD_PLANNING_NORMS_DELETE: `${API_URL}/juteProdPlanning/norms_delete`,
+    // Hands Norms master — man-machine norms behind the Hands Report (router prefix
+    // /api/handsNorms, TKT-000202) — HANDS_NORMS_EDIT is a base path; caller appends /${id}?co_id=...
+    HANDS_NORMS_SETUP: `${API_URL}/handsNorms/setup`,
+    HANDS_NORMS_LIST: `${API_URL}/handsNorms/list`,
+    HANDS_NORMS_CREATE: `${API_URL}/handsNorms/create`,
+    HANDS_NORMS_EDIT: `${API_URL}/handsNorms/edit`,
+    // Machine groups (Hands Norms v2) — HANDS_NORMS_GROUP and HANDS_NORMS_GROUP_EDIT are base
+    // paths; caller appends /${id}?co_id=...
+    HANDS_NORMS_GROUPS: `${API_URL}/handsNorms/groups`,
+    HANDS_NORMS_GROUP: `${API_URL}/handsNorms/groups`,
+    HANDS_NORMS_GROUP_CREATE: `${API_URL}/handsNorms/groups/create`,
+    HANDS_NORMS_GROUP_EDIT: `${API_URL}/handsNorms/groups/edit`,
     // Weaving Production Entry (router prefix /api/weavingProd) — WEAVING_ENTRY_EDIT/DELETE are
     // base paths; caller appends /${id}?co_id=...
     WEAVING_ENTRY_CREATE_SETUP: `${API_URL}/weavingProd/entry_create_setup`,

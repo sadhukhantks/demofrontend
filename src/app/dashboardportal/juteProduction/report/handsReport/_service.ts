@@ -55,10 +55,21 @@ export interface HandsRow {
   designation?: string | null;
   /** 'D' / 'I' — from the norm row, falling back to the designation master. */
   direct_indirect?: string | null;
-  /** 'V' / 'F' — variable norms are targeted off machines that actually ran. */
+  /** 'V' / 'F' — legacy flag (V = machine / production based). Kept for
+   * pre-v2 backends; `norm_kind` is the real kind when present. */
   variable_fixed?: string | null;
+  /** Hands Norms v2: F fixed, M machine-based, P production-based, N no norm
+   * (target blank, out of excess/short), A as actual (target = hands). */
+  norm_kind?: string | null;
   norms_text?: string | null;
   machine_type_id?: number | null;
+  machine_group_id?: number | null;
+  machine_group?: string | null;
+  /** M: group / type / department units one hand covers. */
+  units_per_hand?: number | null;
+  /** P: production per hand per shift, in qty_uom ('kg' | 'cuts'). */
+  qty_per_hand?: number | null;
+  qty_uom?: string | null;
 
   shift_a: number | null;
   shift_b: number | null;
@@ -114,6 +125,9 @@ export interface MachineRunRow {
   stoppage_hours: number | null;
   breakdown_min: number | null;
   counted: boolean;
+  /** v2: production the machine-shift carried on its run-source legs (null when none). */
+  prod_kg?: number | null;
+  prod_cuts?: number | null;
 }
 
 /** Counted machines per date x machine type, by shift — the variable-norm
@@ -130,6 +144,40 @@ export interface MachineTypeSummaryRow {
   machine_shifts: number;
   /** Distinct machines that day — a loom in A and B is one here, two above. */
   machines: number;
+  /** v2: production summed over the type's counted machine-shifts. */
+  prod_kg?: number | null;
+  prod_cuts?: number | null;
+}
+
+export type NormKind = "F" | "M" | "P" | "N" | "A";
+
+/** Short code the Kind column shows, and its full name for the tooltip / legend. */
+export const NORM_KIND_NAMES: Record<NormKind, string> = {
+  F: "Fixed",
+  M: "Machine-based",
+  P: "Production-based",
+  N: "No norm",
+  A: "As actual",
+};
+
+/**
+ * The row's norm kind: `norm_kind` when the backend sends one (v2), else the
+ * legacy reading — V or a machine link is M, F is F, nothing is nothing. Total
+ * rows and designations without a norm carry no kind.
+ */
+export function normKindOf(
+  row: Pick<HandsRow, "norm_kind" | "variable_fixed" | "machine_type_id" | "machine_group_id">,
+): NormKind | null {
+  const k = (row.norm_kind ?? "").trim().toUpperCase();
+  if (k === "F" || k === "M" || k === "P" || k === "N" || k === "A") return k;
+  const vf = (row.variable_fixed ?? "").trim().toUpperCase();
+  if (vf === "V" || row.machine_type_id != null || row.machine_group_id != null) return "M";
+  return vf === "F" ? "F" : null;
+}
+
+/** Cell text of the Kind column: the letter, "" when the row has no norm. */
+export function normKindLabel(row: Parameters<typeof normKindOf>[0]): string {
+  return normKindOf(row) ?? "";
 }
 
 export function isMachineRunRow(row: HandsRow | MachineRunRow): row is MachineRunRow {
@@ -177,7 +225,52 @@ export interface HandsReport {
   grand_total?: HandsRow;
   /** machines_run only. */
   type_summary?: MachineTypeSummaryRow[];
+  /** detailed only (TKT-000167) — one total per date x department, and one
+   * per date, rolled up server-side; placed by `withDetailedTotals`. */
+  dept_totals?: HandsRow[];
+  day_totals?: HandsRow[];
   meta: HandsMeta;
+}
+
+/** Label of a department subtotal whose rows carry no department. */
+export const NO_DEPARTMENT = "(No department)";
+
+/**
+ * Detailed view (TKT-000167): puts the department subtotals and day totals the
+ * endpoint returns beside `rows` where a printed sheet has them, so each
+ * department closes with its Total line and each date with the day's Total.
+ * Pure placement: every figure comes from the server, nothing is summed here.
+ * Relies on the endpoint's date -> department -> occupation row order.
+ *
+ * The labels are what ReportGrid and the Excel export detect: a cell reading
+ * "Total" marks a total row, and its level comes from the Date column, so the
+ * department line (Date blank) shades as an inner subtotal and the day line
+ * (Date filled) as the group total above it.
+ */
+export function withDetailedTotals(
+  rows: HandsRow[],
+  deptTotals: HandsRow[],
+  dayTotals: HandsRow[],
+): HandsRow[] {
+  const deptKey = (date?: string, deptId?: number | null) => `${date ?? ""}|${deptId ?? ""}`;
+  const byDept = new Map(deptTotals.map((t) => [deptKey(t.date, t.dept_id), t]));
+  const byDay = new Map(dayTotals.map((t) => [t.date ?? "", t]));
+  const out: HandsRow[] = [];
+  rows.forEach((row, i) => {
+    out.push(row);
+    const next: HandsRow | undefined = rows[i + 1];
+    const dateEnds = next === undefined || next.date !== row.date;
+    const deptEnds = dateEnds || (next?.dept_id ?? null) !== (row.dept_id ?? null);
+    if (deptEnds) {
+      const t = byDept.get(deptKey(row.date, row.dept_id));
+      if (t) out.push({ ...t, date: "", dept: t.dept || NO_DEPARTMENT, designation: "Total" });
+    }
+    if (dateEnds) {
+      const t = byDay.get(row.date ?? "");
+      if (t) out.push({ ...t, dept: "Total", designation: "" });
+    }
+  });
+  return out;
 }
 
 export interface HandsReportFilters {

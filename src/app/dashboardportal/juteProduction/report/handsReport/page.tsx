@@ -20,6 +20,11 @@
  * targets. One row per date x shift x machine from every machine-keyed entry
  * (deduplicated server-side), a per-type summary block above it, and a
  * "Counted" flag that is No when the only evidence is a stoppage / breakdown.
+ *
+ * Detailed (TKT-000167) is ordered date -> department -> occupation, with a
+ * Total line under each department and each date. Those totals are rolled up
+ * server-side like every other figure; the page only places them (toggle:
+ * "Department & day totals"), and they go into the Excel export as shown.
  */
 
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -35,6 +40,7 @@ import {
   Paper,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import { usePathname } from "next/navigation";
@@ -51,7 +57,11 @@ import {
   fetchHandsReport,
   HANDS_VIEWS,
   isMachineRunRow,
+  NORM_KIND_NAMES,
+  normKindLabel,
+  normKindOf,
   splitSources,
+  withDetailedTotals,
   type HandsReport,
   type HandsRow,
   type HandsView,
@@ -188,7 +198,25 @@ const deptCol: GridColDef<Row> = {
 const desigCols: GridColDef<Row>[] = [
   { field: "designation", headerName: "Occupation", flex: 1, minWidth: 170 },
   { field: "direct_indirect", headerName: "D/I", width: 70 },
-  { field: "variable_fixed", headerName: "V/F", width: 70 },
+  {
+    // Hands Norms v2 kind: F fixed, M machine-based, P production-based,
+    // N no norm (blank target), A as actual. Legacy V/F rows read as M/F.
+    field: "norm_kind",
+    headerName: "Kind",
+    width: 70,
+    description: "F Fixed · M Machine-based · P Production-based · N No norm · A As actual",
+    valueGetter: (_v, row) => normKindLabel(row as HandsRow),
+    renderCell: (params) => {
+      const kind = normKindOf(params.row as HandsRow);
+      return kind ? (
+        <Tooltip title={NORM_KIND_NAMES[kind]}>
+          <span>{kind}</span>
+        </Tooltip>
+      ) : (
+        ""
+      );
+    },
+  },
   { field: "norms_text", headerName: "Norms", flex: 1, minWidth: 140 },
 ];
 
@@ -259,6 +287,9 @@ function Content() {
   const [deptId, setDeptId] = useState("");
   const [directIndirect, setDirectIndirect] = useState("");
   const [showShiftDetail, setShowShiftDetail] = useState(false);
+  // Detailed view: department subtotals + day totals (TKT-000167). On by
+  // default; off gives the flat one-row-per-occupation list for pivoting.
+  const [showTotals, setShowTotals] = useState(true);
 
   const [report, setReport] = useState<HandsReport | null>(null);
   const [deptOptions, setDeptOptions] = useState<DeptOption[]>([]);
@@ -345,11 +376,22 @@ function Content() {
 
   // The GRAND TOTAL line rides at the end of the rows (by_department only);
   // ReportGrid picks it up by its "GRAND TOTAL" text and styles it as a total.
+  // On Detailed the server's department / day totals are slotted in under their
+  // rows (placement only — the figures are the server's).
   const rows: Row[] = useMemo(() => {
     const base = report?.rows ?? [];
-    const all = report?.grand_total ? [...base, report.grand_total] : base;
+    let all: Array<HandsRow | MachineRunRow> = report?.grand_total
+      ? [...base, report.grand_total]
+      : base;
+    if (report?.view === "detailed" && showTotals) {
+      all = withDetailedTotals(
+        base.filter((r): r is HandsRow => !isMachineRunRow(r)),
+        report.dept_totals ?? [],
+        report.day_totals ?? [],
+      );
+    }
     return all.map((r, i) => ({ ...r, row_id: i }));
-  }, [report]);
+  }, [report, showTotals]);
   const summaryRows: SummaryRow[] = useMemo(
     () => (report?.type_summary ?? []).map((r, i) => ({ ...r, row_id: i })),
     [report],
@@ -460,6 +502,20 @@ function Content() {
                     }
                     label="Show shift-wise detail"
                   />
+                  {/* Also a reading preference: the totals always come back
+                      with the Detailed view, this only shows or hides them. */}
+                  {view === "detailed" && (
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={showTotals}
+                          onChange={(e) => setShowTotals(e.target.checked)}
+                        />
+                      }
+                      label="Department & day totals"
+                    />
+                  )}
                 </>
               )}
               <Box sx={{ flexGrow: 1 }} />
