@@ -60,9 +60,10 @@ export interface BreakdownEntryFormProps {
 /**
  * Breakdown entry form — the highest-traffic screen in the module.
  *
- * Optimised for speed of entry, not completeness: only machine, stop time,
- * reason and downtime type are required. Everything else (attendance, restart,
- * root cause, spares) can be filled in later by editing the incident.
+ * Optimised for speed of entry, not completeness: only machine, stop time and
+ * reason have to be keyed to report a stop. Everything else (attendance,
+ * restart, component, downtime type, root cause, spares) is filled in later by
+ * the attending crew editing the incident; downtime type starts as BREAKDOWN.
  *
  * Presentational with respect to data: it owns React Hook Form state only,
  * receives every option list via props and never calls the API itself.
@@ -400,25 +401,6 @@ export default function BreakdownEntryForm({
 				/>
 
 				<Controller
-					name="component_id"
-					control={control}
-					render={({ field }) => (
-						<SearchableOptionSelect
-							label="Component"
-							size="small"
-							fullWidth
-							options={componentOptions}
-							value={field.value === "" ? "" : Number(field.value)}
-							onChange={(selectedValue) =>
-								field.onChange(selectedValue === "" ? "" : String(selectedValue))
-							}
-							error={!!errors.component_id}
-							helperText={errors.component_id?.message ?? "Defaults from the reason"}
-						/>
-					)}
-				/>
-
-				<Controller
 					name="discipline"
 					control={control}
 					render={({ field }) => (
@@ -431,27 +413,6 @@ export default function BreakdownEntryForm({
 							onChange={(selectedValue) => field.onChange(selectedValue)}
 							error={!!errors.discipline}
 							helperText={errors.discipline?.message ?? "Defaults from the reason"}
-						/>
-					)}
-				/>
-
-				<Controller
-					name="downtime_type"
-					control={control}
-					render={({ field }) => (
-						<SearchableOptionSelect
-							label="Downtime type"
-							size="small"
-							fullWidth
-							required
-							clearable={false}
-							options={downtimeTypeOptions}
-							value={field.value}
-							onChange={(selectedValue) => field.onChange(selectedValue)}
-							error={!!errors.downtime_type}
-							helperText={
-								errors.downtime_type?.message ?? "Only BREAKDOWN counts as a failure"
-							}
 						/>
 					)}
 				/>
@@ -551,6 +512,50 @@ export default function BreakdownEntryForm({
 							inputProps={{ maxLength: 255 }}
 							error={!!errors.attended_by}
 							helperText={errors.attended_by?.message}
+						/>
+					)}
+				/>
+
+				{/* Component and downtime type are judged by the crew that attends the
+				    machine, not by whoever reports the stop (owner, 2026-10-01). They keep
+				    their defaults (the reason's component, BREAKDOWN) until then. */}
+				<Controller
+					name="component_id"
+					control={control}
+					render={({ field }) => (
+						<SearchableOptionSelect
+							label="Component"
+							size="small"
+							fullWidth
+							options={componentOptions}
+							value={field.value === "" ? "" : Number(field.value)}
+							onChange={(selectedValue) =>
+								field.onChange(selectedValue === "" ? "" : String(selectedValue))
+							}
+							error={!!errors.component_id}
+							helperText={errors.component_id?.message ?? "Defaults from the reason — the crew corrects it here"}
+						/>
+					)}
+				/>
+
+				<Controller
+					name="downtime_type"
+					control={control}
+					render={({ field }) => (
+						<SearchableOptionSelect
+							label="Downtime type"
+							size="small"
+							fullWidth
+							required
+							clearable={false}
+							options={downtimeTypeOptions}
+							value={field.value}
+							onChange={(selectedValue) => field.onChange(selectedValue)}
+							error={!!errors.downtime_type}
+							helperText={
+								errors.downtime_type?.message ??
+								"Starts as Breakdown — the crew sets the actual type. Only BREAKDOWN counts as a failure"
+							}
 						/>
 					)}
 				/>
