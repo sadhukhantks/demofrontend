@@ -20,6 +20,7 @@ import BreakdownEntryForm from "./_components/BreakdownEntryForm";
 import DailyBreakdownGrid from "./_components/DailyBreakdownGrid";
 import OpenBreakdownBoard from "./_components/OpenBreakdownBoard";
 import CloseBreakdownDialog from "./_components/CloseBreakdownDialog";
+import ConfirmFixDialog from "./_components/ConfirmFixDialog";
 import { useBreakdownSetup } from "./hooks/useBreakdownSetup";
 import { useBreakdownEntries } from "./hooks/useBreakdownEntries";
 import { useReasonsByMachine } from "./hooks/useReasonsByMachine";
@@ -94,6 +95,9 @@ export default function BreakdownEntryPage() {
 	const [closingEntry, setClosingEntry] = React.useState<OpenBreakdownRow | null>(null);
 	const [closeError, setCloseError] = React.useState<string | null>(null);
 
+	const [confirmingEntry, setConfirmingEntry] = React.useState<MechBreakdown | null>(null);
+	const [confirmError, setConfirmError] = React.useState<string | null>(null);
+
 	// ------------------------------------------------------------------ data
 	const {
 		setup,
@@ -119,8 +123,10 @@ export default function BreakdownEntryPage() {
 		loadEntry,
 		saveEntry,
 		removeEntry,
+		confirmEntry,
 		saving,
 		deleting,
+		confirming,
 	} = useBreakdownEntries({
 		coId,
 		branchId,
@@ -280,6 +286,42 @@ export default function BreakdownEntryPage() {
 		setCloseError(null);
 	}, []);
 
+	const handleOpenConfirm = React.useCallback((row: MechBreakdown) => {
+		setConfirmError(null);
+		setConfirmingEntry(row);
+	}, []);
+
+	const handleConfirmFix = React.useCallback(
+		async (agreed: boolean, restartDateTime: string, remarks: string) => {
+			if (!confirmingEntry || !coId) return;
+			setConfirmError(null);
+
+			const result = await confirmEntry(confirmingEntry.breakdown_id, {
+				co_id: Number(coId),
+				agreed,
+				restart_datetime: agreed ? null : toApiDateTime(restartDateTime),
+				remarks: remarks.trim() === "" ? null : remarks.trim(),
+			});
+			if (!result.ok) {
+				setConfirmError(result.error);
+				return;
+			}
+			setSnack(
+				agreed
+					? `Fix confirmed for breakdown #${confirmingEntry.breakdown_id}`
+					: `Difference recorded for breakdown #${confirmingEntry.breakdown_id}`
+			);
+			setConfirmingEntry(null);
+			refreshEntries();
+		},
+		[confirmEntry, confirmingEntry, coId, refreshEntries]
+	);
+
+	const handleCancelConfirm = React.useCallback(() => {
+		setConfirmingEntry(null);
+		setConfirmError(null);
+	}, []);
+
 	// ------------------------------------------------------------- rendering
 	if (!mounted) return null;
 
@@ -305,8 +347,9 @@ export default function BreakdownEntryPage() {
 				Breakdown Entry
 			</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-				Log machine breakdowns as they happen — machine, stop time and reason are all that is
-				needed to save. Duration, response time and repair status are derived on save.
+				Production logs the breakdown as it happens — machine, stop time and reason are all
+				that is needed to save. Mechanical then enters the restart, and production can confirm
+				the fix from the incident log. Each step records the user who entered it.
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
@@ -446,7 +489,8 @@ export default function BreakdownEntryPage() {
 							statusLabels={statusLabels}
 							onEdit={handleEdit}
 							onDelete={handleDelete}
-							busy={deleting || saving}
+							onConfirmFix={handleOpenConfirm}
+							busy={deleting || saving || confirming}
 						/>
 					</Box>
 				</Box>
@@ -458,6 +502,14 @@ export default function BreakdownEntryPage() {
 				error={closeError}
 				onCancel={handleCancelClose}
 				onConfirm={handleConfirmClose}
+			/>
+
+			<ConfirmFixDialog
+				entry={confirmingEntry}
+				saving={confirming}
+				error={confirmError}
+				onCancel={handleCancelConfirm}
+				onConfirm={handleConfirmFix}
 			/>
 
 			<Snackbar

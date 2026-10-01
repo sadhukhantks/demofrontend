@@ -171,7 +171,7 @@ export function YarnIssueHeaderForm({
 							value={values.remarks}
 							onChange={(event) => onChange("remarks", event.target.value)}
 							InputProps={{ readOnly }}
-							inputProps={{ maxLength: 1000 }}
+							inputProps={{ maxLength: 255 }}
 							error={Boolean(fieldErrors.remarks)}
 							helperText={fieldErrors.remarks}
 						/>

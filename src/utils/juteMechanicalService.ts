@@ -688,6 +688,22 @@ export interface MechBreakdown {
   attended_dept_name: string | null;
   attended_by: string | null;
   reported_by: string | null;
+  /** The logged-in user who first logged the incident (stamped by the backend). */
+  reported_by_user_id: number | null;
+  reported_by_user_name: string | null;
+  reported_date_time: string | null;
+  /** The logged-in user who entered the restart / duration, i.e. the fix. */
+  fixed_by_user_id: number | null;
+  fixed_by_user_name: string | null;
+  fixed_date_time: string | null;
+  /** Production's reconfirmation of the fix: null = not checked yet. */
+  prod_confirm_status: "CONFIRMED" | "DISPUTED" | null;
+  prod_confirm_by: number | null;
+  prod_confirm_by_name: string | null;
+  prod_confirm_date_time: string | null;
+  /** Production's own restart time, when it disputes the one mechanical entered. */
+  prod_restart_datetime: string | null;
+  prod_confirm_remarks: string | null;
   root_cause: string | null;
   action_taken: string | null;
   preventive_action: string | null;
@@ -763,6 +779,20 @@ export interface MechBreakdownClosePayload {
 }
 
 /**
+ * Body for production's reconfirmation of a closed incident.
+ *
+ * `agreed: true` accepts the fix as mechanical entered it. `agreed: false` disputes
+ * it and must carry a remark and/or production's own restart time. Neither changes
+ * the restart / duration mechanical entered — the two versions sit side by side.
+ */
+export interface MechBreakdownConfirmPayload {
+  co_id: number;
+  agreed: boolean;
+  restart_datetime?: string | null;
+  remarks?: string | null;
+}
+
+/**
  * A currently-open incident from `GET /mechBreakdown/open_breakdowns`, with
  * minutes elapsed so far. Keys mirror `get_open_breakdowns_query()` exactly.
  */
@@ -796,6 +826,9 @@ export interface MechOpenBreakdown {
   attended_dept_name: string | null;
   attended_by: string | null;
   reported_by: string | null;
+  reported_by_user_id: number | null;
+  reported_by_user_name: string | null;
+  reported_date_time: string | null;
   status: string;
   remarks: string | null;
 }
@@ -923,6 +956,21 @@ export async function closeBreakdown(
 ): Promise<MechWriteResult> {
   return requestData<MechWriteResult>(
     `${apiRoutesPortalMasters.MECH_BD_CLOSE}/${breakdownId}`,
+    "POST",
+    body,
+  );
+}
+
+/**
+ * POST /mechBreakdown/entry_confirm/{breakdown_id} — production reconfirms (or
+ * disputes) the fix on a closed incident.
+ */
+export async function confirmBreakdown(
+  breakdownId: number,
+  body: MechBreakdownConfirmPayload,
+): Promise<MechWriteResult> {
+  return requestData<MechWriteResult>(
+    `${apiRoutesPortalMasters.MECH_BD_CONFIRM}/${breakdownId}`,
     "POST",
     body,
   );

@@ -54,6 +54,12 @@ type RegisterGridRow = {
   attended_dept_name: string;
   attended_by: string;
   reported_by: string;
+  reported_by_user_name: string;
+  fixed_by_user_name: string;
+  prod_check: string;
+  prod_confirm_by_name: string;
+  prod_restart_datetime: string;
+  prod_confirm_remarks: string;
   root_cause: string;
   action_taken: string;
   preventive_action: string;
@@ -61,6 +67,16 @@ type RegisterGridRow = {
   status: string;
   remarks: string;
 };
+
+/** Production's verdict on a closed incident's fix; blank while it is still open. */
+function prodCheckLabel(
+  status: string | null | undefined,
+  prodStatus: string | null | undefined,
+): string {
+  if (prodStatus === "CONFIRMED") return "Confirmed";
+  if (prodStatus === "DISPUTED") return "Differs";
+  return status === "CLOSED" ? "Not checked" : "";
+}
 
 const columns: GridColDef<RegisterGridRow>[] = [
   { field: "tran_date", headerName: "Date", width: 105 },
@@ -82,6 +98,12 @@ const columns: GridColDef<RegisterGridRow>[] = [
   { field: "attended_dept_name", headerName: "Attended By Dept", width: 150 },
   { field: "attended_by", headerName: "Attended By", width: 130 },
   { field: "reported_by", headerName: "Reported By", width: 130 },
+  { field: "reported_by_user_name", headerName: "Entered By (User)", width: 150 },
+  { field: "fixed_by_user_name", headerName: "Fix Entered By", width: 150 },
+  { field: "prod_check", headerName: "Production Check", width: 150 },
+  { field: "prod_confirm_by_name", headerName: "Checked By", width: 150 },
+  { field: "prod_restart_datetime", headerName: "Prod. Restart", width: 140 },
+  { field: "prod_confirm_remarks", headerName: "Prod. Remark", minWidth: 180 },
   { field: "root_cause", headerName: "Root Cause", minWidth: 180 },
   { field: "action_taken", headerName: "Action Taken", minWidth: 180 },
   { field: "preventive_action", headerName: "Preventive Action", minWidth: 180 },
@@ -121,6 +143,12 @@ function BreakdownRegisterContent() {
       attended_dept_name: pickText(rec, "attended_dept_name"),
       attended_by: pickText(rec, "attended_by"),
       reported_by: pickText(rec, "reported_by"),
+      reported_by_user_name: pickText(rec, "reported_by_user_name"),
+      fixed_by_user_name: pickText(rec, "fixed_by_user_name"),
+      prod_check: prodCheckLabel(pickStr(rec, "status"), pickStr(rec, "prod_confirm_status")),
+      prod_confirm_by_name: pickText(rec, "prod_confirm_by_name"),
+      prod_restart_datetime: dmyTime(pickStr(rec, "prod_restart_datetime")),
+      prod_confirm_remarks: pickText(rec, "prod_confirm_remarks"),
       root_cause: pickText(rec, "root_cause"),
       action_taken: pickText(rec, "action_taken"),
       preventive_action: pickText(rec, "preventive_action"),

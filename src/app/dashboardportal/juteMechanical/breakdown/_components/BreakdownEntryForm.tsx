@@ -23,6 +23,7 @@ import {
 	BREAKDOWN_STATUS,
 	deriveStatus,
 	durationMinutes,
+	formatDateTimeDisplay,
 	formatMinutes,
 	nowDateTimeLocal,
 	responseMinutes,
@@ -59,9 +60,10 @@ export interface BreakdownEntryFormProps {
 /**
  * Breakdown entry form — the highest-traffic screen in the module.
  *
- * Optimised for speed of entry, not completeness: only machine, stop time,
- * reason and downtime type are required. Everything else (attendance, restart,
- * root cause, spares) can be filled in later by editing the incident.
+ * Optimised for speed of entry, not completeness: only machine, stop time and
+ * reason have to be keyed to report a stop. Everything else (attendance,
+ * restart, component, downtime type, root cause, spares) is filled in later by
+ * the attending crew editing the incident; downtime type starts as BREAKDOWN.
  *
  * Presentational with respect to data: it owns React Hook Form state only,
  * receives every option list via props and never calls the API itself.
@@ -399,25 +401,6 @@ export default function BreakdownEntryForm({
 				/>
 
 				<Controller
-					name="component_id"
-					control={control}
-					render={({ field }) => (
-						<SearchableOptionSelect
-							label="Component"
-							size="small"
-							fullWidth
-							options={componentOptions}
-							value={field.value === "" ? "" : Number(field.value)}
-							onChange={(selectedValue) =>
-								field.onChange(selectedValue === "" ? "" : String(selectedValue))
-							}
-							error={!!errors.component_id}
-							helperText={errors.component_id?.message ?? "Defaults from the reason"}
-						/>
-					)}
-				/>
-
-				<Controller
 					name="discipline"
 					control={control}
 					render={({ field }) => (
@@ -430,27 +413,6 @@ export default function BreakdownEntryForm({
 							onChange={(selectedValue) => field.onChange(selectedValue)}
 							error={!!errors.discipline}
 							helperText={errors.discipline?.message ?? "Defaults from the reason"}
-						/>
-					)}
-				/>
-
-				<Controller
-					name="downtime_type"
-					control={control}
-					render={({ field }) => (
-						<SearchableOptionSelect
-							label="Downtime type"
-							size="small"
-							fullWidth
-							required
-							clearable={false}
-							options={downtimeTypeOptions}
-							value={field.value}
-							onChange={(selectedValue) => field.onChange(selectedValue)}
-							error={!!errors.downtime_type}
-							helperText={
-								errors.downtime_type?.message ?? "Only BREAKDOWN counts as a failure"
-							}
 						/>
 					)}
 				/>
@@ -554,18 +516,65 @@ export default function BreakdownEntryForm({
 					)}
 				/>
 
+				{/* Component and downtime type are judged by the crew that attends the
+				    machine, not by whoever reports the stop (owner, 2026-10-01). They keep
+				    their defaults (the reason's component, BREAKDOWN) until then. */}
+				<Controller
+					name="component_id"
+					control={control}
+					render={({ field }) => (
+						<SearchableOptionSelect
+							label="Component"
+							size="small"
+							fullWidth
+							options={componentOptions}
+							value={field.value === "" ? "" : Number(field.value)}
+							onChange={(selectedValue) =>
+								field.onChange(selectedValue === "" ? "" : String(selectedValue))
+							}
+							error={!!errors.component_id}
+							helperText={errors.component_id?.message ?? "Defaults from the reason — the crew corrects it here"}
+						/>
+					)}
+				/>
+
+				<Controller
+					name="downtime_type"
+					control={control}
+					render={({ field }) => (
+						<SearchableOptionSelect
+							label="Downtime type"
+							size="small"
+							fullWidth
+							required
+							clearable={false}
+							options={downtimeTypeOptions}
+							value={field.value}
+							onChange={(selectedValue) => field.onChange(selectedValue)}
+							error={!!errors.downtime_type}
+							helperText={
+								errors.downtime_type?.message ??
+								"Starts as Breakdown — the crew sets the actual type. Only BREAKDOWN counts as a failure"
+							}
+						/>
+					)}
+				/>
+
 				<Controller
 					name="reported_by"
 					control={control}
 					render={({ field }) => (
 						<TextField
 							{...field}
-							label="Reported by"
+							label="Reported by (person on the floor)"
 							size="small"
 							fullWidth
 							inputProps={{ maxLength: 255 }}
 							error={!!errors.reported_by}
-							helperText={errors.reported_by?.message}
+							helperText={
+								errors.reported_by?.message ??
+								"Optional — your login is recorded automatically"
+							}
 						/>
 					)}
 				/>
@@ -712,6 +721,23 @@ export default function BreakdownEntryForm({
 			{editing ? (
 				<Typography variant="body2" color="text.secondary">
 					Editing incident #{editingEntry.breakdown_id}. Clearing the restart time reopens it.
+					{editingEntry.reported_by_user_name
+						? ` Reported by ${editingEntry.reported_by_user_name}${
+								editingEntry.reported_date_time
+									? ` on ${formatDateTimeDisplay(editingEntry.reported_date_time)}`
+									: ""
+							}.`
+						: ""}
+					{editingEntry.fixed_by_user_name
+						? ` Fix entered by ${editingEntry.fixed_by_user_name}${
+								editingEntry.fixed_date_time
+									? ` on ${formatDateTimeDisplay(editingEntry.fixed_date_time)}`
+									: ""
+							}.`
+						: ""}
+					{editingEntry.prod_confirm_status
+						? " Changing the restart time or duration resets production's check."
+						: ""}
 				</Typography>
 			) : null}
 
