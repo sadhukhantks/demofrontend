@@ -370,12 +370,14 @@ const detailScreenColumns = (o: DetailColumnOptions): GridColDef<PoGridRow>[] =>
       // TKT-208: PO rate per quintal, line n = quality n of the Qualities cell.
       field: "rates",
       headerName: "Rate (per Qtl)",
-      width: 120,
+      // Wide enough for a 6-digit range ("1,35,000–1,35,500"); "pre" never wraps a
+      // line, so a rate can't slide down next to the wrong quality.
+      width: 150,
       align: "right",
       headerAlign: "right",
       sortable: false,
       renderCell: (params: GridRenderCellParams<PoGridRow, string>) => (
-        <Box component="span" sx={{ whiteSpace: "pre-line" }}>
+        <Box component="span" sx={{ whiteSpace: "pre" }}>
           {params.value}
         </Box>
       ),
