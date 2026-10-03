@@ -252,8 +252,10 @@ export async function reopenMR(
 }
 
 /**
- * Return lorry - marks the MR Returned (48): the lorry came in but was sent
- * back to the supplier without settlement. Allowed from Open (1) or Pending (13).
+ * Return lorry - marks the MR Returned (flag): the lorry came in but was sent
+ * back to the supplier. Sets the is_returned flag only (status unchanged), so the
+ * retained material still goes through approval, payment, issue and transfer.
+ * Allowed from Open (1) or Pending (13).
  */
 export async function returnMR(mrId: string, branchId: string, reason: string): Promise<StatusChangeResponse> {
 	const payload = {
@@ -276,6 +278,24 @@ export async function returnMR(mrId: string, branchId: string, reason: string): 
 		throw new Error("Empty response from return API");
 	}
 
+	return data;
+}
+
+/**
+ * Undo Return lorry - clears the Returned flag. Allowed from Open (1) or Pending (13).
+ */
+export async function unreturnMR(mrId: string, branchId: string, reason: string): Promise<StatusChangeResponse> {
+	const { data, error } = await fetchWithCookie<StatusChangeResponse>(
+		apiRoutesPortalMasters.JUTE_MR_UNRETURN,
+		"POST",
+		{ mr_id: mrId, branch_id: branchId, reason }
+	);
+	if (error) {
+		throw new Error(error);
+	}
+	if (!data) {
+		throw new Error("Empty response from unreturn API");
+	}
 	return data;
 }
 
