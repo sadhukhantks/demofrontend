@@ -210,7 +210,14 @@ function YarnPurchaseEditPageContent() {
 		}
 		const parsed = yarnPurchaseSchema.safeParse(buildSaveInput({ coId, branchId, form, lines }));
 		if (!parsed.success) {
-			setValidationErrors(formatIssues(parsed.error));
+			const issues = formatIssues(parsed.error);
+			setValidationErrors(issues);
+			// The alert renders at the top of the page; on a phone it is off screen, so say it in a toast too.
+			toast({
+				variant: "destructive",
+				title: "Not saved",
+				description: issues.length > 1 ? `${issues[0]} (+${issues.length - 1} more)` : issues[0],
+			});
 			setFieldErrors(collectFieldErrors(parsed.error));
 			return;
 		}
@@ -230,7 +237,9 @@ function YarnPurchaseEditPageContent() {
 				await loadRecord();
 			}
 		} catch (err) {
-			setPageError(err instanceof Error ? err.message : "Failed to save yarn purchase");
+			const message = err instanceof Error ? err.message : "Failed to save yarn purchase";
+			setPageError(message);
+			toast({ variant: "destructive", title: "Not saved", description: message });
 		} finally {
 			setSaving(false);
 		}

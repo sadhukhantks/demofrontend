@@ -25,7 +25,7 @@ export const yarnPurchaseLineSchema = z.object({
 	wt_per_package: optionalNonNegative,
 	weight_kg: z.number({ error: "Weight (kg) is required" }).positive("Weight (kg) must be greater than 0"),
 	rate_per_kg: optionalNonNegative,
-	remarks: z.string().max(500, "Remarks are too long").nullable().optional(),
+	remarks: z.string().max(255, "Remarks are too long (255 characters at most)").nullable().optional(),
 });
 
 export const yarnPurchaseSchema = z.object({
@@ -35,8 +35,8 @@ export const yarnPurchaseSchema = z.object({
 	party_id: z.number().int().positive("Supplier is invalid").nullable().optional(),
 	challan_no: z.string().max(50, "Challan no is too long").nullable().optional(),
 	challan_date: optionalYmd,
-	vehicle_no: z.string().max(50, "Vehicle no is too long").nullable().optional(),
-	remarks: z.string().max(1000, "Remarks are too long").nullable().optional(),
+	vehicle_no: z.string().max(30, "Vehicle no is too long (30 characters at most)").nullable().optional(),
+	remarks: z.string().max(255, "Remarks are too long (255 characters at most)").nullable().optional(),
 	lines: z.array(yarnPurchaseLineSchema).min(1, "Add at least one yarn line"),
 });
 

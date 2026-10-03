@@ -2,12 +2,14 @@
 
 import * as React from "react";
 import {
+	confirmBreakdown,
 	createBreakdown,
 	deleteBreakdown,
 	fetchBreakdownById,
 	fetchBreakdownEntries,
 	updateBreakdown,
 	type MechBreakdown,
+	type MechBreakdownConfirmPayload,
 	type MechBreakdownCreate,
 	type MechBreakdownDetail,
 } from "@/utils/juteMechanicalService";
@@ -47,8 +49,14 @@ export interface BreakdownEntriesState {
 		breakdownId: number | null
 	) => Promise<BreakdownMutationResult>;
 	removeEntry: (breakdownId: number) => Promise<BreakdownMutationResult>;
+	/** Production's reconfirmation (or dispute) of a closed incident's fix. */
+	confirmEntry: (
+		breakdownId: number,
+		body: MechBreakdownConfirmPayload
+	) => Promise<BreakdownMutationResult>;
 	saving: boolean;
 	deleting: boolean;
+	confirming: boolean;
 }
 
 function messageOf(err: unknown, fallback: string): string {
@@ -72,6 +80,7 @@ export function useBreakdownEntries(params: BreakdownEntriesParams): BreakdownEn
 	const [error, setError] = React.useState<string | null>(null);
 	const [saving, setSaving] = React.useState(false);
 	const [deleting, setDeleting] = React.useState(false);
+	const [confirming, setConfirming] = React.useState(false);
 	const [version, setVersion] = React.useState(0);
 
 	const refresh = React.useCallback(() => setVersion((v) => v + 1), []);
@@ -168,6 +177,24 @@ export function useBreakdownEntries(params: BreakdownEntriesParams): BreakdownEn
 		[coId]
 	);
 
+	const confirmEntry = React.useCallback(
+		async (
+			breakdownId: number,
+			body: MechBreakdownConfirmPayload
+		): Promise<BreakdownMutationResult> => {
+			setConfirming(true);
+			try {
+				await confirmBreakdown(breakdownId, body);
+				return { ok: true, breakdownId };
+			} catch (err) {
+				return { ok: false, error: messageOf(err, "Failed to save the confirmation") };
+			} finally {
+				setConfirming(false);
+			}
+		},
+		[]
+	);
+
 	return {
 		rows,
 		total,
@@ -177,8 +204,10 @@ export function useBreakdownEntries(params: BreakdownEntriesParams): BreakdownEn
 		loadEntry,
 		saveEntry,
 		removeEntry,
+		confirmEntry,
 		saving,
 		deleting,
+		confirming,
 	};
 }
 
