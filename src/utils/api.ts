@@ -837,6 +837,10 @@ const apiRoutesPortalMasters = {
     EJM_BEAMING_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_beaming_eff_process`,
     // Finishing efficiency (legacy FINISHEF.PRG)
     EJM_FINISHING_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_finishing_eff_process`,
+    // Winding efficiency + production amount (legacy WINDCALC.PRG)
+    EJM_WINDING_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_winding_eff_process`,
+    // Press machine efficiency + production amount (same as Beaming, press machines)
+    EJM_PRESS_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_press_eff_process`,
     EJM_WAGES_PAYROLL_EXCEL: `${API_URL}/hrmsMasters/ejm_wages_payroll_excel`,
     // EJM Pay Register / OT Register grids (legacy pay_register_payslip.php / ot_register_payslip.php)
     EJM_PAY_REGISTER_REPORT: `${API_URL}/hrmsMasters/ejm_pay_register_report`,
@@ -853,6 +857,12 @@ const apiRoutesPortalMasters = {
     HOL_INC_ELIG_DELETE: `${API_URL}/hrmsMasters/hol_inc_elig_delete`,
     HOL_INC_ELIG_APPROVE: `${API_URL}/hrmsMasters/hol_inc_elig_approve`,
     HOL_INC_ELIG_REJECT: `${API_URL}/hrmsMasters/hol_inc_elig_reject`,
+
+    // Non Working Days (tbl_non_working_days) — read by vw_leave_dates.non_working_day
+    NON_WORKING_DAYS_TABLE: `${API_URL}/hrmsMasters/get_non_working_days_table`,
+    NON_WORKING_DAY_BY_ID: `${API_URL}/hrmsMasters/get_non_working_day_by_id`,
+    NON_WORKING_DAY_CREATE: `${API_URL}/hrmsMasters/non_working_day_create`,
+    NON_WORKING_DAY_EDIT: `${API_URL}/hrmsMasters/non_working_day_edit`,
 
     // Production Quality <-> Wages Quality link (link_prodquality_wagequality_mst)
     PROD_WAGES_LINK_SETUP: `${API_URL}/hrmsMasters/prod_wages_link_setup`,

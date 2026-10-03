@@ -33,6 +33,11 @@ const EMPTY_DEPTS: DepartmentOption[] = Object.freeze([]) as unknown as Departme
 const EMPTY_WAGES: WagesQualityOption[] = Object.freeze([]) as unknown as WagesQualityOption[];
 const EMPTY_OPTIONS: Option[] = Object.freeze([]) as unknown as Option[];
 
+// Optional; "" (blank) is saved as NULL. Must match PROCESSES in the backend.
+const PROCESS_OPTIONS: Option[] = Object.freeze(
+  ["Hemming", "Heracle", "Handsewer", "Press"].map((p) => ({ label: p, value: p })),
+) as unknown as Option[];
+
 const QUALITY_LABEL: Record<string, string> = {
   weaving: "Weaving Quality",
   winding: "Winding Quality",
@@ -135,7 +140,7 @@ export default function CreateProdWagesQualLinkPage({ open, onClose, onSaved, ed
   const loadRecord = useCallback(async () => {
     if (editId === undefined) {
       await loadProdQualities("");
-      setInitialValues({ dept_id: "", prod_quality_id: "", wages_quality_id: "" });
+      setInitialValues({ dept_id: "", prod_quality_id: "", wages_quality_id: "", process: "" });
       setFormKey((k) => k + 1);
       return;
     }
@@ -154,6 +159,7 @@ export default function CreateProdWagesQualLinkPage({ open, onClose, onSaved, ed
         dept_id: dept,
         prod_quality_id: rec.prod_quality_id != null ? String(rec.prod_quality_id) : "",
         wages_quality_id: rec.wages_quality_id != null ? String(rec.wages_quality_id) : "",
+        process: rec.process ?? "",
       });
       setFormKey((k) => k + 1);
     } catch (err: unknown) {
@@ -221,6 +227,13 @@ export default function CreateProdWagesQualLinkPage({ open, onClose, onSaved, ed
           disabled: (values) => !values.dept_id,
           grid: { xs: 12 },
         },
+        {
+          name: "process",
+          label: "Process",
+          type: "select",
+          options: PROCESS_OPTIONS,
+          grid: { xs: 12 },
+        },
       ] satisfies Field[],
     }),
     [departments, prodQualities, wagesOptions, qualityType, deptId],
@@ -233,6 +246,7 @@ export default function CreateProdWagesQualLinkPage({ open, onClose, onSaved, ed
         dept_id: values.dept_id,
         prod_quality_id: values.prod_quality_id,
         wages_quality_id: values.wages_quality_id,
+        process: values.process || null,
       };
       const isEdit = editId !== undefined;
       const { error } = await fetchWithCookie(

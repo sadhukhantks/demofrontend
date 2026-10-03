@@ -9,7 +9,7 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { BranchScopePicker } from "@/components/reports/BranchScopePicker";
 import { useReportBranches } from "@/components/reports/useReportBranches";
-import type { FneQualTargetEntryRow } from "./types";
+import { FNE_QUAL_TARGET_STATUS, type FneQualTargetEntryRow } from "./types";
 
 const CREATE_PATH = "/dashboardportal/wages/ejm/fnewagesEntry/createFneQualTarget";
 
@@ -53,14 +53,16 @@ function FneWagesEntry() {
 
 			setRows(
 				(data.data || []).map((r: Record<string, unknown>) => ({
-					id: `${r.period_id}-${r.dept_id}`,
+					id: r.fne_qual_traget_id as number,
 					period_id: r.period_id as number,
 					start_date: (r.start_date as string) ?? null,
 					end_date: (r.end_date as string) ?? null,
 					dept_id: r.dept_id as number,
 					dept_desc: (r.dept_desc as string) ?? "",
-					quality_count: Number(r.quality_count ?? 0),
-					approved_count: Number(r.approved_count ?? 0),
+					quality_label: (r.quality_label as string) ?? "",
+					target: r.target != null ? String(r.target) : null,
+					eff_pc: r.eff_pc != null ? String(r.eff_pc) : null,
+					status_id: Number(r.status_id ?? FNE_QUAL_TARGET_STATUS.DRAFT),
 				}))
 			);
 			setTotalRows(data.total || 0);
@@ -99,18 +101,20 @@ function FneWagesEntry() {
 					row.start_date ? `${row.start_date} → ${row.end_date ?? ""}` : `Period ${row.period_id}`,
 			},
 			{ field: "dept_desc", headerName: "Department", flex: 1.2, minWidth: 200 },
-			{ field: "quality_count", headerName: "Qualities", width: 110, type: "number" },
+			{ field: "quality_label", headerName: "Quality", flex: 1.5, minWidth: 260 },
+			{ field: "target", headerName: "Std Target Prod", width: 130, align: "right", headerAlign: "right" },
+			{ field: "eff_pc", headerName: "Target Prod/Eff(5)", width: 150, align: "right", headerAlign: "right" },
 			{
-				field: "approved_count",
+				field: "status_id",
 				headerName: "Status",
-				width: 170,
+				width: 120,
 				renderCell: ({ row }) => {
-					const all = row.approved_count === row.quality_count;
+					const approved = row.status_id === FNE_QUAL_TARGET_STATUS.APPROVED;
 					return (
 						<Chip
 							size="small"
-							color={all ? "success" : "default"}
-							label={all ? "Approved" : `${row.approved_count}/${row.quality_count} approved`}
+							color={approved ? "success" : "default"}
+							label={approved ? "Approved" : "Drafted"}
 						/>
 					);
 				},
@@ -135,7 +139,7 @@ function FneWagesEntry() {
 					setSearchQuery(e.target.value);
 					setPaginationModel((prev) => ({ ...prev, page: 0 }));
 				},
-				placeholder: "Search by department",
+				placeholder: "Search by department or quality",
 				debounceDelayMs: 500,
 			}}
 			createAction={{ label: "Create", onClick: () => openEntry() }}

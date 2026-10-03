@@ -258,7 +258,7 @@ function GroupProductionEntry() {
 							getOptionLabel={(o) => o.label}
 							isOptionEqualToValue={(o, v) => o.value === v.value}
 							placeholder={item.machine_id === null ? "Select machine first" : "Select quality"}
-							noOptionsText="No qualities in this machine's department master"
+							noOptionsText="No rated qualities for this machine's department"
 							disabled={busy || item.machine_id === null}
 						/>
 					);
