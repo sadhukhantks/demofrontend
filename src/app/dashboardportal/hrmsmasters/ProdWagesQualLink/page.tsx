@@ -99,6 +99,7 @@ export default function ProdWagesQualLinkPage() {
       { field: "dept_desc", headerName: "Department", flex: 1, minWidth: 180 },
       { field: "prod_quality_name", headerName: "Production Quality", flex: 2, minWidth: 220 },
       { field: "wages_quality_name", headerName: "Wages Quality", flex: 2, minWidth: 220 },
+      { field: "process", headerName: "Process", flex: 1, minWidth: 120 },
       { field: "branch_name", headerName: "Branch", flex: 1, minWidth: 140 },
     ],
     [],
