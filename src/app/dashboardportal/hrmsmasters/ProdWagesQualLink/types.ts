@@ -17,6 +17,7 @@ export interface LinkRow {
   wages_quality_id: number | null;
   wages_quality_name: string;
   active: number | null;
+  process: string | null;
   [key: string]: unknown;
 }
 
@@ -28,6 +29,7 @@ export interface LinkRecord {
   branch_id: number | null;
   dept_id: number | null;
   active: number | null;
+  process: string | null;
 }
 
 export interface Option {

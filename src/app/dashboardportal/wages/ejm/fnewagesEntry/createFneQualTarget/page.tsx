@@ -24,7 +24,7 @@ const formatPeriod = (p: ForthnightPeriod) =>
 const createBlankLine = (): FneQualTargetLine => ({
 	id: `new-${Math.random().toString(36).slice(2)}`,
 	savedId: null,
-	quality_it: null,
+	quality_id: null,
 	eff_pc: "",
 	status_id: FNE_QUAL_TARGET_STATUS.DRAFT,
 });
@@ -93,20 +93,23 @@ function FneQualTargetEntry() {
 		})();
 	}, [notify, initialPeriodId]);
 
-	// Only weaving / winding / finishing / beaming departments — each has its own quality master.
+	// Only departments rated in ejm_wages_quality_rate — that table is the quality master here.
 	useEffect(() => {
 		if (coId === null || branchId === null) return;
 		(async () => {
-			const params = new URLSearchParams({ co_id: String(coId), branch_id: String(branchId) });
-			const { data, error } = await fetchWithCookie(
-				`${apiRoutesPortalMasters.PROD_WAGES_LINK_SETUP}?${params}`,
+			const params = new URLSearchParams({ branch_id: String(branchId), rated: "1" });
+			const { data, error } = await fetchWithCookie<{ data: { dept_id: number; dept_desc: string }[] }>(
+				`${apiRoutesPortalMasters.EJM_FNE_QUAL_TARGET_DEPARTMENTS}?${params}`,
 				"GET"
 			);
 			if (error || !data) {
 				notify(error || "Failed to load departments", "error");
 				return;
 			}
-			const list: QualityDepartmentOption[] = data.data?.departments ?? [];
+			const list: QualityDepartmentOption[] = (data.data ?? []).map((d) => ({
+				value: String(d.dept_id),
+				label: d.dept_desc,
+			}));
 			setDepartments(list);
 			setDept(list.find((d) => Number(d.value) === initialDeptId) ?? null);
 		})();
@@ -132,7 +135,7 @@ function FneQualTargetEntry() {
 			(data.data || []).map((r: Record<string, unknown>) => ({
 				id: `saved-${r.fne_qual_traget_id}`,
 				savedId: r.fne_qual_traget_id as number,
-				quality_it: r.quality_it as number,
+				quality_id: r.quality_id as number,
 				eff_pc: r.eff_pc === null || r.eff_pc === undefined ? "" : String(r.eff_pc),
 				status_id: Number(r.status_id ?? FNE_QUAL_TARGET_STATUS.DRAFT),
 			}))
@@ -153,14 +156,14 @@ function FneQualTargetEntry() {
 	const saveLine = useCallback(
 		async (line: FneQualTargetLine, approve: boolean) => {
 			if (!period || !dept) return notify("Select a fortnight and department first", "error");
-			if (line.quality_it === null) return notify("Select a quality", "error");
+			if (line.quality_id === null) return notify("Select a quality", "error");
 			if (line.eff_pc.trim() === "") return notify("Enter Target Prod/Eff(5)", "error");
 
 			const parsed = fneQualTargetSaveSchema.safeParse({
 				period_id: period.forthnight_id,
 				dept_id: Number(dept.value),
 				approve,
-				lines: [{ quality_it: line.quality_it, eff_pc: Number(line.eff_pc) }],
+				lines: [{ quality_id: line.quality_id, eff_pc: Number(line.eff_pc) }],
 			});
 			if (!parsed.success) return notify(parsed.error.issues[0].message, "error");
 
@@ -191,14 +194,14 @@ function FneQualTargetEntry() {
 				minWidth: "560px",
 				renderCell: ({ item }) => {
 					// A quality can appear once per fortnight + department.
-					const taken = new Set(lines.filter((l) => l.id !== item.id).map((l) => l.quality_it));
+					const taken = new Set(lines.filter((l) => l.id !== item.id).map((l) => l.quality_id));
 					return (
 						<SearchableSelect
 							variant="bare"
 							options={qualities.filter((q) => !taken.has(q.value))}
-							value={qualities.find((q) => q.value === item.quality_it) ?? null}
-							onChange={(opt) => updateLine(item.id, { quality_it: opt?.value ?? null })}
-							getOptionLabel={(o) => o.label}
+							value={qualities.find((q) => q.value === item.quality_id) ?? null}
+							onChange={(opt) => updateLine(item.id, { quality_id: opt?.value ?? null })}
+							getOptionLabel={(o) => (o.ran ? `${o.label} ● ran this fortnight` : o.label)}
 							isOptionEqualToValue={(o, v) => o.value === v.value}
 							placeholder="Select quality"
 							// Saved rows are keyed on their quality; change the target instead.
@@ -206,6 +209,16 @@ function FneQualTargetEntry() {
 						/>
 					);
 				},
+			},
+			{
+				id: "std_target",
+				header: "Std Target Prod",
+				width: "140px",
+				renderCell: ({ item }) => (
+					<Typography variant="body2">
+						{qualities.find((q) => q.value === item.quality_id)?.target ?? ""}
+					</Typography>
+				),
 			},
 			{
 				id: "eff_pc",
@@ -302,7 +315,7 @@ function FneQualTargetEntry() {
 							onChange={setDept}
 							getOptionLabel={(o) => o.label}
 							isOptionEqualToValue={(o, v) => o.value === v.value}
-							noOptionsText="No weaving / winding / finishing / beaming departments"
+							noOptionsText="No departments with wages quality rates"
 							disabled={busyLine !== null}
 						/>
 					</Box>

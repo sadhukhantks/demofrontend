@@ -62,6 +62,10 @@ const ACTION_LOOM_EFF = "32";
 const ACTION_BEAMING_EFF = "33";
 /** New: legacy FINISHEF.PRG — hemming / herackle / sack sewing / lapping / cutting efficiency. */
 const ACTION_FINISHING_EFF = "34";
+/** New: legacy WINDCALC.PRG — winder efficiency and production amount. */
+const ACTION_WINDING_EFF = "35";
+/** New: Press machines — same group-machine calculation as Beaming. */
+const ACTION_PRESS_EFF = "36";
 /** The fortnight efficiency processes: each its own Report option and a step
  *  (in this order) at the end of the Wages Data Process pipeline. */
 const EFF_PROCESSES: Record<string, { label: string; route: string }> = {
@@ -72,6 +76,8 @@ const EFF_PROCESSES: Record<string, { label: string; route: string }> = {
   [ACTION_LOOM_EFF]: { label: "Loom Efficiency", route: apiRoutesPortalMasters.EJM_LOOM_EFF_PROCESS },
   [ACTION_BEAMING_EFF]: { label: "Beaming Efficiency", route: apiRoutesPortalMasters.EJM_BEAMING_EFF_PROCESS },
   [ACTION_FINISHING_EFF]: { label: "Finishing Efficiency", route: apiRoutesPortalMasters.EJM_FINISHING_EFF_PROCESS },
+  [ACTION_WINDING_EFF]: { label: "Winding Efficiency", route: apiRoutesPortalMasters.EJM_WINDING_EFF_PROCESS },
+  [ACTION_PRESS_EFF]: { label: "Press Efficiency", route: apiRoutesPortalMasters.EJM_PRESS_EFF_PROCESS },
 };
 
 /** The Wages Data Process pipeline, run in this order on Submit. Each step is
@@ -150,6 +156,8 @@ const ACTION_OPTIONS: Option[] = [
   { label: "EJM Loom Efficiency Process", value: ACTION_LOOM_EFF },
   { label: "EJM Beaming Efficiency Process", value: ACTION_BEAMING_EFF },
   { label: "EJM Finishing Efficiency Process", value: ACTION_FINISHING_EFF },
+  { label: "EJM Winding Efficiency Process", value: ACTION_WINDING_EFF },
+  { label: "EJM Press Efficiency Process", value: ACTION_PRESS_EFF },
 ];
 
 /** Legacy `$holget` from pay_register_payslip.php — "Pay Ragister/ Pay Slip
@@ -280,6 +288,8 @@ interface WagesDataRow {
   shift: string | null;
   t_p: string | null;
   mc_nos: string | null;
+  /** machine_mst.machine_id — BEAMING / FINISHING attendance is collected machine-wise. */
+  mc_id: number | null;
   working_hours: number;
   ot_hours: number;
   ns_hours: number;
@@ -336,6 +346,7 @@ const WAGES_GRID_COLUMNS: GridColDef[] = [
   { field: "spell_name", headerName: "Spell", width: 70 },
   { field: "shift", headerName: "Shift", width: 60, editable: true },
   { field: "mc_nos", headerName: "MC Nos", width: 90, editable: true },
+  { field: "mc_id", headerName: "MC ID", width: 80 },
   numCol("working_hours", "Work Hrs"),
   numCol("ot_hours", "OT Hrs"),
   numCol("ns_hours", "NS Hrs"),
@@ -500,6 +511,8 @@ export default function EjmWagesProcessPage() {
    * 10 Loom Efficiency           → ejm_fne_wages_eff_data (EJM FACTORY only)
    * 11 Beaming Efficiency        → ejm_fne_wages_eff_data (EJM FACTORY only)
    * 12 Finishing Efficiency      → ejm_fne_wages_eff_data (EJM FACTORY only)
+   * 13 Winding Efficiency        → ejm_fne_wages_eff_data incl. prod_amount (EJM FACTORY only)
+   * 14 Press Efficiency          → ejm_fne_wages_eff_data incl. prod_amount (EJM FACTORY only)
    *  Stops at the first failure; whatever was collected is still listed. */
   const runWagesPipeline = useCallback(
     async (p: { date_from: string; date_to: string; pay_scheme_id: string }) => {
