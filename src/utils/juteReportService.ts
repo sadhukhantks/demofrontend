@@ -384,6 +384,8 @@ export function fetchJutePoPending(
   );
 }
 
+export type MrListStatusMode = "approved" | "all";
+
 export interface FetchMrListParams {
   coId: number;
   branchId: number | null;
@@ -392,17 +394,21 @@ export interface FetchMrListParams {
   page?: number;
   limit?: number;
   search?: string;
+  /** "approved" (default): approved / finalised MRs by MR date. "all": every MR,
+   *  placed by its MR date or, when it has none yet, its gate-entry date. */
+  status?: MrListStatusMode;
 }
 
 export async function fetchMrListReport(
   params: FetchMrListParams,
 ): Promise<{ data: MrListReportRow[]; total: number }> {
-  const { coId, branchId, dateFrom, dateTo, page, limit, search } = params;
+  const { coId, branchId, dateFrom, dateTo, page, limit, search, status } = params;
   const qs = new URLSearchParams();
   qs.append("co_id", String(coId));
   if (branchId != null) qs.append("branch_id", String(branchId));
   qs.append("date_from", dateFrom);
   qs.append("date_to", dateTo);
+  if (status && status !== "approved") qs.append("status", status);
   if (page != null) qs.append("page", String(page));
   if (limit != null) qs.append("limit", String(limit));
   if (search) qs.append("search", search);
