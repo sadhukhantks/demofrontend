@@ -37,6 +37,8 @@ export type JuteMRHeader = {
 	mr_weight: number | null;
 	remarks: string | null;
 	status_id: number | null;
+	/** 1 when the lorry was sent back; the retained lines are still stock/payable/transferable. */
+	is_returned?: number | null;
 	status: string | null;
 	src_com_id: number | null;
 	jute_gate_entry_date: string | null;

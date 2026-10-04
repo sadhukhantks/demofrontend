@@ -14,7 +14,7 @@ import type { MuiFormMode } from "@/components/ui/muiform";
 import type { ApprovalInfo, ApprovalActionPermissions, ApprovalStatusId } from "@/components/ui/transaction";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { MR_STATUS_IDS, MR_STATUS_LABELS, type MRStatusId } from "../utils/mrConstants";
-import { openMR, pendingMR, approveMR, rejectMR, cancelMR, reopenMR, returnMR, type ReopenResponse } from "../utils/mrService";
+import { openMR, pendingMR, approveMR, rejectMR, cancelMR, reopenMR, returnMR, unreturnMR, type ReopenResponse } from "../utils/mrService";
 import type { MRReopenTarget } from "../components/MRReopenDialog";
 import type { JuteMRHeader } from "../types/mrTypes";
 
@@ -220,6 +220,8 @@ export const useMRApproval = ({
 		);
 	}, [mode, statusId, hasMenuAccess, pathname]);
 
+	const isReturned = Boolean(header?.is_returned);
+
 	/**
 	 * Whether the Return-lorry button should be shown: Open/Pending.
 	 *
@@ -236,10 +238,21 @@ export const useMRApproval = ({
 	const canReturnLorry = React.useMemo(() => {
 		return (
 			mode !== "view" &&
+			!isReturned &&
 			(statusId === MR_STATUS_IDS.OPEN || statusId === MR_STATUS_IDS.PENDING) &&
 			hasMenuAccess(pathname, "edit")
 		);
-	}, [mode, statusId, hasMenuAccess, pathname]);
+	}, [mode, statusId, isReturned, hasMenuAccess, pathname]);
+
+	/** Undo Return lorry: only while the flag is set and the MR is still Open/Pending. */
+	const canUnreturnLorry = React.useMemo(() => {
+		return (
+			mode !== "view" &&
+			isReturned &&
+			(statusId === MR_STATUS_IDS.OPEN || statusId === MR_STATUS_IDS.PENDING) &&
+			hasMenuAccess(pathname, "edit")
+		);
+	}, [mode, statusId, isReturned, hasMenuAccess, pathname]);
 
 	/**
 	 * Approval info for the approval bar.
@@ -551,8 +564,8 @@ export const useMRApproval = ({
 	);
 
 	/**
-	 * Handle Return-lorry action - marks the MR Returned (48): the lorry came in
-	 * but was sent back to the supplier without settlement.
+	 * Handle Return-lorry action - sets the Returned flag (status unchanged): the lorry
+	 * came in but was sent back; the retained material continues through approval and transfer.
 	 */
 	const handleReturn = React.useCallback(
 		async (reason: string) => {
@@ -588,6 +601,27 @@ export const useMRApproval = ({
 		toast({ title: "Opening approval log...", description: "Feature coming soon" });
 	}, [mrId]);
 
+	const handleUnreturn = React.useCallback(async () => {
+		if (!mrId || !branchId) {
+			toast({ variant: "destructive", title: "Missing required information" });
+			return;
+		}
+		setApprovalLoading(true);
+		try {
+			await unreturnMR(mrId, branchId, "");
+			toast({ title: "Returned mark removed" });
+			await onRefresh();
+		} catch (error) {
+			toast({
+				variant: "destructive",
+				title: "Unable to remove Returned mark",
+				description: error instanceof Error ? error.message : "Please try again.",
+			});
+		} finally {
+			setApprovalLoading(false);
+		}
+	}, [mrId, branchId, onRefresh]);
+
 	return {
 		approvalLoading,
 		approvalInfo,
@@ -598,6 +632,7 @@ export const useMRApproval = ({
 		canSetPending,
 		canReopen,
 		canReturnLorry,
+		canUnreturnLorry,
 		partyHasNoBranches,
 		// Approval dialog state
 		approvalDialogOpen,
@@ -616,6 +651,7 @@ export const useMRApproval = ({
 		handleReject,
 		handleCancel,
 		handleReturn,
+		handleUnreturn,
 		handleViewApprovalLog,
 	};
 };

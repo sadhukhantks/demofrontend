@@ -366,6 +366,22 @@ const detailScreenColumns = (o: DetailColumnOptions): GridColDef<PoGridRow>[] =>
         </Box>
       ),
     },
+    {
+      // TKT-208: PO rate per quintal, line n = quality n of the Qualities cell.
+      field: "rates",
+      headerName: "Rate (per Qtl)",
+      // Wide enough for a 6-digit range ("1,35,000–1,35,500"); "pre" never wraps a
+      // line, so a rate can't slide down next to the wrong quality.
+      width: 150,
+      align: "right",
+      headerAlign: "right",
+      sortable: false,
+      renderCell: (params: GridRenderCellParams<PoGridRow, string>) => (
+        <Box component="span" sx={{ whiteSpace: "pre" }}>
+          {params.value}
+        </Box>
+      ),
+    },
     lorryCol("order_lw", "Order Lorry (Wt)"),
     lorryCol("recv_lw", "Recv Lorry (Wt)"),
     lorryCol("returned_lw", "Returned Lorry (Wt)", true),
@@ -418,6 +434,7 @@ const DETAIL_EXPORT_COLUMNS: GridColDef<PoGridRow>[] = [
   { field: "party_name", headerName: "Supplier" },
   { field: "mukam", headerName: "Mukam" },
   { field: "qualities", headerName: "Qualities" },
+  { field: "rates", headerName: "Rate (per Qtl)" },
   ...lorryExportColumns<PoGridRow>(),
   numCol("balance_pct", "Bal %", 90, 2),
   numCol("ordered_value", "Ord Value", 140, 2),
@@ -1162,7 +1179,8 @@ function Content() {
                     />
                   </Box>
                   <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
-                    One row per PO. Lorry columns read &quot;lorries (MT)&quot;; Returned lorries are
+                    One row per PO. Rate is the PO rate per quintal, on the same line as its
+                    quality. Lorry columns read &quot;lorries (MT)&quot;; Returned lorries are
                     not counted as received. Red rows are stale (past due with no receipt for the
                     rule&apos;s stale period), amber rows are merely past their due date.
                     &quot;Settle?&quot; marks POs whose receipts already meet the settlement rule —

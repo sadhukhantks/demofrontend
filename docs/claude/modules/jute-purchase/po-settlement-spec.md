@@ -267,6 +267,7 @@ rows are grouped client-side by `jute_po_id`; a `qualities` text column lists th
 | Column | Value (grid shows `n (MT)`; Excel has two numeric columns per pair) |
 |---|---|
 | PO #, PO Date, Supplier, Mukam, Qualities | as today |
+| **Rate (per Qtl)** | (TKT-208, 2026-10-02) one line per quality, same order as Qualities: the item's `po_rate`; `po_rate_min–po_rate` range when one quality sits on several PO lines at different rates (legacy POs); "—" when no rate. Also in the Excel sheet and the PDF |
 | **Order Lorry (Wt)** | `vehicle_quantity (po_weight MT)` |
 | **Recv Lorry (Wt)** | `received_lorries (po_received_weight MT)` — excludes returned |
 | **Returned Lorry (Wt)** | `returned_lorries (returned_weight MT)`; blank when 0; cell in error colour when > 0 |
