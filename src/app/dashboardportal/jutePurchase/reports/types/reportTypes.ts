@@ -155,7 +155,12 @@ export interface BatchCostReportRow {
 export interface MrListReportRow {
   jute_mr_id: number;
   mr_number: string;
+  /** Set when the MR is approved / finalised; null while Open or out on a transfer chain. */
   jute_mr_date: string | null;
+  jute_gate_entry_date?: string | null;
+  jute_gate_entry_no?: number | null;
+  /** 1 when the lorry was sent back to the supplier (the retained material stays). */
+  is_returned?: number | null;
   branch_id: number | null;
   branch_name: string | null;
   party_id: number | null;
