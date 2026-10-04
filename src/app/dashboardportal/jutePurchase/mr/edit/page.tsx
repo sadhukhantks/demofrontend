@@ -536,6 +536,8 @@ function JuteMREditPageContent() {
 		handleReject,
 		handleCancel,
 		handleReturn,
+		handleUnreturn,
+		canUnreturnLorry,
 		handleViewApprovalLog,
 	} = useMRApproval({
 		mode,
@@ -692,6 +694,8 @@ function JuteMREditPageContent() {
 						canSetPending={canSetPending}
 						canReopen={canReopen}
 						canReturnLorry={canReturnLorry}
+						canUnreturnLorry={canUnreturnLorry}
+						isReturned={Boolean(header?.is_returned)}
 						partyHasNoBranches={partyHasNoBranches}
 						onOpen={handleOpen}
 						onApprove={handleApprove}
@@ -700,6 +704,7 @@ function JuteMREditPageContent() {
 						onCancel={handleCancel}
 						onReopen={handleReopenClick}
 						onReturn={handleReturn}
+						onUnreturn={handleUnreturn}
 						onViewApprovalLog={handleViewApprovalLog}
 					/>
 				)

@@ -343,6 +343,7 @@ const apiRoutesPortalMasters = {
     JUTE_MR_CANCEL: `${API_URL}/juteMR/cancel_mr`,
     JUTE_MR_REOPEN: `${API_URL}/juteMR/reopen_mr`,
     JUTE_MR_RETURN: `${API_URL}/juteMR/return_mr`,
+    JUTE_MR_UNRETURN: `${API_URL}/juteMR/unreturn_mr`,
     JUTE_MR_DOWNLOAD: `${API_URL}/juteMR/download_mr_table`,
     JUTE_MATERIAL_INSPECTION_UPDATE_LINE: `${API_URL}/juteMaterialInspection/update_line_item`,
 
