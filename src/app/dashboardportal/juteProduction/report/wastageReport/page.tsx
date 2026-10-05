@@ -21,6 +21,13 @@
  * edges were cut off in "Save as PDF". On `beforeprint` the natural width of
  * the table is measured and the print root is scaled down to the printable
  * width of an A4 landscape page, so the whole sheet always lands on the page.
+ *
+ * TKT-000183 (owner 2026-10-05): a WINDING KG context column (the WINDING
+ * base); a grand "Total Wastage" band at the far right — every group summed,
+ * OTHER included — whose % is shown on the base picked in "Total % on"
+ * (default Jute issue; the header names the base, so the printed sheet says
+ * what it divides by); and a warning listing the waste items with no mapping
+ * row, linking to the mapping master (hidden on print).
  */
 
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -38,17 +45,21 @@ import {
 } from "@mui/material";
 import { alpha, type Theme } from "@mui/material/styles";
 import { FileSpreadsheet, Printer } from "lucide-react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReportExportHeader } from "@/components/reports/exportExcel";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { resolveReportMenuId } from "@/utils/reportMenuService";
 import { useReportBranches } from "@/components/reports/useReportBranches";
 import type { BranchOption } from "@/components/reports/types";
 import {
   fetchWastageReport,
   type WastageDayRow,
+  type WastageDenomOption,
   type WastageGroupColumn,
   type WastageReport,
   type WastageTotalsRow,
+  type WastageUnmappedItem,
 } from "@/utils/wastageReportService";
 import {
   DprTable,
@@ -58,7 +69,13 @@ import {
   fmt,
   totalRowSx,
 } from "../dailyProductionReport/_components/DprPieces";
-import { exportWastageReportWorkbook } from "./wastageReportExcel";
+import {
+  DEFAULT_TOTAL_BASE,
+  PRODUCTION_HEADERS,
+  TOTAL_WASTAGE_TITLE,
+  exportWastageReportWorkbook,
+  totalPctHeader,
+} from "./wastageReportExcel";
 import { PRINT_PAGE_MARGIN_MM, printScaleFor } from "./printScale";
 
 const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
@@ -111,6 +128,16 @@ const otherHeadSx = {
 
 const OTHER_TOOLTIP = "Waste entries with no mapping row in jute_waste_report_map";
 
+/** Mapping master the unmapped-items warning links to. */
+const WASTE_REPORT_MAP_PATH = "/dashboardportal/juteProduction/masters/wasteReportMap";
+
+/** Primary wash for the grand Total Wastage band header. */
+const grandHeadSx = {
+  "&&": { bgcolor: (t: Theme) => alpha(t.palette.primary.main, 0.12) },
+} as const;
+
+const EMPTY_DENOM_OPTIONS: readonly WastageDenomOption[] = Object.freeze([]);
+const EMPTY_UNMAPPED: readonly WastageUnmappedItem[] = Object.freeze([]);
 
 
 /** Right-aligned whole-kg cell; zeros stay visible but dimmed. */
@@ -138,15 +165,18 @@ function PctTd({ value, bold }: { value: number | null | undefined; bold?: boole
   );
 }
 
-/** Context (production) band + one cell per group component + TOTAL + % — one
- * table row, shared by the day rows and the monthly TOTAL row. */
+/** Context (production) band + one cell per group component + TOTAL + % +
+ * the grand Total Wastage KG / % on `totalBase` — one table row, shared by the
+ * day rows and the monthly TOTAL row. */
 function WastageCells({
   row,
   groups,
+  totalBase,
   bold,
 }: {
   row: WastageDayRow | WastageTotalsRow;
   groups: WastageGroupColumn[];
+  totalBase: string;
   bold?: boolean;
 }) {
   return (
@@ -158,6 +188,7 @@ function WastageCells({
       <KgTd value={row.spinning_kg} bold={bold} />
       <KgTd value={row.breaker_feed_kg} bold={bold} />
       <KgTd value={row.selection_wt} bold={bold} />
+      <KgTd value={row.winding_kg ?? 0} bold={bold} />
       {groups.map((g) => {
         const gv = row.groups[g.group_code];
         return (
@@ -170,7 +201,43 @@ function WastageCells({
           </React.Fragment>
         );
       })}
+      <KgTd value={row.total_waste_kg ?? 0} bold={bold} />
+      <PctTd value={row.total_pct_by_base?.[totalBase] ?? null} bold={bold} />
     </>
+  );
+}
+
+/** "Dust — BATCHING(EJM): 29,580 kg" lines of the unmapped-items warning. */
+function UnmappedWarning({ items }: { items: readonly WastageUnmappedItem[] }) {
+  const n = items.length;
+  return (
+    <Alert
+      severity="warning"
+      sx={{ mb: 2, displayPrint: "none" }}
+      action={
+        <Button
+          component={Link}
+          href={WASTE_REPORT_MAP_PATH}
+          color="inherit"
+          size="small"
+          variant="outlined"
+          sx={{ whiteSpace: "nowrap" }}
+        >
+          Map waste items
+        </Button>
+      }
+    >
+      {n} waste item{n === 1 ? " is" : "s are"} not mapped to a report group, so their % cannot
+      be computed:
+      <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>
+        {items.map((u) => (
+          <li key={`${u.item_id}:${u.dept_id}`}>
+            {u.item_name ?? `Item ${u.item_id}`} — {u.dept_name ?? `Dept ${u.dept_id}`}:{" "}
+            {fmt(u.waste_kg, 0)} kg
+          </li>
+        ))}
+      </Box>
+    </Alert>
   );
 }
 
@@ -189,6 +256,8 @@ function Content() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  // Base of the grand Total Wastage % — display only, no refetch.
+  const [totalBaseCode, setTotalBaseCode] = useState<string>(DEFAULT_TOTAL_BASE);
   const pathname = usePathname();
   const fetchedOnce = useRef(false);
   const branchSeeded = useRef(false);
@@ -276,6 +345,17 @@ function Content() {
   const isEmpty = data != null && (data.days.length === 0 || orderedGroups.length === 0);
   const hasData = data != null && !isEmpty;
 
+  const totalBaseOptions = data?.denom_options ?? EMPTY_DENOM_OPTIONS;
+  const totalBase: WastageDenomOption = useMemo(
+    () =>
+      totalBaseOptions.find((o) => o.code === totalBaseCode) ?? {
+        code: totalBaseCode,
+        label: totalBaseCode,
+      },
+    [totalBaseOptions, totalBaseCode],
+  );
+  const unmapped = data?.unmapped ?? EMPTY_UNMAPPED;
+
   // Excel download of the sheet on screen (TKT-000176): same bands, same
   // day rows and TOTAL, under the standard report letterhead.
   const exportExcel = useCallback(() => {
@@ -290,14 +370,14 @@ function Content() {
           reportFor: monthLongLabel(data.month),
           reportNo: await resolveReportMenuId(pathname),
         };
-        await exportWastageReportWorkbook(data, orderedGroups, header, dayLabel);
+        await exportWastageReportWorkbook(data, orderedGroups, header, dayLabel, totalBase);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to export the report");
       } finally {
         setExporting(false);
       }
     })();
-  }, [data, orderedGroups, companyName, selectedBranch, pathname]);
+  }, [data, orderedGroups, companyName, selectedBranch, pathname, totalBase]);
 
   return (
     <Box sx={{ p: 2 }}>
@@ -407,6 +487,29 @@ function Content() {
         </Alert>
       ) : null}
 
+      {!loading && hasData && data && unmapped.length > 0 ? (
+        <UnmappedWarning items={unmapped} />
+      ) : null}
+
+      {!loading && hasData && data ? (
+        <Box sx={{ mb: 1.5, width: { xs: "100%", sm: 300 }, displayPrint: "none" }}>
+          <SearchableSelect<WastageDenomOption>
+            variant="outlined"
+            size="small"
+            label="Total % on"
+            options={totalBaseOptions}
+            value={totalBaseOptions.length > 0 ? totalBase : null}
+            onChange={(o) => {
+              if (o) setTotalBaseCode(o.code);
+            }}
+            getOptionLabel={(o) => o.label}
+            isOptionEqualToValue={(o, v) => o.code === v.code}
+            clearable={false}
+            disabled={totalBaseOptions.length === 0}
+          />
+        </Box>
+      ) : null}
+
       {!loading && hasData && data ? (
         <Box className="wsr-print-root" ref={printRootRef}>
           {/* Print letterhead */}
@@ -429,7 +532,7 @@ function Content() {
                     <Td rowSpan={2} sx={stickyDateSx}>
                       DATE
                     </Td>
-                    <Td colSpan={7} align="center">
+                    <Td colSpan={PRODUCTION_HEADERS.length} align="center">
                       PRODUCTION
                     </Td>
                     {orderedGroups.map((g) =>
@@ -459,15 +562,16 @@ function Content() {
                         </Td>
                       ),
                     )}
+                    <Td colSpan={2} align="center" sx={grandHeadSx}>
+                      {TOTAL_WASTAGE_TITLE}
+                    </Td>
                   </Tr>
                   <Tr>
-                    <Td align="right">HESS LOOMS</Td>
-                    <Td align="right">SACK (S4) LOOMS</Td>
-                    <Td align="right">FRAMES RUN</Td>
-                    <Td align="right">WEAVING KG</Td>
-                    <Td align="right">SPINNING KG</Td>
-                    <Td align="right">BREAKER FEED KG</Td>
-                    <Td align="right">JUTE SELECTION</Td>
+                    {PRODUCTION_HEADERS.map((h) => (
+                      <Td key={h} align="right">
+                        {h}
+                      </Td>
+                    ))}
                     {orderedGroups.map((g) => (
                       <React.Fragment key={g.group_code}>
                         {g.components.map((c) => (
@@ -493,6 +597,12 @@ function Content() {
                         </Td>
                       </React.Fragment>
                     ))}
+                    <Td align="right" sx={grandHeadSx}>
+                      KG
+                    </Td>
+                    <Td align="right" sx={grandHeadSx}>
+                      {totalPctHeader(totalBase)}
+                    </Td>
                   </Tr>
                 </>
               }
@@ -500,19 +610,26 @@ function Content() {
               {data.days.map((day) => (
                 <Tr key={day.date}>
                   <Td sx={stickyDateSx}>{dayLabel(day.date)}</Td>
-                  <WastageCells row={day} groups={orderedGroups} />
+                  <WastageCells row={day} groups={orderedGroups} totalBase={totalBase.code} />
                 </Tr>
               ))}
               {data.totals ? (
                 <Tr sx={totalRowSx()}>
                   <Td sx={stickyDateSx}>TOTAL</Td>
-                  <WastageCells row={data.totals} groups={orderedGroups} bold />
+                  <WastageCells
+                    row={data.totals}
+                    groups={orderedGroups}
+                    totalBase={totalBase.code}
+                    bold
+                  />
                 </Tr>
               ) : null}
             </DprTable>
             <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 0.5 }}>
               Daily % uses each group&apos;s day denominator; the TOTAL row&apos;s % uses the
-              monthly denominator, so it can differ from an average of the day rows.
+              monthly denominator, so it can differ from an average of the day rows. Total
+              Wastage adds up every group, Other / Unmapped included, and its % is on{" "}
+              {totalBase.label}.
             </Typography>
           </SectionCard>
         </Box>
