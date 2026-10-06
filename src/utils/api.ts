@@ -285,6 +285,12 @@ const apiRoutesPortalMasters = {
     JUTE_MARKET_RATES: `${API_URL}/juteMarketRate/rates`,
     JUTE_MARKET_RATES_SAVE: `${API_URL}/juteMarketRate/rates/save`,
 
+    // Tally Link Master (ERP party / item / godown -> exact Tally name, per company)
+    TALLY_LINK_SETUP: `${API_URL}/tallyLinkMaster/setup`,
+    TALLY_LINK_LIST: `${API_URL}/tallyLinkMaster/list`,
+    TALLY_LINK_CREATE: `${API_URL}/tallyLinkMaster/create`,
+    TALLY_LINK_UPDATE: `${API_URL}/tallyLinkMaster/update`,
+
     // Jute PO endpoints
     JUTE_PO_TABLE: `${API_URL}/jutePO/get_jute_po_table`,
     JUTE_PO_BY_ID: `${API_URL}/jutePO/get_jute_po_by_id`,
