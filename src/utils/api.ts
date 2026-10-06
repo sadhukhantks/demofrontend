@@ -343,6 +343,7 @@ const apiRoutesPortalMasters = {
     JUTE_MR_CANCEL: `${API_URL}/juteMR/cancel_mr`,
     JUTE_MR_REOPEN: `${API_URL}/juteMR/reopen_mr`,
     JUTE_MR_RETURN: `${API_URL}/juteMR/return_mr`,
+    JUTE_MR_UNRETURN: `${API_URL}/juteMR/unreturn_mr`,
     JUTE_MR_DOWNLOAD: `${API_URL}/juteMR/download_mr_table`,
     JUTE_MATERIAL_INSPECTION_UPDATE_LINE: `${API_URL}/juteMaterialInspection/update_line_item`,
 
@@ -437,6 +438,7 @@ const apiRoutesPortalMasters = {
     JUTE_REPORT_PO_MR_RECEIPT_DETAIL: `${API_URL}/juteReports/po-mr-receipt-detail`,
     JUTE_REPORT_PO_PENDING: `${API_URL}/juteReports/po-pending`,
     JUTE_REPORT_PO_OUTSTANDING_POSITION: `${API_URL}/juteReports/po-outstanding-position`,
+    JUTE_REPORT_ISSUE_YARN_WISE: `${API_URL}/juteReports/issue-yarn-wise`,
     SALES_REPORT_JUTE_TALLY_DOWNLOAD: `${API_URL}/salesReports/jute-tally-download`,
     SALES_REPORT_JUTE_MR_SUMMARY: `${API_URL}/salesReports/jute-mr-summary`,
     SALES_REPORT_SALES_ORDER_LIST: `${API_URL}/salesReports/sales-order-list`,
@@ -1229,6 +1231,13 @@ const apiRoutesPortalMasters = {
     WINDING_TARGET_MAP_DELETE: `${API_URL}/windingTargetMap/target_map_delete`,
     WINDING_TARGET_MAP_GRID: `${API_URL}/windingTargetMap/target_map_grid`,
     WINDING_TARGET_MAP_BULK_SAVE: `${API_URL}/windingTargetMap/target_map_bulk_save`,
+    // Wastage Report Mapping master (router prefix /api/wasteReportMap, TKT-000183) — maps waste
+    // items (optionally per department) to Wastage Report groups; all writes are POST with a JSON body
+    WASTE_REPORT_MAP_SETUP: `${API_URL}/wasteReportMap/setup`,
+    WASTE_REPORT_MAP_LIST: `${API_URL}/wasteReportMap/list`,
+    WASTE_REPORT_MAP_CREATE: `${API_URL}/wasteReportMap/create`,
+    WASTE_REPORT_MAP_UPDATE: `${API_URL}/wasteReportMap/update`,
+    WASTE_REPORT_MAP_DEACTIVATE: `${API_URL}/wasteReportMap/deactivate`,
     // Spinning SQC (router prefix /api/juteSQC) — SPINNING_SQC_COUNT_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_COUNT_SETUP: `${API_URL}/juteSQC/sqc_count_setup`,
     SPINNING_SQC_COUNT_SAVE: `${API_URL}/juteSQC/sqc_count_save`,

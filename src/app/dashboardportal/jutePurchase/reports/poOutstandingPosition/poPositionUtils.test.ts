@@ -14,6 +14,8 @@ import {
   filterDetailRows,
   filterPoRows,
   formatQualities,
+  formatRate,
+  formatRates,
   lorryFractionText,
   lorryLabel,
   lorrySummary,
@@ -234,6 +236,17 @@ describe("buildPoGridRows (one row per PO)", () => {
     expect(rows[0].item_ids).toEqual([269848, 269847]);
   });
 
+  it("shows each quality's rate on the same line as the quality (TKT-208)", () => {
+    const rows = buildPoGridRows([
+      { ...items[0], po_rate: 13400 },
+      { ...items[1], po_rate: 13500, po_rate_min: 13500 },
+      { ...items[2], po_rate: 6375, po_rate_min: 5875 },
+    ]);
+    expect(rows[0].qualities.split("\n")).toHaveLength(2);
+    expect(rows[0].rates).toBe("13,400\n13,500");
+    expect(rows[1].rates).toBe("5,875–6,375");
+  });
+
   it("reads PO-level lorries and weights once and sums item values", () => {
     const [po] = buildPoGridRows(items);
     expect(po).toMatchObject({
@@ -314,6 +327,22 @@ describe("lorry helpers", () => {
         "\n",
       ),
     ).toBe("A ×1 bl\nB ×2 bl");
+  });
+
+  it("formats a quality's rate, a rate range and a missing rate", () => {
+    expect(formatRate({ po_rate: 13400 })).toBe("13,400");
+    expect(formatRate({ po_rate: 13400, po_rate_min: null })).toBe("13,400");
+    expect(formatRate({ po_rate: 13351.5, po_rate_min: 13351.5 })).toBe("13,351.5");
+    expect(formatRate({ po_rate: 6375, po_rate_min: 5875 })).toBe("5,875–6,375");
+    // min above max (should not happen) never prints a backwards range
+    expect(formatRate({ po_rate: 6000, po_rate_min: 6500 })).toBe("6,000");
+    expect(formatRate({ po_rate: 0 })).toBe("0");
+    expect(formatRate({ po_rate: null })).toBe("—");
+    expect(formatRate({ po_rate: null, po_rate_min: null })).toBe("—");
+    expect(
+      formatRates([{ po_rate: 13400 }, { po_rate: null }, { po_rate: 6375, po_rate_min: 5875 }], "\n"),
+    ).toBe("13,400\n—\n5,875–6,375");
+    expect(formatRates([])).toBe("");
   });
 
   it("lorrySummary counts each PO once", () => {

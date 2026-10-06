@@ -178,6 +178,41 @@ export function formatQualities(
 /** Newline between qualities — one per line in the grid, Excel and PDF cells. */
 export const QUALITY_LINE_SEP = "\n";
 
+const rate2 = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 });
+
+const finiteOrNull = (v: number | null | undefined): number | null =>
+  v == null || !Number.isFinite(Number(v)) ? null : Number(v);
+
+/**
+ * One quality's PO rate per quintal for the Rate column (TKT-208): "13,400";
+ * "5,875–6,375" when the quality sits on several PO lines at different rates
+ * (legacy POs — `po_rate` is the highest, `po_rate_min` the lowest); "—" when
+ * the line has no rate.
+ */
+export function formatRate(
+  item: Pick<PoPositionDetailRow, "po_rate" | "po_rate_min">,
+): string {
+  const hi = finiteOrNull(item.po_rate);
+  const lo = finiteOrNull(item.po_rate_min) ?? hi;
+  if (hi == null) return lo == null ? "—" : rate2.format(lo);
+  const hiText = rate2.format(hi);
+  if (lo == null || lo >= hi) return hiText;
+  const loText = rate2.format(lo);
+  return loText === hiText ? hiText : `${loText}–${hiText}`;
+}
+
+/**
+ * Rates of a PO's item rows, in the same order as {@link formatQualities} so
+ * that, joined with {@link QUALITY_LINE_SEP}, line n of the Rate cell belongs to
+ * line n of the Qualities cell.
+ */
+export function formatRates(
+  items: readonly Pick<PoPositionDetailRow, "po_rate" | "po_rate_min">[],
+  separator = ", ",
+): string {
+  return items.map(formatRate).join(separator);
+}
+
 // ------------------------------------------------------------ grid rows ----
 
 /** Quality rows plus a Grand Total line carrying the report totals. */
@@ -301,6 +336,7 @@ export function buildPoGridRows(rows: readonly PoPositionDetailRow[]): PoGridRow
       party_name: f.party_name,
       mukam: f.mukam,
       qualities: formatQualities(items, QUALITY_LINE_SEP),
+      rates: formatRates(items, QUALITY_LINE_SEP),
       item_ids: items.map((i) => i.item_id),
       balance_pct:
         f.po_weight && f.po_pending_weight != null

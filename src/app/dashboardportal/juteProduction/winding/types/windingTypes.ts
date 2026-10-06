@@ -188,6 +188,11 @@ export type WindingSpellReportRow = {
 	eb_id: number | null;
 	emp_code: string | null;
 	worker_name: string | null;
+	// The machine the winder was mapped to for this date + spell on the Quality
+	// tab (TKT-000169); null/blank when none is mapped.
+	machine_id: number | null;
+	mech_code: string | null;
+	machine_name: string | null;
 	item_id: number | null;
 	item_code: string | null;
 	item_name: string | null;
@@ -195,4 +200,7 @@ export type WindingSpellReportRow = {
 	opening_jugar: number;
 	closing_jugar: number;
 	production_kg: number;
+	// Winding standard (KG per winder per 8-hour shift) scaled to the spell's
+	// working hours; null when the yarn quality has no target configured.
+	target_kg: number | null;
 };

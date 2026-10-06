@@ -126,8 +126,8 @@ in this module, but the **backend router is a masters router**:
 |---|---|---|
 | `JUTE_REPORT_STOCK` | `/stock` | Opening/receipt/issue/closing + MTD per item |
 | `JUTE_REPORT_BATCH_COST` | `/batch-cost` | Planned vs actual issue per quality |
-| `JUTE_REPORT_MR_LIST` | `/mr-list` | Paginated MR header list (status 3/13) |
-| `JUTE_REPORT_TALLY_DOWNLOAD` | `/tally-download` | Multi-sheet xlsx (Purchase + Check List) |
+| `JUTE_REPORT_MR_LIST` | `/mr-list` | Paginated MR header list. Default `status=approved`: status 3/13 by MR date. `status=all` (the page's "Show" dropdown, 2026-10-04): every MR with its status, placed by `COALESCE(jute_mr_date, jute_gate_entry_date)` — lorries out on a transfer chain (Pending, no MR date yet) included; rows also carry `jute_gate_entry_date/no`, `is_returned` |
+| `JUTE_REPORT_TALLY_DOWNLOAD` | `/tally-download` | Multi-sheet xlsx (Purchase + Check List). Approved (3) MRs only (`JUTE_MR_TALLY_STATUSES`, 2026-10-04), whatever the list shows |
 
 - Related (sales module): `SALES_REPORT_JUTE_TALLY_DOWNLOAD` / `SALES_REPORT_JUTE_MR_SUMMARY` hit
   `/salesReports/...` — documented in `module-sales`, not here.

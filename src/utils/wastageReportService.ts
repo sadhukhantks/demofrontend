@@ -23,7 +23,8 @@ export interface WastageComponent {
 export interface WastageGroupColumn {
   group_code: string;
   group_name: string;
-  /** WEAVING | SPINNING | BREAKER_FEED | SELECTION | NONE */
+  /** WEAVING | SPINNING | BREAKER_FEED | SELECTION | WINDING | NONE (an
+   * unknown code yields pct null — mapping rows are user-editable). */
   day_denom: string;
   total_denom: string;
   display_order: number;
@@ -44,17 +45,44 @@ export interface WastageDayRow {
   spinning_kg: number;
   breaker_feed_kg: number;
   selection_wt: number;
+  /** Reconciled winding production kg (doff − opening + closing jugar) —
+   * the WINDING base (TKT-000183). Optional: absent from older servers. */
+  winding_kg?: number;
   cells: Record<string, number>;
   groups: Record<string, WastageGroupValue>;
+  /** Grand Total Wastage: every group summed, OTHER included (TKT-000183). */
+  total_waste_kg?: number;
+  /** total_waste_kg as % of each base code; null when that base is 0. */
+  total_pct_by_base?: Record<string, number | null>;
 }
 
 export type WastageTotalsRow = Omit<WastageDayRow, "date">;
+
+/** A denominator the grand Total Wastage % can be shown on. */
+export interface WastageDenomOption {
+  code: string;
+  label: string;
+}
+
+/** A waste (item, department) pair with no mapping row — it lands in OTHER,
+ * so its % cannot be computed. Month total kg. */
+export interface WastageUnmappedItem {
+  item_id: number;
+  item_name: string | null;
+  dept_id: number;
+  dept_name: string | null;
+  waste_kg: number;
+}
 
 export interface WastageReport {
   month: string;
   columns: WastageGroupColumn[];
   days: WastageDayRow[];
   totals: WastageTotalsRow | null;
+  /** Bases for the "Total % on" picker (TKT-000183; absent from older servers). */
+  denom_options?: WastageDenomOption[];
+  /** Waste the mapping does not cover, heaviest first (TKT-000183). */
+  unmapped?: WastageUnmappedItem[];
 }
 
 export async function fetchWastageReport(params: {

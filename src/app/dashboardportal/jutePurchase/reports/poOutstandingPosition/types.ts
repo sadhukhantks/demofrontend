@@ -50,7 +50,12 @@ export interface PoPositionDetailRow {
   item_code: string | null;
   item_name: string | null;
   po_uom: string | null;
+  /** PO line rate per quintal (the highest when the quality sits on several lines). */
   po_rate: number | null;
+  /** Lowest line rate of the quality — differs from `po_rate` only on legacy POs
+   * that list one quality on several lines at different rates (TKT-208).
+   * Optional so the page keeps working against a backend without it. */
+  po_rate_min?: number | null;
   ordered_qty: number | null;
   received_qty: number | null;
   balance_qty: number | null;
@@ -183,6 +188,10 @@ export interface PoGridRow extends LorryFigures, LorryLabels {
   mukam: string | null;
   /** One quality per line: "D TD 6 ×250 bl\nD TD 5 ×83 bl" */
   qualities: string;
+  /** PO rate per quintal, one line per quality in the same order as
+   * `qualities` ("13,400\n13,500"); a range ("5,875–6,375") when one quality
+   * has lines at different rates, "—" when no rate (TKT-208). */
+  rates: string;
   /** Item ids of the PO — the quality drill-down filters on these. */
   item_ids: (number | null)[];
   /** po_pending_weight / po_weight × 100 (2 dp); null when no PO weight. */
