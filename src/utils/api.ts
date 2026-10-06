@@ -438,6 +438,7 @@ const apiRoutesPortalMasters = {
     JUTE_REPORT_PO_MR_RECEIPT_DETAIL: `${API_URL}/juteReports/po-mr-receipt-detail`,
     JUTE_REPORT_PO_PENDING: `${API_URL}/juteReports/po-pending`,
     JUTE_REPORT_PO_OUTSTANDING_POSITION: `${API_URL}/juteReports/po-outstanding-position`,
+    JUTE_REPORT_ISSUE_YARN_WISE: `${API_URL}/juteReports/issue-yarn-wise`,
     SALES_REPORT_JUTE_TALLY_DOWNLOAD: `${API_URL}/salesReports/jute-tally-download`,
     SALES_REPORT_JUTE_MR_SUMMARY: `${API_URL}/salesReports/jute-mr-summary`,
     SALES_REPORT_SALES_ORDER_LIST: `${API_URL}/salesReports/sales-order-list`,

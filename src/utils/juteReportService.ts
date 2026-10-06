@@ -13,6 +13,7 @@ import type {
   JutePercentClaimsRow,
   JuteMukhamMoistureRow,
   BatchCostReportRow,
+  JuteIssueYarnWiseApiRow,
   IssuePlannerApiResponse,
   IssuePlannerReport,
   MrListReportRow,
@@ -53,6 +54,22 @@ export async function fetchBatchCostReport(
   const result = await fetchWithCookie<ReportApiResponse<BatchCostReportRow>>(url);
   if (result.error || !result.data) {
     throw new Error(result.error ?? "Failed to fetch batch cost report");
+  }
+  return result.data.data;
+}
+
+/** GET /api/juteReports/issue-yarn-wise (TKT-000214) — jute issued per yarn
+ * quality on `date` and from the 1st of that month up to it, in kg. */
+export async function fetchJuteIssueYarnWise(
+  branchId: number,
+  date: string,
+): Promise<JuteIssueYarnWiseApiRow[]> {
+  const qs = new URLSearchParams({ branch_id: String(branchId), date });
+  const url = `${apiRoutesPortalMasters.JUTE_REPORT_ISSUE_YARN_WISE}?${qs.toString()}`;
+  const result =
+    await fetchWithCookie<ReportApiResponse<JuteIssueYarnWiseApiRow>>(url);
+  if (result.error || !result.data) {
+    throw new Error(result.error ?? "Failed to fetch jute issue yarn wise report");
   }
   return result.data.data;
 }

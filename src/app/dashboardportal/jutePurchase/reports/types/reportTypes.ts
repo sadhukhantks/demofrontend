@@ -159,6 +159,21 @@ export interface BatchCostReportRow {
   variance: number;
 }
 
+/** Row from GET /api/juteReports/issue-yarn-wise (TKT-000214) — jute issued
+ * per yarn quality on the report date and month-to-date. Weights are kg. */
+export interface JuteIssueYarnWiseApiRow {
+  /** null = issues carrying no yarn quality ("(unassigned)") */
+  yarn_type_id: number | null;
+  yarn_type_name: string;
+  /** Raw jute + wastage. */
+  day_issue_kg: number;
+  mtd_issue_kg: number;
+  /** The wastage part of the figure above: process waste re-issued, plus MR
+   * lines of a jute-waste item (purchased waste). Raw jute = issue - waste. */
+  day_waste_kg: number;
+  mtd_waste_kg: number;
+}
+
 /** Row from GET /api/juteReports/mr-list */
 export interface MrListReportRow {
   jute_mr_id: number;
