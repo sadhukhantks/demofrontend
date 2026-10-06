@@ -148,6 +148,14 @@ export interface BatchCostReportRow {
   actual_weight: number;
   actual_rate: number;
   issue_value: number;
+  /** Month-to-date counterparts of the day fields (planned_weight ..
+   * variance): 1st of the report date's month through the date, TKT-000213.
+   * Rate = MTD value / MTD weight x 100 (per qtl). */
+  mtd_planned_weight: number;
+  mtd_actual_weight: number;
+  mtd_actual_rate: number;
+  mtd_issue_value: number;
+  mtd_variance: number;
   variance: number;
 }
 
