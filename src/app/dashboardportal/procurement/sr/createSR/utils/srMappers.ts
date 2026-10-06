@@ -170,6 +170,9 @@ export const mapSRLineItem = (
 		warehouse_id: raw.warehouse_id ?? null,
 		warehouse_name: raw.warehouse_name ?? "",
 		warehouse_path: raw.warehouse_path ?? raw.warehouse_name ?? "",
+		last_warehouse_id: raw.last_warehouse_id ?? null,
+		last_warehouse_name: raw.last_warehouse_name ?? null,
+		last_warehouse_path: raw.last_warehouse_path ?? raw.last_warehouse_name ?? null,
 		hsn_code: raw.hsn_code ?? "",
 	};
 };

@@ -26,7 +26,7 @@ export const yarnIssueLineSchema = z.object({
 	yarn_purchase_li_id: z.number({ error: "Purchase lot is required" }).int().positive("Purchase lot is required"),
 	no_of_packages: optionalNonNegative,
 	weight_kg: z.number({ error: "Weight (kg) is required" }).positive("Weight (kg) must be greater than 0"),
-	remarks: z.string().max(500, "Remarks are too long").nullable().optional(),
+	remarks: z.string().max(255, "Remarks are too long (255 characters at most)").nullable().optional(),
 });
 
 const baseSchema = z.object({
@@ -35,7 +35,7 @@ const baseSchema = z.object({
 	tran_date: z.string({ error: "Date is required" }).min(1, "Date is required").regex(YMD, "Use the YYYY-MM-DD format"),
 	issue_type: z.enum(["ISSUE", "RETURN"], { error: "Type is required" }),
 	dept_id: z.number({ error: "Department is required" }).int().positive("Department is required"),
-	remarks: z.string().max(1000, "Remarks are too long").nullable().optional(),
+	remarks: z.string().max(255, "Remarks are too long (255 characters at most)").nullable().optional(),
 	lines: z.array(yarnIssueLineSchema).min(1, "Add at least one yarn line"),
 });
 

@@ -64,6 +64,7 @@ type OpenBoardGridRow = {
   attended_dept_name: string;
   attended_by: string;
   reported_by: string;
+  reported_by_user_name: string;
   status: string;
   remarks: string;
 };
@@ -132,6 +133,7 @@ const columns: GridColDef<OpenBoardGridRow>[] = [
   { field: "attended_dept_name", headerName: "Attended By Dept", width: 150 },
   { field: "attended_by", headerName: "Attended By", width: 130 },
   { field: "reported_by", headerName: "Reported By", width: 130 },
+  { field: "reported_by_user_name", headerName: "Entered By (User)", width: 150 },
   { field: "remarks", headerName: "Remarks", minWidth: 150 },
 ];
 
@@ -172,6 +174,7 @@ function OpenBoardContent() {
         attended_dept_name: pickText(rec, "attended_dept_name"),
         attended_by: pickText(rec, "attended_by"),
         reported_by: pickText(rec, "reported_by"),
+        reported_by_user_name: pickText(rec, "reported_by_user_name"),
         status: pickText(rec, "status"),
         remarks: pickText(rec, "remarks"),
       };

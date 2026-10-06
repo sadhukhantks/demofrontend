@@ -140,6 +140,10 @@ export type SRLineItem = {
 	warehouse_id: number | null;
 	warehouse_name: string;
 	warehouse_path: string;
+	/** Warehouse this item was last received into at this branch (TKT-000194), informational only. */
+	last_warehouse_id: number | null;
+	last_warehouse_name: string | null;
+	last_warehouse_path: string | null;
 	hsn_code: string;
 };
 
@@ -237,6 +241,9 @@ export type SRLineItemRaw = {
 	warehouse_id?: number | null;
 	warehouse_name?: string;
 	warehouse_path?: string;
+	last_warehouse_id?: number | null;
+	last_warehouse_name?: string | null;
+	last_warehouse_path?: string | null;
 	hsn_code?: string;
 };
 
