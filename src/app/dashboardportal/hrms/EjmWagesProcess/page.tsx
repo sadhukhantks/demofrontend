@@ -6,6 +6,10 @@ import {
   Backdrop,
   Box,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Paper,
   Snackbar,
   Typography,
@@ -66,6 +70,10 @@ const ACTION_FINISHING_EFF = "34";
 const ACTION_WINDING_EFF = "35";
 /** New: Press machines — same group-machine calculation as Beaming. */
 const ACTION_PRESS_EFF = "36";
+/** New: upload an Excel of EB No / OT Advance into tbl_ejm_wages_data_collection. */
+const ACTION_OT_ADVANCE = "37";
+/** New: spinning + weaving overall efficiency (legacy SPGWVGEF), after Spinning and Loom. */
+const ACTION_OVERALL_EFF = "38";
 /** The fortnight efficiency processes: each its own Report option and a step
  *  (in this order) at the end of the Wages Data Process pipeline. */
 const EFF_PROCESSES: Record<string, { label: string; route: string }> = {
@@ -78,6 +86,7 @@ const EFF_PROCESSES: Record<string, { label: string; route: string }> = {
   [ACTION_FINISHING_EFF]: { label: "Finishing Efficiency", route: apiRoutesPortalMasters.EJM_FINISHING_EFF_PROCESS },
   [ACTION_WINDING_EFF]: { label: "Winding Efficiency", route: apiRoutesPortalMasters.EJM_WINDING_EFF_PROCESS },
   [ACTION_PRESS_EFF]: { label: "Press Efficiency", route: apiRoutesPortalMasters.EJM_PRESS_EFF_PROCESS },
+  [ACTION_OVERALL_EFF]: { label: "Spinning + Weaving Overall Efficiency", route: apiRoutesPortalMasters.EJM_OVERALL_EFF_PROCESS },
 };
 
 /** The Wages Data Process pipeline, run in this order on Submit. Each step is
@@ -158,6 +167,8 @@ const ACTION_OPTIONS: Option[] = [
   { label: "EJM Finishing Efficiency Process", value: ACTION_FINISHING_EFF },
   { label: "EJM Winding Efficiency Process", value: ACTION_WINDING_EFF },
   { label: "EJM Press Efficiency Process", value: ACTION_PRESS_EFF },
+  { label: "EJM Spinning + Weaving Overall Efficiency Process", value: ACTION_OVERALL_EFF },
+  { label: "OT Advance", value: ACTION_OT_ADVANCE },
 ];
 
 /** Legacy `$holget` from pay_register_payslip.php — "Pay Ragister/ Pay Slip
@@ -290,6 +301,13 @@ interface WagesDataRow {
   mc_nos: string | null;
   /** machine_mst.machine_id — BEAMING / FINISHING attendance is collected machine-wise. */
   mc_id: number | null;
+  /** Set by "Apply Efficiency to Wages Data" (legacy WGRPCALC). */
+  act_eff: number | null;
+  working_hours_eff: number | null;
+  ot_hours_eff: number | null;
+  ns_hrs_eff: number | null;
+  prod_basic: number | null;
+  time_basic: number | null;
   working_hours: number;
   ot_hours: number;
   ns_hours: number;
@@ -332,6 +350,25 @@ const numCol = (field: string, headerName: string): GridColDef => ({
   editable: true,
 });
 
+/** Second sheet of the wages export — the fortnight's ejm_fne_wages_eff_data. */
+const EFF_DATA_COLUMNS: GridColDef[] = [
+  { field: "details", headerName: "Details" },
+  { field: "detcode", headerName: "Det Code" },
+  { field: "deptcode", headerName: "Dept" },
+  { field: "occucode", headerName: "Occu" },
+  { field: "eb_no", headerName: "EB No" },
+  { field: "name", headerName: "Name" },
+  { field: "shift", headerName: "Shift" },
+  { field: "mcno", headerName: "M/C No" },
+  { field: "quality_id", headerName: "Quality ID" },
+  { field: "quantity", headerName: "Quantity", type: "number" },
+  { field: "target_qty", headerName: "Target Qty", type: "number" },
+  { field: "eff", headerName: "Eff", type: "number" },
+  { field: "tareff", headerName: "Target Eff", type: "number" },
+  { field: "effcode", headerName: "Eff Code" },
+  { field: "prod_amount", headerName: "Prod Amount", type: "number" },
+];
+
 const WAGES_GRID_COLUMNS: GridColDef[] = [
   { field: "eb_no", headerName: "EB No", width: 90 },
   { field: "emp_name", headerName: "Employee", width: 180 },
@@ -351,6 +388,13 @@ const WAGES_GRID_COLUMNS: GridColDef[] = [
   numCol("ot_hours", "OT Hrs"),
   numCol("ns_hours", "NS Hrs"),
   numCol("ot_ns_hours", "OT NS Hrs"),
+  // Efficiency results — recomputed by "Apply Efficiency to Wages Data", not edited here.
+  { ...numCol("act_eff", "Eff %"), editable: false },
+  { ...numCol("working_hours_eff", "Work Hrs Eff"), editable: false },
+  { ...numCol("ot_hours_eff", "OT Hrs Eff"), editable: false },
+  { ...numCol("ns_hrs_eff", "NS Hrs Eff"), editable: false },
+  { ...numCol("prod_basic", "Prod Basic"), editable: false },
+  { ...numCol("time_basic", "Time Basic"), editable: false },
   numCol("fest_hours", "Fest Hrs"),
   numCol("stl_days", "STL Days"),
   numCol("production", "Production"),
@@ -426,6 +470,9 @@ export default function EjmWagesProcessPage() {
   const [result, setResult] = useState<ReportResult | null>(null);
   // Step-by-step outcome of the last Wages Data Process run.
   const [pipeline, setPipeline] = useState<PipelineStep[] | null>(null);
+  // OT Advance upload popup; the file picked in it.
+  const [otAdvOpen, setOtAdvOpen] = useState(false);
+  const [otAdvFile, setOtAdvFile] = useState<File | null>(null);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -513,6 +560,8 @@ export default function EjmWagesProcessPage() {
    * 12 Finishing Efficiency      → ejm_fne_wages_eff_data (EJM FACTORY only)
    * 13 Winding Efficiency        → ejm_fne_wages_eff_data incl. prod_amount (EJM FACTORY only)
    * 14 Press Efficiency          → ejm_fne_wages_eff_data incl. prod_amount (EJM FACTORY only)
+   * 15 Apply Efficiency          → this scheme's rows: working_hours_eff, ot_hours_eff,
+   *                                ns_hrs_eff, act_eff, prod_basic (legacy WGRPCALC)
    *  Stops at the first failure; whatever was collected is still listed. */
   const runWagesPipeline = useCallback(
     async (p: { date_from: string; date_to: string; pay_scheme_id: string }) => {
@@ -610,6 +659,21 @@ export default function EjmWagesProcessPage() {
             return { message: s.message };
           },
         })),
+        {
+          // Last: put the efficiency results on this scheme's wages rows (legacy
+          // WGRPCALC) — working_hours_eff, ot_hours_eff, ns_hrs_eff, prod_basic.
+          label: "Apply Efficiency to Wages Data",
+          go: async () => {
+            if (branchId !== EJM_CASH_BRANCH_ID) {
+              return { message: "EJM FACTORY (branch 29) only", skipped: true };
+            }
+            const s = await unwrap(
+              fetchWithCookie<{ data: Msg }>(apiRoutesPortalMasters.EJM_WAGES_EFF_APPLY, "POST", body)
+                .then((r) => ({ ...r, data: r.data?.data ?? null })),
+            );
+            return { message: s.message };
+          },
+        },
       ];
 
       const setStep = (i: number, patch: Partial<PipelineStep>) =>
@@ -654,7 +718,8 @@ export default function EjmWagesProcessPage() {
     // Spreader / drawing efficiency are period-only too.
     const periodOnly =
       kind === "action" &&
-      (filters.action === ACTION_CASH_OUTSIDER || filters.action in EFF_PROCESSES);
+      (filters.action === ACTION_CASH_OUTSIDER || filters.action === ACTION_OT_ADVANCE ||
+        filters.action in EFF_PROCESSES);
     const parsed = submitSchema.safeParse(
       periodOnly && !filters.pay_scheme_id
         ? { ...filters, pay_scheme_id: "-" }
@@ -684,6 +749,16 @@ export default function EjmWagesProcessPage() {
 
     if (action === ACTION_WAGES_DATA) {
       await runWagesPipeline(parsed.data);
+      return;
+    }
+
+    if (action === ACTION_OT_ADVANCE) {
+      if (branchId == null) {
+        notify("Select a branch in the sidebar before uploading OT advance", "error");
+        return;
+      }
+      setOtAdvFile(null);
+      setOtAdvOpen(true);
       return;
     }
 
@@ -853,6 +928,33 @@ export default function EjmWagesProcessPage() {
       setSubmitting(false);
     }
   }, [filters, notify, branchId, runWagesPipeline]);
+
+  /** OT Advance: the backend rejects the whole file on any bad row and
+   *  replaces the period's previous OT advance rows otherwise. */
+  const uploadOtAdvance = useCallback(async () => {
+    if (!otAdvFile || branchId == null) return;
+    const form = new FormData();
+    form.append("file", otAdvFile);
+    form.append("date_from", filters.date_from);
+    form.append("date_to", filters.date_to);
+    form.append("branch_id", String(branchId));
+    setSubmitting(true);
+    try {
+      const { data, error } = await fetchWithCookie<{ message: string }>(
+        apiRoutesPortalMasters.EJM_OT_ADVANCE_UPLOAD,
+        "POST",
+        form,
+      );
+      if (error || !data) {
+        notify(error || "OT advance upload failed", "error");
+        return;
+      }
+      setOtAdvOpen(false);
+      notify(data.message, "success");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [otAdvFile, branchId, filters.date_from, filters.date_to, notify]);
 
   /** Legacy dot-matrix .txt for whichever select the button belongs to —
    *  the "Print" (register) and text "Payslip" of each legacy screen. The
@@ -1097,8 +1199,14 @@ export default function EjmWagesProcessPage() {
                 <Button
                   variant="outline"
                   disabled={result.rows.length === 0}
-                  onClick={() =>
-                    void exportRowsToExcel(
+                  onClick={async () => {
+                    const { data: eff } = await fetchWithCookie<{
+                      data: Record<string, unknown>[];
+                    }>(apiRoutesPortalMasters.EJM_WAGES_EFF_DATA_LIST, "POST", {
+                      date_from: filters.date_from,
+                      date_to: filters.date_to,
+                    });
+                    await exportRowsToExcel(
                       WAGES_GRID_COLUMNS,
                       result.rows,
                       "ejm-wages-data-process",
@@ -1110,8 +1218,10 @@ export default function EjmWagesProcessPage() {
                         reportName: "EJM Wages Data Process",
                         reportFor: `${filters.date_from} To ${filters.date_to}`,
                       },
-                    )
-                  }
+                      undefined,
+                      [{ name: "Efficiency Data", columns: EFF_DATA_COLUMNS, rows: eff?.data ?? [] }],
+                    );
+                  }}
                 >
                   Export to Excel
                 </Button>
@@ -1250,6 +1360,29 @@ export default function EjmWagesProcessPage() {
           })()}
         </Typography>
       </Backdrop>
+
+      <Dialog open={otAdvOpen} onClose={() => setOtAdvOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>OT Advance Upload</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {filters.date_from} to {filters.date_to}. Excel (.xlsx): column A EB No, column B
+            OT Advance, first row a header. Previous OT advance for this period is replaced.
+          </Typography>
+          <input
+            type="file"
+            accept=".xlsx"
+            onChange={(e) => setOtAdvFile(e.target.files?.[0] ?? null)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outline" onClick={() => setOtAdvOpen(false)} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button onClick={uploadOtAdvance} disabled={!otAdvFile || submitting}>
+            Upload
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={snackbar.open}
