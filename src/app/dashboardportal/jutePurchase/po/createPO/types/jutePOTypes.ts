@@ -3,6 +3,13 @@
  * Includes form values, line items, master data records, and API response types.
  */
 
+import type {
+  JutePOCloseType,
+  JutePOSettleRule,
+  JutePOSettleRuleInput,
+  JutePOStatusLogEntry,
+} from "@/utils/jutePOService";
+
 // =============================================================================
 // BASIC TYPES
 // =============================================================================
@@ -172,6 +179,14 @@ export type JutePODetails = {
   created_by?: number;
   updated_date_time?: string;
   line_items?: JutePOLineItemDetails[];
+  // Settlement (closing) columns — optional until the backend migration lands.
+  closed_date?: string | null;
+  closed_by?: number | null;
+  closed_by_name?: string | null;
+  close_type?: JutePOCloseType | null;
+  close_remark?: string | null;
+  /** Lorries returned (MR status 48) against this PO; never counted as received. Optional (rev 2). */
+  returned_lorries?: number | null;
 };
 
 export type JutePOLineItemDetails = {
@@ -205,6 +220,8 @@ export type ApprovalActionPermissions = {
   canApprove?: boolean;
   canReject?: boolean;
   canReopen?: boolean;
+  /** Short-close a live PO (status 1 / 3); needs edit access on the PO menu. */
+  canClose?: boolean;
   canClone?: boolean;
   canViewApprovalLog?: boolean;
 };
@@ -263,4 +280,31 @@ export type Schema = {
 export type QualityCacheEntry = {
   qualities: JuteQualityRecord[];
   qualityLabelById: Record<string, string>;
+};
+
+// =============================================================================
+// SETTLEMENT (CLOSING) TYPES — API shapes come from src/utils/jutePOService.ts
+// =============================================================================
+
+export type { JutePOCloseType, JutePOSettleRule, JutePOSettleRuleInput, JutePOStatusLogEntry };
+
+/** What the Closed panel renders; built from JutePODetails by `buildClosedInfo`. */
+export type JutePOClosedInfo = {
+  closedOn: string | null;
+  closedBy: string | null;
+  closeType: JutePOCloseType | null;
+  closeTypeLabel: string;
+  remark: string | null;
+};
+
+/** One row of the Status history section, already formatted for display. */
+export type JutePOStatusHistoryRow = {
+  id: number;
+  when: string;
+  from: string;
+  to: string;
+  source: string;
+  trigger: string;
+  remark: string;
+  user: string;
 };

@@ -20,14 +20,20 @@ type UseIndentLineItemColumnsParams = {
 	getLineWarnings?: (lineId: string) => string[];
 };
 
-/** Build a hint string from validation result (Min / Max / Reorder). */
-function buildQtyHint(r: ItemValidationResult | null | undefined): string | null {
-	if (!r || r.maxIndentQty == null) return null;
+/** Build a hint string from validation result (Stock / Min / Max / Reorder). */
+export function buildQtyHint(r: ItemValidationResult | null | undefined): string | null {
+	if (!r) return null;
 	const parts: string[] = [];
-	if (r.minIndentQty != null && r.minIndentQty > 0) parts.push(`Min: ${r.minIndentQty}`);
-	parts.push(`Max: ${r.maxIndentQty}`);
-	if (r.minOrderQty != null && r.minOrderQty > 0) parts.push(`Reorder: ${r.minOrderQty}`);
-	return parts.join(" · ");
+	// TKT-000193: current branch stock is fetched by validation but was never
+	// surfaced anywhere in the UI. Show it first, independent of min/max
+	// (which only applies to Logic 1/2 items).
+	if (r.branchStock != null) parts.push(`Stock: ${r.branchStock}`);
+	if (r.maxIndentQty != null) {
+		if (r.minIndentQty != null && r.minIndentQty > 0) parts.push(`Min: ${r.minIndentQty}`);
+		parts.push(`Max: ${r.maxIndentQty}`);
+		if (r.minOrderQty != null && r.minOrderQty > 0) parts.push(`Reorder: ${r.minOrderQty}`);
+	}
+	return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 /** Input with a focus-activated tooltip showing qty hints. */

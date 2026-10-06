@@ -57,6 +57,8 @@ import {
   createLabelResolver,
   buildItemFilterOptions,
   createLineFromStock,
+  collectWasteItemIds,
+  describeLineSource,
 } from "./utils/juteIssueMappers";
 import { JUTE_ISSUE_STATUS_IDS, JUTE_ISSUE_STATUS_LABELS } from "./utils/juteIssueConstants";
 import { calculateIssueValue } from "./utils/juteIssueFactories";
@@ -267,6 +269,14 @@ function JuteIssueEditPage() {
     });
     return map;
   }, [lineItems]);
+
+  // Items known to be jute waste, for labelling saved lines. A purchased-waste
+  // slice reloads as source "MR" (it is keyed on its MR line); the backend's
+  // is_waste flag marks it, and this set is the fallback when that is absent.
+  const wasteItemIds = React.useMemo(
+    () => collectWasteItemIds(allStockItems, lineItems),
+    [allStockItems, lineItems]
+  );
 
   // Get adjusted balqty for display (API balqty - already entered in drafts)
   const getAdjustedBalQty = React.useCallback(
@@ -935,12 +945,18 @@ function JuteIssueEditPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        label={line.source === "WASTE" ? "Waste" : "MR"}
-                        size="small"
-                        color={line.source === "WASTE" ? "secondary" : "default"}
-                        variant={line.source === "WASTE" ? "filled" : "outlined"}
-                      />
+                      {(() => {
+                        const sourceLabel = describeLineSource(line, wasteItemIds);
+                        const isWaste = sourceLabel !== "MR";
+                        return (
+                          <Chip
+                            label={sourceLabel}
+                            size="small"
+                            color={isWaste ? "secondary" : "default"}
+                            variant={isWaste ? "filled" : "outlined"}
+                          />
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>{getYarnTypeLabel(line.yarn_type_id)}</TableCell>
                     <TableCell>
@@ -999,12 +1015,18 @@ function JuteIssueEditPage() {
                       size="small"
                       color={getStatusColor(lineStatusId)}
                     />
-                    <Chip
-                      label={line.source === "WASTE" ? "Waste" : "MR"}
-                      size="small"
-                      color={line.source === "WASTE" ? "secondary" : "default"}
-                      variant={line.source === "WASTE" ? "filled" : "outlined"}
-                    />
+                    {(() => {
+                      const sourceLabel = describeLineSource(line, wasteItemIds);
+                      const isWaste = sourceLabel !== "MR";
+                      return (
+                        <Chip
+                          label={sourceLabel}
+                          size="small"
+                          color={isWaste ? "secondary" : "default"}
+                          variant={isWaste ? "filled" : "outlined"}
+                        />
+                      );
+                    })()}
                     {canEdit && (
                       <IconButton
                         size="small"
@@ -1430,13 +1452,16 @@ function JuteIssueEditPage() {
                 </Typography>
                 {selectedStock.source === "WASTE" ? (
                   // Waste is kg-only, so wt/unit is always 1 and telling the
-                  // operator so adds nothing. A zero rate does matter: it means
-                  // no Waste Rate is on file for this item and the line will
-                  // save at zero value.
+                  // operator so adds nothing. The rate shown is the Waste Rate
+                  // master rate and prices only the process-waste (Waste
+                  // Entry) slices; purchased-waste slices in the same pool are
+                  // priced by the server at their MR line rate. A zero rate
+                  // therefore means the process-waste slices save at zero.
                   selectedStock.actual_rate ? null : (
                     <Typography variant="body2" color="warning.main">
-                      No waste rate on file for this item — this line will be issued at ₹0.
-                      Add one in Waste Rate Master to value it.
+                      No waste rate on file for this item — process-waste slices of this
+                      line will be issued at ₹0 (add one in Waste Rate Master to value them).
+                      Purchased-waste slices are priced at their MR line rate on save.
                     </Typography>
                   )
                 ) : (
@@ -1503,6 +1528,12 @@ function JuteIssueEditPage() {
                 <Typography variant="h6">
                   ₹ {calculateIssueValue(calculatedWeight, selectedStock.actual_rate || 0).toFixed(2)}
                 </Typography>
+                {selectedStock.source === "WASTE" && (
+                  <Typography variant="caption" color="text.secondary">
+                    Indicative — the final value is set per slice on save (purchased waste
+                    at its MR line rate).
+                  </Typography>
+                )}
               </Box>
             )}
           </Box>

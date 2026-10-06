@@ -306,6 +306,12 @@ const apiRoutesPortalMasters = {
     JUTE_PO_REJECT: `${API_URL}/jutePO/reject_jute_po`,
     JUTE_PO_CANCEL_DRAFT: `${API_URL}/jutePO/cancel_draft_jute_po`,
     JUTE_PO_REOPEN: `${API_URL}/jutePO/reopen_jute_po`,
+    // PO settlement (docs/claude/modules/jute-purchase/po-settlement-spec.md)
+    JUTE_PO_CLOSE: `${API_URL}/jutePO/close_jute_po`,
+    JUTE_PO_BULK_CLOSE: `${API_URL}/jutePO/bulk_close_jute_po`,
+    JUTE_PO_RECOMPUTE_SETTLEMENT: `${API_URL}/jutePO/recompute_settlement`,
+    JUTE_PO_SETTLE_RULE: `${API_URL}/jutePO/settle_rule`,
+    JUTE_PO_STATUS_LOG: `${API_URL}/jutePO/status_log`,
     JUTE_PO_DOWNLOAD: `${API_URL}/jutePO/download_po_table`,
 
     // Jute Gate Entry endpoints
@@ -343,6 +349,7 @@ const apiRoutesPortalMasters = {
     JUTE_MR_CANCEL: `${API_URL}/juteMR/cancel_mr`,
     JUTE_MR_REOPEN: `${API_URL}/juteMR/reopen_mr`,
     JUTE_MR_RETURN: `${API_URL}/juteMR/return_mr`,
+    JUTE_MR_UNRETURN: `${API_URL}/juteMR/unreturn_mr`,
     JUTE_MR_DOWNLOAD: `${API_URL}/juteMR/download_mr_table`,
     JUTE_MATERIAL_INSPECTION_UPDATE_LINE: `${API_URL}/juteMaterialInspection/update_line_item`,
 
@@ -374,6 +381,34 @@ const apiRoutesPortalMasters = {
     JUTE_ISSUE_REJECT: `${API_URL}/juteIssue/reject_issues`,
     JUTE_ISSUE_DOWNLOAD: `${API_URL}/juteIssue/download_issue_table`,
     JUTE_ISSUE_SYNC_WEIGHTS: `${API_URL}/juteIssue/sync_issue_weights`,
+
+    // Yarn Purchase (receipt of purchased yarn, kg) — vowerp3be/docs/superpowers/specs/2026-09-25-yarn-purchase-issue-consumption-design.md §3.1
+    YARN_PURCHASE_SETUP: `${API_URL}/yarnPurchase/setup`,
+    YARN_PURCHASE_LIST: `${API_URL}/yarnPurchase/list`,
+    YARN_PURCHASE_GET: `${API_URL}/yarnPurchase/get`,          // append `/${id}` at call site
+    YARN_PURCHASE_CREATE: `${API_URL}/yarnPurchase/create`,
+    YARN_PURCHASE_UPDATE: `${API_URL}/yarnPurchase/update`,    // append `/${id}` at call site
+    YARN_PURCHASE_OPEN: `${API_URL}/yarnPurchase/open`,
+    YARN_PURCHASE_CANCEL: `${API_URL}/yarnPurchase/cancel`,
+    YARN_PURCHASE_SEND_FOR_APPROVAL: `${API_URL}/yarnPurchase/send_for_approval`,
+    YARN_PURCHASE_APPROVE: `${API_URL}/yarnPurchase/approve`,
+    YARN_PURCHASE_REJECT: `${API_URL}/yarnPurchase/reject`,
+    YARN_PURCHASE_REOPEN: `${API_URL}/yarnPurchase/reopen`,
+
+    // Yarn Issue / Return (purchased yarn godown <-> department floor, kg) — same spec §3.2
+    YARN_ISSUE_SETUP: `${API_URL}/yarnIssue/setup`,
+    YARN_ISSUE_GODOWN_LOTS: `${API_URL}/yarnIssue/godown_lots`,   // ISSUE lot picker (oldest first)
+    YARN_ISSUE_DEPT_LOTS: `${API_URL}/yarnIssue/dept_lots`,       // RETURN lot picker for one department
+    YARN_ISSUE_LIST: `${API_URL}/yarnIssue/list`,
+    YARN_ISSUE_GET: `${API_URL}/yarnIssue/get`,                   // append `/${id}` at call site
+    YARN_ISSUE_CREATE: `${API_URL}/yarnIssue/create`,
+    YARN_ISSUE_UPDATE: `${API_URL}/yarnIssue/update`,             // append `/${id}` at call site
+    YARN_ISSUE_OPEN: `${API_URL}/yarnIssue/open`,
+    YARN_ISSUE_CANCEL: `${API_URL}/yarnIssue/cancel`,
+    YARN_ISSUE_SEND_FOR_APPROVAL: `${API_URL}/yarnIssue/send_for_approval`,
+    YARN_ISSUE_APPROVE: `${API_URL}/yarnIssue/approve`,
+    YARN_ISSUE_REJECT: `${API_URL}/yarnIssue/reject`,
+    YARN_ISSUE_REOPEN: `${API_URL}/yarnIssue/reopen`,
 
     // Batch Daily Assign
     BATCH_DAILY_ASSIGN_TABLE: `${API_URL}/batchDailyAssign/get_assign_table`,
@@ -408,6 +443,8 @@ const apiRoutesPortalMasters = {
     JUTE_REPORT_PO_OPTIONS: `${API_URL}/juteReports/po-options`,
     JUTE_REPORT_PO_MR_RECEIPT_DETAIL: `${API_URL}/juteReports/po-mr-receipt-detail`,
     JUTE_REPORT_PO_PENDING: `${API_URL}/juteReports/po-pending`,
+    JUTE_REPORT_PO_OUTSTANDING_POSITION: `${API_URL}/juteReports/po-outstanding-position`,
+    JUTE_REPORT_ISSUE_YARN_WISE: `${API_URL}/juteReports/issue-yarn-wise`,
     SALES_REPORT_JUTE_TALLY_DOWNLOAD: `${API_URL}/salesReports/jute-tally-download`,
     SALES_REPORT_JUTE_MR_SUMMARY: `${API_URL}/salesReports/jute-mr-summary`,
     SALES_REPORT_SALES_ORDER_LIST: `${API_URL}/salesReports/sales-order-list`,
@@ -789,10 +826,39 @@ const apiRoutesPortalMasters = {
     EJM_ATT_INCENTIVE_REPORT: `${API_URL}/hrmsMasters/ejm_att_incentive_report`,
     EJM_WAGES_DATA_BUILD: `${API_URL}/hrmsMasters/ejm_wages_data_build`,
     EJM_WAGES_DATA_LIST: `${API_URL}/hrmsMasters/ejm_wages_data_list`,
+    EJM_WAGES_EFF_DATA_LIST: `${API_URL}/hrmsMasters/ejm_wages_eff_data_list`,
     EJM_WAGES_DATA_UPDATE: `${API_URL}/hrmsMasters/ejm_wages_data_update`,
+    // Wages Manual Entries — rows stamped update_for 'Manual'
+    EJM_WAGES_SCHEME_EMPLOYEES: `${API_URL}/hrmsMasters/ejm_wages_scheme_employees`,
+    EJM_WAGES_MANUAL_CREATE: `${API_URL}/hrmsMasters/ejm_wages_manual_create`,
+    EJM_WAGES_MANUAL_DELETE: `${API_URL}/hrmsMasters/ejm_wages_manual_delete`,
   EJM_CASH_OUTSIDER_PROCESS: `${API_URL}/hrmsMasters/ejm_cash_outsider_process`,
     // EJM-Cumulative Data Transfer (legacy hol_get=20) -> cumulative_data_table
     EJM_CUMULATIVE_TRANSFER: `${API_URL}/hrmsMasters/ejm_cumulative_transfer`,
+    // Spreader efficiency (legacy SPREDEFF.PRG) -> ejm_fne_wages_eff_data
+    EJM_SPREADER_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_spreader_eff_process`,
+    // Drawing efficiency (legacy DRAWEFF1.PRG) -> ejm_fne_wages_eff_data
+    EJM_DRAWING_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_drawing_eff_process`,
+    // Spinner efficiency (legacy DOFFEFF1.PRG) -> ejm_fne_wages_eff_data
+    EJM_SPINNING_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_spinning_eff_process`,
+    // Doff mazdoor / sliver feeder / piecer efficiency (legacy DOFMAZRP.PRG)
+    EJM_DOFF_MAZDOOR_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_doff_mazdoor_eff_process`,
+    // Loom / weaver efficiency (legacy LOOMEFF1.PRG)
+    EJM_LOOM_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_loom_eff_process`,
+    // Beaming efficiency (legacy BEAMEFF1.PRG)
+    EJM_BEAMING_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_beaming_eff_process`,
+    // Finishing efficiency (legacy FINISHEF.PRG)
+    EJM_FINISHING_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_finishing_eff_process`,
+    // Winding efficiency + production amount (legacy WINDCALC.PRG)
+    EJM_WINDING_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_winding_eff_process`,
+    // Press machine efficiency + production amount (same as Beaming, press machines)
+    EJM_PRESS_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_press_eff_process`,
+    // Spinning + weaving overall efficiency (legacy SPGWVGEF): effcode 45 / 99
+    EJM_OVERALL_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_overall_eff_process`,
+    // Efficiency → wages data (legacy WGRPCALC): working_hours_eff, ot/ns eff, prod_basic
+    EJM_WAGES_EFF_APPLY: `${API_URL}/hrmsMasters/ejm_wages_eff_apply`,
+    // OT Advance Excel (EB No, amount) → tbl_ejm_wages_data_collection.ot_advance
+    EJM_OT_ADVANCE_UPLOAD: `${API_URL}/hrmsMasters/ejm_ot_advance_upload`,
     EJM_WAGES_PAYROLL_EXCEL: `${API_URL}/hrmsMasters/ejm_wages_payroll_excel`,
     // EJM Pay Register / OT Register grids (legacy pay_register_payslip.php / ot_register_payslip.php)
     EJM_PAY_REGISTER_REPORT: `${API_URL}/hrmsMasters/ejm_pay_register_report`,
@@ -809,6 +875,12 @@ const apiRoutesPortalMasters = {
     HOL_INC_ELIG_DELETE: `${API_URL}/hrmsMasters/hol_inc_elig_delete`,
     HOL_INC_ELIG_APPROVE: `${API_URL}/hrmsMasters/hol_inc_elig_approve`,
     HOL_INC_ELIG_REJECT: `${API_URL}/hrmsMasters/hol_inc_elig_reject`,
+
+    // Non Working Days (tbl_non_working_days) — read by vw_leave_dates.non_working_day
+    NON_WORKING_DAYS_TABLE: `${API_URL}/hrmsMasters/get_non_working_days_table`,
+    NON_WORKING_DAY_BY_ID: `${API_URL}/hrmsMasters/get_non_working_day_by_id`,
+    NON_WORKING_DAY_CREATE: `${API_URL}/hrmsMasters/non_working_day_create`,
+    NON_WORKING_DAY_EDIT: `${API_URL}/hrmsMasters/non_working_day_edit`,
 
     // Production Quality <-> Wages Quality link (link_prodquality_wagequality_mst)
     PROD_WAGES_LINK_SETUP: `${API_URL}/hrmsMasters/prod_wages_link_setup`,
@@ -932,6 +1004,51 @@ const apiRoutesPortalMasters = {
     LEAVE_TYPE_BY_ID: `${API_URL}/hrmsMasters/get_leave_type_by_id`,
     LEAVE_TYPE_CREATE: `${API_URL}/hrmsMasters/leave_type_create`,
     LEAVE_TYPE_EDIT: `${API_URL}/hrmsMasters/leave_type_edit`,
+
+    // EJM Efficiency Code Entry (wages/ejm/effCodeEntry)
+    EJM_EFF_CODE_TYPE_TABLE: `${API_URL}/hrmsMasters/get_ejm_eff_code_type_table`,
+    EJM_EFF_CODE_TYPE_BY_ID: `${API_URL}/hrmsMasters/get_ejm_eff_code_type_by_id`,
+    EJM_EFF_CODE_TYPE_CREATE: `${API_URL}/hrmsMasters/ejm_eff_code_type_create`,
+    EJM_EFF_CODE_TYPE_EDIT: `${API_URL}/hrmsMasters/ejm_eff_code_type_edit`,
+
+    // EJM Fortnight-wise Efficiency Code Entry (wages/ejm/efffneCodeEntry)
+    FORTHNIGHT_PERIODS: `${API_URL}/hrmsMasters/get_forthnight_periods`,
+    EJM_FNE_EFF_CODE_TABLE: `${API_URL}/hrmsMasters/get_ejm_fne_eff_code_type`,
+    EJM_FNE_EFF_CODE_SAVE: `${API_URL}/hrmsMasters/ejm_fne_eff_code_type_save`,
+    EJM_FNE_EFF_CODE_STATUS: `${API_URL}/hrmsMasters/ejm_fne_eff_code_type_status`,
+
+    // EJM Piece Rate / Occupation Entry (wages/ejm/pieceRateOccuEntry)
+    EJM_PIECE_OCCU_DESIGNATIONS: `${API_URL}/hrmsMasters/get_ejm_piece_occupation_designations`,
+    EJM_PIECE_OCCU_RATE_TABLE: `${API_URL}/hrmsMasters/get_ejm_piece_occupation_rate_table`,
+    EJM_PIECE_OCCU_RATE_BY_ID: `${API_URL}/hrmsMasters/get_ejm_piece_occupation_rate_by_id`,
+    EJM_PIECE_OCCU_RATE_CREATE: `${API_URL}/hrmsMasters/ejm_piece_occupation_rate_create`,
+    EJM_PIECE_OCCU_RATE_EDIT: `${API_URL}/hrmsMasters/ejm_piece_occupation_rate_edit`,
+
+    // EJM Fortnightly Wages Quality Target (wages/ejm/fnewagesEntry)
+    EJM_FNE_QUAL_TARGET_DEPARTMENTS: `${API_URL}/hrmsMasters/get_ejm_fne_qual_target_departments`,
+    EJM_FNE_QUAL_TARGET_QUALITIES: `${API_URL}/hrmsMasters/get_ejm_fne_qual_target_qualities`,
+    EJM_FNE_QUAL_TARGET_TABLE: `${API_URL}/hrmsMasters/get_ejm_fne_qual_target_table`,
+    EJM_FNE_QUAL_TARGET_GRID: `${API_URL}/hrmsMasters/get_ejm_fne_qual_target_grid`,
+    EJM_FNE_QUAL_TARGET_SAVE: `${API_URL}/hrmsMasters/ejm_fne_qual_target_save`,
+
+    // EJM MC Group Production (wages/ejm/fneGroupProduction)
+    EJM_FNE_GROUP_PROD_SETUP: `${API_URL}/hrmsMasters/ejm_fne_group_production_setup`,
+    EJM_FNE_GROUP_PROD_TABLE: `${API_URL}/hrmsMasters/get_ejm_fne_group_production_table`,
+    EJM_FNE_GROUP_PROD_ROWS: `${API_URL}/hrmsMasters/get_ejm_fne_group_production_rows`,
+    EJM_FNE_GROUP_PROD_SAVE: `${API_URL}/hrmsMasters/ejm_fne_group_production_save`,
+
+    // EJM Group Machine Hours (wages/ejm/fneGroupMachineHours)
+    EJM_GROUP_MC_HOURS_SETUP: `${API_URL}/hrmsMasters/ejm_group_mc_hours_setup`,
+    EJM_GROUP_MC_HOURS_TABLE: `${API_URL}/hrmsMasters/get_ejm_group_mc_hours_table`,
+    EJM_GROUP_MC_HOURS_ROWS: `${API_URL}/hrmsMasters/get_ejm_group_mc_hours_rows`,
+    EJM_GROUP_MC_HOURS_SAVE: `${API_URL}/hrmsMasters/ejm_group_mc_hours_save`,
+
+    // EJM Wages Quality Rate (wages/ejm/qualityRateEntry) — department and
+    // quality pickers are shared with EJM_FNE_QUAL_TARGET_* above.
+    EJM_WAGES_QUALITY_RATE_TABLE: `${API_URL}/hrmsMasters/get_ejm_wages_quality_rate_table`,
+    EJM_WAGES_QUALITY_RATE_BY_ID: `${API_URL}/hrmsMasters/get_ejm_wages_quality_rate_by_id`,
+    EJM_WAGES_QUALITY_RATE_CREATE: `${API_URL}/hrmsMasters/ejm_wages_quality_rate_create`,
+    EJM_WAGES_QUALITY_RATE_EDIT: `${API_URL}/hrmsMasters/ejm_wages_quality_rate_edit`,
 
     // HRMS Bio Attendance (employee↔device mapping + bio data process)
     BIO_EMP_LINK_SETUP: `${API_URL}/hrmsMasters/bio_emp_link_setup`,
@@ -1084,6 +1201,8 @@ const apiRoutesPortalMasters = {
     // Daily Production Report (whole-mill one-pager)
     JUTE_PROD_DPR: `${API_URL}/juteProductionReports/daily_production_report`,
     WINDING_WEAVING_DIFFERENCE: `${API_URL}/juteProductionReports/winding_weaving_difference`,
+    // Purchased Yarn Ledger — godown/floor movement of bought yarn, per month
+    PURCHASED_YARN_LEDGER: `${API_URL}/juteProductionReports/purchased_yarn_ledger`,
     LOOM_CHECKLIST: `${API_URL}/juteProductionReports/loom_checklist`,
     WINDING_CHECKLIST: `${API_URL}/juteProductionReports/winding_checklist`,
     BEAMING_CHECKLIST: `${API_URL}/juteProductionReports/beaming_checklist`,
@@ -1091,10 +1210,17 @@ const apiRoutesPortalMasters = {
     ATTENDANCE_CHECKLIST: `${API_URL}/juteProductionReports/attendance_checklist`,
     // MIS port — low producer / doff / hands reports
     JP_WEAVING_LOW_PRODUCER: `${API_URL}/juteProductionReports/weaving_low_producer`,
+    JP_S4_INCENTIVE: `${API_URL}/juteProductionReports/s4_incentive`,
     JP_SPINNING_LOW_PRODUCER: `${API_URL}/juteProductionReports/spinning_low_producer`,
     JP_WINDING_LOW_PRODUCER: `${API_URL}/juteProductionReports/winding_low_producer`,
     JP_DOFF_ANALYSIS: `${API_URL}/juteProductionReports/doff_analysis`,
     JP_HANDS_REPORT: `${API_URL}/juteProductionReports/hands_report`,
+    JP_HANDS_REPORT_MACHINE_OVERRIDE: `${API_URL}/juteProductionReports/hands_report_machine_override`,
+    JP_HANDS_REPORT_MACHINE_OVERRIDE_UNDO: `${API_URL}/juteProductionReports/hands_report_machine_override_undo`,
+    JP_HANDS_REPORT_MACHINES: `${API_URL}/juteProductionReports/hands_report_machines`,
+    // Loom Modification Impact report (router prefix /api/juteProductionReports)
+    JP_LOOM_MODIFICATION_IMPACT: `${API_URL}/juteProductionReports/loom_modification_impact`,
+    JP_LOOM_MODIFICATION_IMPACT_OPTIONS: `${API_URL}/juteProductionReports/loom_modification_impact_options`,
     // Spinning standards master (router prefix /api/spngTargetMap) — *_EDIT/*_DELETE are base paths; caller appends /${id}
     SPNG_TARGET_MAP_SETUP: `${API_URL}/spngTargetMap/target_map_setup`,
     SPNG_TARGET_MAP_LIST: `${API_URL}/spngTargetMap/target_map_list`,
@@ -1111,6 +1237,13 @@ const apiRoutesPortalMasters = {
     WINDING_TARGET_MAP_DELETE: `${API_URL}/windingTargetMap/target_map_delete`,
     WINDING_TARGET_MAP_GRID: `${API_URL}/windingTargetMap/target_map_grid`,
     WINDING_TARGET_MAP_BULK_SAVE: `${API_URL}/windingTargetMap/target_map_bulk_save`,
+    // Wastage Report Mapping master (router prefix /api/wasteReportMap, TKT-000183) — maps waste
+    // items (optionally per department) to Wastage Report groups; all writes are POST with a JSON body
+    WASTE_REPORT_MAP_SETUP: `${API_URL}/wasteReportMap/setup`,
+    WASTE_REPORT_MAP_LIST: `${API_URL}/wasteReportMap/list`,
+    WASTE_REPORT_MAP_CREATE: `${API_URL}/wasteReportMap/create`,
+    WASTE_REPORT_MAP_UPDATE: `${API_URL}/wasteReportMap/update`,
+    WASTE_REPORT_MAP_DEACTIVATE: `${API_URL}/wasteReportMap/deactivate`,
     // Spinning SQC (router prefix /api/juteSQC) — SPINNING_SQC_COUNT_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_COUNT_SETUP: `${API_URL}/juteSQC/sqc_count_setup`,
     SPINNING_SQC_COUNT_SAVE: `${API_URL}/juteSQC/sqc_count_save`,
@@ -1370,6 +1503,23 @@ const apiRoutesPortalMasters = {
     WEAVING_QUALITY_CREATE: `${API_URL}/weavingMasters/weaving_quality_create`,
     WEAVING_QUALITY_EDIT: `${API_URL}/weavingMasters/weaving_quality_edit`,
     WEAVING_QUALITY_DELETE: `${API_URL}/weavingMasters/weaving_quality_delete`,
+    // Loom Groups + Loom Modification register (router prefix /api/loomModification) —
+    // *_EDIT / *_DELETE / *_DETAIL / *_BY_ID / *_CHAIN / *_ADD_MEMBERS / *_INSERT_EARLIER are base paths; caller appends /${id}
+    LOOM_MODIFICATION_SETUP: `${API_URL}/loomModification/setup`,
+    LOOM_GROUP_LIST: `${API_URL}/loomModification/loom_group_list`,
+    LOOM_GROUP_CREATE: `${API_URL}/loomModification/loom_group_create`,
+    LOOM_GROUP_EDIT: `${API_URL}/loomModification/loom_group_edit`,
+    LOOM_GROUP_DETAIL: `${API_URL}/loomModification/loom_group_detail`,
+    LOOM_GROUP_DELETE: `${API_URL}/loomModification/loom_group_delete`,
+    LOOM_MODIFICATION_TABLE: `${API_URL}/loomModification/modification_table`,
+    LOOM_MODIFICATION_BY_ID: `${API_URL}/loomModification/modification_by_id`,
+    LOOM_MODIFICATION_CHAIN: `${API_URL}/loomModification/modification_chain`,
+    LOOM_MODIFICATION_TIMELINE: `${API_URL}/loomModification/machine_timeline`,
+    LOOM_MODIFICATION_CREATE: `${API_URL}/loomModification/modification_create`,
+    LOOM_MODIFICATION_EDIT: `${API_URL}/loomModification/modification_edit`,
+    LOOM_MODIFICATION_ADD_MEMBERS: `${API_URL}/loomModification/modification_add_members`,
+    LOOM_MODIFICATION_INSERT_EARLIER: `${API_URL}/loomModification/modification_insert_earlier`,
+    LOOM_MODIFICATION_DELETE: `${API_URL}/loomModification/modification_delete`,
     // Weaving Standards / Targets Map (router prefix /api/weavingTargetMap) — quality-only;
     // *_EDIT/*_DELETE are base paths; caller appends /${id}
     WEAVING_TARGET_MAP_SETUP: `${API_URL}/weavingTargetMap/target_map_setup`,
@@ -1391,6 +1541,18 @@ const apiRoutesPortalMasters = {
     JUTE_PROD_PLANNING_NORMS_LIST: `${API_URL}/juteProdPlanning/norms_list`,
     JUTE_PROD_PLANNING_NORMS_BULK_SAVE: `${API_URL}/juteProdPlanning/norms_bulk_save`,
     JUTE_PROD_PLANNING_NORMS_DELETE: `${API_URL}/juteProdPlanning/norms_delete`,
+    // Hands Norms master — man-machine norms behind the Hands Report (router prefix
+    // /api/handsNorms, TKT-000202) — HANDS_NORMS_EDIT is a base path; caller appends /${id}?co_id=...
+    HANDS_NORMS_SETUP: `${API_URL}/handsNorms/setup`,
+    HANDS_NORMS_LIST: `${API_URL}/handsNorms/list`,
+    HANDS_NORMS_CREATE: `${API_URL}/handsNorms/create`,
+    HANDS_NORMS_EDIT: `${API_URL}/handsNorms/edit`,
+    // Machine groups (Hands Norms v2) — HANDS_NORMS_GROUP and HANDS_NORMS_GROUP_EDIT are base
+    // paths; caller appends /${id}?co_id=...
+    HANDS_NORMS_GROUPS: `${API_URL}/handsNorms/groups`,
+    HANDS_NORMS_GROUP: `${API_URL}/handsNorms/groups`,
+    HANDS_NORMS_GROUP_CREATE: `${API_URL}/handsNorms/groups/create`,
+    HANDS_NORMS_GROUP_EDIT: `${API_URL}/handsNorms/groups/edit`,
     // Weaving Production Entry (router prefix /api/weavingProd) — WEAVING_ENTRY_EDIT/DELETE are
     // base paths; caller appends /${id}?co_id=...
     WEAVING_ENTRY_CREATE_SETUP: `${API_URL}/weavingProd/entry_create_setup`,
@@ -1460,6 +1622,7 @@ const apiRoutesPortalMasters = {
     MECH_BD_EDIT: `${API_URL}/mechBreakdown/entry_edit`,
     MECH_BD_DELETE: `${API_URL}/mechBreakdown/entry_delete`,
     MECH_BD_CLOSE: `${API_URL}/mechBreakdown/entry_close`,
+    MECH_BD_CONFIRM: `${API_URL}/mechBreakdown/entry_confirm`,
     MECH_BD_OPEN_LIST: `${API_URL}/mechBreakdown/open_breakdowns`,
     // Overhaul register (router prefix /api/mechOverhaul) — MECH_OVERHAUL_BY_ID /
     // _EDIT / _DELETE are base paths; caller appends /${overhaul_id}.

@@ -60,7 +60,9 @@ export function useJutePOLineItemColumns({
       },
       {
         id: "quality",
-        header: "Quality",
+        // A raw-jute group cascades to its qualities; a jute-waste group has no
+        // quality level and lists its items directly, so the column covers both.
+        header: "Quality / Item",
         width: "1.2fr",
         renderCell: ({ item }: { item: JutePOLineItem }) => {
           const qualityOptions = item.itemId ? getQualityOptions(item.itemId) : [];
@@ -78,7 +80,7 @@ export function useJutePOLineItemColumns({
               getOptionLabel={(opt: Option) => opt.label}
               getOptionKey={(opt: Option) => opt.value}
               isOptionEqualToValue={(a: Option, b: Option) => a.value === b.value}
-              placeholder="Select quality"
+              placeholder="Select quality / item"
               disabled={!canEdit || !item.itemId}
             />
           );

@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { stockMt, bucketTotals, grandTotal, roundMt, rowActionsDisabled } from "./stockCalc";
+import {
+  stockMt,
+  bucketTotals,
+  grandTotal,
+  locationTotals,
+  roundMt,
+  rowActionsDisabled,
+} from "./stockCalc";
+import type { StockLocation, WindingStockRow } from "@/utils/windingStockService";
 
-const row = (bucket: string, samples: number, wt: number) =>
-  ({ bucket, no_of_samples: samples, wt_per_sample: wt }) as never;
+const row = (bucket: string, samples: number, wt: number, stock_loc?: StockLocation) =>
+  ({ bucket, no_of_samples: samples, wt_per_sample: wt, stock_loc }) as unknown as WindingStockRow;
 
 describe("stockMt", () => {
   it("matches the mill sheet's first row: 185 x 14 kg = 2.590 MT", () => {
@@ -32,6 +40,33 @@ describe("bucketTotals / grandTotal", () => {
 
   it("grand total equals the sum of the buckets", () => {
     expect(grandTotal(rows)).toBe(34.266);
+  });
+});
+
+describe("locationTotals", () => {
+  const rows = [
+    row("MILL_USE", 185, 14, "FLOOR"),
+    row("PURCHASE", 100, 50, "GODOWN"),
+    row("PURCHASE", 20, 50, "FLOOR"),
+    row("SALE_YARN", 230, 50, "GODOWN"),
+  ];
+
+  it("splits the day's MT between godown and floor", () => {
+    expect(locationTotals(rows)).toEqual({ GODOWN: 16.5, FLOOR: 3.59 });
+  });
+
+  it("godown + floor equals the grand total, so the split never moves the day's total", () => {
+    const { GODOWN, FLOOR } = locationTotals(rows);
+    expect(roundMt(GODOWN + FLOOR)).toBe(grandTotal(rows));
+  });
+
+  it("always returns both keys, zero for a location with no count", () => {
+    expect(locationTotals([row("MILL_USE", 185, 14, "FLOOR")])).toEqual({ GODOWN: 0, FLOOR: 2.59 });
+    expect(locationTotals([])).toEqual({ GODOWN: 0, FLOOR: 0 });
+  });
+
+  it("treats a row without stock_loc (pre-column data / older backend) as floor", () => {
+    expect(locationTotals([row("MILL_USE", 185, 14)])).toEqual({ GODOWN: 0, FLOOR: 2.59 });
   });
 });
 

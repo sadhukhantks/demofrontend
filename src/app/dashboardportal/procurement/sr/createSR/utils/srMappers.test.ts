@@ -139,3 +139,83 @@ describe("mapSRLineItems — warehouse_path mapping", () => {
 		expect(mapSRLineItems([], mockHeader)).toEqual([]);
 	});
 });
+
+// TKT-000194: SR line items show a blank warehouse dropdown with no memory
+// of where the material was stored last time. The backend now returns
+// last_warehouse_* alongside warehouse_*; these tests cover the mapping.
+describe("mapSRLineItems — last_warehouse_* mapping (TKT-000194)", () => {
+	it("maps last_warehouse fields from raw data", () => {
+		const raw: SRLineItemRaw[] = [
+			{
+				inward_dtl_id: 100,
+				item_id: 1,
+				item_code: "ITM001",
+				item_name: "Test Item",
+				uom_id: 1,
+				uom_name: "KG",
+				approved_qty: 10,
+				rate: 100,
+				accepted_rate: 100,
+				warehouse_id: null,
+				last_warehouse_id: 7,
+				last_warehouse_name: "Shelf 2",
+				last_warehouse_path: "Main Store-Shelf 2",
+				tax_percentage: 0,
+			},
+		];
+
+		const result = mapSRLineItems(raw, mockHeader);
+
+		expect(result[0].last_warehouse_id).toBe(7);
+		expect(result[0].last_warehouse_name).toBe("Shelf 2");
+		expect(result[0].last_warehouse_path).toBe("Main Store-Shelf 2");
+	});
+
+	it("falls back to last_warehouse_name when last_warehouse_path is missing", () => {
+		const raw: SRLineItemRaw[] = [
+			{
+				inward_dtl_id: 101,
+				item_id: 2,
+				item_code: "ITM002",
+				item_name: "Other Item",
+				uom_id: 1,
+				uom_name: "KG",
+				approved_qty: 5,
+				rate: 50,
+				accepted_rate: 50,
+				warehouse_id: null,
+				last_warehouse_id: 4,
+				last_warehouse_name: "Storage Room",
+				tax_percentage: 0,
+			},
+		];
+
+		const result = mapSRLineItems(raw, mockHeader);
+
+		expect(result[0].last_warehouse_path).toBe("Storage Room");
+	});
+
+	it("defaults last_warehouse fields to null when the item has no history", () => {
+		const raw: SRLineItemRaw[] = [
+			{
+				inward_dtl_id: 102,
+				item_id: 3,
+				item_code: "ITM003",
+				item_name: "Another Item",
+				uom_id: 1,
+				uom_name: "KG",
+				approved_qty: 1,
+				rate: 10,
+				accepted_rate: 10,
+				warehouse_id: null,
+				tax_percentage: 0,
+			},
+		];
+
+		const result = mapSRLineItems(raw, mockHeader);
+
+		expect(result[0].last_warehouse_id).toBeNull();
+		expect(result[0].last_warehouse_name).toBeNull();
+		expect(result[0].last_warehouse_path).toBeNull();
+	});
+});

@@ -17,13 +17,15 @@ import {
   lookupEmployeeByCode,
   updateEmployeeStatus,
 } from "@/utils/hrmsService";
-import { WIZARD_STEPS, type FormMode, type SectionName } from "../types/employeeTypes";
+import { WIZARD_STEPS, EMPLOYEE_STATUS, type FormMode, type SectionName } from "../types/employeeTypes";
 import StepOverview, { DIALOG_STATUSES } from "./_components/StepOverview";
 import PersonalInformationStep from "./_components/PersonalInformationStep";
 import OfficialInformationStep from "./_components/OfficialInformationStep";
 import MedicalEnrollmentStep from "./_components/MedicalEnrollmentStep";
 import PlaceholderStep from "./_components/PlaceholderStep";
 import StatusActionDialog from "./_components/StatusActionDialog";
+
+const LOCKED_EDITABLE_SECTIONS: ReadonlySet<SectionName> = new Set<SectionName>(["bank", "pf", "esi"]);
 
 function AddEmployeeContent() {
   const router = useRouter();
@@ -62,6 +64,11 @@ function AddEmployeeContent() {
   } = useEmployeeFormState({ mode });
 
   const setup = useEmployeeSetup(coId, branchId);
+
+  // Past Draft/Open only bank, salary structure and PF/ESI stay editable.
+  const statusId = formData.personal?.status_id;
+  const isLocked = !isDisabled && statusId != null
+    && statusId !== EMPLOYEE_STATUS.DRAFT && statusId !== EMPLOYEE_STATUS.OPEN;
 
   const [snackbar, setSnackbar] = React.useState<{ open: boolean; message: string; severity: "success" | "error" }>({
     open: false, message: "", severity: "success",
@@ -210,6 +217,7 @@ function AddEmployeeContent() {
         if (!currentEbId) throw new Error("Employee must be created first (Step 1)");
 
         for (const section of sections) {
+          if (isLocked && !LOCKED_EDITABLE_SECTIONS.has(section)) continue;
           const sectionDataMap: Record<SectionName, unknown> = {
             personal: formData.personal,
             contact: formData.contact,
@@ -242,7 +250,7 @@ function AddEmployeeContent() {
     } finally {
       setSaving(false);
     }
-  }, [coId, branchId, isDisabled, selectedStep, ebId, formData, setEbId, setSaving]);
+  }, [coId, branchId, isDisabled, isLocked, selectedStep, ebId, formData, setEbId, setSaving]);
 
   // ─── Action button handler ───────────────────────────────────────
   const [statusDialog, setStatusDialog] = React.useState<{ open: boolean; statusId: number; label: string }>({
@@ -316,7 +324,7 @@ function AddEmployeeContent() {
               address: formData.address,
               experience: formData.experience,
             }}
-            disabled={isDisabled}
+            disabled={isDisabled || isLocked}
             setup={setup}
             photoUrl={photoUrl}
             onPersonalChange={updatePersonal}
@@ -347,6 +355,7 @@ function AddEmployeeContent() {
               bank: formData.bank,
             }}
             disabled={isDisabled}
+            workDetailsLocked={isLocked}
             setup={setup}
             sidebarBranchId={branchId}
             ebId={ebId}

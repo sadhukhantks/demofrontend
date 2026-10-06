@@ -13,6 +13,8 @@ export interface ReportExportHeader {
 
 export const BLUE = "FF3EA6DA";
 export const WHITE = "FFFFFFFF";
+/** Light green cell fill (Excel's "Good" shade) for highlighted cells. */
+export const GOOD_FILL = "FFC6EFCE";
 export const GRID_LINE = { style: "thin", color: { argb: "FF9E9E9E" } } as const;
 export const HEADER_LINE = { style: "thin", color: { argb: WHITE } } as const;
 
@@ -135,6 +137,8 @@ export async function exportRowsToExcel<T extends GridValidRowModel>(
   fileNamePrefix = "jute-report",
   header?: ReportExportHeader,
   groupBy?: string,
+  /** More sheets after "Report", each with its own columns and the same header. */
+  extraSheets?: { name: string; columns: GridColDef[]; rows: GridValidRowModel[] }[],
 ): Promise<void> {
   const ExcelJS = await import("exceljs");
   const { saveAs } = await import("file-saver");
@@ -142,6 +146,9 @@ export async function exportRowsToExcel<T extends GridValidRowModel>(
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Report");
   buildReportSheet(ws as unknown as Worksheet, columns, rows, header, groupBy);
+  for (const s of extraSheets ?? []) {
+    buildReportSheet(wb.addWorksheet(s.name) as unknown as Worksheet, s.columns, s.rows, header);
+  }
 
   const buf = await wb.xlsx.writeBuffer();
   saveAs(

@@ -198,7 +198,8 @@ export default function BeamingPage() {
 										coId={coId}
 										branchId={branchId}
 										date={tranDate}
-										spellId={spellId}
+										// All spells of the day — the Spell selector only drives the entry form.
+										spellId={null}
 										refreshKey={entriesRefresh}
 										onEdit={(row) => setEditingEntry(row)}
 									/>

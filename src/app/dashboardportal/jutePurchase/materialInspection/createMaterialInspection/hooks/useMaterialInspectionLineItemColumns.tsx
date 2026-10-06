@@ -87,7 +87,9 @@ export function useGateEntryLineItemColumns({
 			},
 			{
 				id: "challanQuality",
-				header: "Challan Quality",
+				// Raw-jute groups cascade to qualities; jute-waste groups have no
+				// quality level and list their items directly — one column for both.
+				header: "Challan Quality / Item",
 				width: "1.2fr",
 				// ~10 chars visible for item/quality names at 0.75rem + select arrow
 				minWidth: "170px",
@@ -106,7 +108,7 @@ export function useGateEntryLineItemColumns({
 							}
 							getOptionLabel={(opt) => opt.label}
 							isOptionEqualToValue={(a, b) => a.value === b.value}
-							placeholder={item.challanItem ? "Select quality" : "Select item first"}
+							placeholder={item.challanItem ? "Select quality / item" : "Select item first"}
 							disabled={!item.challanItem}
 						/>
 					);
@@ -177,7 +179,7 @@ export function useGateEntryLineItemColumns({
 			},
 			{
 				id: "actualQuality",
-				header: "Actual Quality",
+				header: "Actual Quality / Item",
 				width: "1.2fr",
 				// ~10 chars visible for item/quality names at 0.75rem + select arrow
 				minWidth: "170px",
@@ -196,7 +198,7 @@ export function useGateEntryLineItemColumns({
 							}
 							getOptionLabel={(opt) => opt.label}
 							isOptionEqualToValue={(a, b) => a.value === b.value}
-							placeholder={item.actualItem ? "Select quality" : "Select item first"}
+							placeholder={item.actualItem ? "Select quality / item" : "Select item first"}
 							disabled={!item.actualItem}
 						/>
 					);

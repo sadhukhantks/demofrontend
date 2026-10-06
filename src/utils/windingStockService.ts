@@ -24,10 +24,25 @@ export interface WindingStockArea {
   branch_id: number | null;
 }
 
+/** Where a counted line physically sits (yarn-purchase design §3.3). */
+export type StockLocation = "GODOWN" | "FLOOR";
+
+export const STOCK_LOCATIONS: readonly StockLocation[] = Object.freeze(["GODOWN", "FLOOR"]);
+
+export interface WindingStockDepartment {
+  dept_id: number;
+  dept_desc: string;
+  dept_code: string | null;
+}
+
 export interface WindingStockSetup {
   buckets: string[];
   yarn_items: WindingStockYarnItem[];
   areas: WindingStockArea[];
+  /** GODOWN / FLOOR — the location a counted line can sit at. */
+  locations: StockLocation[];
+  /** Departments of the branch, offered for FLOOR lines only. */
+  departments: WindingStockDepartment[];
 }
 
 export interface WindingStockRow {
@@ -44,6 +59,11 @@ export interface WindingStockRow {
   package_label: string;
   wastage_area_id: number | null;
   area_name: string | null;
+  /** GODOWN or FLOOR. Rows counted before the column existed are FLOOR. */
+  stock_loc: StockLocation;
+  /** Department a FLOOR line sits in; always null for GODOWN. */
+  dept_id: number | null;
+  dept_desc: string | null;
   no_of_samples: number;
   wt_per_sample: number;
   stock_mt: number;
@@ -66,6 +86,10 @@ export interface WindingStockCreatePayload {
   item_id: number | null;
   package_label: string;
   wastage_area_id: number | null;
+  /** Defaults to FLOOR server-side when omitted. */
+  stock_loc: StockLocation;
+  /** Must be null for GODOWN lines. */
+  dept_id: number | null;
   no_of_samples: number;
   wt_per_sample: number;
   remarks: string | null;

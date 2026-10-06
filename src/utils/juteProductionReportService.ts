@@ -444,6 +444,19 @@ export interface WwdStockSummary {
   prvs_total_mt: number;
 }
 
+/** One approved Yarn Purchase line inside the MTD window — the documents
+ *  behind `production.mtd.purchase_mt`, so the figure can be audited. */
+export interface WwdPurchaseDetailRow {
+  yarn_purchase_id: number;
+  purchase_no: string;
+  /** ISO date; null when the document carries no transaction date. */
+  tran_date: string | null;
+  item_id: number;
+  item_name: string | null;
+  yarn_count: number | null;
+  kg: number;
+}
+
 export interface WindingWeavingDifference {
   report_date: string;
   date_from: string;
@@ -470,7 +483,18 @@ export interface WindingWeavingDifference {
      * closing stock reads high by however much they'd have subtracted. */
     weaving_unresolved_day: number;
     weaving_unresolved_mtd: number;
+    /** Approved Stores receipts of the legacy purchased-yarn item in the MTD
+     * window (MT). Purchase Yarn (MT) now reads Yarn Purchase documents only,
+     * so this is a transition cross-check: quantity still arriving through
+     * Stores is NOT in the figures above. Absent on backends predating the
+     * Yarn Purchase document. */
+    legacy_stores_yarn_mt?: number;
+    /** Set when Stores receipts exist in the window but no Yarn Purchase does. */
+    legacy_stores_yarn_warning?: string;
   };
+  /** MTD purchase documents (absent on backends predating Yarn Purchase);
+   *  sum(kg) / 1000 equals `production.mtd.purchase_mt`. */
+  purchase_detail?: WwdPurchaseDetailRow[];
   note: string;
 }
 

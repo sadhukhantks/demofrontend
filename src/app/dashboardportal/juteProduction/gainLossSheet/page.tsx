@@ -13,6 +13,7 @@ import {
 	TextField,
 	Typography,
 } from "@mui/material";
+import Link from "next/link";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import {
@@ -40,12 +41,19 @@ import {
 	type ProdDraft,
 	type StockDraft,
 } from "./utils/sheetState";
+import { gainLossReportHref } from "./utils/reportHref";
 
 /**
  * Jute Gain/Loss Sheet — monthly manual ENTRY page. One sheet per
  * (company, branch, month), all values in MT, replacing the mill's Excel.
  * Container component: owns the company/branch scope, month selection, all
  * API calls and the draft state; the `_components/` render from props only.
+ *
+ * This page only CAPTURES the figures. The computed statements — including
+ * the "JUTE GAIN / LOSS (B - A)" row and its % — live on the Jute Gain/Loss
+ * report (`report/juteGainLoss`), so the toolbar links there for the same
+ * branch and month (TKT-000157: "after filling up every data where is the
+ * loss showing").
  */
 export default function GainLossSheetPage() {
 	const [mounted, setMounted] = React.useState(false);
@@ -358,6 +366,15 @@ export default function GainLossSheetPage() {
 						/>
 						{locked ? <Chip label="Locked" color="warning" size="small" /> : null}
 						<Box sx={{ flexGrow: 1 }} />
+						{/* The gain/loss itself is computed on the report page, not here. */}
+						<Button
+							component={Link}
+							href={gainLossReportHref(branchId, month)}
+							variant="outlined"
+							size="small"
+						>
+							View Gain/Loss statement
+						</Button>
 						<Button
 							variant="contained"
 							size="small"
