@@ -68,13 +68,28 @@ describe("roundStockRowsToKg (TKT-000155)", () => {
     expect(r.closing_weight).toBe(0);
   });
 
-  it("drops a row that is all zero once rounded", () => {
+  it("drops a row only when every column it prints is zero once rounded", () => {
     const out = roundStockRowsToKg([
       row({ item_id: 1, opening_weight: 0.3, closing_weight: 0.3 }),
+      // Nothing in stock, but 40 kg issued earlier in the month: the row
+      // stays, or that 40 kg goes missing from the MTD Issue total.
       row({ item_id: 2, opening_weight: 0.3, closing_weight: 0.3, mtd_issue_weight: 40 }),
       row({ item_id: 3, opening_weight: 12, closing_weight: 12 }),
+      // Sub-half-kg residue in the MTD columns too -> still a line of zeros.
+      row({ item_id: 4, mtd_receipt_weight: 0.4, mtd_issue_weight: 0.4 }),
     ]);
-    expect(out.map((r) => r.item_id)).toEqual([3]);
+    expect(out.map((r) => r.item_id)).toEqual([2, 3]);
+    expect(out[0]).toMatchObject({ opening_weight: 0, closing_weight: 0, mtd_issue_weight: 40 });
+  });
+
+  it("keeps an item received and used up earlier in the month", () => {
+    // sls br 29, 2026-09-30: N TD-10 came in and went out before month end.
+    const out = roundStockRowsToKg([
+      row({ item_id: 7, item_name: "N TD-10", mtd_receipt_weight: 11190, mtd_issue_weight: 11190 }),
+      row({ item_id: 8, item_name: "A TD-6 (L)", mtd_issue_weight: 14028 }),
+      row({ item_id: 9, item_name: "MTD receipt only", mtd_receipt_weight: 500 }),
+    ]);
+    expect(out.map((r) => r.item_name)).toEqual(["N TD-10", "A TD-6 (L)", "MTD receipt only"]);
   });
 
   it("does not mutate its input and keeps non-weight fields", () => {
@@ -105,6 +120,23 @@ describe("withStockGrandTotal", () => {
     // Sum of the DISPLAYED whole-kg rows (101 + 51), so the grid adds up.
     expect(total.opening_weight).toBe(152);
     expect(total.closing_weight).toBe(152);
+  });
+
+  it("MTD totals include items with no position left on the report date", () => {
+    // One item still in stock, one used up earlier in the month. Hiding the
+    // second printed an MTD issue of 300 against 14,328 actually issued.
+    const rows = roundStockRowsToKg([
+      row({ item_id: 1, opening_weight: 900, issue_weight: 300, closing_weight: 600, mtd_receipt_weight: 900, mtd_issue_weight: 300 }),
+      row({ item_id: 2, mtd_receipt_weight: 0, mtd_issue_weight: 14028 }),
+    ]);
+    const total = withStockGrandTotal(rows)[2];
+    expect(total.mtd_issue_weight).toBe(14328);
+    expect(total.mtd_receipt_weight).toBe(900);
+    // The day figures and the position are untouched by the extra row.
+    expect(total.issue_weight).toBe(300);
+    expect(total.closing_weight).toBe(600);
+    // The cards read the same rows, so they carry the same MTD figure.
+    expect(stockSplit(withStockGrandTotal(rows), "mtd_issue_weight").total).toBe(14328);
   });
 });
 

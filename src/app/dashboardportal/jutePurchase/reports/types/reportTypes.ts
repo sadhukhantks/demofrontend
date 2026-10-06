@@ -148,7 +148,30 @@ export interface BatchCostReportRow {
   actual_weight: number;
   actual_rate: number;
   issue_value: number;
+  /** Month-to-date counterparts of the day fields (planned_weight ..
+   * variance): 1st of the report date's month through the date, TKT-000213.
+   * Rate = MTD value / MTD weight x 100 (per qtl). */
+  mtd_planned_weight: number;
+  mtd_actual_weight: number;
+  mtd_actual_rate: number;
+  mtd_issue_value: number;
+  mtd_variance: number;
   variance: number;
+}
+
+/** Row from GET /api/juteReports/issue-yarn-wise (TKT-000214) — jute issued
+ * per yarn quality on the report date and month-to-date. Weights are kg. */
+export interface JuteIssueYarnWiseApiRow {
+  /** null = issues carrying no yarn quality ("(unassigned)") */
+  yarn_type_id: number | null;
+  yarn_type_name: string;
+  /** Raw jute + wastage. */
+  day_issue_kg: number;
+  mtd_issue_kg: number;
+  /** The wastage part of the figure above: process waste re-issued, plus MR
+   * lines of a jute-waste item (purchased waste). Raw jute = issue - waste. */
+  day_waste_kg: number;
+  mtd_waste_kg: number;
 }
 
 /** Row from GET /api/juteReports/mr-list */

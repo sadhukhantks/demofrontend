@@ -1,7 +1,9 @@
 /**
  * Wastage Report Excel export (TKT-000176) — the on-screen sheet as one
- * worksheet: DATE + the 7 PRODUCTION context columns, then one band per waste
- * group (component columns, TOTAL, %), day rows and the monthly TOTAL row.
+ * worksheet: DATE + the 8 PRODUCTION context columns, then one band per waste
+ * group (component columns, TOTAL, %), then the grand "Total Wastage" band
+ * (KG + % on the base picked on the page — TKT-000183), day rows and the
+ * monthly TOTAL row.
  *
  * The two-tier header (group names merged over their columns) is beyond the
  * generic single-header writer, so the sheet is laid out here with the shared
@@ -18,11 +20,14 @@ import {
 } from "@/components/reports/exportExcel";
 import type {
   WastageDayRow,
+  WastageDenomOption,
   WastageGroupColumn,
   WastageReport,
   WastageTotalsRow,
 } from "@/utils/wastageReportService";
 
+/** PRODUCTION band columns; WINDING KG appended last (TKT-000183) so the
+ * mill's familiar Excel positions of the first seven stay put. */
 export const PRODUCTION_HEADERS = [
   "HESS LOOMS",
   "SACK (S4) LOOMS",
@@ -31,7 +36,20 @@ export const PRODUCTION_HEADERS = [
   "SPINNING KG",
   "BREAKER FEED KG",
   "JUTE SELECTION",
+  "WINDING KG",
 ] as const;
+
+/** Grand band at the far right — every group summed, OTHER included. */
+export const TOTAL_WASTAGE_TITLE = "Total Wastage";
+
+/** Default base of the grand Total Wastage % — Jute issue (owner 2026-10-05). */
+export const DEFAULT_TOTAL_BASE = "SELECTION";
+
+/** "% of Jute issue (selection)" — the header names the base so a printed or
+ * exported sheet always says what the grand % divides by. */
+export function totalPctHeader(base: WastageDenomOption): string {
+  return `% of ${base.label}`;
+}
 
 export type SheetCell = string | number | null;
 
@@ -50,6 +68,7 @@ export interface WastageSheetLayout {
 function bandCells(
   row: WastageDayRow | WastageTotalsRow,
   groups: WastageGroupColumn[],
+  totalBase: WastageDenomOption,
 ): SheetCell[] {
   const out: SheetCell[] = [
     row.hessian_looms,
@@ -59,6 +78,7 @@ function bandCells(
     row.spinning_kg,
     row.breaker_feed_kg,
     row.selection_wt,
+    row.winding_kg ?? 0,
   ];
   for (const g of groups) {
     const gv = row.groups[g.group_code];
@@ -66,18 +86,22 @@ function bandCells(
     out.push(gv?.total ?? 0);
     out.push(gv?.pct ?? null);
   }
+  out.push(row.total_waste_kg ?? 0);
+  out.push(row.total_pct_by_base?.[totalBase.code] ?? null);
   return out;
 }
 
 /**
  * Lays the sheet out from the report data and the groups in display order
  * (the page's `orderedGroups`, OTHER last). `dayLabel` is the page's
- * "01 Wed" formatter so the sheet reads like the screen.
+ * "01 Wed" formatter so the sheet reads like the screen; `totalBase` is the
+ * base picked in "Total % on" for the grand Total Wastage %.
  */
 export function buildWastageSheetLayout(
   data: WastageReport,
   groups: WastageGroupColumn[],
   dayLabel: (date: string) => string,
+  totalBase: WastageDenomOption,
 ): WastageSheetLayout {
   const top: SheetCell[] = ["DATE", "PRODUCTION"];
   const sub: SheetCell[] = ["", ...PRODUCTION_HEADERS];
@@ -94,13 +118,17 @@ export function buildWastageSheetLayout(
     for (const c of g.components) sub.push(c.label);
     sub.push("TOTAL", "%");
   }
+  // Grand Total Wastage band: KG + % on the chosen base.
+  top.push(TOTAL_WASTAGE_TITLE, "");
+  merges.push([col + 1, col + 2]);
+  sub.push("KG", totalPctHeader(totalBase));
 
   return {
     top,
     sub,
     merges,
-    rows: data.days.map((d) => [dayLabel(d.date), ...bandCells(d, groups)]),
-    total: data.totals ? ["TOTAL", ...bandCells(data.totals, groups)] : null,
+    rows: data.days.map((d) => [dayLabel(d.date), ...bandCells(d, groups, totalBase)]),
+    total: data.totals ? ["TOTAL", ...bandCells(data.totals, groups, totalBase)] : null,
     width: top.length,
   };
 }
@@ -136,13 +164,14 @@ export async function exportWastageReportWorkbook(
   groups: WastageGroupColumn[],
   header: ReportExportHeader,
   dayLabel: (date: string) => string,
+  totalBase: WastageDenomOption,
 ): Promise<void> {
   const ExcelJS = await import("exceljs");
   const { saveAs } = await import("file-saver");
 
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Wastage Report") as unknown as Worksheet;
-  writeWastageSheet(ws, buildWastageSheetLayout(data, groups, dayLabel), header);
+  writeWastageSheet(ws, buildWastageSheetLayout(data, groups, dayLabel, totalBase), header);
 
   const buf = await wb.xlsx.writeBuffer();
   saveAs(

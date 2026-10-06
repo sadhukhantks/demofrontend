@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Autocomplete,
   Box,
@@ -72,6 +72,12 @@ interface ReportPanelProps<TRow extends GridValidRowModel> {
   initialExtra?: string;
   /** Fetches the rows for the submitted filters. */
   fetcher: (filters: ReportFilters) => Promise<TRow[]>;
+  /** Optional pure view of the loaded rows — a client-side filter or re-total
+   * that must not cost a request (e.g. "exclude wastage"). The grid, the
+   * summary and both exports receive the view; the loaded rows are kept, so
+   * switching views is instant. Pass a stable function (useCallback) — a new
+   * identity re-derives the view. */
+  rowsView?: (rows: TRow[]) => TRow[];
   columns: GridColDef<TRow>[];
   getRowId: (row: TRow) => string | number;
   sortField?: string;
@@ -91,8 +97,10 @@ interface ReportPanelProps<TRow extends GridValidRowModel> {
   /** Optional row drill-down (see ReportGrid); not fired for total rows. */
   onRowDoubleClick?: (row: TRow) => void;
   /** Optional cards rendered between the filter bar and the grid, built from
-   * the rows currently loaded. Called only when there are rows, so it never
-   * has to render an empty state of its own. */
+   * the rows currently loaded (through `rowsView` when one is given). Called
+   * only when rows were loaded, so it never has to render an empty state of
+   * its own — and a view that filters every row out still gets its summary,
+   * which is where a page keeps the control that switches the view back. */
   summary?: (rows: TRow[]) => React.ReactNode;
 }
 
@@ -116,6 +124,7 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
   extraAsync,
   initialExtra = "",
   fetcher,
+  rowsView,
   columns,
   getRowId,
   sortField,
@@ -142,6 +151,11 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
   const mounted = useMounted();
 
   const [rows, setRows] = useState<TRow[]>([]);
+  // What is shown and exported. Without a rowsView this IS the loaded rows.
+  const viewRows = useMemo(
+    () => (rowsView ? rowsView(rows) : rows),
+    [rows, rowsView],
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -255,7 +269,7 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
   const handleExport = useCallback(async () => {
     const header = await buildHeader();
     if (exportOverride) {
-      await exportOverride(rows, header, {
+      await exportOverride(viewRows, header, {
         branchId: branchId as number,
         dateFrom,
         dateTo,
@@ -263,11 +277,11 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
       });
       return;
     }
-    await exportRowsToExcel(columns, rows, exportName, header);
+    await exportRowsToExcel(columns, viewRows, exportName, header);
   }, [
     buildHeader,
     columns,
-    rows,
+    viewRows,
     exportName,
     exportOverride,
     branchId,
@@ -277,8 +291,8 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
   ]);
 
   const handleExportPdf = useCallback(async () => {
-    await exportRowsToPdf(columns, rows, exportName, await buildHeader());
-  }, [buildHeader, columns, rows, exportName]);
+    await exportRowsToPdf(columns, viewRows, exportName, await buildHeader());
+  }, [buildHeader, columns, viewRows, exportName]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -434,7 +448,7 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
                 // "Select a branch", but `rows` still holds the previous
                 // branch's data — exporting it would write a sheet with no
                 // Branch line in the header over another branch's rows.
-                disabled={branchId == null || rows.length === 0 || exporting}
+                disabled={branchId == null || viewRows.length === 0 || exporting}
                 onClick={() => {
                   void runExport(handleExport);
                 }}
@@ -446,7 +460,7 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
               {pdfExport && (
                 <Button
                   variant="outlined"
-                  disabled={branchId == null || rows.length === 0 || exporting}
+                  disabled={branchId == null || viewRows.length === 0 || exporting}
                   onClick={() => {
                     void runExport(handleExportPdf);
                   }}
@@ -458,10 +472,10 @@ export default function ReportPanel<TRow extends GridValidRowModel>({
             </Box>
           </Paper>
 
-          {summary && rows.length > 0 && summary(rows)}
+          {summary && rows.length > 0 && summary(viewRows)}
 
           <ReportGrid
-            rows={rows}
+            rows={viewRows}
             columns={columns}
             getRowId={getRowId}
             loading={loading}
