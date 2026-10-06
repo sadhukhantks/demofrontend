@@ -13,14 +13,17 @@ export const STOCK_WEIGHT_FIELDS = [
 
 export type StockWeightField = (typeof STOCK_WEIGHT_FIELDS)[number];
 
-/** Same five columns the backend tests before suppressing an all-zero row. */
-const ROW_PRESENCE_FIELDS: readonly StockWeightField[] = [
-  "opening_weight",
-  "receipt_weight",
-  "issue_weight",
-  "sold_weight",
-  "closing_weight",
-];
+/**
+ * A row is kept when ANY column it prints is non-zero — all seven, the same
+ * test the backend applies before suppressing an all-zero row.
+ *
+ * The two MTD columns used to be left out, here and in the backend. An item
+ * used up earlier in the month (nothing in stock, nothing moving on the report
+ * date) then lost its row, and its MTD receipt / issue dropped out of the
+ * Grand Total and the summary cards with it — sls br 29 on 2026-09-30 printed
+ * an MTD issue of 360,660 kg against 455,631 actually issued.
+ */
+const ROW_PRESENCE_FIELDS: readonly StockWeightField[] = STOCK_WEIGHT_FIELDS;
 
 /** item_id / item_grp_id of the client-added Grand Total row. */
 export const GRAND_TOTAL_ID = -1;
@@ -35,9 +38,10 @@ export const GRAND_TOTAL_ID = -1;
  * closing from the rounded parts would let three half-kg roundings surface as
  * a false "-1" on a line whose real closing is 0.
  *
- * A row whose opening, receipt, issue, sold and closing all round to 0 is
- * dropped — the backend suppresses all-zero rows at 2 decimals, and a
- * sub-half-kg residue would otherwise print as a line of zeros.
+ * A row whose seven weight columns ALL round to 0 is dropped — the backend
+ * suppresses all-zero rows at 2 decimals, and a sub-half-kg residue would
+ * otherwise print as a line of zeros. A row with only month-to-date figures
+ * stays (see ROW_PRESENCE_FIELDS): the totals are summed off the rows shown.
  */
 export function roundStockRowsToKg(
   rows: JuteStockReportRow[],
