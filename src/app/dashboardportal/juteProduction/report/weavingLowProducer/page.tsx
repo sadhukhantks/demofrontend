@@ -42,6 +42,10 @@ import {
 import { resolveReportMenuId } from "@/utils/reportMenuService";
 import type { BranchOption } from "@/components/reports/types";
 import {
+  useFollowupMarking,
+  withoutFollowupColumn,
+} from "@/components/lowPerformerFollowup/useFollowupMarking";
+import {
   fetchWeavingLowProducer,
   qualitiesOf,
   type QualityOption,
@@ -199,7 +203,7 @@ function TabGrid<T extends GridValidRowModel & { row_id: number }>({
           disabled={branchId == null || rows.length === 0}
           onClick={() => {
             void (async () => {
-              await exportRowsToExcel(columns, rows, exportName, {
+              await exportRowsToExcel(withoutFollowupColumn(columns), rows, exportName, {
                 ...header,
                 reportNo: await resolveReportMenuId(pathname),
               });
@@ -337,6 +341,22 @@ function Content() {
   const workerRows = useMemo(() => withIds(report?.worker_summary), [report]);
   const dayRows = useMemo(() => withIds(report?.day_summary), [report]);
   const loomGroupRows = useMemo(() => withIds(report?.loom_group_summary), [report]);
+
+  const { followupColumn, dialog: followupDialog } = useFollowupMarking({
+    coId,
+    branchId: report?.meta?.branch_id ?? null,
+    deptCode: "WEAVING",
+  });
+  const workerGridColumns = useMemo(
+    () => [
+      ...workerColumns,
+      followupColumn<WithId<WeavingLowProdWorkerRow>>({
+        getEbId: (r) => r.eb_id,
+        getEbNo: (r) => r.eb_no,
+      }),
+    ],
+    [followupColumn],
+  );
 
   const header: ReportExportHeader = {
     companyName,
@@ -546,7 +566,7 @@ function Content() {
           {tab === 1 && (
             <TabGrid
               rows={workerRows}
-              columns={workerColumns}
+              columns={workerGridColumns}
               loading={loading}
               error={error}
               branchId={branchId}
@@ -579,6 +599,7 @@ function Content() {
           )}
         </>
       )}
+      {followupDialog}
     </Box>
   );
 }

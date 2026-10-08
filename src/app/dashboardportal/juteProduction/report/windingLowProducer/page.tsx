@@ -48,6 +48,7 @@ import { useReportBranches } from "@/components/reports/useReportBranches";
 import { useMounted } from "@/components/reports/useMounted";
 import { lastDaysRange } from "@/components/reports/reportDates";
 import { exportRowsToExcel } from "@/components/reports/exportExcel";
+import { useFollowupMarking } from "@/components/lowPerformerFollowup/useFollowupMarking";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { fetchWithCookie } from "@/utils/apiClient2";
 
@@ -356,6 +357,25 @@ function Content() {
   );
   const workerColumns = useMemo(() => autoColumns(workerRows), [workerRows]);
   const dayColumns = useMemo(() => autoColumns(dayRows), [dayRows]);
+  // Grid-only: the Excel export keeps the plain auto columns.
+  const { followupColumn, dialog: followupDialog } = useFollowupMarking({
+    coId,
+    branchId: data?.meta?.branch_id ?? null,
+    deptCode: "WINDING",
+  });
+  const workerGridColumns = useMemo(
+    () =>
+      workerColumns.length === 0
+        ? workerColumns
+        : [
+            ...workerColumns,
+            followupColumn<(typeof workerRows)[number]>({
+              getEbId: (r: SummaryRow) => (typeof r.eb_id === "number" ? r.eb_id : null),
+              getEbNo: (r: SummaryRow) => (typeof r.eb_no === "string" ? r.eb_no : null),
+            }),
+          ],
+    [workerColumns, followupColumn],
+  );
   const defaultAttCount = baseRows.filter(
     (r) => r.att_source === ATT_DEFAULT,
   ).length;
@@ -582,7 +602,7 @@ function Content() {
           {tab === 1 ? (
             <ReportGrid
               rows={workerRows}
-              columns={workerColumns}
+              columns={workerGridColumns}
               getRowId={(r) => r.__rid}
               loading={loading}
               error={error}
@@ -601,6 +621,7 @@ function Content() {
           ) : null}
         </>
       )}
+      {followupDialog}
     </Box>
   );
 }
