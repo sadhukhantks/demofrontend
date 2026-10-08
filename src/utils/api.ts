@@ -1197,6 +1197,7 @@ const apiRoutesPortalMasters = {
     JP_SPINNING_LOW_PRODUCER: `${API_URL}/juteProductionReports/spinning_low_producer`,
     JP_WINDING_LOW_PRODUCER: `${API_URL}/juteProductionReports/winding_low_producer`,
     JP_DOFF_ANALYSIS: `${API_URL}/juteProductionReports/doff_analysis`,
+    JP_SPINNING_PRODUCTION_TREND: `${API_URL}/juteProductionReports/spinning_production_trend`,
     JP_HANDS_REPORT: `${API_URL}/juteProductionReports/hands_report`,
     JP_HANDS_REPORT_MACHINE_OVERRIDE: `${API_URL}/juteProductionReports/hands_report_machine_override`,
     JP_HANDS_REPORT_MACHINE_OVERRIDE_UNDO: `${API_URL}/juteProductionReports/hands_report_machine_override_undo`,
