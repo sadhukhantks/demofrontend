@@ -1,6 +1,7 @@
 "use client";
 import React, { Suspense } from "react";
 import {
+  Alert,
   Box,
   CircularProgress,
   ToggleButtonGroup,
@@ -12,8 +13,9 @@ import ReportPanel from "@/components/reports/ReportPanel";
 import { numCol } from "@/components/reports/ReportGrid";
 import { useReportBranches } from "@/components/reports/useReportBranches";
 import { yesterdayIso } from "@/components/reports/reportDates";
-import { fetchBatchCostReport, type JuteReportBasis } from "@/utils/juteReportService";
+import { fetchBatchCostReportWithPlan, type JuteReportBasis } from "@/utils/juteReportService";
 import type { BatchCostReportRow } from "../types/reportTypes";
+import { planMessages, type BatchPlanStatus } from "./planStatus";
 
 const inrFormatter = new Intl.NumberFormat("en-IN", {
   minimumFractionDigits: 2,
@@ -87,6 +89,17 @@ function BatchCostPageContent() {
   // Decision D5 (2026-09-03): actual = today's reports; accounts = receipt on
   // jute_mr_date, approved weight, issues shifted to the MR date.
   const [basis, setBasis] = React.useState<JuteReportBasis>("actual");
+  // TKT-000206: why planned weight is 0 (no batch plan assigned / no issue).
+  const [planStatus, setPlanStatus] = React.useState<BatchPlanStatus | null>(null);
+  const fetchRows = React.useCallback(
+    async (branchId: number, date: string) => {
+      setPlanStatus(null);
+      const res = await fetchBatchCostReportWithPlan(branchId, date, basis);
+      setPlanStatus(res.planStatus);
+      return res.rows;
+    },
+    [basis],
+  );
 
   return (
     <>
@@ -104,6 +117,11 @@ function BatchCostPageContent() {
           Day = the As of Date. MTD = 1st of that month through the As of Date.
         </Typography>
       </Box>
+      {planMessages(planStatus).map((m) => (
+        <Alert key={m.text} severity={m.severity} sx={{ mb: 1 }}>
+          {m.text}
+        </Alert>
+      ))}
       <ReportPanel
         title={`Batch Cost Report (${basis === "accounts" ? "Accounts" : "Actual"})`}
         branches={branches}
@@ -111,7 +129,7 @@ function BatchCostPageContent() {
         dates="single"
         singleLabel="As of Date"
         initialDateTo={dateParam || yesterdayIso()}
-        fetcher={(f) => fetchBatchCostReport(f.branchId, f.dateTo, basis)}
+        fetcher={(f) => fetchRows(f.branchId, f.dateTo)}
         columns={columns}
         getRowId={getRowId}
         sortField="yarn_type_name"
