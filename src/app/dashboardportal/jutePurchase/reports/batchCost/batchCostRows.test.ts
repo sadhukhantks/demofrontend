@@ -111,3 +111,45 @@ describe("batchCostBreakupRows", () => {
     expect(bimli.mtd_mix_pct).toBeCloseTo(100);
   });
 });
+
+describe("jute waste re-issued (owner ruling 2026-10-08: memo only)", () => {
+  const withWaste: BatchCostReportRow[] = [
+    ...rows,
+    row({ item_id: 90, item_name: "THREAD WASTE", is_waste: 1, actual_weight: 250, mtd_actual_weight: 900, planned_weight: 300 }),
+  ];
+
+  it("leaves waste out of the yarn quality's weight, value and cost per ton", () => {
+    const hw = batchCostYarnSummary(withWaste).find((r) => r.yarn_type_name === "Hessian Warp")!;
+    expect(hw.day_weight).toBe(1000);
+    expect(hw.day_cost_per_ton).toBe(9000);
+    expect(hw.mtd_weight).toBe(10000);
+    expect(hw.day_waste_weight).toBe(250);
+    expect(hw.mtd_waste_weight).toBe(900);
+  });
+
+  it("keeps waste out of the Grand Total cost but sums its memo kg", () => {
+    const g = batchCostYarnSummary(withWaste).at(-1)!;
+    expect(g.day_weight).toBe(1000);
+    expect(g.day_waste_weight).toBe(250);
+  });
+
+  it("lists waste as memo lines after the yarn quality's Total, not inside it", () => {
+    const hw = batchCostBreakupRows(withWaste).filter((r) => r.yarn_type_id === 1);
+    expect(hw.map((r) => r.row_kind)).toEqual(["line", "line", "subtotal", "waste"]);
+    const total = hw[2];
+    expect(total.actual_weight).toBe(1000);
+    expect(total.planned_weight).toBe(1000);
+    expect(hw[0].day_mix_pct + hw[1].day_mix_pct).toBeCloseTo(100);
+    expect(hw[3].item_name).toBe("THREAD WASTE (waste re-issued, memo)");
+    expect(hw[3].actual_weight).toBe(250);
+    expect(hw[3].issue_value).toBe(0);
+  });
+
+  it("a yarn quality with only waste still gets a zero Total and its memo line", () => {
+    const only = batchCostBreakupRows([
+      row({ yarn_type_id: 3, yarn_type_name: "Weft", item_id: 90, item_name: "SWEEP", is_waste: 1, actual_weight: 40 }),
+    ]);
+    expect(only.map((r) => r.row_kind)).toEqual(["subtotal", "waste"]);
+    expect(only[0].actual_weight).toBe(0);
+  });
+});

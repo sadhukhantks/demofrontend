@@ -12,6 +12,11 @@
  * value / its yarn quality's total weight x 1000, so the shares of one yarn
  * quality add up to that yarn quality's cost per ton, and its "mix %" is its
  * weight / the yarn quality's total weight x 100.
+ *
+ * Jute waste re-issued into a batch (rows with is_waste = 1, owner ruling
+ * 2026-10-08) is NOT part of the batch cost: it is left out of every weight,
+ * value, cost per ton, mix % and Total, and shows only as memo lines under its
+ * yarn quality's Total (and as memo waste columns in the summary).
  */
 import type { BatchCostReportRow } from "../types/reportTypes";
 
@@ -27,6 +32,9 @@ const num = (v: unknown): number => {
 
 const yarnKey = (r: { yarn_type_id: number | null }) => String(r.yarn_type_id);
 
+/** Jute waste re-issued into the batch — a memo line, not batch cost. */
+export const isWasteRow = (r: BatchCostReportRow): boolean => num(r.is_waste) === 1;
+
 /** One row of the yarn-quality summary table. */
 export interface BatchCostYarnSummaryRow {
   id: string;
@@ -37,12 +45,16 @@ export interface BatchCostYarnSummaryRow {
   mtd_weight: number;
   mtd_value: number;
   mtd_cost_per_ton: number;
+  /** Memo: waste re-issued into the yarn quality, kg — not in the cost above. */
+  day_waste_weight: number;
+  mtd_waste_weight: number;
 }
 
-/** A breakup-grid row: a jute quality line, or the yarn quality's subtotal
- * closing its group (item_name "Total", which the grid and Excel shade). */
+/** A breakup-grid row: a jute quality line, the yarn quality's subtotal
+ * closing its group (item_name "Total", which the grid and Excel shade), or a
+ * waste memo line after that Total (not counted in it). */
 export interface BatchCostBreakupRow extends BatchCostReportRow {
-  row_kind: "line" | "subtotal";
+  row_kind: "line" | "subtotal" | "waste";
   day_mix_pct: number;
   day_cost_per_ton_share: number;
   mtd_mix_pct: number;
@@ -55,6 +67,8 @@ interface Totals {
   dayVal: number;
   mtdWt: number;
   mtdVal: number;
+  dayWasteWt: number;
+  mtdWasteWt: number;
 }
 
 function totalsByYarn(rows: BatchCostReportRow[]): Map<string, Totals> {
@@ -67,11 +81,18 @@ function totalsByYarn(rows: BatchCostReportRow[]): Map<string, Totals> {
       dayVal: 0,
       mtdWt: 0,
       mtdVal: 0,
+      dayWasteWt: 0,
+      mtdWasteWt: 0,
     };
-    t.dayWt += num(r.actual_weight);
-    t.dayVal += num(r.issue_value);
-    t.mtdWt += num(r.mtd_actual_weight);
-    t.mtdVal += num(r.mtd_issue_value);
+    if (isWasteRow(r)) {
+      t.dayWasteWt += num(r.actual_weight);
+      t.mtdWasteWt += num(r.mtd_actual_weight);
+    } else {
+      t.dayWt += num(r.actual_weight);
+      t.dayVal += num(r.issue_value);
+      t.mtdWt += num(r.mtd_actual_weight);
+      t.mtdVal += num(r.mtd_issue_value);
+    }
     out.set(k, t);
   }
   return out;
@@ -88,6 +109,7 @@ const byName = (a: string, b: string) =>
 export function batchCostYarnSummary(
   rows: BatchCostReportRow[],
 ): BatchCostYarnSummaryRow[] {
+  // Breakup subtotals are ignored; waste rows feed only the memo columns.
   const lines = rows.filter(
     (r) => (r as Partial<BatchCostBreakupRow>).row_kind !== "subtotal",
   );
@@ -103,6 +125,8 @@ export function batchCostYarnSummary(
       mtd_weight: t.mtdWt,
       mtd_value: t.mtdVal,
       mtd_cost_per_ton: costPerTon(t.mtdVal, t.mtdWt),
+      day_waste_weight: t.dayWasteWt,
+      mtd_waste_weight: t.mtdWasteWt,
     }));
   if (out.length === 0) return out;
   const g = out.reduce(
@@ -111,8 +135,10 @@ export function batchCostYarnSummary(
       dayVal: acc.dayVal + r.day_value,
       mtdWt: acc.mtdWt + r.mtd_weight,
       mtdVal: acc.mtdVal + r.mtd_value,
+      dayWaste: acc.dayWaste + r.day_waste_weight,
+      mtdWaste: acc.mtdWaste + r.mtd_waste_weight,
     }),
-    { dayWt: 0, dayVal: 0, mtdWt: 0, mtdVal: 0 },
+    { dayWt: 0, dayVal: 0, mtdWt: 0, mtdVal: 0, dayWaste: 0, mtdWaste: 0 },
   );
   out.push({
     id: "__grand_total__",
@@ -123,6 +149,8 @@ export function batchCostYarnSummary(
     mtd_weight: g.mtdWt,
     mtd_value: g.mtdVal,
     mtd_cost_per_ton: costPerTon(g.mtdVal, g.mtdWt),
+    day_waste_weight: g.dayWaste,
+    mtd_waste_weight: g.mtdWaste,
   });
   return out;
 }
@@ -149,9 +177,11 @@ export function batchCostBreakupRows(
   for (const k of keys) {
     const t = totals.get(k)!;
     const pct = (w: number, tot: number) => (tot > 0 ? (w / tot) * 100 : 0);
-    const lines = [...groups.get(k)!].sort((a, b) =>
+    const sorted = [...groups.get(k)!].sort((a, b) =>
       byName(a.item_name, b.item_name),
     );
+    const lines = sorted.filter((r) => !isWasteRow(r));
+    const waste = sorted.filter(isWasteRow);
     for (const r of lines) {
       out.push({
         ...r,
@@ -164,7 +194,7 @@ export function batchCostBreakupRows(
     }
     const sum = (f: keyof BatchCostReportRow) =>
       lines.reduce((s, r) => s + num(r[f]), 0);
-    const first = lines[0];
+    const first = lines[0] ?? sorted[0];
     out.push({
       yarn_type_id: first.yarn_type_id,
       yarn_type_name: t.name,
@@ -197,6 +227,23 @@ export function batchCostBreakupRows(
       mtd_mix_pct: t.mtdWt > 0 ? 100 : 0,
       mtd_cost_per_ton_share: costPerTon(t.mtdVal, t.mtdWt),
     });
+    // Memo: waste re-issued into this yarn quality — weights only, never in
+    // the Total above or in any cost figure.
+    for (const r of waste) {
+      out.push({
+        ...r,
+        item_name: `${r.item_name} (waste re-issued, memo)`,
+        actual_rate: 0,
+        issue_value: 0,
+        mtd_actual_rate: 0,
+        mtd_issue_value: 0,
+        row_kind: "waste",
+        day_mix_pct: 0,
+        day_cost_per_ton_share: 0,
+        mtd_mix_pct: 0,
+        mtd_cost_per_ton_share: 0,
+      });
+    }
   }
   return out;
 }

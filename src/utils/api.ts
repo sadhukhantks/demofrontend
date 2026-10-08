@@ -375,6 +375,7 @@ const apiRoutesPortalMasters = {
     JUTE_ISSUE_REJECT: `${API_URL}/juteIssue/reject_issues`,
     JUTE_ISSUE_DOWNLOAD: `${API_URL}/juteIssue/download_issue_table`,
     JUTE_ISSUE_SYNC_WEIGHTS: `${API_URL}/juteIssue/sync_issue_weights`,
+    JUTE_ISSUE_REPRICE: `${API_URL}/juteIssue/reprice_issues`,
 
     // Yarn Purchase (receipt of purchased yarn, kg) — vowerp3be/docs/superpowers/specs/2026-09-25-yarn-purchase-issue-consumption-design.md §3.1
     YARN_PURCHASE_SETUP: `${API_URL}/yarnPurchase/setup`,

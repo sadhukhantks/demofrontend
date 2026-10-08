@@ -139,6 +139,36 @@ export async function syncIssueWeights(
   return result.data;
 }
 
+export interface RepriceIssuesResult {
+  issues_checked: number;
+  issues_changed: number;
+  value_before: number;
+  value_after: number;
+  /** MRs whose lines still have no rate — their issues stay at 0. */
+  no_rate_mr_ids: number[];
+}
+
+/** POST /api/juteIssue/reprice_issues — Re-evaluate: re-prices every
+ * non-rejected MR-sourced issue of the branch in the range from its MR line's
+ * CURRENT rate (weights untouched). Used by the Batch Cost report. */
+export async function repriceIssues(
+  coId: number | string,
+  branchId: number,
+  dateFrom: string,
+  dateTo: string,
+): Promise<RepriceIssuesResult> {
+  const url = `${apiRoutesPortalMasters.JUTE_ISSUE_REPRICE}?co_id=${coId}`;
+  const result = await fetchWithCookie<{ data: RepriceIssuesResult }>(url, "POST", {
+    branch_id: branchId,
+    date_from: dateFrom,
+    date_to: dateTo,
+  });
+  if (result.error || !result.data?.data) {
+    throw new Error(result.error ?? "Failed to re-evaluate issue values");
+  }
+  return result.data.data;
+}
+
 export async function fetchJuteQtyWiseReport(
   branchId: number,
   dateFrom: string,
