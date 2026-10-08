@@ -820,7 +820,12 @@ const apiRoutesPortalMasters = {
     EJM_ATT_INCENTIVE_REPORT: `${API_URL}/hrmsMasters/ejm_att_incentive_report`,
     EJM_WAGES_DATA_BUILD: `${API_URL}/hrmsMasters/ejm_wages_data_build`,
     EJM_WAGES_DATA_LIST: `${API_URL}/hrmsMasters/ejm_wages_data_list`,
+    EJM_WAGES_EFF_DATA_LIST: `${API_URL}/hrmsMasters/ejm_wages_eff_data_list`,
     EJM_WAGES_DATA_UPDATE: `${API_URL}/hrmsMasters/ejm_wages_data_update`,
+    // Wages Manual Entries — rows stamped update_for 'Manual'
+    EJM_WAGES_SCHEME_EMPLOYEES: `${API_URL}/hrmsMasters/ejm_wages_scheme_employees`,
+    EJM_WAGES_MANUAL_CREATE: `${API_URL}/hrmsMasters/ejm_wages_manual_create`,
+    EJM_WAGES_MANUAL_DELETE: `${API_URL}/hrmsMasters/ejm_wages_manual_delete`,
   EJM_CASH_OUTSIDER_PROCESS: `${API_URL}/hrmsMasters/ejm_cash_outsider_process`,
     // EJM-Cumulative Data Transfer (legacy hol_get=20) -> cumulative_data_table
     EJM_CUMULATIVE_TRANSFER: `${API_URL}/hrmsMasters/ejm_cumulative_transfer`,
@@ -842,6 +847,12 @@ const apiRoutesPortalMasters = {
     EJM_WINDING_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_winding_eff_process`,
     // Press machine efficiency + production amount (same as Beaming, press machines)
     EJM_PRESS_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_press_eff_process`,
+    // Spinning + weaving overall efficiency (legacy SPGWVGEF): effcode 45 / 99
+    EJM_OVERALL_EFF_PROCESS: `${API_URL}/hrmsMasters/ejm_overall_eff_process`,
+    // Efficiency → wages data (legacy WGRPCALC): working_hours_eff, ot/ns eff, prod_basic
+    EJM_WAGES_EFF_APPLY: `${API_URL}/hrmsMasters/ejm_wages_eff_apply`,
+    // OT Advance Excel (EB No, amount) → tbl_ejm_wages_data_collection.ot_advance
+    EJM_OT_ADVANCE_UPLOAD: `${API_URL}/hrmsMasters/ejm_ot_advance_upload`,
     EJM_WAGES_PAYROLL_EXCEL: `${API_URL}/hrmsMasters/ejm_wages_payroll_excel`,
     // EJM Pay Register / OT Register grids (legacy pay_register_payslip.php / ot_register_payslip.php)
     EJM_PAY_REGISTER_REPORT: `${API_URL}/hrmsMasters/ejm_pay_register_report`,
