@@ -37,6 +37,8 @@ export interface WeavingLowProdBaseRow {
 /** Per-worker rollup, sorted worst average efficiency first. */
 export interface WeavingLowProdWorkerRow {
   eb_id: number | null;
+  /** Employee code; null when the worker has none on file. */
+  eb_no?: string | null;
   worker_name: string | null;
   days_attended: number;
   avg_looms_run: number;
