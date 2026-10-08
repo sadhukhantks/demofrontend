@@ -111,6 +111,11 @@ export type WindingDoffRow = {
 	gross_input_wt: number;
 	production_qty: number;
 	row_gross_wt: number;
+	// TKT-000169: machine the winder was mapped to on the Quality tab for this
+	// date + spell (null when unmapped). Display only — never saved with a doff.
+	machine_id?: number | null;
+	mech_code?: string | null;
+	machine_name?: string | null;
 };
 
 // One side (opening / closing) of WINDING_JUGAR_STATE. `source` says where the
