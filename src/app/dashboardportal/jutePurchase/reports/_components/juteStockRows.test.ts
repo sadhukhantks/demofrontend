@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { JuteStockReportRow } from "../types/reportTypes";
+import type { GridColDef, GridSortCellParams, GridSortDirection } from "@mui/x-data-grid";
 import {
   GRAND_TOTAL_ID,
+  GRAND_TOTAL_ROW_ID,
+  kgToMt,
+  pinGrandTotalLast,
   roundStockRowsToKg,
+  stockRowId,
   stockSplit,
   withStockGrandTotal,
 } from "./juteStockRows";
@@ -179,5 +184,70 @@ describe("stockSplit — raw jute vs jute waste on every column", () => {
 
   it("reports zeros for an empty report", () => {
     expect(stockSplit([], "closing_weight")).toEqual({ total: 0, raw: 0, waste: 0 });
+  });
+});
+
+/**
+ * Sort rows the way the DataGrid does: through the column's
+ * getSortComparator for the given direction, cell params carrying the row id.
+ */
+function gridSort(
+  col: GridColDef<JuteStockReportRow>,
+  rows: JuteStockReportRow[],
+  dir: GridSortDirection,
+): string[] {
+  const cmp = col.getSortComparator?.(dir);
+  if (!cmp) throw new Error("column has no getSortComparator");
+  const params = (r: JuteStockReportRow) =>
+    ({ id: stockRowId(r), field: col.field }) as unknown as GridSortCellParams;
+  const field = col.field as keyof JuteStockReportRow;
+  return [...rows]
+    .sort((a, b) => cmp(a[field], b[field], params(a), params(b)))
+    .map((r) => String(r.item_name));
+}
+
+describe("pinGrandTotalLast (TKT-000205)", () => {
+  const rows = withStockGrandTotal([
+    row({ item_id: 1, item_group_name: "JUTE > TOSSA", item_name: "T-4", closing_weight: 300 }),
+    row({ item_id: 2, item_group_name: "JUTE > DESI", item_name: "D-5", closing_weight: 100 }),
+    row({ item_id: 3, item_group_name: "WASTE", item_name: "Caddis", closing_weight: 200 }),
+  ]);
+
+  it("is the id the grid gives the Grand Total row", () => {
+    expect(stockRowId(rows[rows.length - 1])).toBe(GRAND_TOTAL_ROW_ID);
+  });
+
+  it("keeps the total at the bottom on the default Item Group ascending sort", () => {
+    // The bug: the total's null item_group_name sorted FIRST ascending.
+    const col = pinGrandTotalLast<JuteStockReportRow>({ field: "item_group_name" });
+    expect(gridSort(col, rows, "asc")).toEqual(["D-5", "T-4", "Caddis", "Grand Total"]);
+  });
+
+  it("keeps the total at the bottom when sorted descending", () => {
+    const col = pinGrandTotalLast<JuteStockReportRow>({ field: "item_group_name" });
+    expect(gridSort(col, rows, "desc")).toEqual(["Caddis", "T-4", "D-5", "Grand Total"]);
+  });
+
+  it("keeps the total at the bottom on a numeric column, both ways", () => {
+    // The total (600) is the largest value — it must not jump to the top on desc.
+    const col = pinGrandTotalLast<JuteStockReportRow>({
+      field: "closing_weight",
+      type: "number",
+    });
+    expect(gridSort(col, rows, "asc")).toEqual(["D-5", "Caddis", "T-4", "Grand Total"]);
+    expect(gridSort(col, rows, "desc")).toEqual(["T-4", "Caddis", "D-5", "Grand Total"]);
+  });
+});
+
+describe("kgToMt (TKT-000205)", () => {
+  it("converts whole kg to MT at 2 decimals", () => {
+    expect(kgToMt(455631)).toBe(455.63);
+    expect(kgToMt(1000)).toBe(1);
+    expect(kgToMt(5)).toBe(0.01);
+  });
+
+  it("never prints -0 and treats junk as 0", () => {
+    expect(Object.is(kgToMt(-2), 0)).toBe(true);
+    expect(kgToMt(Number.NaN)).toBe(0);
   });
 });
