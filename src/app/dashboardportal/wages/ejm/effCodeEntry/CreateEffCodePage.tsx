@@ -17,7 +17,7 @@ import { MuiForm } from "@/components/ui/muiform";
 import type { MuiFormMode, Schema } from "@/components/ui/muiform";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
-import { effCodeSchema } from "./types";
+import { EFF_PROD_OPTIONS, effCodeSchema } from "./types";
 
 type Props = {
 	open: boolean;
@@ -40,7 +40,7 @@ export default function CreateEffCodePage({ open, onClose, onSaved, editId }: Pr
 
 	const loadData = useCallback(async () => {
 		if (editId === undefined) {
-			setInitialValues({ effocode: "", code_details: "", eff_pc: "" });
+			setInitialValues({ effocode: "", code_details: "", eff_pc: "", eff_prod: "" });
 			setFormKey((prev) => prev + 1);
 			return;
 		}
@@ -58,6 +58,7 @@ export default function CreateEffCodePage({ open, onClose, onSaved, editId }: Pr
 				effocode: rec.effocode ?? "",
 				code_details: rec.code_details ?? "",
 				eff_pc: rec.eff_pc ?? "",
+				eff_prod: rec.eff_prod ?? "",
 			});
 			setFormKey((prev) => prev + 1);
 		} catch (err: unknown) {
@@ -90,8 +91,15 @@ export default function CreateEffCodePage({ open, onClose, onSaved, editId }: Pr
 				},
 				{
 					name: "eff_pc",
-					label: "Efficiency %",
+					label: "Efficiency % / Production",
 					type: "number",
+					grid: { xs: 12, sm: 6 },
+				},
+				{
+					name: "eff_prod",
+					label: "Eff / Prod",
+					type: "select",
+					options: EFF_PROD_OPTIONS,
 					grid: { xs: 12, sm: 6 },
 				},
 				{
@@ -114,6 +122,7 @@ export default function CreateEffCodePage({ open, onClose, onSaved, editId }: Pr
 				code_details: String(values.code_details ?? ""),
 				eff_pc:
 					rawPc === "" || rawPc === null || rawPc === undefined ? null : Number(rawPc),
+				eff_prod: values.eff_prod ? String(values.eff_prod) : null,
 			});
 			if (!parsed.success) throw new Error(parsed.error.issues[0].message);
 

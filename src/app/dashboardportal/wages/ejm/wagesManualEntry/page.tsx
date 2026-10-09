@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -137,15 +138,16 @@ function WagesManualEntry() {
     useState<Record<ManualField, string>>(EMPTY_AMOUNTS);
   const [rows, setRows] = useState<WagesRow[]>([]);
   const [busy, setBusy] = useState(false);
+  const uploadRef = useRef<HTMLInputElement>(null);
   // The row loaded into the form for editing; null = the form adds a new row.
   const [editing, setEditing] = useState<WagesRow | null>(null);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
-    severity: "success" | "error";
+    severity: "success" | "error" | "warning";
   }>({ open: false, message: "", severity: "success" });
   const notify = useCallback(
-    (message: string, severity: "success" | "error") =>
+    (message: string, severity: "success" | "error" | "warning") =>
       setSnackbar({ open: true, message, severity }),
     [],
   );
@@ -283,6 +285,42 @@ function WagesManualEntry() {
     await loadRows(parsed.data);
   }, [filters, employee, amounts, editing, notify, loadRows, resetForm]);
 
+  /** Excel upload for the period: each row goes under the EB No's own pay
+   *  scheme; EB Nos with no (or an ambiguous) scheme are skipped and named in
+   *  the message. Re-uploading replaces an employee's earlier manual row. */
+  const handleUpload = useCallback(
+    async (file: File) => {
+      if (!filters.date_from || !filters.date_to) {
+        notify("Please select the Fortnight Period", "error");
+        return;
+      }
+      const form = new FormData();
+      form.append("file", file);
+      form.append("date_from", filters.date_from);
+      form.append("date_to", filters.date_to);
+      if (branchId != null) form.append("branch_id", String(branchId));
+      setBusy(true);
+      const { data, error } = await fetchWithCookie<{
+        message: string;
+        no_scheme: string[];
+        skipped: string[];
+      }>(apiRoutesPortalMasters.EJM_WAGES_MANUAL_UPLOAD, "POST", form);
+      setBusy(false);
+      if (error || !data) {
+        notify(error || "Upload failed", "error");
+        return;
+      }
+      notify(
+        data.message,
+        data.no_scheme.length || data.skipped.length ? "warning" : "success",
+      );
+      resetForm();
+      const parsed = filterSchema.safeParse(filters);
+      if (parsed.success) await loadRows(parsed.data);
+    },
+    [filters, branchId, notify, loadRows, resetForm],
+  );
+
   const handleEdit = useCallback((row: WagesRow) => {
     setEditing(row);
     setEmployee({ eb_id: row.eb_id, eb_no: row.eb_no, emp_name: row.emp_name });
@@ -413,6 +451,25 @@ function WagesManualEntry() {
             isOptionEqualToValue={(o, v) => o.value === v.value}
           />
         </Box>
+        <Button
+          variant="outline"
+          disabled={!filters.date_from || busy}
+          title="Each EB No is saved under its own pay scheme. Excel (.xlsx) with an EB_NO column and WK_HRS, OT_HRS, NS_HRS, F_HRS, STL_DAYS, WRK_HRS_EFF, OT_HRS_EFF, OT_NS_HRS, NS_HRS_EFF, PUJA_AD, OT_AD, STL_AD, CO_LOAN, MISC_ER, MIS_DED, MIS_OT-ER, MIS_OT_DE columns"
+          onClick={() => uploadRef.current?.click()}
+        >
+          Upload Excel
+        </Button>
+        <input
+          ref={uploadRef}
+          type="file"
+          accept=".xlsx"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = ""; // allow re-picking the same file
+            if (file) void handleUpload(file);
+          }}
+        />
       </Paper>
 
       <Paper className="p-4">
@@ -491,7 +548,7 @@ function WagesManualEntry() {
 
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={3000}
+        autoHideDuration={snackbar.severity === "success" ? 3000 : 15000}
         onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >

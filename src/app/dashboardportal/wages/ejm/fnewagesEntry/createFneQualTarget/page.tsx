@@ -25,6 +25,7 @@ const createBlankLine = (): FneQualTargetLine => ({
 	id: `new-${Math.random().toString(36).slice(2)}`,
 	savedId: null,
 	quality_id: null,
+	process: null,
 	eff_pc: "",
 	status_id: FNE_QUAL_TARGET_STATUS.DRAFT,
 });
@@ -54,6 +55,8 @@ function FneQualTargetEntry() {
 	const [departments, setDepartments] = useState<QualityDepartmentOption[]>([]);
 	const [dept, setDept] = useState<QualityDepartmentOption | null>(null);
 	const [qualities, setQualities] = useState<QualityOption[]>([]);
+	// The link page's process names (Hemming / Heracle / Handsewer / Press) — every row may pick one.
+	const [processes, setProcesses] = useState<string[]>([]);
 	const [busyLine, setBusyLine] = useState<string | null>(null);
 	const [snackbar, setSnackbar] = useState<{
 		open: boolean;
@@ -131,11 +134,13 @@ function FneQualTargetEntry() {
 			return;
 		}
 		setQualities(data.qualities || []);
+		setProcesses(data.processes || []);
 		replaceItems(
 			(data.data || []).map((r: Record<string, unknown>) => ({
 				id: `saved-${r.fne_qual_traget_id}`,
 				savedId: r.fne_qual_traget_id as number,
 				quality_id: r.quality_id as number,
+				process: (r.process as string | null) ?? null,
 				eff_pc: r.eff_pc === null || r.eff_pc === undefined ? "" : String(r.eff_pc),
 				status_id: Number(r.status_id ?? FNE_QUAL_TARGET_STATUS.DRAFT),
 			}))
@@ -163,7 +168,7 @@ function FneQualTargetEntry() {
 				period_id: period.forthnight_id,
 				dept_id: Number(dept.value),
 				approve,
-				lines: [{ quality_id: line.quality_id, eff_pc: Number(line.eff_pc) }],
+				lines: [{ id: line.savedId, quality_id: line.quality_id, process: line.process, eff_pc: Number(line.eff_pc) }],
 			});
 			if (!parsed.success) return notify(parsed.error.issues[0].message, "error");
 
@@ -193,19 +198,45 @@ function FneQualTargetEntry() {
 				header: "Quality",
 				minWidth: "560px",
 				renderCell: ({ item }) => {
-					// A quality can appear once per fortnight + department.
-					const taken = new Set(lines.filter((l) => l.id !== item.id).map((l) => l.quality_id));
+					// A quality may appear once per process (and once without) per fortnight + department.
 					return (
 						<SearchableSelect
 							variant="bare"
-							options={qualities.filter((q) => !taken.has(q.value))}
+							options={qualities}
 							value={qualities.find((q) => q.value === item.quality_id) ?? null}
-							onChange={(opt) => updateLine(item.id, { quality_id: opt?.value ?? null })}
+							onChange={(opt) => updateLine(item.id, { quality_id: opt?.value ?? null, process: null })}
 							getOptionLabel={(o) => (o.ran ? `${o.label} ● ran this fortnight` : o.label)}
 							isOptionEqualToValue={(o, v) => o.value === v.value}
 							placeholder="Select quality"
 							// Saved rows are keyed on their quality; change the target instead.
 							disabled={isSaved(item) || busyLine !== null}
+						/>
+					);
+				},
+			},
+			{
+				id: "process",
+				header: "Process",
+				width: "180px",
+				renderCell: ({ item }) => {
+					const used = new Set(
+						lines
+							.filter((l) => l.id !== item.id && l.quality_id === item.quality_id)
+							.map((l) => l.process)
+					);
+					const options = processes
+						.filter((p) => !used.has(p) || p === item.process)
+						.map((p) => ({ value: p, label: p }));
+					return (
+						<SearchableSelect
+							variant="bare"
+							options={options}
+							value={options.find((o) => o.value === item.process) ?? null}
+							onChange={(opt) => updateLine(item.id, { process: opt?.value ?? null })}
+							getOptionLabel={(o) => o.label}
+							isOptionEqualToValue={(o, v) => o.value === v.value}
+							placeholder="Select process"
+							disabled={isApproved(item) || busyLine !== null}
 						/>
 					);
 				},

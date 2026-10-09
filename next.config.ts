@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // LAN access to the dev server alongside sls.localhost:3000 (always allowed):
+  // sls.<lan-ip>.nip.io:3000. A bare sls.192.168.x.x is rejected by browsers —
+  // a host ending in a number must be an IPv4.
+  allowedDevOrigins: ['**.nip.io'],
   experimental: {
     // Dev rewrite proxy (/api -> FastAPI) gives up at 30s by default; payroll
     // uploads/processing on the big tenants run longer, and the backend kept
