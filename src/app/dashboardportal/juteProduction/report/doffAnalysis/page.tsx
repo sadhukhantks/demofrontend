@@ -24,6 +24,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useSearchParams } from "next/navigation";
 import { useReportBranches } from "@/components/reports/useReportBranches";
 import type { ReportExportHeader } from "@/components/reports/exportExcel";
 import { useMounted } from "@/components/reports/useMounted";
@@ -53,13 +54,22 @@ function Content() {
   // back until mount (same gate as the other report pages).
   const mounted = useMounted();
 
-  const [tab, setTab] = useState(0);
+  // Deep link from the Spinning Production Trend report: ?tab=frames&frame=X
+  // &date_from&date_to opens the Frame Analysis drill-down straight away;
+  // ?tab=details&date=Y opens that day's doffs.
+  const searchParams = useSearchParams();
+  const linkTab = searchParams.get("tab");
+  const linkFrame = (searchParams.get("frame") || "").trim() || null;
+  const linkFrom = searchParams.get("date_from") || "";
+  const linkTo = searchParams.get("date_to") || "";
+
+  const [tab, setTab] = useState(linkTab === "frames" ? 1 : 0);
   const [branchId, setBranchId] = useState<number | null>(initialBranchId);
   const [reportDate, setReportDate] = useState<string>(dateParam || yesterdayIso());
   const defaultRange = lastDaysRange(DEFAULT_RANGE_DAYS);
-  const [dateFrom, setDateFrom] = useState<string>(defaultRange.from);
-  const [dateTo, setDateTo] = useState<string>(dateParam || defaultRange.to);
-  const [frame, setFrame] = useState<string | null>(null);
+  const [dateFrom, setDateFrom] = useState<string>(linkFrom || defaultRange.from);
+  const [dateTo, setDateTo] = useState<string>(linkTo || dateParam || defaultRange.to);
+  const [frame, setFrame] = useState<string | null>(linkFrame);
 
   const [details, setDetails] = useState<DoffDetailsData | null>(null);
   const [frames, setFrames] = useState<FrameAnalysisData | null>(null);
@@ -154,7 +164,8 @@ function Content() {
     }
     if (tab === 1 && !loadedFrames.current) {
       loadedFrames.current = true;
-      void runFrames(bId, dateFrom, dateTo, null);
+      // A deep-linked frame loads with its drill-down already open.
+      void runFrames(bId, dateFrom, dateTo, frame);
     }
   }, [
     tab,
@@ -164,6 +175,7 @@ function Content() {
     reportDate,
     dateFrom,
     dateTo,
+    frame,
     runDetails,
     runFrames,
   ]);
