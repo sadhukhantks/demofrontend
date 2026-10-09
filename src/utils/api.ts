@@ -1169,6 +1169,9 @@ const apiRoutesPortalMasters = {
     WINDING_QUALITY_ADD: `${API_URL}/windingProd/quality_add`,
     WINDING_QUALITY_DELETE: `${API_URL}/windingProd/quality_delete`,
     WINDING_QUALITY_BY_DATE: `${API_URL}/windingProd/quality_by_date`,
+    // TKT-000171: reconcile the map with the unit's attendance (winding freezes nothing,
+    // so this is the winding "Sync" — a fill-sync of the map, not a reprocess).
+    WINDING_QUALITY_SYNC: `${API_URL}/windingProd/quality_sync`,
     // Winding stock — daily counted snapshot (router prefix /api/windingStock).
     // *_EDIT / *_DELETE are base paths; caller appends /${id}?co_id=...
     WINDING_STOCK_SETUP: `${API_URL}/windingStock/setup`,
