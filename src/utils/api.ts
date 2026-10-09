@@ -824,6 +824,7 @@ const apiRoutesPortalMasters = {
     EJM_WAGES_SCHEME_EMPLOYEES: `${API_URL}/hrmsMasters/ejm_wages_scheme_employees`,
     EJM_WAGES_MANUAL_CREATE: `${API_URL}/hrmsMasters/ejm_wages_manual_create`,
     EJM_WAGES_MANUAL_DELETE: `${API_URL}/hrmsMasters/ejm_wages_manual_delete`,
+    EJM_WAGES_MANUAL_UPLOAD: `${API_URL}/hrmsMasters/ejm_wages_manual_upload`,
   EJM_CASH_OUTSIDER_PROCESS: `${API_URL}/hrmsMasters/ejm_cash_outsider_process`,
     // EJM-Cumulative Data Transfer (legacy hol_get=20) -> cumulative_data_table
     EJM_CUMULATIVE_TRANSFER: `${API_URL}/hrmsMasters/ejm_cumulative_transfer`,

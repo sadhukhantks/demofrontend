@@ -365,6 +365,7 @@ const EFF_DATA_COLUMNS: GridColDef[] = [
   { field: "target_qty", headerName: "Target Qty", type: "number" },
   { field: "eff", headerName: "Eff", type: "number" },
   { field: "tareff", headerName: "Target Eff", type: "number" },
+  { field: "acteff", headerName: "Act Eff", type: "number" },
   { field: "effcode", headerName: "Eff Code" },
   { field: "prod_amount", headerName: "Prod Amount", type: "number" },
 ];

@@ -52,6 +52,7 @@ export default function EffCodeEntryPage() {
 					effocode: (r.effocode as string) ?? "",
 					code_details: (r.code_details as string) ?? "",
 					eff_pc: r.eff_pc === null || r.eff_pc === undefined ? null : Number(r.eff_pc),
+					eff_prod: (r.eff_prod as EffCodeRow["eff_prod"]) ?? null,
 				})
 			);
 
@@ -105,6 +106,7 @@ export default function EffCodeEntryPage() {
 				valueFormatter: (value: number | null) =>
 					value === null || value === undefined ? "" : value.toFixed(2),
 			},
+			{ field: "eff_prod", headerName: "Eff / Prod", flex: 0.7, minWidth: 100 },
 		],
 		[]
 	);
