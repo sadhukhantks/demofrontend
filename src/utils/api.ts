@@ -1591,6 +1591,10 @@ const apiRoutesPortalMasters = {
     // Cheap saved-mapping-only read (no carry-forward) — used by the entry grid.
     WEAVING_QUALITY_MAP_SAVED: `${API_URL}/weavingProd/quality_map_saved`,
     WEAVING_QUALITY_MAP_SAVE: `${API_URL}/weavingProd/quality_map_save`,
+    // TKT-000119: fill unmapped looms from their previous mapping (date/spell range) and
+    // the existing loom groupings (Hands Norms machine groups + Loom Groups) for bulk select.
+    WEAVING_QUALITY_MAP_CARRY_FORWARD: `${API_URL}/weavingProd/quality_map_carry_forward`,
+    WEAVING_QUALITY_MAP_GROUPS: `${API_URL}/weavingProd/quality_map_groups`,
     // Beam-change tab (router prefix /api/weavingProd)
     WEAVING_BEAM_MAP_GET: `${API_URL}/weavingProd/beam_map_get`,
     WEAVING_BEAM_MAP_SAVE: `${API_URL}/weavingProd/beam_map_save`,
