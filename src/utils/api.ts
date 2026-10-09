@@ -285,6 +285,12 @@ const apiRoutesPortalMasters = {
     JUTE_MARKET_RATES: `${API_URL}/juteMarketRate/rates`,
     JUTE_MARKET_RATES_SAVE: `${API_URL}/juteMarketRate/rates/save`,
 
+    // Tally Link Master (ERP party / item / godown -> exact Tally name, per company)
+    TALLY_LINK_SETUP: `${API_URL}/tallyLinkMaster/setup`,
+    TALLY_LINK_LIST: `${API_URL}/tallyLinkMaster/list`,
+    TALLY_LINK_CREATE: `${API_URL}/tallyLinkMaster/create`,
+    TALLY_LINK_UPDATE: `${API_URL}/tallyLinkMaster/update`,
+
     // Jute PO endpoints
     JUTE_PO_TABLE: `${API_URL}/jutePO/get_jute_po_table`,
     JUTE_PO_BY_ID: `${API_URL}/jutePO/get_jute_po_by_id`,
@@ -429,6 +435,7 @@ const apiRoutesPortalMasters = {
     JUTE_REPORT_GODOWN_WISE: `${API_URL}/juteReports/godown-wise`,
     JUTE_REPORT_BATCH_COST: `${API_URL}/juteReports/batch-cost`,
     JUTE_REPORT_MR_LIST: `${API_URL}/juteReports/mr-list`,
+    JUTE_REPORT_MR_LIST_STATUSES: `${API_URL}/juteReports/mr-list-statuses`,
     JUTE_REPORT_MR_ISSUE_DETAIL: `${API_URL}/juteReports/mr-issue-detail`,
     JUTE_REPORT_MR_MOVEMENT_DETAIL: `${API_URL}/juteReports/mr-movement-detail`,
     JUTE_REPORT_MR_OPTIONS: `${API_URL}/juteReports/mr-options`,
@@ -1209,6 +1216,21 @@ const apiRoutesPortalMasters = {
     JP_SPINNING_LOW_PRODUCER: `${API_URL}/juteProductionReports/spinning_low_producer`,
     JP_WINDING_LOW_PRODUCER: `${API_URL}/juteProductionReports/winding_low_producer`,
     JP_DOFF_ANALYSIS: `${API_URL}/juteProductionReports/doff_analysis`,
+    JP_SPINNING_PRODUCTION_TREND: `${API_URL}/juteProductionReports/spinning_production_trend`,
+    // Low Performer Follow-up (marked workers: remarks, notices, hour cuts, performance)
+    LPF_SETUP: `${API_URL}/lowPerformerFollowup/setup`,
+    LPF_LIST: `${API_URL}/lowPerformerFollowup/list`,
+    LPF_GET: `${API_URL}/lowPerformerFollowup/get`,
+    LPF_CREATE: `${API_URL}/lowPerformerFollowup/create`,
+    LPF_UPDATE: `${API_URL}/lowPerformerFollowup/update`,
+    LPF_CLOSE: `${API_URL}/lowPerformerFollowup/close`,
+    LPF_REOPEN: `${API_URL}/lowPerformerFollowup/reopen`,
+    LPF_EVENTS: `${API_URL}/lowPerformerFollowup/events`,
+    LPF_EVENT_CREATE: `${API_URL}/lowPerformerFollowup/event_create`,
+    LPF_EVENT_UPDATE: `${API_URL}/lowPerformerFollowup/event_update`,
+    LPF_EVENT_DEACTIVATE: `${API_URL}/lowPerformerFollowup/event_deactivate`,
+    LPF_PERFORMANCE: `${API_URL}/lowPerformerFollowup/performance`,
+    LPF_TRACKED: `${API_URL}/lowPerformerFollowup/tracked`,
     JP_HANDS_REPORT: `${API_URL}/juteProductionReports/hands_report`,
     JP_HANDS_REPORT_MACHINE_OVERRIDE: `${API_URL}/juteProductionReports/hands_report_machine_override`,
     JP_HANDS_REPORT_MACHINE_OVERRIDE_UNDO: `${API_URL}/juteProductionReports/hands_report_machine_override_undo`,
