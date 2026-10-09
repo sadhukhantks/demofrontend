@@ -285,6 +285,12 @@ const apiRoutesPortalMasters = {
     JUTE_MARKET_RATES: `${API_URL}/juteMarketRate/rates`,
     JUTE_MARKET_RATES_SAVE: `${API_URL}/juteMarketRate/rates/save`,
 
+    // Tally Link Master (ERP party / item / godown -> exact Tally name, per company)
+    TALLY_LINK_SETUP: `${API_URL}/tallyLinkMaster/setup`,
+    TALLY_LINK_LIST: `${API_URL}/tallyLinkMaster/list`,
+    TALLY_LINK_CREATE: `${API_URL}/tallyLinkMaster/create`,
+    TALLY_LINK_UPDATE: `${API_URL}/tallyLinkMaster/update`,
+
     // Jute PO endpoints
     JUTE_PO_TABLE: `${API_URL}/jutePO/get_jute_po_table`,
     JUTE_PO_BY_ID: `${API_URL}/jutePO/get_jute_po_by_id`,
@@ -430,6 +436,7 @@ const apiRoutesPortalMasters = {
     JUTE_REPORT_GODOWN_WISE: `${API_URL}/juteReports/godown-wise`,
     JUTE_REPORT_BATCH_COST: `${API_URL}/juteReports/batch-cost`,
     JUTE_REPORT_MR_LIST: `${API_URL}/juteReports/mr-list`,
+    JUTE_REPORT_MR_LIST_STATUSES: `${API_URL}/juteReports/mr-list-statuses`,
     JUTE_REPORT_MR_ISSUE_DETAIL: `${API_URL}/juteReports/mr-issue-detail`,
     JUTE_REPORT_MR_MOVEMENT_DETAIL: `${API_URL}/juteReports/mr-movement-detail`,
     JUTE_REPORT_MR_OPTIONS: `${API_URL}/juteReports/mr-options`,
@@ -827,6 +834,7 @@ const apiRoutesPortalMasters = {
     EJM_WAGES_SCHEME_EMPLOYEES: `${API_URL}/hrmsMasters/ejm_wages_scheme_employees`,
     EJM_WAGES_MANUAL_CREATE: `${API_URL}/hrmsMasters/ejm_wages_manual_create`,
     EJM_WAGES_MANUAL_DELETE: `${API_URL}/hrmsMasters/ejm_wages_manual_delete`,
+    EJM_WAGES_MANUAL_UPLOAD: `${API_URL}/hrmsMasters/ejm_wages_manual_upload`,
   EJM_CASH_OUTSIDER_PROCESS: `${API_URL}/hrmsMasters/ejm_cash_outsider_process`,
     // EJM-Cumulative Data Transfer (legacy hol_get=20) -> cumulative_data_table
     EJM_CUMULATIVE_TRANSFER: `${API_URL}/hrmsMasters/ejm_cumulative_transfer`,

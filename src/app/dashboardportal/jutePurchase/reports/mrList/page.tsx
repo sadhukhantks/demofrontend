@@ -31,7 +31,11 @@ export default function MrListReportPage() {
       >
         MR List Report
       </Typography>
-      <MrListReport coId={coId} branches={branches} />
+      <MrListReport
+        coId={coId}
+        companyName={selectedCompany?.co_name ?? null}
+        branches={branches}
+      />
     </Box>
   );
 }
