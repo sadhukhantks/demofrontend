@@ -60,6 +60,7 @@ function FneWagesEntry() {
 					dept_id: r.dept_id as number,
 					dept_desc: (r.dept_desc as string) ?? "",
 					quality_label: (r.quality_label as string) ?? "",
+					process: (r.process as string | null) ?? null,
 					target: r.target != null ? String(r.target) : null,
 					eff_pc: r.eff_pc != null ? String(r.eff_pc) : null,
 					status_id: Number(r.status_id ?? FNE_QUAL_TARGET_STATUS.DRAFT),
@@ -102,6 +103,7 @@ function FneWagesEntry() {
 			},
 			{ field: "dept_desc", headerName: "Department", flex: 1.2, minWidth: 200 },
 			{ field: "quality_label", headerName: "Quality", flex: 1.5, minWidth: 260 },
+			{ field: "process", headerName: "Process", width: 150 },
 			{ field: "target", headerName: "Std Target Prod", width: 130, align: "right", headerAlign: "right" },
 			{ field: "eff_pc", headerName: "Target Prod/Eff(5)", width: 150, align: "right", headerAlign: "right" },
 			{
