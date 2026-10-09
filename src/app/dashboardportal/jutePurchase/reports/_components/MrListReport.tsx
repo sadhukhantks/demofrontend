@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Autocomplete,
@@ -12,22 +12,26 @@ import {
   Typography,
 } from "@mui/material";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
-import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import { useMrListReport } from "../hooks/useMrListReport";
 import type { BranchOption, MrListReportRow } from "../types/reportTypes";
 import {
   fetchJuteTallyDownload,
-  type MrListStatusMode,
+  fetchMrListStatuses,
+  type MrListStatusOption,
 } from "@/utils/juteReportService";
 import { saveAs } from "file-saver";
+import { usePathname } from "next/navigation";
+import { exportRowsToExcel } from "@/components/reports/exportExcel";
+import { resolveReportMenuId } from "@/utils/reportMenuService";
 import {
-  MR_LIST_STATUS_OPTIONS,
+  MR_LIST_DEFAULT_STATUS_IDS,
   mrListListedDate,
   mrListStatusLabel,
 } from "./mrListRows";
 
 interface MrListReportProps {
   coId: number | null;
+  companyName?: string | null;
   branches: BranchOption[];
 }
 
@@ -96,7 +100,7 @@ const baseColumns: GridColDef<MrListReportRow>[] = [
   },
 ];
 
-/** Gate-entry columns, shown in the "all MRs" view where an MR may have no MR date yet. */
+/** Gate-entry columns: an MR that is Open or out on a transfer chain has no MR date yet. */
 const gateEntryColumns: GridColDef<MrListReportRow>[] = [
   { field: "jute_gate_entry_no", headerName: "GE #", type: "number", width: 90 },
   { field: "jute_gate_entry_date", headerName: "GE Date", width: 110 },
@@ -108,25 +112,36 @@ const gateEntryColumns: GridColDef<MrListReportRow>[] = [
   },
 ];
 
-function columnsFor(mode: MrListStatusMode): GridColDef<MrListReportRow>[] {
-  if (mode === "approved") return baseColumns;
-  const [mrNumber, mrDate, ...rest] = baseColumns;
-  return [mrNumber, mrDate, ...gateEntryColumns, ...rest];
-}
+const [mrNumberCol, mrDateCol, ...restCols] = baseColumns;
+const columns: GridColDef<MrListReportRow>[] = [mrNumberCol, mrDateCol, ...gateEntryColumns, ...restCols];
 
-export default function MrListReport({ coId, branches }: MrListReportProps) {
+export default function MrListReport({ coId, companyName, branches }: MrListReportProps) {
+  const pathname = usePathname();
   const initialRange = useMemo(() => currentMonthRange(), []);
 
   const [fromDate, setFromDate] = useState<string>(initialRange.from);
   const [toDate, setToDate] = useState<string>(initialRange.to);
   const [branch, setBranch] = useState<BranchOption | null>(null);
-  const [statusMode, setStatusMode] = useState<MrListStatusMode>("approved");
+  const [statusIds, setStatusIds] = useState<number[]>([...MR_LIST_DEFAULT_STATUS_IDS]);
+  const [statusOptions, setStatusOptions] = useState<MrListStatusOption[]>([]);
   const [downloading, setDownloading] = useState<boolean>(false);
   const [tallyError, setTallyError] = useState<string | null>(null);
   const [tallySuccess, setTallySuccess] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState<string | null>(null);
 
   const { rows, loading, error, loadReport } = useMrListReport();
+
+  // Status options differ per tenant, so they come from the company's MRs.
+  useEffect(() => {
+    if (coId == null) return;
+    let cancelled = false;
+    fetchMrListStatuses(coId)
+      .then((opts) => !cancelled && setStatusOptions(opts))
+      .catch(() => !cancelled && setStatusOptions([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [coId]);
 
   const handleLoad = useCallback(() => {
     if (coId == null) return;
@@ -135,11 +150,12 @@ export default function MrListReport({ coId, branches }: MrListReportProps) {
       branchId: branch?.branch_id ?? null,
       dateFrom: fromDate,
       dateTo: toDate,
-      status: statusMode,
+      statusIds,
+      // ponytail: backend pages at 50 by default and silently dropped the rest;
+      // 10000 is its max — add server paging if one range ever exceeds it.
+      limit: 10000,
     });
-  }, [coId, branch, fromDate, toDate, statusMode, loadReport]);
-
-  const columns = useMemo(() => columnsFor(statusMode), [statusMode]);
+  }, [coId, branch, fromDate, toDate, statusIds, loadReport]);
 
   const handleTallyDownload = useCallback(async () => {
     if (coId == null) return;
@@ -171,6 +187,23 @@ export default function MrListReport({ coId, branches }: MrListReportProps) {
       setDownloading(false);
     }
   }, [coId, branch, fromDate, toDate]);
+
+  // Regular export of the loaded grid. exportRowsToExcel reads raw fields, so the
+  // valueGetter columns (Status with the Returned mark, Listed On) are baked in first.
+  const handleExcelDownload = useCallback(async () => {
+    const exportRows = rows.map((r) => ({
+      ...r,
+      status_name: mrListStatusLabel(r),
+      listed_date: mrListListedDate(r),
+    }));
+    await exportRowsToExcel(columns, exportRows, "mr-list", {
+      companyName,
+      branchName: branch?.branch_name,
+      reportName: "MR List",
+      reportNo: await resolveReportMenuId(pathname),
+      reportFor: `${fromDate} To ${toDate}`,
+    });
+  }, [rows, companyName, branch, pathname, fromDate, toDate]);
 
   const getRowId = useCallback((row: MrListReportRow) => row.jute_mr_id, []);
 
@@ -233,15 +266,23 @@ export default function MrListReport({ coId, branches }: MrListReportProps) {
             )}
             sx={{ minWidth: 240 }}
           />
-          <SearchableOptionSelect
-            label="Show"
+          <Autocomplete
+            multiple
+            disableCloseOnSelect
+            limitTags={2}
             size="small"
-            options={MR_LIST_STATUS_OPTIONS}
-            value={statusMode}
-            clearable={false}
-            onChange={(selected) => {
-              if (selected === "approved" || selected === "all") setStatusMode(selected);
-            }}
+            options={statusOptions}
+            getOptionLabel={(o) => o.status_name}
+            isOptionEqualToValue={(o, v) => o.status_id === v.status_id}
+            value={statusOptions.filter((o) => statusIds.includes(o.status_id))}
+            onChange={(_, picked) => setStatusIds(picked.map((o) => o.status_id))}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Status"
+                placeholder={statusIds.length ? undefined : "All statuses"}
+              />
+            )}
             sx={{ minWidth: 330 }}
           />
           <Button
@@ -272,12 +313,18 @@ export default function MrListReport({ coId, branches }: MrListReportProps) {
           >
             {downloading ? "Downloading..." : "Download Tally Sheet"}
           </Button>
+          <Button
+            variant="outlined"
+            onClick={() => void handleExcelDownload()}
+            disabled={rows.length === 0 || loading}
+            sx={{ textTransform: "none" }}
+          >
+            Download Excel
+          </Button>
         </Box>
         <Typography variant="caption" sx={{ display: "block", mt: 1, color: "text.secondary" }}>
-          {statusMode === "all"
-            ? "All MRs of the range, each with its status; an MR without an MR date yet (Open, or out on a transfer chain) is listed by its gate-entry date."
-            : "Approved and finalised MRs by MR date."}{" "}
-          The Tally sheet always carries approved MRs only.
+          MRs of the ticked statuses (none ticked = all), listed by MR date, or gate-entry date when an MR has none yet (Open, or out on a transfer chain).{" "}
+          The Tally sheet always carries approved MRs only; Download Excel exports the loaded grid as shown.
         </Typography>
         {tallyError && (
           <Alert
@@ -335,7 +382,7 @@ export default function MrListReport({ coId, branches }: MrListReportProps) {
             initialState={{
               pagination: { paginationModel: { page: 0, pageSize: 50 } },
               sorting: {
-                sortModel: [{ field: statusMode === "all" ? "listed_date" : "jute_mr_date", sort: "desc" }],
+                sortModel: [{ field: "listed_date", sort: "desc" }],
               },
             }}
             disableRowSelectionOnClick

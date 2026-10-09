@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MR_LIST_STATUS_OPTIONS, mrListListedDate, mrListStatusLabel } from "./mrListRows";
+import { mrListListedDate, mrListStatusLabel } from "./mrListRows";
 
 describe("mrListStatusLabel", () => {
   it("shows the ERP status", () => {
@@ -19,11 +19,5 @@ describe("mrListListedDate", () => {
     expect(mrListListedDate({ jute_mr_date: "2026-09-03", jute_gate_entry_date: "2026-09-01" })).toBe("2026-09-03");
     expect(mrListListedDate({ jute_mr_date: null, jute_gate_entry_date: "2026-09-01" })).toBe("2026-09-01");
     expect(mrListListedDate({ jute_mr_date: null, jute_gate_entry_date: null })).toBe("");
-  });
-});
-
-describe("MR_LIST_STATUS_OPTIONS", () => {
-  it("offers exactly the two views, approved first", () => {
-    expect(MR_LIST_STATUS_OPTIONS.map((o) => o.value)).toEqual(["approved", "all"]);
   });
 });

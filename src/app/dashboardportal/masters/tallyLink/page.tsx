@@ -17,15 +17,25 @@ import {
 	type TallyLinkType,
 } from "@/utils/tallyLinkService";
 
-// Tally Link Master — the exact Tally name for an ERP party (ledger), raw-jute item (stock item)
-// or the company default godown. Tally rejects imports whose names differ from its books; the
-// Tally export falls back to the ERP name when no active link exists.
+// Tally Link Master — the exact Tally name for an ERP party (ledger), raw-jute item (stock item),
+// the company default godown or one of the company's export ledgers. Tally rejects imports whose
+// names differ from its books; the Tally exports fall back to the ERP name (ledgers: the backend's
+// ledger_defaults) when no active link exists.
 
 const TYPE_LABELS: Record<TallyLinkType, string> = {
 	PARTY: "Party (ledger)",
 	ITEM: "Item (stock item)",
 	GODOWN: "Godown (company default)",
+	PURCHASE_LEDGER: "Ledger: Purchase",
+	PURCHASE_CLAIM: "Ledger: Purchase claim",
+	TDS_194Q: "Ledger: TDS 194Q",
+	SALES_LEDGER: "Ledger: Sales",
+	SALES_CLAIM: "Ledger: Sales claim",
+	ROUND_OFF: "Ledger: Round off",
 };
+
+/** PARTY / ITEM map one ERP record; every other type is once per company (ref_id 0). */
+const needsRecord = (t: TallyLinkType | null) => t === "PARTY" || t === "ITEM";
 
 type FormState = { type: TallyLinkType | null; erp: TallyErpOption | null; tally_name: string; active: boolean };
 
@@ -88,7 +98,7 @@ export default function TallyLinkMasterPage() {
 	};
 
 	const nameValid = form.tally_name.trim() !== "" && form.tally_name.trim().length <= 255;
-	const saveDisabled = !form.type || (form.type !== "GODOWN" && !form.erp) || !nameValid;
+	const saveDisabled = !form.type || (needsRecord(form.type) && !form.erp) || !nameValid;
 
 	const handleSave = async () => {
 		if (!coId || saveDisabled || !form.type) return;
@@ -98,7 +108,7 @@ export default function TallyLinkMasterPage() {
 			: await createTallyLink({
 					co_id: Number(coId),
 					link_type: form.type,
-					ref_id: form.type === "GODOWN" ? 0 : form.erp?.ref_id ?? null,
+					ref_id: needsRecord(form.type) ? form.erp?.ref_id ?? null : 0,
 					tally_name: form.tally_name.trim(),
 				});
 		setSaving(false);
@@ -153,8 +163,9 @@ export default function TallyLinkMasterPage() {
 						Tally Link Master
 					</Typography>
 					<Typography variant="body2" color="text.secondary">
-						The exact name of each party ledger, stock item and the default godown in this company&apos;s Tally books. Unmapped
-						records go to Tally under their ERP name.
+						The exact name of each party ledger, stock item, the default godown and the purchase / sales / claim / TDS / round-off
+						ledgers in this company&apos;s Tally books. Unmapped records go to Tally under their ERP name (ledgers under the
+						standard wording).
 					</Typography>
 				</Box>
 				<Button variant="contained" startIcon={<AddIcon size={18} />} onClick={openCreate}>
@@ -193,10 +204,17 @@ export default function TallyLinkMasterPage() {
 							disabled={!!editing}
 							options={setup?.link_types ?? []}
 							value={form.type}
-							onChange={(v) => setForm((p) => ({ ...p, type: v, erp: null }))}
+							onChange={(v) =>
+								setForm((p) => {
+									// a name still equal to the previous type's default follows the type switch
+									const prevDefault = (p.type && setup?.ledger_defaults?.[p.type]) || "";
+									const keep = p.tally_name && p.tally_name !== prevDefault;
+									return { ...p, type: v, erp: null, tally_name: keep ? p.tally_name : (v && setup?.ledger_defaults?.[v]) || "" };
+								})
+							}
 							getOptionLabel={(o) => TYPE_LABELS[o] ?? o}
 						/>
-						{form.type && form.type !== "GODOWN" ? (
+						{needsRecord(form.type) ? (
 							<SearchableSelect<TallyErpOption>
 								variant="outlined"
 								size="small"
@@ -218,7 +236,11 @@ export default function TallyLinkMasterPage() {
 							value={form.tally_name}
 							onChange={(e) => setForm((p) => ({ ...p, tally_name: e.target.value }))}
 							inputProps={{ maxLength: 255 }}
-							helperText="Exactly as it appears in Tally (spelling, punctuation, case)"
+							helperText={
+								form.type && setup?.ledger_defaults?.[form.type]
+									? `Exactly as in Tally. Without a link the export uses "${setup.ledger_defaults[form.type]}".`
+									: "Exactly as it appears in Tally (spelling, punctuation, case)"
+							}
 							required
 						/>
 						{editing ? (

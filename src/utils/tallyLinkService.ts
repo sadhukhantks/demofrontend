@@ -1,6 +1,7 @@
 /**
  * Service layer for the Tally Link Master — maps ERP parties / raw-jute items / the company
- * default godown to the exact names in the company's Tally books (Tally imports fail otherwise).
+ * default godown / the company's export ledgers (purchase, sales, claim, TDS, round off) to the
+ * exact names in the company's Tally books (Tally imports fail otherwise).
  *
  * Backend: /api/tallyLinkMaster (vowerp3be src/masters/tallyLink.py), table tally_link_mst.
  */
@@ -8,7 +9,16 @@
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { fetchWithCookie } from "@/utils/apiClient2";
 
-export type TallyLinkType = "PARTY" | "ITEM" | "GODOWN";
+export type TallyLinkType =
+	| "PARTY"
+	| "ITEM"
+	| "GODOWN"
+	| "PURCHASE_LEDGER"
+	| "PURCHASE_CLAIM"
+	| "TDS_194Q"
+	| "SALES_LEDGER"
+	| "SALES_CLAIM"
+	| "ROUND_OFF";
 
 export interface TallyErpOption {
 	ref_id: number;
@@ -20,6 +30,8 @@ export interface TallyLinkSetup {
 	link_types: TallyLinkType[];
 	parties: TallyErpOption[];
 	items: TallyErpOption[];
+	/** Ledger wording the Tally exports use when the company has no row of that type. */
+	ledger_defaults: Partial<Record<TallyLinkType, string>>;
 }
 
 export interface TallyLinkRow {

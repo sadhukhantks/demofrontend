@@ -435,6 +435,7 @@ const apiRoutesPortalMasters = {
     JUTE_REPORT_GODOWN_WISE: `${API_URL}/juteReports/godown-wise`,
     JUTE_REPORT_BATCH_COST: `${API_URL}/juteReports/batch-cost`,
     JUTE_REPORT_MR_LIST: `${API_URL}/juteReports/mr-list`,
+    JUTE_REPORT_MR_LIST_STATUSES: `${API_URL}/juteReports/mr-list-statuses`,
     JUTE_REPORT_MR_ISSUE_DETAIL: `${API_URL}/juteReports/mr-issue-detail`,
     JUTE_REPORT_MR_MOVEMENT_DETAIL: `${API_URL}/juteReports/mr-movement-detail`,
     JUTE_REPORT_MR_OPTIONS: `${API_URL}/juteReports/mr-options`,
