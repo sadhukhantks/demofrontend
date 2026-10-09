@@ -12,10 +12,19 @@ import {
   Typography,
 } from "@mui/material";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
+import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import { useMrListReport } from "../hooks/useMrListReport";
 import type { BranchOption, MrListReportRow } from "../types/reportTypes";
-import { fetchJuteTallyDownload } from "@/utils/juteReportService";
+import {
+  fetchJuteTallyDownload,
+  type MrListStatusMode,
+} from "@/utils/juteReportService";
 import { saveAs } from "file-saver";
+import {
+  MR_LIST_STATUS_OPTIONS,
+  mrListListedDate,
+  mrListStatusLabel,
+} from "./mrListRows";
 
 interface MrListReportProps {
   coId: number | null;
@@ -44,9 +53,9 @@ function fmtNum(value: unknown): string {
   return Number.isFinite(n) ? n.toFixed(2) : "";
 }
 
-const columns: GridColDef<MrListReportRow>[] = [
+const baseColumns: GridColDef<MrListReportRow>[] = [
   { field: "mr_number", headerName: "MR #", width: 140 },
-  { field: "jute_mr_date", headerName: "Date", width: 110 },
+  { field: "jute_mr_date", headerName: "MR Date", width: 110 },
   { field: "party_name", headerName: "Party", flex: 1, minWidth: 180 },
   { field: "branch_name", headerName: "Branch", width: 160 },
   { field: "vehicle_no", headerName: "Vehicle", width: 130 },
@@ -79,8 +88,31 @@ const columns: GridColDef<MrListReportRow>[] = [
     width: 130,
     valueFormatter: (value: unknown) => fmtNum(value),
   },
-  { field: "status_name", headerName: "Status", width: 130 },
+  {
+    field: "status_name",
+    headerName: "Status",
+    width: 150,
+    valueGetter: (_value: unknown, row: MrListReportRow) => mrListStatusLabel(row),
+  },
 ];
+
+/** Gate-entry columns, shown in the "all MRs" view where an MR may have no MR date yet. */
+const gateEntryColumns: GridColDef<MrListReportRow>[] = [
+  { field: "jute_gate_entry_no", headerName: "GE #", type: "number", width: 90 },
+  { field: "jute_gate_entry_date", headerName: "GE Date", width: 110 },
+  {
+    field: "listed_date",
+    headerName: "Listed On",
+    width: 110,
+    valueGetter: (_value: unknown, row: MrListReportRow) => mrListListedDate(row),
+  },
+];
+
+function columnsFor(mode: MrListStatusMode): GridColDef<MrListReportRow>[] {
+  if (mode === "approved") return baseColumns;
+  const [mrNumber, mrDate, ...rest] = baseColumns;
+  return [mrNumber, mrDate, ...gateEntryColumns, ...rest];
+}
 
 export default function MrListReport({ coId, branches }: MrListReportProps) {
   const initialRange = useMemo(() => currentMonthRange(), []);
@@ -88,6 +120,7 @@ export default function MrListReport({ coId, branches }: MrListReportProps) {
   const [fromDate, setFromDate] = useState<string>(initialRange.from);
   const [toDate, setToDate] = useState<string>(initialRange.to);
   const [branch, setBranch] = useState<BranchOption | null>(null);
+  const [statusMode, setStatusMode] = useState<MrListStatusMode>("approved");
   const [downloading, setDownloading] = useState<boolean>(false);
   const [tallyError, setTallyError] = useState<string | null>(null);
   const [tallySuccess, setTallySuccess] = useState<string | null>(null);
@@ -102,8 +135,11 @@ export default function MrListReport({ coId, branches }: MrListReportProps) {
       branchId: branch?.branch_id ?? null,
       dateFrom: fromDate,
       dateTo: toDate,
+      status: statusMode,
     });
-  }, [coId, branch, fromDate, toDate, loadReport]);
+  }, [coId, branch, fromDate, toDate, statusMode, loadReport]);
+
+  const columns = useMemo(() => columnsFor(statusMode), [statusMode]);
 
   const handleTallyDownload = useCallback(async () => {
     if (coId == null) return;
@@ -197,6 +233,17 @@ export default function MrListReport({ coId, branches }: MrListReportProps) {
             )}
             sx={{ minWidth: 240 }}
           />
+          <SearchableOptionSelect
+            label="Show"
+            size="small"
+            options={MR_LIST_STATUS_OPTIONS}
+            value={statusMode}
+            clearable={false}
+            onChange={(selected) => {
+              if (selected === "approved" || selected === "all") setStatusMode(selected);
+            }}
+            sx={{ minWidth: 330 }}
+          />
           <Button
             variant="contained"
             onClick={handleLoad}
@@ -226,6 +273,12 @@ export default function MrListReport({ coId, branches }: MrListReportProps) {
             {downloading ? "Downloading..." : "Download Tally Sheet"}
           </Button>
         </Box>
+        <Typography variant="caption" sx={{ display: "block", mt: 1, color: "text.secondary" }}>
+          {statusMode === "all"
+            ? "All MRs of the range, each with its status; an MR without an MR date yet (Open, or out on a transfer chain) is listed by its gate-entry date."
+            : "Approved and finalised MRs by MR date."}{" "}
+          The Tally sheet always carries approved MRs only.
+        </Typography>
         {tallyError && (
           <Alert
             severity="error"
@@ -282,7 +335,7 @@ export default function MrListReport({ coId, branches }: MrListReportProps) {
             initialState={{
               pagination: { paginationModel: { page: 0, pageSize: 50 } },
               sorting: {
-                sortModel: [{ field: "jute_mr_date", sort: "desc" }],
+                sortModel: [{ field: statusMode === "all" ? "listed_date" : "jute_mr_date", sort: "desc" }],
               },
             }}
             disableRowSelectionOnClick

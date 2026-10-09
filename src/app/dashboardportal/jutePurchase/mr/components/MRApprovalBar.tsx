@@ -28,6 +28,8 @@ type MRApprovalBarProps = {
 	canSetPending: boolean;
 	canReopen: boolean;
 	canReturnLorry: boolean;
+	canUnreturnLorry: boolean;
+	isReturned: boolean;
 	partyHasNoBranches: boolean;
 	onOpen: () => Promise<void>;
 	onApprove: () => void | Promise<void>;
@@ -36,13 +38,14 @@ type MRApprovalBarProps = {
 	onCancel: () => Promise<void>;
 	onReopen: () => void;
 	onReturn: (reason: string) => Promise<void>;
+	onUnreturn: () => Promise<void>;
 	onViewApprovalLog?: () => void;
 };
 
 /**
  * Wraps ApprovalActionsBar and adds MR-specific buttons: custom Pending,
  * Reopen (decision D2, opens MRReopenDialog in the caller), and Return lorry
- * (decision "Return lorry": status 48, no settlement — reason required).
+ * (decision "Return lorry": is_returned flag, status unchanged — reason required).
  */
 export function MRApprovalBar({
 	approvalInfo,
@@ -52,6 +55,8 @@ export function MRApprovalBar({
 	canSetPending,
 	canReopen,
 	canReturnLorry,
+	canUnreturnLorry,
+	isReturned,
 	partyHasNoBranches,
 	onOpen,
 	onApprove,
@@ -60,6 +65,7 @@ export function MRApprovalBar({
 	onCancel,
 	onReopen,
 	onReturn,
+	onUnreturn,
 	onViewApprovalLog,
 }: MRApprovalBarProps) {
 	const [returnDialogOpen, setReturnDialogOpen] = React.useState(false);
@@ -101,7 +107,19 @@ export function MRApprovalBar({
 				</Button>
 			)}
 
-			{/* Return lorry - lorry sent back to supplier without settlement */}
+			{/* Returned mark: lorry went back, but the retained material continues through approval, payment and transfer */}
+			{isReturned && (
+				<span title="Lorry returned to the supplier; the retained material is still stock and payable">
+					Returned
+				</span>
+			)}
+			{canUnreturnLorry && (
+				<Button variant="outlined" size="small" disabled={loading} onClick={onUnreturn} title="Remove the Returned mark">
+					Undo return
+				</Button>
+			)}
+
+			{/* Return lorry - lorry sent back to supplier; retained material still counts */}
 			{canReturnLorry && (
 				<Button
 					variant="outlined"
@@ -109,7 +127,7 @@ export function MRApprovalBar({
 					size="small"
 					disabled={loading}
 					onClick={() => setReturnDialogOpen(true)}
-					title="Mark this MR Returned (lorry sent back without settlement)"
+					title="Mark this MR Returned (lorry sent back; edit the lines to the retained quantity)"
 				>
 					Return lorry
 				</Button>

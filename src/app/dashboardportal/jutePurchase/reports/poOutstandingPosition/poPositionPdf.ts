@@ -35,7 +35,17 @@ export interface PdfTable {
   totalRows: number[];
   /** Per column: numbers right, text left. */
   aligns: ("left" | "right")[];
+  /** Per column: print each line unwrapped (see PDF_NOWRAP_FIELDS). */
+  noWrap: boolean[];
 }
+
+/**
+ * Multi-line cells whose line n must stay beside line n of the other: the PO
+ * Detail tab's Qualities and Rate (TKT-208). If autotable wrapped a long quality
+ * onto two printed lines, every rate below it would print one line too high, so
+ * these columns take their content width instead and the rest of the table gives.
+ */
+export const PDF_NOWRAP_FIELDS: ReadonlySet<string> = new Set(["qualities", "rates"]);
 
 /**
  * Fields the owner does not want on the print (2026-09-25): rupee balance and
@@ -80,6 +90,7 @@ export function pdfTableFromSection<T extends GridValidRowModel>(s: PdfSection<T
     body,
     totalRows,
     aligns: cols.map((c) => (c.type === "number" ? "right" : "left")),
+    noWrap: cols.map((c) => PDF_NOWRAP_FIELDS.has(c.field)),
   };
 }
 
@@ -145,8 +156,13 @@ export async function exportPoPositionPdf<T extends GridValidRowModel>(
       head: [t.head],
       body: t.body,
       styles: { fontSize: 7, cellPadding: 1.2, overflow: "linebreak" },
+      // A PO row is a few lines at most; never split one across pages, so its
+      // rates stay on the same page as its qualities (TKT-208).
+      rowPageBreak: "avoid",
       headStyles: { fillColor: BLUE, textColor: 255, fontStyle: "bold" },
-      columnStyles: Object.fromEntries(t.aligns.map((a, i) => [i, { halign: a }])),
+      columnStyles: Object.fromEntries(
+        t.aligns.map((a, i) => [i, t.noWrap[i] ? { halign: a, cellWidth: "wrap" as const } : { halign: a }]),
+      ),
       margin: { left: marginX, right: marginX },
       // Grand Total row shaded like the Excel export: blue band, white bold.
       didParseCell: (data) => {

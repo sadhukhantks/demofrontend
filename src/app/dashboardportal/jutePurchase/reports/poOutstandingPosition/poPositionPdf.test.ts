@@ -3,6 +3,7 @@ import type { GridColDef } from "@mui/x-data-grid";
 import { numCol } from "@/components/reports/ReportGrid";
 import {
   PDF_EXCLUDED_FIELDS,
+  PDF_NOWRAP_FIELDS,
   pdfDataColumns,
   pdfSubtitle,
   pdfTableFromSection,
@@ -65,6 +66,22 @@ describe("pdfTableFromSection", () => {
     ]);
     expect(t.totalRows).toEqual([1]);
     expect(t.aligns).toEqual(["left", "right", "left"]);
+    expect(t.noWrap).toEqual([false, false, false]);
+  });
+
+  it("keeps Qualities and Rate unwrapped so rate n stays beside quality n (TKT-208)", () => {
+    type R = { id: string; po_label: string; qualities: string; rates: string };
+    const t = pdfTableFromSection<R>({
+      title: "PO-wise",
+      columns: [
+        { field: "po_label", headerName: "PO #" },
+        { field: "qualities", headerName: "Qualities" },
+        { field: "rates", headerName: "Rate (per Qtl)", align: "right" },
+      ],
+      rows: [{ id: "1", po_label: "P1", qualities: "A TD-8 (U) ×500 loose\nROPES ×46 loose", rates: "16,500\n12,000" }],
+    });
+    expect(t.noWrap).toEqual([false, true, true]);
+    expect([...PDF_NOWRAP_FIELDS]).toEqual(["qualities", "rates"]);
   });
 
   it("copes with an empty section", () => {

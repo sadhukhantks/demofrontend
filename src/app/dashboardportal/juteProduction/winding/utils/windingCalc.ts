@@ -45,21 +45,42 @@ export function validateWindingNet(net: number): boolean {
 	return WINDING_NET_MIN <= net && net <= WINDING_NET_MAX;
 }
 
-// Winder-wise production rollup — one row per (winder, yarn quality) for the
-// selected spell, straight off the server reconciliation rows
-// (WINDING_SPELL_REPORT). production_kg already carries the jugar adjustment
-// (doff sum - opening + closing); re-summing the raw doff nets here is what
-// made the jugar drop out of Production / Total (TKT-000087), so this helper
-// deliberately only filters, labels and sorts — it never recomputes weights.
+// Winder-wise production rollup — one row per (spell, winder, yarn quality),
+// straight off the server reconciliation rows (WINDING_SPELL_REPORT).
+// production_kg already carries the jugar adjustment (doff sum - opening +
+// closing); re-summing the raw doff nets here is what made the jugar drop out of
+// Production / Total (TKT-000087), so this helper deliberately only filters,
+// labels and sorts — it never recomputes weights.
+//
+// TKT-000169: rows also carry the machine the winder was mapped to and the
+// target, and `spellId = null` returns EVERY spell of the day (shifts A, B and C
+// together) instead of only the one picked in the shared Spell selector.
 export type WinderWiseRow = {
 	id: string;
+	eb_id: number | null;
+	spell_code: string;
+	shift: string;
 	winder: string;
+	machine: string;
 	item_code: string;
 	sum_production: number;
 	opening_jugar: number;
 	closing_jugar: number;
 	production_kg: number;
+	// null = the quality has no target configured (not "target of zero").
+	target_kg: number | null;
 };
+
+// Machine label as the Quality tab shows it: code first, name as the fallback.
+function machineLabel(r: WindingSpellReportRow): string {
+	return r.mech_code || r.machine_name || "";
+}
+
+// A, B, C in order; anything else (a spell with no A/B/C code) sorts last.
+function shiftOrder(shift: string): number {
+	const i = "ABC".indexOf(shift);
+	return shift === "" || i < 0 ? 3 : i;
+}
 
 export function winderWiseRows(
 	rows: WindingSpellReportRow[],
@@ -69,18 +90,61 @@ export function winderWiseRows(
 		.filter((r) => spellId == null || Number(r.spell_id) === spellId)
 		.map((r) => ({
 			id: `${r.spell_id ?? "-"}|${r.eb_id ?? "-"}|${r.item_id ?? "-"}`,
+			eb_id: r.eb_id ?? null,
+			spell_code: r.spell_code ?? "—",
+			shift: (r.shift ?? "").slice(0, 1).toUpperCase(),
 			winder: [r.emp_code, r.worker_name].filter(Boolean).join(" - ") || "—",
+			machine: machineLabel(r) || "—",
 			item_code: r.item_code ?? "—",
 			sum_production: round3(Number(r.sum_production) || 0),
 			opening_jugar: round3(Number(r.opening_jugar) || 0),
 			closing_jugar: round3(Number(r.closing_jugar) || 0),
 			production_kg: round3(Number(r.production_kg) || 0),
+			target_kg: r.target_kg == null ? null : round3(Number(r.target_kg) || 0),
 		}))
-		.sort((a, b) => a.winder.localeCompare(b.winder) || a.item_code.localeCompare(b.item_code));
+		.sort(
+			(a, b) =>
+				shiftOrder(a.shift) - shiftOrder(b.shift) ||
+				a.spell_code.localeCompare(b.spell_code) ||
+				a.winder.localeCompare(b.winder) ||
+				a.item_code.localeCompare(b.item_code),
+		);
 }
 
 // Day/spell total shown above the grid — the sum of the reconciled kg, not of
 // the doff nets.
 export function winderWiseTotal(rows: WinderWiseRow[]): number {
 	return round3(rows.reduce((a, r) => a + r.production_kg, 0));
+}
+
+// Per-shift subtotals for the strip above the grid. Shifts A, B and C are always
+// listed (a shift nobody has entered yet reads 0 rather than silently missing);
+// an "Other" bucket appears only when some row's spell resolves to none of them.
+// `target_kg` sums the rows that HAVE a target and is null when none do, so a
+// tenant with no winding standards configured sees no target at all.
+export type WinderWiseShiftTotal = {
+	shift: string;
+	winders: number;
+	production_kg: number;
+	target_kg: number | null;
+};
+
+export function winderWiseShiftTotals(rows: WinderWiseRow[]): WinderWiseShiftTotal[] {
+	const buckets = ["A", "B", "C"];
+	const hasOther = rows.some((r) => !buckets.includes(r.shift));
+	return [...buckets, ...(hasOther ? [""] : [])].map((shift) => {
+		const inShift = rows.filter((r) =>
+			shift === "" ? !buckets.includes(r.shift) : r.shift === shift,
+		);
+		const withTarget = inShift.filter((r) => r.target_kg != null);
+		return {
+			shift: shift || "Other",
+			winders: new Set(inShift.map((r) => r.eb_id ?? r.winder)).size,
+			production_kg: round3(inShift.reduce((a, r) => a + r.production_kg, 0)),
+			target_kg:
+				withTarget.length === 0
+					? null
+					: round3(withTarget.reduce((a, r) => a + (r.target_kg ?? 0), 0)),
+		};
+	});
 }
