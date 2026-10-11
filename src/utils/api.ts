@@ -143,6 +143,7 @@ const apiRoutesPortalMasters = {
     ITEM_MAKE_CREATE_SETUP: `${API_URL}/itemMaster/item_make_create_setup`,
     ITEM_MAKE_CREATE: `${API_URL}/itemMaster/item_make_create`,
     ITEM_SEARCH: `${API_URL}/itemMaster/item_search`,
+    ITEM_BRANCH_POSITION: `${API_URL}/itemMaster/item_branch_position`, // TKT-000193: stock / pending indent / pending PO / in receipt per item at a branch
 
         // Item BOM Master endpoints
     BOM_LIST: `${API_URL}/itemBomMaster/get_bom_list`,
