@@ -52,8 +52,22 @@ export interface DprSpinningAvgCount {
   /** Qualities covered by the std-weighted figure, out of `qualities`. */
   std_qualities: number;
   qualities: number;
-  /** Qualities with no count on the yarn master — left out of all three. */
+  /** Qualities with no count on the yarn master — left out of the std column. */
   count_missing: string[];
+  /**
+   * TKT-000201 — the same three weightings on the ACTUAL count entered in
+   * Spinning SQC (the day's AVG observed count per quality, = the quality
+   * table's Act Count). A quality with no SQC reading falls back to its std
+   * count (named in act_fallback). Optional: absent from a backend that
+   * predates the ticket, in which case only the std column is shown.
+   */
+  act_by_frames?: number | null;
+  act_by_production?: number | null;
+  act_by_std_production?: number | null;
+  /** kg of the day's production whose quality had an SQC count reading. */
+  act_measured_kg?: number;
+  /** Qualities with no SQC count for the day — std count used instead. */
+  act_fallback?: string[];
 }
 
 export interface DprSpinningSection {
