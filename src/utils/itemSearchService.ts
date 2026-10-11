@@ -90,3 +90,49 @@ export const fetchItemSearch = async (
 		uoms: (result?.uoms as ItemSearchUom[]) ?? [],
 	};
 };
+
+/**
+ * Procurement position of one item at one branch (TKT-000193), as returned by
+ * `/itemMaster/item_branch_position`. All quantities are in the item's base UOM.
+ */
+export type ItemBranchPosition = {
+	item_id: number;
+	/** Current stock: approved store-receipt balance less issues and returns. */
+	cur_stock: number;
+	/** Indented but not yet ordered on a purchase order. */
+	pending_indent_qty: number;
+	/** Ordered on a purchase order but not yet received at the gate. */
+	pending_po_qty: number;
+	/** Gate entry done; material inspection or SR approval still pending. */
+	in_process_qty: number;
+};
+
+/**
+ * Fetch the procurement position of a set of items at a branch, keyed by item id.
+ * Meant for one dialog page at a time (the backend caps `itemIds` at 50).
+ */
+export const fetchItemBranchPosition = async (
+	branchId: string,
+	itemIds: readonly number[]
+): Promise<Record<number, ItemBranchPosition>> => {
+	if (!branchId || itemIds.length === 0) return {};
+
+	const searchParams = new URLSearchParams();
+	searchParams.append("branch_id", branchId);
+	searchParams.append("item_ids", itemIds.join(","));
+
+	const url = `${apiRoutesPortalMasters.ITEM_BRANCH_POSITION}?${searchParams.toString()}`;
+	const response = await fetchWithCookie(url, "GET");
+
+	if (!response || response.error) {
+		throw new Error(response?.error ?? "Failed to fetch item position");
+	}
+
+	const result = response.data as Record<string, unknown> | null;
+	const rows = Array.isArray(result?.data) ? (result.data as ItemBranchPosition[]) : [];
+	const byId: Record<number, ItemBranchPosition> = {};
+	for (const row of rows) {
+		if (row && typeof row.item_id === "number") byId[row.item_id] = row;
+	}
+	return byId;
+};
