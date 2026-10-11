@@ -260,14 +260,92 @@ export interface DprHandsShiftRow {
   mtd_hands: number;
 }
 
+/** One production stage of the hands/MT split (TKT-000185). */
+export interface DprHandsStage {
+  label: string;
+  /** What `day_mt` / `mtd_mt` are: "spinning output" (yarn stage) or
+   * "weaving output" (cloth stage). */
+  basis_label: string;
+  /** Departments (by name) that landed in this stage — the mapping is by
+   * name, so the page lists it for checking. */
+  depts: string[];
+  direct_day_hands: number;
+  direct_mtd_hands: number;
+  /** Share of the common hands spread onto this stage. */
+  common_day_hands: number;
+  common_mtd_hands: number;
+  day_hands: number;
+  mtd_hands: number;
+  day_mt: number;
+  mtd_mt: number;
+  /** null = the stage produced nothing that period (not 0 hands/MT). */
+  hands_per_mt: number | null;
+  mtd_hands_per_mt: number | null;
+}
+
+/** Hands per MT of cloth = yarn stage ÷ spinning MT + cloth stage ÷ weaving MT,
+ * common hands spread pro-rata (TKT-000185). */
+export interface DprHandsStages {
+  /** false = no attendance row resolved to a department; the page shows the
+   * TKT-000117 fallback (all hands ÷ spinning MT). */
+  available: boolean;
+  yarn: DprHandsStage;
+  cloth: DprHandsStage;
+  common: {
+    label: string;
+    depts: string[];
+    day_hands: number;
+    mtd_hands: number;
+    /** % of the common hands given to the yarn stage (day / MTD). */
+    yarn_share_pct: number;
+    mtd_yarn_share_pct: number;
+  };
+  total: {
+    day_hands: number;
+    mtd_hands: number;
+    hands_per_mt: number | null;
+    mtd_hands_per_mt: number | null;
+  };
+}
+
+export interface DprYarnBalancePeriod {
+  spun_mt: number;
+  /** Approved Yarn Issues net of returns; null when the tenant has no yarn
+   * purchase tables. */
+  purchased_issued_mt: number | null;
+  woven_mt: number;
+  /** spun + purchased − woven: yarn that went to stock or sale. */
+  surplus_mt: number;
+}
+
+export interface DprYarnBalance {
+  purchased_available: boolean;
+  day: DprYarnBalancePeriod;
+  mtd: DprYarnBalancePeriod;
+}
+
+/** The previous figure (TKT-000117): every hand in the mill ÷ spinning MT —
+ * kept beside the stage-wise one for continuity with earlier sheets. */
+export interface DprHandsSpinningBasis {
+  label: string;
+  day_hands: number;
+  mtd_hands: number;
+  day_mt: number;
+  mtd_mt: number;
+  hands_per_mt: number | null;
+  mtd_hands_per_mt: number | null;
+}
+
 export interface DprHandsSection {
   shifts: DprHandsShiftRow[];
   total: { day_hours: number; day_hands: number; mtd_hours: number; mtd_hands: number };
-  hands_per_mt: number;
-  /** The MT `hands_per_mt` was divided by, and what that MT is (TKT-000117) —
-   * without it the ratio can't be checked against the figures on the page. */
-  basis_mt: number;
+  /** Hands per MT of cloth (TKT-000185); null when a stage produced nothing. */
+  hands_per_mt: number | null;
+  mtd_hands_per_mt: number | null;
   basis_label: string;
+  stages: DprHandsStages;
+  spinning_basis: DprHandsSpinningBasis;
+  yarn_balance: DprYarnBalance;
 }
 
 /** Shifts the mill actually produced in — day and month-to-date (TKT-000152). */
@@ -318,10 +396,17 @@ export interface DprKpi {
   /** Shifts worked on the day / MTD (union over sections) — TKT-000152. */
   shifts_worked: number;
   shifts_worked_mtd: number;
-  hands_per_mt: number;
-  /** The MT the ratio was divided by (TKT-000117) — shown on the KPI card so
-   * hands ÷ MT reconciles without hunting for the basis further down the page. */
-  hands_basis_mt: number;
+  /** Hands per MT of cloth = `hands_per_mt_yarn` + `hands_per_mt_cloth`
+   * (TKT-000185); the addends and the MTD figure ride on the card so it
+   * reconciles on screen. null when a stage produced nothing. */
+  hands_per_mt: number | null;
+  hands_per_mt_yarn: number | null;
+  hands_per_mt_cloth: number | null;
+  hands_per_mt_mtd: number | null;
+  /** false = TKT-000117 fallback (all hands ÷ spinning MT): no department resolved. */
+  hands_stage_basis: boolean;
+  /** The previous figure, all hands ÷ spinning MT, kept beside the new one. */
+  hands_per_mt_spinning_basis: number | null;
   /** Raw closing stock in the tenant's stored weight unit (kg on some
    * tenants, quintal on others) — deliberately NOT converted to MT. */
   jute_closing_weight: number | null;

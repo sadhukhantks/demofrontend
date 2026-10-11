@@ -54,8 +54,10 @@ const cutCols = <T extends WithId<LossShiftRow | LossWeekdayRow | LossHandsRow |
   { field: "kg", header: "Production (kg)", short: "Kg", num: true, decimals: 0, width: 130 },
   { field: "kg_per_frame_shift", header: "Kg / frame-shift", short: "Kg/fr-shift", num: true, decimals: 1, width: 130 },
   { field: "std_kg_per_frame_shift", header: "Std / frame-shift", short: "Std/fr-shift", num: true, decimals: 1, width: 130 },
+  { field: "stdc_kg_per_frame_shift", header: "Std at std count / frame-shift", num: true, decimals: 1, width: 190, phone: false },
   { field: "tgt_kg_per_frame_shift", header: "Target / frame-shift", num: true, decimals: 1, width: 150, phone: false },
   { field: "std_kg", header: "Standard (kg)", short: "Std kg", num: true, decimals: 0, width: 130 },
+  { field: "stdc_kg", header: "Std at std count (kg)", num: true, decimals: 0, width: 160, phone: false },
   { field: "tgt_kg", header: "Target (kg)", num: true, decimals: 0, width: 120, phone: false },
   { field: "gap_kg", header: "Gap (kg)", num: true, decimals: 0, width: 100 },
   { field: "gap_share_pct", header: "Share of gap %", short: "Gap %", num: true, decimals: 1, width: 120 },
@@ -191,6 +193,7 @@ export default function LossTab({
       const actual: (number | null)[] = dates.map(() => null);
       const std: (number | null)[] = dates.map(() => null);
       const tgt: (number | null)[] = dates.map(() => null);
+      const stdc: (number | null)[] = dates.map(() => null);
       data.day_shift
         .filter((r) => r.shift === sh)
         .forEach((r) => {
@@ -199,12 +202,13 @@ export default function LossTab({
           actual[i] = r.kg_per_frame_shift;
           std[i] = r.std_kg_per_frame_shift ?? null;
           tgt[i] = r.tgt_kg_per_frame_shift ?? null;
+          stdc[i] = r.stdc_kg_per_frame_shift ?? null;
         });
       const label = SHIFT_LABEL[sh] ?? sh;
       return {
         shift: sh,
         label,
-        series: actualStdTgtLines(label, SERIES_COLORS[SHIFT_ORDER.indexOf(sh)], actual, std, tgt),
+        series: actualStdTgtLines(label, SERIES_COLORS[SHIFT_ORDER.indexOf(sh)], actual, std, tgt, stdc),
         hasStd: std.some((v) => v != null),
       };
     });

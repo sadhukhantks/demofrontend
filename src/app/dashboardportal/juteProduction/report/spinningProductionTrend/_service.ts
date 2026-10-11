@@ -30,6 +30,13 @@ export interface TargetFields {
   tgt_kg?: number | null;
   tgt_kg_per_frame_shift?: number | null;
   tgt_frame_shifts?: number;
+  /** The standard restated at the yarn's standard count (Yarn master) in
+   * place of the day's SQC count — what the standard would be at the count
+   * the yarn is meant to be spun at. Null where no unit in the cut has both
+   * a standard and the two counts. */
+  stdc_kg?: number | null;
+  stdc_kg_per_frame_shift?: number | null;
+  stdc_frame_shifts?: number;
 }
 
 export interface TrendDayRow extends TargetFields, GapFields {
