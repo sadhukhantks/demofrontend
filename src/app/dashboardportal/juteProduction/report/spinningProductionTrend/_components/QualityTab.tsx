@@ -37,12 +37,14 @@ const qualityCols: Col<QualityGridRow>[] = [
   { field: "quality", header: "Quality", flex: true, minWidth: 160 },
   { field: "kg", header: "Production (kg)", short: "Kg", num: true, decimals: 0, width: 130 },
   { field: "std_kg", header: "Standard (kg)", short: "Std kg", num: true, decimals: 0, width: 130 },
+  { field: "stdc_kg", header: "Std at std count (kg)", num: true, decimals: 0, width: 160, phone: false },
   { field: "tgt_kg", header: "Target (kg)", short: "Tgt kg", num: true, decimals: 0, width: 120, phone: false },
   { field: "gap_kg", header: "Gap to std (kg)", short: "Gap", num: true, decimals: 0, width: 130 },
   { field: "share_pct", header: "Share %", num: true, decimals: 1, width: 90, phone: false },
   { field: "frame_shifts", header: "Frame-shifts", short: "Fr-shifts", num: true, decimals: 0, width: 110 },
   { field: "kg_per_frame_shift", header: "Kg / frame-shift", short: "Kg/fr-shift", num: true, decimals: 1, width: 130 },
   { field: "std_kg_per_frame_shift", header: "Std / frame-shift", short: "Std/fr-shift", num: true, decimals: 1, width: 130 },
+  { field: "stdc_kg_per_frame_shift", header: "Std at std count / frame-shift", num: true, decimals: 1, width: 190, phone: false },
   { field: "tgt_kg_per_frame_shift", header: "Target / frame-shift", num: true, decimals: 1, width: 150, phone: false },
   { field: "days", header: "Days", num: true, decimals: 0, width: 70, phone: false },
   { field: "frames", header: "Frames", num: true, decimals: 0, width: 80, phone: false },
@@ -82,21 +84,24 @@ export default function QualityTab({
   const [measure, setMeasure] = React.useState<PivotMeasure>("kg");
   const smallHeight = isPhone ? 190 : 210;
   const hasTgt = data.summary.tgt_kg != null;
+  const hasStdc = data.summary.stdc_kg != null;
   const measures = React.useMemo(
-    () => PIVOT_MEASURES.filter((m) => !m.needsTarget || hasTgt),
-    [hasTgt],
+    () => PIVOT_MEASURES.filter((m) => (!m.needsTarget || hasTgt) && (!m.needsStdc || hasStdc)),
+    [hasTgt, hasStdc],
   );
 
   const dates = React.useMemo(() => data.days.map((d) => d.date), [data.days]);
   const slots = React.useMemo(() => qualitySlots(data.qualities), [data.qualities]);
-  // One small multiple per quality: actual vs standard vs target.
+  // One small multiple per quality: actual vs standard (and std at std
+  // count) vs target.
   const multiples = React.useMemo(() => {
     const actual = qualityLines(dates, data.day_quality, slots, "actual");
     const std = qualityLines(dates, data.day_quality, slots, "std");
     const tgt = qualityLines(dates, data.day_quality, slots, "tgt");
+    const stdc = qualityLines(dates, data.day_quality, slots, "stdc");
     return slots.map((s, i) => ({
       slot: s,
-      series: actualStdTgtLines(s.label, s.color, actual[i].data, std[i].data, tgt[i].data),
+      series: actualStdTgtLines(s.label, s.color, actual[i].data, std[i].data, tgt[i].data, stdc[i].data),
       hasStd: std[i].data.some((v) => v != null),
     }));
   }, [dates, data.day_quality, slots]);
@@ -133,7 +138,7 @@ export default function QualityTab({
     <Stack spacing={isPhone ? 1.5 : 2}>
       <SectionCard
         title="Kg per frame-shift by quality — actual vs standard"
-        subtitle={`each quality against its own standard${hasTgt ? " and target" : ""}, per day; a gap is a day it did not run`}
+        subtitle={`each quality against its own standard${hasStdc ? " (dash-dot: at the standard count)" : ""}${hasTgt ? " and target" : ""}, per day; a gap is a day it did not run`}
       >
         <Box
           sx={{
