@@ -330,7 +330,8 @@ function Content() {
               state={utilState(data.kpi.frame_utilization_pct)}
             />
             {/* Average count by frames / production / std production
-                (TKT-000173) — the detail table sits under the quality section. */}
+                (TKT-000173): SQC actual count as the headline, std count in the
+                caption (TKT-000201) — the detail table sits under the quality section. */}
             {spinning?.avg_count ? (
               <KpiCard label="Avg Count (lb)" {...avgCountKpi(spinning.avg_count)} />
             ) : null}

@@ -157,6 +157,9 @@ export interface BatchCostReportRow {
   mtd_issue_value: number;
   mtd_variance: number;
   variance: number;
+  /** 1 = jute waste re-issued into the batch: a memo line, NOT part of the
+   * batch cost (owner ruling 2026-10-08). Absent on older backends = 0. */
+  is_waste?: number;
 }
 
 /** Row from GET /api/juteReports/issue-yarn-wise (TKT-000214) — jute issued

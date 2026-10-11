@@ -1,3 +1,9 @@
+import {
+  gridNumberComparator,
+  gridStringOrNumberComparator,
+  type GridColDef,
+  type GridComparatorFn,
+} from "@mui/x-data-grid";
 import type { JuteStockReportRow } from "../types/reportTypes";
 
 /** The weight columns of the Jute Stock report, in grid order. */
@@ -27,6 +33,54 @@ const ROW_PRESENCE_FIELDS: readonly StockWeightField[] = STOCK_WEIGHT_FIELDS;
 
 /** item_id / item_grp_id of the client-added Grand Total row. */
 export const GRAND_TOTAL_ID = -1;
+
+/** Grid row id of a stock row (item group + item). */
+export const stockRowId = (r: JuteStockReportRow) => `${r.item_grp_id}-${r.item_id}`;
+
+/** Grid row id of the client-added Grand Total row. */
+export const GRAND_TOTAL_ROW_ID = `${GRAND_TOTAL_ID}-${GRAND_TOTAL_ID}`;
+
+/**
+ * Keep the Grand Total row at the bottom whatever column the grid is sorted
+ * on, ascending or descending (TKT-000205).
+ *
+ * The row used to rely on `item_group_name: null` sorting last, but MUI's
+ * comparators put null FIRST in ascending order — and the report opens sorted
+ * ascending on Item Group, so the total landed on top. A per-column
+ * getSortComparator pins it instead: the Grand Total compares greater than any
+ * real row in BOTH directions, and real rows sort with the column's normal
+ * comparator. (Pinned rows are a DataGrid Pro feature; this is the community
+ * equivalent.) The row stays in the data, so the exports keep it last too.
+ */
+export function pinGrandTotalLast<T extends JuteStockReportRow>(
+  col: GridColDef<T>,
+): GridColDef<T> {
+  const base: GridComparatorFn =
+    col.sortComparator ??
+    (col.type === "number" ? gridNumberComparator : gridStringOrNumberComparator);
+  return {
+    ...col,
+    getSortComparator: (dir) => (v1, v2, p1, p2) => {
+      const t1 = p1.id === GRAND_TOTAL_ROW_ID;
+      const t2 = p2.id === GRAND_TOTAL_ROW_ID;
+      if (t1 !== t2) return t1 ? 1 : -1;
+      const r = base(v1, v2, p1, p2);
+      return dir === "desc" ? -r : r;
+    },
+  };
+}
+
+/** Kilograms in a metric tonne. */
+const KG_PER_MT = 1000;
+
+/** Decimals the summary cards print MT with — 0.01 MT = 10 kg (TKT-000205). */
+export const MT_DECIMALS = 2;
+
+/** Whole-kg figure to MT for the summary cards (TKT-000205). */
+export function kgToMt(kg: number): number {
+  const f = 10 ** MT_DECIMALS;
+  return Math.round(((Number(kg) || 0) / KG_PER_MT) * f) / f + 0;
+}
 
 /**
  * Round every weight column to whole kg (TKT-000155 — stock is reported in kg
@@ -70,7 +124,8 @@ export function withStockGrandTotal(
     ...rows,
     {
       item_grp_id: GRAND_TOTAL_ID,
-      // null (not "") so the grid's null-last sorting keeps this row at the bottom
+      // Kept at the bottom of the grid by pinGrandTotalLast, not by this null
+      // (MUI sorts null FIRST ascending — the TKT-000205 bug).
       item_group_name: null,
       item_id: GRAND_TOTAL_ID,
       item_name: "Grand Total",

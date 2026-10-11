@@ -21,6 +21,8 @@ type Props = {
 	date: string;
 	spellId: number | null;
 	yarnItems: YarnItemOption[];
+	// TKT-000171: bumped by the page after a Sync changed the map server-side.
+	refreshSignal?: number;
 };
 
 type EditState = {
@@ -34,7 +36,14 @@ type EditState = {
 // prior spell) and returns them; each row's yarn + spindle (1..30) is editable
 // and saved individually. Winders are added with the picker and removed with
 // the row bin — the doff form prefills its Yarn from this map.
-export default function QualityGrid({ coId, branchId, date, spellId, yarnItems }: Props) {
+export default function QualityGrid({
+	coId,
+	branchId,
+	date,
+	spellId,
+	yarnItems,
+	refreshSignal = 0,
+}: Props) {
 	const { setup, loading: setupLoading, error: setupError, run, reset } = useQualitySetup(
 		coId,
 		branchId,
@@ -62,6 +71,16 @@ export default function QualityGrid({ coId, branchId, date, spellId, yarnItems }
 		reset();
 		setEdits({});
 	}, [date, spellId, reset]);
+
+	// TKT-000171: a Sync changed the map — re-read the day table, and the
+	// editable table too when it is already loaded (run() seeds only when the
+	// map is empty, so re-running it after a sync is a plain re-read).
+	React.useEffect(() => {
+		if (!refreshSignal) return;
+		refreshDay();
+		if (setup && spellId != null) void run(date, spellId);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [refreshSignal]);
 
 	// Seed local edit state from fetched setup rows.
 	React.useEffect(() => {
