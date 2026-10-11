@@ -29,16 +29,16 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { ChevronDown, ChevronRight, Printer } from "lucide-react";
+import { ChevronDown, ChevronRight, FileDown, Printer } from "lucide-react";
 import { useReportBranches } from "@/components/reports/useReportBranches";
 import { yesterdayIso } from "@/components/reports/reportDates";
 import type { BranchOption } from "@/components/reports/types";
 import {
   fetchWindingWeavingDifference,
   type WindingWeavingDifference,
-  type WwdReconciliation,
   type WwdStockRow,
 } from "@/utils/juteProductionReportService";
+import { downloadTablesPdf } from "@/components/reports/tablesPdf";
 import {
   DprTable,
   NumTd,
@@ -49,63 +49,19 @@ import {
   totalRowSx,
 } from "../dailyProductionReport/_components/DprPieces";
 import { purchaseDetailMatches, purchaseDetailTotalKg, purchaseDetailTotalMt } from "./purchaseDetail";
-
-// Stock blocks in the printed sheet's order. Backend always returns every
-// bucket (possibly empty) so the shape is stable, but empty buckets are
-// skipped in the render per the brief.
-const BUCKET_ORDER = ["MILL_USE", "PURCHASE", "SALE_YARN", "BALL", "WASTE"] as const;
-
-const BUCKET_LABELS: Record<string, string> = {
-  MILL_USE: "Yarn for Mill Use",
-  PURCHASE: "Outside Purchase Yarn",
-  SALE_YARN: "Sale Yarn Stock",
-  BALL: "Ball Stock",
-  WASTE: "Waste",
-};
-
-// Mill use is the only block with a consolidated table and the only collapsible
-// one (TKT-000182); the rest render exactly as before, in the sheet's order.
-const MILL_USE_BUCKET = "MILL_USE";
-const OTHER_BUCKET_ORDER = BUCKET_ORDER.filter((b) => b !== MILL_USE_BUCKET);
-
-const CLOTH_SPLIT_ORDER = ["HESSIAN", "SACKING", "OTHER"] as const;
-const CLOTH_SPLIT_LABELS: Record<string, string> = {
-  HESSIAN: "Hessian",
-  SACKING: "Sacking",
-  OTHER: "Other",
-};
-
-// Production-reconciliation rows, in the printed sheet's order. difference_pct
-// is shown in the header strip, not this table; difference_mt gets its own
-// (highlighted) row below the loop.
-const RECON_ROWS: { key: keyof WwdReconciliation; label: string }[] = [
-  { key: "jute_issue_mt", label: "Jute Issue (MT)" },
-  { key: "opening_mt", label: "Opening Stock (MT)" },
-  // Spinning feeds winding, so it reads directly above it. Context only: it is
-  // not part of the book-stock arithmetic (see the backend's build_reconciliation).
-  { key: "spinning_mt", label: "Spinning Production (MT)" },
-  { key: "winding_mt", label: "Winding Production (MT)" },
-  { key: "twisting_mt", label: "Twisting (Consumed) (MT)" },
-  { key: "weaving_mt", label: "Weaving Production (MT)" },
-  { key: "purchase_mt", label: "Purchase Yarn (MT)" },
-  { key: "sale_mt", label: "Sale Yarn (MT)" },
-  { key: "should_be_closing_mt", label: "Should-Be Closing (MT)" },
-  { key: "actual_closing_mt", label: "Actual Closing (MT)" },
-];
-
-/** null means a percentage of zero winding production — never render 0.00%. */
-function pctDisplay(pct: number | null): string {
-  return pct === null ? "—" : `${fmt(pct, 2)}%`;
-}
-
-/** One bucket's rows, tolerating grand_total_mt (a number) sharing the map. */
-function bucketOf(
-  stock: WindingWeavingDifference["stock"],
-  name: string,
-): { rows: WwdStockRow[]; subtotal_mt: number } | null {
-  const v = stock[name];
-  return v && typeof v === "object" ? v : null;
-}
+import {
+  BUCKET_LABELS,
+  CLOTH_SPLIT_LABELS,
+  CLOTH_SPLIT_ORDER,
+  MILL_USE_BUCKET,
+  OTHER_BUCKET_ORDER,
+  RECON_ROWS,
+  bucketOf,
+  buildWwdPdfSpec,
+  pctDisplay,
+  wwdComparability,
+  wwdWarningTexts,
+} from "./wwdSheet";
 
 /** One stock block's counted lines — the printed sheet's eight columns. Shared
  *  by the collapsible mill-use block and the four plain ones so both can never
@@ -173,6 +129,7 @@ function Content() {
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
   const fetchedOnce = useRef(false);
   const branchSeeded = useRef(false);
   const lastCoId = useRef<number | null>(null);
@@ -229,12 +186,30 @@ function Content() {
   const selectedBranch: BranchOption | null =
     branches.find((b) => b.branch_id === branchId) ?? null;
 
-  const chainBroken = data != null && !data.chain.ok;
-  // No count exists before the 1st of the month — mtd_opening came back 0.0
-  // (never disclosed as such), so should_be_closing_mt silently omits the
-  // whole opening balance. Same chain-break treatment as the day column,
-  // keyed off month_opening_date instead of chain.ok.
-  const mtdOpeningUnknown = data != null && data.chain.month_opening_date == null;
+  // Same sheet as Print, saved as an A4 PDF file: every block included
+  // (collapsed ones too), letterhead with company / branch / date.
+  const handleDownloadPdf = async () => {
+    if (!data) return;
+    setPdfBusy(true);
+    setError(null);
+    try {
+      await downloadTablesPdf(
+        buildWwdPdfSpec(data, { companyName, branchName: selectedBranch?.branch_name }),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to build the PDF");
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
+  // chainBroken: opening stock came from an older count than yesterday.
+  // mtdOpeningUnknown: no count exists before the 1st of the month — mtd_opening
+  // came back 0.0 (never disclosed as such), so should_be_closing_mt silently
+  // omits the whole opening balance. Same treatment as the day column.
+  const { chainBroken, mtdOpeningUnknown } = data
+    ? wwdComparability(data)
+    : { chainBroken: false, mtdOpeningUnknown: false };
   const day = data?.production.day;
   const mtd = data?.production.mtd;
   const millUseBlock = data ? bucketOf(data.stock, MILL_USE_BUCKET) : null;
@@ -306,6 +281,14 @@ function Content() {
           >
             Print
           </Button>
+          <Button
+            variant="outlined"
+            startIcon={<FileDown size={16} />}
+            disabled={!data || loading || pdfBusy}
+            onClick={() => void handleDownloadPdf()}
+          >
+            {pdfBusy ? "Preparing..." : "Download PDF"}
+          </Button>
         </Stack>
       )}
 
@@ -351,48 +334,14 @@ function Content() {
               </Typography>
             </Stack>
 
-            {/* Chain warning */}
-            {chainBroken ? (
-              <Alert severity="warning">
-                {data.chain.prev_entry_date
-                  ? `Opening stock is taken from ${data.chain.prev_entry_date}, not the previous day. Counts are missing in between.`
-                  : "No earlier stock count exists — opening stock could not be verified."}
+            {/* Warnings (chain break, unknown month opening, unconverted UOM,
+                unresolved weaving quality, legacy Stores receipts) — texts
+                shared with the PDF via wwdWarningTexts. */}
+            {wwdWarningTexts(data).map((text) => (
+              <Alert key={text} severity="warning">
+                {text}
               </Alert>
-            ) : null}
-
-            {/* Month-to-date opening warning */}
-            {mtdOpeningUnknown ? (
-              <Alert severity="warning">
-                No stock count exists before the start of the month, so the month-to-date
-                opening balance is unknown and the To-Date figures below are not comparable.
-              </Alert>
-            ) : null}
-
-            {/* Unknown-UOM warning */}
-            {data.warnings.purchase_unknown_uoms.length > 0 ? (
-              <Alert severity="warning">
-                {`Purchased yarn booked in ${data.warnings.purchase_unknown_uoms.join(", ")} was not converted — MTR is metres, not tonnes, so that quantity is missing from the totals.`}
-              </Alert>
-            ) : null}
-
-            {/* Weaving rows with no resolvable quality warning */}
-            {data.warnings.weaving_unresolved_day > 0 || data.warnings.weaving_unresolved_mtd > 0 ? (
-              <Alert severity="warning">
-                {`${data.warnings.weaving_unresolved_day} weaving row(s) today and ${data.warnings.weaving_unresolved_mtd} this month have no resolvable weaving quality — that production is excluded from Weaving Production (MT), so the difference below is overstated.`}
-              </Alert>
-            ) : null}
-
-            {/* Legacy Stores receipts warning: Purchase Yarn (MT) reads Yarn
-                Purchase documents only, so yarn still arriving through a
-                Stores receipt of the old item is NOT in the figures. */}
-            {data.warnings.legacy_stores_yarn_warning ? (
-              <Alert severity="warning">
-                {data.warnings.legacy_stores_yarn_warning}
-                {typeof data.warnings.legacy_stores_yarn_mt === "number"
-                  ? ` Stores receipts of the legacy yarn item this month: ${fmt(data.warnings.legacy_stores_yarn_mt, 3)} MT — not included in Purchase Yarn (MT).`
-                  : ""}
-              </Alert>
-            ) : null}
+            ))}
 
             {/* Production details */}
             <SectionCard

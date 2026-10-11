@@ -8,6 +8,7 @@ import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WindingDoffRow } from "../types/windingTypes";
 import { useDoffByDate } from "../hooks/useDoffByDate";
+import { machineLabel } from "../utils/windingCalc";
 
 type Props = {
 	coId: string;
@@ -37,7 +38,7 @@ export default function DoffGrid({ coId, branchId, date, spellId, refreshSignal,
 			const prompt =
 				shares > 1
 					? `This weighing is shared by ${shares} winders. Delete all ${shares} rows?`
-					: `Delete winding doff #${id}?`;
+					: `Delete this doff entry${row.emp_code ? ` for EB ${row.emp_code}` : ""}?`;
 			if (!window.confirm(prompt)) return;
 			const url = `${apiRoutesPortalMasters.WINDING_DOFF_DELETE}/${id}?co_id=${coId}`;
 			const { error: err } = await fetchWithCookie(url, "DELETE");
@@ -45,7 +46,7 @@ export default function DoffGrid({ coId, branchId, date, spellId, refreshSignal,
 				setSnack(err);
 				return;
 			}
-			setSnack(shares > 1 ? `Deleted weighing (${shares} rows)` : `Deleted doff #${id}`);
+			setSnack(shares > 1 ? `Deleted weighing (${shares} rows)` : "Deleted doff entry");
 			refresh();
 			onChanged();
 		},
@@ -73,11 +74,18 @@ export default function DoffGrid({ coId, branchId, date, spellId, refreshSignal,
 					</Tooltip>
 				),
 			},
-			{ field: "winding_doff_id", headerName: "ID", width: 70 },
+			// TKT-000169: the internal row ID column was dropped (owner: "Item id can
+			// be removed") and the winder's machine added, from the Quality tab map.
 			{ field: "tran_date", headerName: "Date", width: 110 },
 			{ field: "spell_code", headerName: "Spell", width: 70 },
 			{ field: "emp_code", headerName: "EB No", width: 100 },
 			{ field: "worker_name", headerName: "Winder", width: 180 },
+			{
+				field: "machine",
+				headerName: "Machine",
+				width: 130,
+				valueGetter: (_value, row) => machineLabel(row) || "—",
+			},
 			{ field: "item_code", headerName: "Yarn", width: 110 },
 			{ field: "trolly_name", headerName: "Trolly", width: 120 },
 			{ field: "spool_name", headerName: "Spool", width: 120 },

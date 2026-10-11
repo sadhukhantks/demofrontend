@@ -27,12 +27,18 @@ vi.mock("@/utils/juteProductionReportService", () => ({
   fetchWindingWeavingDifference: vi.fn(),
 }));
 
+vi.mock("@/components/reports/tablesPdf", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/reports/tablesPdf")>()),
+  downloadTablesPdf: vi.fn().mockResolvedValue(undefined),
+}));
+
 import {
   fetchWindingWeavingDifference,
   type WindingWeavingDifference,
   type WwdPurchaseDetailRow,
   type WwdReconciliation,
 } from "@/utils/juteProductionReportService";
+import { downloadTablesPdf } from "@/components/reports/tablesPdf";
 import Page from "./page";
 
 const RECON: WwdReconciliation = {
@@ -327,5 +333,23 @@ describe("Winding & Weaving Difference — purchase documents and legacy warning
     await waitFor(() => expect(screen.getByText("Ball Stock")).toBeInTheDocument());
     expect(screen.queryByText("Purchase yarn (documents)")).not.toBeInTheDocument();
     expect(screen.queryByText(/legacy purchased-yarn item/)).not.toBeInTheDocument();
+  });
+});
+
+describe("Winding & Weaving Difference — Download PDF", () => {
+  beforeEach(() => {
+    vi.mocked(fetchWindingWeavingDifference).mockResolvedValue(DATA);
+    vi.mocked(downloadTablesPdf).mockClear();
+  });
+
+  it("downloads the loaded sheet with the company / branch letterhead", async () => {
+    render(<Page />);
+    await waitFor(() => expect(screen.getByText("Ball Stock")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /Download PDF/ }));
+    await waitFor(() => expect(downloadTablesPdf).toHaveBeenCalledTimes(1));
+    const spec = vi.mocked(downloadTablesPdf).mock.calls[0][0];
+    expect(spec.companyName).toBe("SLS");
+    expect(spec.subtitleLines?.[0]).toContain("Branch: FACTORY");
+    expect(spec.sections.map((s) => s.title)).toContain("Yarn for Mill Use — Details");
   });
 });

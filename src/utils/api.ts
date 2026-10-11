@@ -381,6 +381,7 @@ const apiRoutesPortalMasters = {
     JUTE_ISSUE_REJECT: `${API_URL}/juteIssue/reject_issues`,
     JUTE_ISSUE_DOWNLOAD: `${API_URL}/juteIssue/download_issue_table`,
     JUTE_ISSUE_SYNC_WEIGHTS: `${API_URL}/juteIssue/sync_issue_weights`,
+    JUTE_ISSUE_REPRICE: `${API_URL}/juteIssue/reprice_issues`,
 
     // Yarn Purchase (receipt of purchased yarn, kg) — vowerp3be/docs/superpowers/specs/2026-09-25-yarn-purchase-issue-consumption-design.md §3.1
     YARN_PURCHASE_SETUP: `${API_URL}/yarnPurchase/setup`,
@@ -1094,6 +1095,7 @@ const apiRoutesPortalMasters = {
     SPREADER_ISSUE_DELETE: `${API_URL}/spreaderProd/issue_delete`,
     SPREADER_ROLL_STOCK: `${API_URL}/spreaderProd/roll_stock`,
     SPREADER_ROLL_STOCK_QUALITY_SUMMARY: `${API_URL}/spreaderProd/roll_stock_quality_summary`,
+    SPREADER_ROLL_STOCK_TARGET_VS_ACTUAL: `${API_URL}/spreaderProd/roll_stock_target_vs_actual`,
     JUTE_PROD_MATURITY_REPORT: `${API_URL}/juteProductionReports/maturity_time_report`,
     JUTE_PROD_SPREADER_SUMMARY: `${API_URL}/juteProductionReports/spreader_production_summary`,
 
@@ -1176,6 +1178,9 @@ const apiRoutesPortalMasters = {
     WINDING_QUALITY_ADD: `${API_URL}/windingProd/quality_add`,
     WINDING_QUALITY_DELETE: `${API_URL}/windingProd/quality_delete`,
     WINDING_QUALITY_BY_DATE: `${API_URL}/windingProd/quality_by_date`,
+    // TKT-000171: reconcile the map with the unit's attendance (winding freezes nothing,
+    // so this is the winding "Sync" — a fill-sync of the map, not a reprocess).
+    WINDING_QUALITY_SYNC: `${API_URL}/windingProd/quality_sync`,
     // Winding stock — daily counted snapshot (router prefix /api/windingStock).
     // *_EDIT / *_DELETE are base paths; caller appends /${id}?co_id=...
     WINDING_STOCK_SETUP: `${API_URL}/windingStock/setup`,
@@ -1587,6 +1592,10 @@ const apiRoutesPortalMasters = {
     // Cheap saved-mapping-only read (no carry-forward) — used by the entry grid.
     WEAVING_QUALITY_MAP_SAVED: `${API_URL}/weavingProd/quality_map_saved`,
     WEAVING_QUALITY_MAP_SAVE: `${API_URL}/weavingProd/quality_map_save`,
+    // TKT-000119: fill unmapped looms from their previous mapping (date/spell range) and
+    // the existing loom groupings (Hands Norms machine groups + Loom Groups) for bulk select.
+    WEAVING_QUALITY_MAP_CARRY_FORWARD: `${API_URL}/weavingProd/quality_map_carry_forward`,
+    WEAVING_QUALITY_MAP_GROUPS: `${API_URL}/weavingProd/quality_map_groups`,
     // Beam-change tab (router prefix /api/weavingProd)
     WEAVING_BEAM_MAP_GET: `${API_URL}/weavingProd/beam_map_get`,
     WEAVING_BEAM_MAP_SAVE: `${API_URL}/weavingProd/beam_map_save`,

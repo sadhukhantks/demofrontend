@@ -13,6 +13,7 @@ import JugarForm from "./_components/JugarForm";
 import JugarGrid from "./_components/JugarGrid";
 import QualityGrid from "./_components/QualityGrid";
 import WinderWiseGrid from "./_components/WinderWiseGrid";
+import WindingSyncButton from "./_components/WindingSyncButton";
 import { todayISO } from "../spinning/utils/spinningCalc";
 
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
@@ -71,6 +72,10 @@ export default function WindingPage() {
 	// Bump a counter when a doff/jugar is saved so the grids re-fetch.
 	const [doffSignal, setDoffSignal] = React.useState(0);
 	const [jugarSignal, setJugarSignal] = React.useState(0);
+	// TKT-000171: bumped after a Sync so the Quality tab re-reads the map (the
+	// doff + winder-wise grids show the winder's machine from it, so doffSignal
+	// is bumped alongside).
+	const [syncSignal, setSyncSignal] = React.useState(0);
 
 	const { setup: doffSetup, loading: setupLoading, error: setupError } = useWindingDoffSetup(
 		coId,
@@ -205,6 +210,18 @@ export default function WindingPage() {
 									onChange={(selectedValue) => setSpellId(selectedValue === "" ? "" : Number(selectedValue))}
 									sx={{ minWidth: 160 }}
 								/>
+								{/* TKT-000171: Sync (attendance -> winder/machine map), visible on every tab
+								    like spinning's bar. Winding has no Process: nothing is frozen. */}
+								<WindingSyncButton
+									coId={coId}
+									branchId={branchId}
+									date={tranDate}
+									spellId={spellId === "" ? null : spellId}
+									onSynced={() => {
+										setSyncSignal((s) => s + 1);
+										setDoffSignal((s) => s + 1);
+									}}
+								/>
 							</Box>
 
 							{tab === 0 ? (
@@ -261,6 +278,7 @@ export default function WindingPage() {
 									date={tranDate}
 									spellId={spellId === "" ? null : spellId}
 									yarnItems={doffSetup.yarn_items}
+									refreshSignal={syncSignal}
 								/>
 							) : null}
 

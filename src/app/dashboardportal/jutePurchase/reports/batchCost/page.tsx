@@ -1,7 +1,9 @@
 "use client";
 import React, { Suspense } from "react";
 import {
+  Alert,
   Box,
+  Button,
   CircularProgress,
   ToggleButtonGroup,
   ToggleButton,
@@ -9,11 +11,25 @@ import {
 } from "@mui/material";
 import { GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
 import ReportPanel from "@/components/reports/ReportPanel";
-import { numCol } from "@/components/reports/ReportGrid";
+import ReportGrid, { numCol } from "@/components/reports/ReportGrid";
+import { exportGridSectionsToExcel, type GridSection } from "@/components/reports/gridSections";
+import type { ReportExportHeader } from "@/components/reports/exportExcel";
+import { tokens } from "@/styles/tokens";
 import { useReportBranches } from "@/components/reports/useReportBranches";
 import { yesterdayIso } from "@/components/reports/reportDates";
-import { fetchBatchCostReport, type JuteReportBasis } from "@/utils/juteReportService";
-import type { BatchCostReportRow } from "../types/reportTypes";
+import {
+  fetchBatchCostReportWithPlan,
+  repriceIssues,
+  type JuteReportBasis,
+} from "@/utils/juteReportService";
+import { toast } from "@/hooks/use-toast";
+import {
+  batchCostBreakupRows,
+  batchCostYarnSummary,
+  type BatchCostBreakupRow,
+  type BatchCostYarnSummaryRow,
+} from "./batchCostRows";
+import { planMessages, type BatchPlanStatus } from "./planStatus";
 
 const inrFormatter = new Intl.NumberFormat("en-IN", {
   minimumFractionDigits: 2,
@@ -26,7 +42,7 @@ function fmtCurrency(value: unknown): string {
   return Number.isFinite(n) ? inrFormatter.format(n) : "";
 }
 
-function valueCol(field: string, headerName: string): GridColDef<BatchCostReportRow> {
+function valueCol<T extends object = BatchCostBreakupRow>(field: string, headerName: string): GridColDef<T> {
   return {
     field,
     headerName,
@@ -36,13 +52,13 @@ function valueCol(field: string, headerName: string): GridColDef<BatchCostReport
   };
 }
 
-function varianceCol(field: string, headerName: string): GridColDef<BatchCostReportRow> {
+function varianceCol(field: string, headerName: string): GridColDef<BatchCostBreakupRow> {
   return {
     field,
     headerName,
     type: "number",
     width: 130,
-    renderCell: (params: GridRenderCellParams<BatchCostReportRow, number>) => {
+    renderCell: (params: GridRenderCellParams<BatchCostBreakupRow, number>) => {
       const n = Number(params.value);
       if (!Number.isFinite(n)) return "";
       return (
@@ -60,12 +76,22 @@ function varianceCol(field: string, headerName: string): GridColDef<BatchCostRep
 // TKT-000213: month-to-date columns sit beside the day columns, in the grid
 // and in the Excel export (which writes these same columns).
 const MTD_HINT = "Month to date: 1st of the month through the As of Date";
-const mtd = (col: GridColDef<BatchCostReportRow>): GridColDef<BatchCostReportRow> => ({
+const mtd = <T extends object>(col: GridColDef<T>): GridColDef<T> => ({
   ...col,
   description: MTD_HINT,
 });
 
-const columns: GridColDef<BatchCostReportRow>[] = [
+// The jute-quality breakup below the summary (TKT-000213, comment 2026-10-08):
+// each yarn quality's lines, then its "Total" row. Mix % and Cost/Ton Share
+// break the yarn quality's cost per ton down by jute quality.
+const SHARE_HINT =
+  "This jute quality's value / the yarn quality's total weight x 1000 — the shares of a yarn quality add up to its cost per ton";
+const share = (col: GridColDef<BatchCostBreakupRow>): GridColDef<BatchCostBreakupRow> => ({
+  ...col,
+  description: SHARE_HINT,
+});
+
+const columns: GridColDef<BatchCostBreakupRow>[] = [
   { field: "yarn_type_name", headerName: "Yarn Type", flex: 1, minWidth: 140 },
   { field: "item_name", headerName: "Jute Quality", flex: 1, minWidth: 160 },
   numCol("planned_weight", "Day Planned Wt (kg)", 140),
@@ -73,20 +99,143 @@ const columns: GridColDef<BatchCostReportRow>[] = [
   numCol("actual_rate", "Day Rate (per qtl)", 130),
   valueCol("issue_value", "Day Value"),
   varianceCol("variance", "Day Variance (kg)"),
+  numCol("day_mix_pct", "Day Mix %", 110),
+  share(valueCol("day_cost_per_ton_share", "Day Cost/Ton Share")),
   mtd(numCol("mtd_planned_weight", "MTD Planned Wt (kg)", 140)),
   mtd(numCol("mtd_actual_weight", "MTD Actual Wt (kg)", 140)),
   mtd(numCol("mtd_actual_rate", "MTD Rate (per qtl)", 130)),
   mtd(valueCol("mtd_issue_value", "MTD Value")),
   mtd(varianceCol("mtd_variance", "MTD Variance (kg)")),
+  mtd(numCol("mtd_mix_pct", "MTD Mix %", 110)),
+  share(mtd(valueCol("mtd_cost_per_ton_share", "MTD Cost/Ton Share"))),
 ];
 
-const getRowId = (r: BatchCostReportRow) => `${r.yarn_type_id}-${r.item_id}`;
+const WASTE_HINT =
+  "Jute waste re-issued into the yarn quality. Memo only: not in the issue weight, value or cost per ton";
+
+const getRowId = (r: BatchCostBreakupRow) =>
+  r.row_kind === "subtotal" ? `${r.yarn_type_id}-total` : `${r.yarn_type_id}-${r.item_id}`;
+
+// The yarn-quality summary on top: batch cost per ton (value / weight x 1000).
+const summaryColumns: GridColDef<BatchCostYarnSummaryRow>[] = [
+  { field: "yarn_type_name", headerName: "Yarn Quality", flex: 1, minWidth: 160 },
+  numCol("day_weight", "Day Issue Wt (kg)", 140),
+  valueCol("day_value", "Day Value"),
+  valueCol("day_cost_per_ton", "Day Cost per Ton"),
+  mtd(numCol("mtd_weight", "MTD Issue Wt (kg)", 140)),
+  mtd(valueCol("mtd_value", "MTD Value")),
+  mtd(valueCol("mtd_cost_per_ton", "MTD Cost per Ton")),
+  // Memo (owner ruling 2026-10-08): waste re-issued is not part of the batch cost.
+  { ...numCol("day_waste_weight", "Day Waste Re-issued (kg, memo)", 170), description: WASTE_HINT },
+  { ...numCol("mtd_waste_weight", "MTD Waste Re-issued (kg, memo)", 170), description: WASTE_HINT },
+];
+
+const SUMMARY_TITLE = "Yarn Quality Wise Batch Cost per Ton";
+const BREAKUP_TITLE = "Jute Quality Breakup";
+
+function BatchCostSummary({ rows }: { rows: BatchCostBreakupRow[] }) {
+  const summaryRows = batchCostYarnSummary(rows);
+  return (
+    <Box sx={{ mb: 3 }}>
+      <Typography
+        variant="subtitle1"
+        sx={{ color: tokens.report.header, fontWeight: 700, mb: 1 }}
+      >
+        {SUMMARY_TITLE}
+      </Typography>
+      <ReportGrid
+        rows={summaryRows}
+        columns={summaryColumns}
+        getRowId={(r) => r.id}
+        loading={false}
+        error={null}
+        height={Math.min(520, 90 + 44 * summaryRows.length)}
+      />
+      <Typography
+        variant="subtitle1"
+        sx={{ color: tokens.report.header, fontWeight: 700, mt: 3 }}
+      >
+        {BREAKUP_TITLE}
+      </Typography>
+    </Box>
+  );
+}
+
+// Excel: the summary and the breakup as two sheets of one workbook.
+async function exportBatchCost(rows: BatchCostBreakupRow[], header: ReportExportHeader) {
+  const sections: GridSection[] = [
+    {
+      title: SUMMARY_TITLE,
+      columns: summaryColumns as GridSection["columns"],
+      rows: batchCostYarnSummary(rows),
+    },
+    {
+      title: BREAKUP_TITLE,
+      columns: columns as GridSection["columns"],
+      rows,
+    },
+  ];
+  await exportGridSectionsToExcel(sections, "batch-cost", header);
+}
 
 function BatchCostPageContent() {
-  const { branches, initialBranchId, dateParam } = useReportBranches();
+  const { coId, branches, initialBranchId, dateParam } = useReportBranches();
   // Decision D5 (2026-09-03): actual = today's reports; accounts = receipt on
   // jute_mr_date, approved weight, issues shifted to the MR date.
   const [basis, setBasis] = React.useState<JuteReportBasis>("actual");
+  // TKT-000206: why planned weight is 0 (no batch plan assigned / no issue).
+  const [planStatus, setPlanStatus] = React.useState<BatchPlanStatus | null>(null);
+  // Last submitted filters: Re-evaluate runs on them, and the panel is
+  // remounted (refreshKey) with them so the user's branch/date survive.
+  const [lastFilters, setLastFilters] = React.useState<{ branchId: number; date: string } | null>(null);
+  const [refreshKey, setRefreshKey] = React.useState(0);
+  const [repricing, setRepricing] = React.useState(false);
+  const fetchRows = React.useCallback(
+    async (branchId: number, date: string) => {
+      setLastFilters({ branchId, date });
+      setPlanStatus(null);
+      const res = await fetchBatchCostReportWithPlan(branchId, date, basis);
+      setPlanStatus(res.planStatus);
+      return res.rows;
+    },
+    [basis],
+  );
+
+  // Re-evaluate (owner request 2026-10-08): issue values stamped 0 because the
+  // MR line had no rate yet are re-priced from the line's current rate, for
+  // the report's month (1st .. As of Date). Weights are never touched.
+  const handleReevaluate = React.useCallback(async () => {
+    if (coId == null || lastFilters == null) return;
+    const monthStart = `${lastFilters.date.slice(0, 8)}01`;
+    if (
+      !window.confirm(
+        `Re-price all jute issues from ${monthStart} to ${lastFilters.date} at their MR line's current rate? Weights are not changed.`,
+      )
+    ) {
+      return;
+    }
+    setRepricing(true);
+    try {
+      const r = await repriceIssues(coId, lastFilters.branchId, monthStart, lastFilters.date);
+      toast({
+        title: "Issue values re-evaluated",
+        description:
+          `${r.issues_changed} of ${r.issues_checked} issue(s) updated.` +
+          (r.no_rate_mr_ids.length
+            ? ` Still no rate on MR id(s) ${r.no_rate_mr_ids.join(", ")}: their issues stay at 0.`
+            : ""),
+      });
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Re-evaluate failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+      });
+    } finally {
+      setRepricing(false);
+    }
+  }, [coId, lastFilters]);
 
   return (
     <>
@@ -100,22 +249,40 @@ function BatchCostPageContent() {
           <ToggleButton value="actual">Actual</ToggleButton>
           <ToggleButton value="accounts">Accounts</ToggleButton>
         </ToggleButtonGroup>
+        <Button
+          variant="outlined"
+          size="small"
+          disabled={lastFilters == null || repricing}
+          onClick={handleReevaluate}
+          title="Re-price this month's issues from their MR line's current rate (fixes values stuck at 0)"
+        >
+          {repricing ? "Re-evaluating…" : "Re-evaluate rates"}
+        </Button>
         <Typography variant="body2" color="text.secondary">
           Day = the As of Date. MTD = 1st of that month through the As of Date.
+          Cost per ton = value / issue weight x 1000. Jute waste re-issued is
+          not part of the batch cost; it is shown as memo only.
         </Typography>
       </Box>
+      {planMessages(planStatus).map((m) => (
+        <Alert key={m.text} severity={m.severity} sx={{ mb: 1 }}>
+          {m.text}
+        </Alert>
+      ))}
       <ReportPanel
+        key={refreshKey}
         title={`Batch Cost Report (${basis === "accounts" ? "Accounts" : "Actual"})`}
         branches={branches}
-        initialBranchId={initialBranchId}
+        initialBranchId={lastFilters?.branchId ?? initialBranchId}
         dates="single"
         singleLabel="As of Date"
-        initialDateTo={dateParam || yesterdayIso()}
-        fetcher={(f) => fetchBatchCostReport(f.branchId, f.dateTo, basis)}
+        initialDateTo={lastFilters?.date ?? (dateParam || yesterdayIso())}
+        fetcher={async (f) => batchCostBreakupRows(await fetchRows(f.branchId, f.dateTo))}
         columns={columns}
         getRowId={getRowId}
-        sortField="yarn_type_name"
+        summary={(rows) => <BatchCostSummary rows={rows} />}
         exportName="batch-cost"
+        exportOverride={(rows, header) => exportBatchCost(rows, header)}
       />
     </>
   );
