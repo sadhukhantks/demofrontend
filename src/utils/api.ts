@@ -1095,6 +1095,7 @@ const apiRoutesPortalMasters = {
     SPREADER_ISSUE_DELETE: `${API_URL}/spreaderProd/issue_delete`,
     SPREADER_ROLL_STOCK: `${API_URL}/spreaderProd/roll_stock`,
     SPREADER_ROLL_STOCK_QUALITY_SUMMARY: `${API_URL}/spreaderProd/roll_stock_quality_summary`,
+    SPREADER_ROLL_STOCK_TARGET_VS_ACTUAL: `${API_URL}/spreaderProd/roll_stock_target_vs_actual`,
     JUTE_PROD_MATURITY_REPORT: `${API_URL}/juteProductionReports/maturity_time_report`,
     JUTE_PROD_SPREADER_SUMMARY: `${API_URL}/juteProductionReports/spreader_production_summary`,
 
