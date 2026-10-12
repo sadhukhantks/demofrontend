@@ -401,7 +401,20 @@ export function fetchJutePoPending(
   );
 }
 
-export type MrListStatusMode = "approved" | "all";
+export interface MrListStatusOption {
+  status_id: number;
+  status_name: string;
+}
+
+/** Statuses the company's MRs carry — options for the MR List status multi-select. */
+export async function fetchMrListStatuses(coId: number): Promise<MrListStatusOption[]> {
+  const url = `${apiRoutesPortalMasters.JUTE_REPORT_MR_LIST_STATUSES}?co_id=${coId}`;
+  const result = await fetchWithCookie<ReportApiResponse<MrListStatusOption>>(url);
+  if (result.error || !result.data) {
+    throw new Error(result.error ?? "Failed to fetch MR statuses");
+  }
+  return result.data.data ?? [];
+}
 
 export interface FetchMrListParams {
   coId: number;
@@ -411,21 +424,21 @@ export interface FetchMrListParams {
   page?: number;
   limit?: number;
   search?: string;
-  /** "approved" (default): approved / finalised MRs by MR date. "all": every MR,
-   *  placed by its MR date or, when it has none yet, its gate-entry date. */
-  status?: MrListStatusMode;
+  /** Ticked statuses; empty / omitted = every status. MRs are placed by MR
+   *  date or, when they have none yet, gate-entry date. */
+  statusIds?: number[];
 }
 
 export async function fetchMrListReport(
   params: FetchMrListParams,
 ): Promise<{ data: MrListReportRow[]; total: number }> {
-  const { coId, branchId, dateFrom, dateTo, page, limit, search, status } = params;
+  const { coId, branchId, dateFrom, dateTo, page, limit, search, statusIds } = params;
   const qs = new URLSearchParams();
   qs.append("co_id", String(coId));
   if (branchId != null) qs.append("branch_id", String(branchId));
   qs.append("date_from", dateFrom);
   qs.append("date_to", dateTo);
-  if (status && status !== "approved") qs.append("status", status);
+  if (statusIds?.length) qs.append("status_ids", statusIds.join(","));
   if (page != null) qs.append("page", String(page));
   if (limit != null) qs.append("limit", String(limit));
   if (search) qs.append("search", search);

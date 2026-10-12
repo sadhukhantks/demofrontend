@@ -39,11 +39,13 @@ import {
   Typography,
 } from "@mui/material";
 import type { GridColDef, GridValidRowModel } from "@mui/x-data-grid";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import ReportGrid, { fmtNum, numCol } from "@/components/reports/ReportGrid";
 import { exportRowsToExcel } from "@/components/reports/exportExcel";
 import { useReportBranches } from "@/components/reports/useReportBranches";
 import { lastDaysRange } from "@/components/reports/reportDates";
+import { useMounted } from "@/components/reports/useMounted";
+import { useFollowupMarking } from "@/components/lowPerformerFollowup/useFollowupMarking";
 import { resolveReportMenuId } from "@/utils/reportMenuService";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { fetchWithCookie } from "@/utils/apiClient2";
@@ -81,6 +83,8 @@ interface SpinBaseRow {
 
 interface SpinWorkerRow {
   eb_id: number | null;
+  /** Emp code; falls back to String(eb_id) when none, "Contract" for contract rows. */
+  eb_label?: string | null;
   worker_name: string | null;
   days_attended: number | null;
   /** Spinning counts frames where weaving counts looms — accept either name. */
@@ -274,22 +278,31 @@ function Content() {
   const pathname = usePathname();
 
   // Branch and dates come from the localStorage-backed sidebar context and the
-  // hub's query string — both empty during SSR. Hold the toolbar back until
-  // mount so the first client render matches the server HTML.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // hub's query string — both empty during SSR. Everything below the title
+  // (filters AND the grids, which show "Select a branch" until branchId is
+  // known) is held back until mount so the first client render matches the
+  // server HTML — same gate as the Weaving / Winding Low Producer pages.
+  const mounted = useMounted();
 
   const seed = lastDaysRange(7);
+  // Deep link from the Spinning Production Trend report (frame drill-down):
+  // ?date_from&date_to&frame&shift&item_id pre-fill the filters.
+  const searchParams = useSearchParams();
+  const linkFrom = searchParams.get("date_from") || "";
+  const linkTo = searchParams.get("date_to") || "";
+  const linkShift = (searchParams.get("shift") || "").toUpperCase();
+  const linkFrame = searchParams.get("frame") || "";
+  const linkItem = Number(searchParams.get("item_id"));
   const [branchId, setBranchId] = useState<number | null>(initialBranchId);
   // A date handed over by the reports hub is a single report date, not a range.
-  const [dateFrom, setDateFrom] = useState<string>(dateParam || seed.from);
-  const [dateTo, setDateTo] = useState<string>(dateParam || seed.to);
-  const [shift, setShift] = useState<string>("");
+  const [dateFrom, setDateFrom] = useState<string>(linkFrom || dateParam || seed.from);
+  const [dateTo, setDateTo] = useState<string>(linkTo || dateParam || seed.to);
+  const [shift, setShift] = useState<string>(["A", "B", "C"].includes(linkShift) ? linkShift : "");
   const [ebNo, setEbNo] = useState<string>("");
-  const [frame, setFrame] = useState<string>("");
-  const [itemId, setItemId] = useState<number | null>(null);
+  const [frame, setFrame] = useState<string>(linkFrame);
+  const [itemId, setItemId] = useState<number | null>(
+    Number.isInteger(linkItem) && linkItem > 0 ? linkItem : null,
+  );
   const [fullShiftOnly, setFullShiftOnly] = useState(false);
 
   const [tab, setTab] = useState(0);
@@ -418,6 +431,24 @@ function Content() {
   const workerRows = useMemo(() => withRid(data?.worker_summary ?? []), [data]);
   const dayRows = useMemo(() => data?.day_summary ?? [], [data]);
 
+  // Grid-only: the Excel export keeps the plain workerColumns.
+  const { followupColumn, dialog: followupDialog } = useFollowupMarking({
+    coId,
+    branchId: data?.meta?.branch_id ?? null,
+    deptCode: "SPINNING",
+  });
+  const workerGridColumns = useMemo(
+    () => [
+      ...workerColumns,
+      followupColumn<WithRid<SpinWorkerRow>>({
+        getEbId: (r) => r.eb_id,
+        // eb_label equal to the bare eb_id means no emp code on file — nothing to prefill.
+        getEbNo: (r) => (r.eb_label && r.eb_label !== String(r.eb_id) ? r.eb_label : null),
+      }),
+    ],
+    [followupColumn],
+  );
+
   const dayColumns = useMemo<GridColDef<SpinDayRow>[]>(() => {
     const numericKeys = new Set<string>();
     const textKeys = new Set<string>();
@@ -505,217 +536,220 @@ function Content() {
       </Typography>
 
       {mounted && (
-        <Paper elevation={1} sx={{ mb: 2, p: 2 }}>
-          <Box
-            sx={{ display: "flex", alignItems: "flex-start", gap: 2, flexWrap: "wrap" }}
-          >
-            <Autocomplete
-              options={branches}
-              getOptionLabel={(o) => o.branch_name}
-              isOptionEqualToValue={(o, v) => o.branch_id === v.branch_id}
-              value={branch}
-              onChange={(_, v) => setBranchId(v?.branch_id ?? null)}
-              renderInput={(params) => (
-                <TextField {...params} label="Branch" size="small" />
-              )}
-              sx={{ minWidth: 220 }}
-            />
-            <TextField
-              type="date"
-              label="From Date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              size="small"
-              error={rangeError != null}
-              slotProps={{ inputLabel: { shrink: true } }}
-              sx={{ width: 170 }}
-            />
-            <TextField
-              type="date"
-              label="To Date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              size="small"
-              error={rangeError != null}
-              helperText={rangeError ?? undefined}
-              slotProps={{ inputLabel: { shrink: true } }}
-              sx={{ width: 170 }}
-            />
-            <TextField
-              select
-              label="Shift"
-              value={shift}
-              onChange={(e) => setShift(e.target.value)}
-              size="small"
-              sx={{ width: 110 }}
+        <>
+          <Paper elevation={1} sx={{ mb: 2, p: 2 }}>
+            <Box
+              sx={{ display: "flex", alignItems: "flex-start", gap: 2, flexWrap: "wrap" }}
             >
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="A">A</MenuItem>
-              <MenuItem value="B">B</MenuItem>
-              <MenuItem value="C">C</MenuItem>
-            </TextField>
-            <TextField
-              label="EB No"
-              value={ebNo}
-              onChange={(e) => setEbNo(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void runFetch();
-              }}
-              size="small"
-              sx={{ width: 130 }}
-            />
-            <TextField
-              label="Frame"
-              value={frame}
-              onChange={(e) => setFrame(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void runFetch();
-              }}
-              size="small"
-              sx={{ width: 130 }}
-            />
-            <Autocomplete
-              options={qualityOptions}
-              getOptionLabel={(o) => o.label}
-              isOptionEqualToValue={(o, v) => o.id === v.id}
-              value={qualityOptions.find((o) => o.id === itemId) ?? null}
-              onChange={(_, v) => setItemId(v?.id ?? null)}
-              renderInput={(params) => (
-                <TextField {...params} label="Quality" size="small" />
-              )}
-              sx={{ minWidth: 200 }}
-            />
-            <Tooltip title="Keep only rows with a full 8-hour approved attendance and sort worst efficiency first — the legacy WhatsApp list.">
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={fullShiftOnly}
-                    onChange={(e) => setFullShiftOnly(e.target.checked)}
-                    size="small"
-                  />
-                }
-                label="Full-shift regular only (WhatsApp view)"
-                sx={{ mr: 0 }}
+              <Autocomplete
+                options={branches}
+                getOptionLabel={(o) => o.branch_name}
+                isOptionEqualToValue={(o, v) => o.branch_id === v.branch_id}
+                value={branch}
+                onChange={(_, v) => setBranchId(v?.branch_id ?? null)}
+                renderInput={(params) => (
+                  <TextField {...params} label="Branch" size="small" />
+                )}
+                sx={{ minWidth: 220 }}
               />
-            </Tooltip>
-            <Button
-              variant="contained"
-              disabled={coId == null || branchId == null || loading || rangeError != null}
-              onClick={() => {
-                void runFetch();
-              }}
-              sx={{
-                backgroundColor: "#0C3C60",
-                "&:hover": { backgroundColor: "#092d47" },
-                textTransform: "none",
-              }}
-            >
-              Submit
-            </Button>
-            <Button
-              variant="outlined"
-              disabled={branchId == null || activeRowCount === 0}
-              onClick={() => {
-                void handleExport();
-              }}
-              sx={{ textTransform: "none" }}
-            >
-              Export to Excel
-            </Button>
-          </Box>
-        </Paper>
-      )}
+              <TextField
+                type="date"
+                label="From Date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                size="small"
+                error={rangeError != null}
+                slotProps={{ inputLabel: { shrink: true } }}
+                sx={{ width: 170 }}
+              />
+              <TextField
+                type="date"
+                label="To Date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                size="small"
+                error={rangeError != null}
+                helperText={rangeError ?? undefined}
+                slotProps={{ inputLabel: { shrink: true } }}
+                sx={{ width: 170 }}
+              />
+              <TextField
+                select
+                label="Shift"
+                value={shift}
+                onChange={(e) => setShift(e.target.value)}
+                size="small"
+                sx={{ width: 110 }}
+              >
+                <MenuItem value="">All</MenuItem>
+                <MenuItem value="A">A</MenuItem>
+                <MenuItem value="B">B</MenuItem>
+                <MenuItem value="C">C</MenuItem>
+              </TextField>
+              <TextField
+                label="EB No"
+                value={ebNo}
+                onChange={(e) => setEbNo(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void runFetch();
+                }}
+                size="small"
+                sx={{ width: 130 }}
+              />
+              <TextField
+                label="Frame"
+                value={frame}
+                onChange={(e) => setFrame(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void runFetch();
+                }}
+                size="small"
+                sx={{ width: 130 }}
+              />
+              <Autocomplete
+                options={qualityOptions}
+                getOptionLabel={(o) => o.label}
+                isOptionEqualToValue={(o, v) => o.id === v.id}
+                value={qualityOptions.find((o) => o.id === itemId) ?? null}
+                onChange={(_, v) => setItemId(v?.id ?? null)}
+                renderInput={(params) => (
+                  <TextField {...params} label="Quality" size="small" />
+                )}
+                sx={{ minWidth: 200 }}
+              />
+              <Tooltip title="Keep only rows with a full 8-hour approved attendance and sort worst efficiency first — the legacy WhatsApp list.">
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={fullShiftOnly}
+                      onChange={(e) => setFullShiftOnly(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label="Full-shift regular only (WhatsApp view)"
+                  sx={{ mr: 0 }}
+                />
+              </Tooltip>
+              <Button
+                variant="contained"
+                disabled={coId == null || branchId == null || loading || rangeError != null}
+                onClick={() => {
+                  void runFetch();
+                }}
+                sx={{
+                  backgroundColor: "#0C3C60",
+                  "&:hover": { backgroundColor: "#092d47" },
+                  textTransform: "none",
+                }}
+              >
+                Submit
+              </Button>
+              <Button
+                variant="outlined"
+                disabled={branchId == null || activeRowCount === 0}
+                onClick={() => {
+                  void handleExport();
+                }}
+                sx={{ textTransform: "none" }}
+              >
+                Export to Excel
+              </Button>
+            </Box>
+          </Paper>
 
-      {meta ? (
-        <Stack
-          direction="row"
-          spacing={3}
-          useFlexGap
-          flexWrap="wrap"
-          sx={{ mb: 1.5 }}
-        >
-          <Typography variant="body2">
-            <strong>Period:</strong> {meta.date_from} to {meta.date_to}
-          </Typography>
-          <Typography variant="body2">
-            <strong>Avg Eff (excl. zeros):</strong> {fmtNum(meta.filtered_avg_eff) || "—"}
-          </Typography>
-          <Typography variant="body2">
-            <strong>Avg Eff (all rows):</strong> {fmtNum(meta.overall_avg_eff) || "—"}
-          </Typography>
-          <Typography variant="body2">
-            <strong>Rows:</strong> {baseRows.length}
-          </Typography>
-          {fullShiftOnly ? (
-            <Typography variant="body2" color="warning.main">
-              <strong>WhatsApp view:</strong> full-shift regular rows only
-            </Typography>
+          {meta ? (
+            <Stack
+              direction="row"
+              spacing={3}
+              useFlexGap
+              flexWrap="wrap"
+              sx={{ mb: 1.5 }}
+            >
+              <Typography variant="body2">
+                <strong>Period:</strong> {meta.date_from} to {meta.date_to}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Avg Eff (excl. zeros):</strong> {fmtNum(meta.filtered_avg_eff) || "—"}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Avg Eff (all rows):</strong> {fmtNum(meta.overall_avg_eff) || "—"}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Rows:</strong> {baseRows.length}
+              </Typography>
+              {fullShiftOnly ? (
+                <Typography variant="body2" color="warning.main">
+                  <strong>WhatsApp view:</strong> full-shift regular rows only
+                </Typography>
+              ) : null}
+            </Stack>
           ) : null}
-        </Stack>
-      ) : null}
 
-      {meta && meta.notes.length > 0 ? (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          <AlertTitle>Notes</AlertTitle>
-          {meta.notes.map((n, i) => (
-            <Typography key={i} variant="body2">
-              {n}
-            </Typography>
-          ))}
-        </Alert>
-      ) : null}
+          {meta && meta.notes.length > 0 ? (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <AlertTitle>Notes</AlertTitle>
+              {meta.notes.map((n, i) => (
+                <Typography key={i} variant="body2">
+                  {n}
+                </Typography>
+              ))}
+            </Alert>
+          ) : null}
 
-      <Tabs
-        value={tab}
-        onChange={(_, v) => setTab(v)}
-        variant="scrollable"
-        scrollButtons="auto"
-        allowScrollButtonsMobile
-        sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}
-      >
-        {TABS.map((label) => (
-          <Tab key={label} label={label} sx={{ minHeight: 44 }} />
-        ))}
-      </Tabs>
+          <Tabs
+            value={tab}
+            onChange={(_, v) => setTab(v)}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
+            sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}
+          >
+            {TABS.map((label) => (
+              <Tab key={label} label={label} sx={{ minHeight: 44 }} />
+            ))}
+          </Tabs>
 
-      {/* One grid per tab, only the active one mounted: a hidden DataGrid cannot
-          measure its own container. */}
-      {tab === 0 ? (
-        <ReportGrid
-          rows={baseRows}
-          columns={baseColumns}
-          getRowId={(r) => r._rid}
-          loading={loading}
-          error={error}
-          branchId={branchId}
-          sortField="eff_pct"
-          sortDir="asc"
-        />
-      ) : null}
-      {tab === 1 ? (
-        <ReportGrid
-          rows={workerRows}
-          columns={workerColumns}
-          getRowId={(r) => r._rid}
-          loading={loading}
-          error={error}
-          branchId={branchId}
-          sortField="avg_eff"
-          sortDir="asc"
-        />
-      ) : null}
-      {tab === 2 ? (
-        <ReportGrid
-          rows={dayRows}
-          columns={dayColumns}
-          getRowId={(r) => r.date}
-          loading={loading}
-          error={error}
-          branchId={branchId}
-          sortField="date"
-          sortDir="asc"
-        />
-      ) : null}
+          {/* One grid per tab, only the active one mounted: a hidden DataGrid cannot
+              measure its own container. */}
+          {tab === 0 ? (
+            <ReportGrid
+              rows={baseRows}
+              columns={baseColumns}
+              getRowId={(r) => r._rid}
+              loading={loading}
+              error={error}
+              branchId={branchId}
+              sortField="eff_pct"
+              sortDir="asc"
+            />
+          ) : null}
+          {tab === 1 ? (
+            <ReportGrid
+              rows={workerRows}
+              columns={workerGridColumns}
+              getRowId={(r) => r._rid}
+              loading={loading}
+              error={error}
+              branchId={branchId}
+              sortField="avg_eff"
+              sortDir="asc"
+            />
+          ) : null}
+          {tab === 2 ? (
+            <ReportGrid
+              rows={dayRows}
+              columns={dayColumns}
+              getRowId={(r) => r.date}
+              loading={loading}
+              error={error}
+              branchId={branchId}
+              sortField="date"
+              sortDir="asc"
+            />
+          ) : null}
+        </>
+      )}
+      {followupDialog}
     </Box>
   );
 }
