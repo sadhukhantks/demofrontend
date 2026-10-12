@@ -1271,6 +1271,9 @@ const apiRoutesPortalMasters = {
     LA_LETTER_ISSUE_BATCH: `${API_URL}/longAbsenteeism/letter_issue_batch`,
     LA_LETTER_UPDATE: `${API_URL}/longAbsenteeism/letter_update`,
     LA_DISPATCH: `${API_URL}/longAbsenteeism/dispatch`,
+    LA_LETTERS_PRINT: `${API_URL}/longAbsenteeism/letters_print`,
+    LA_LETTERS_PDF: `${API_URL}/longAbsenteeism/letters_pdf`,
+    LA_LETTER_RECORD: `${API_URL}/longAbsenteeism/letter_record`,
     LA_RECEIPT_CREATE: `${API_URL}/longAbsenteeism/receipt_create`,
     LA_RECEIPT_UPDATE: `${API_URL}/longAbsenteeism/receipt_update`,
     LA_RECEIPT_DEACTIVATE: `${API_URL}/longAbsenteeism/receipt_deactivate`,
@@ -1479,6 +1482,8 @@ const apiRoutesPortalMasters = {
     // Bale reports (router prefix /api/juteProductionReports)
     BALE_REPORT_DAILY_SHEET: `${API_URL}/juteProductionReports/bale_daily_sheet`,
     BALE_REPORT_HEAVY_LIGHT: `${API_URL}/juteProductionReports/bale_heavy_light`,
+    // Bale Register — opening / pressed / repacked / despatched / closing + inspection, per day (spec §7c)
+    BALE_REPORT_REGISTER: `${API_URL}/juteProductionReports/bale_register`,
     // Selection Trolley Weight (router prefix /api/selectionProd) — SELECTION_TW_ENTRY_EDIT/
     // DELETE are base paths; caller appends /${id}?co_id=...
     SELECTION_TW_ENTRY_SETUP: `${API_URL}/selectionProd/entry_setup`,
@@ -1560,6 +1565,17 @@ const apiRoutesPortalMasters = {
     FINISHING_STOCK_ROW_DELETE: `${API_URL}/finishingStock/row_delete`,
     FINISHING_STOCK_COPY_PREVIOUS_DAY: `${API_URL}/finishingStock/copy_previous_day`,
     FINISHING_STOCK_REPORT: `${API_URL}/finishingStock/report`,
+    // Bale Stock & Inspection — bale-level stock derived from Bale Production, inspection marking,
+    // bale -> invoice despatch link (router prefix /api/baleStock).
+    BALE_STOCK_SETUP: `${API_URL}/baleStock/setup`,
+    BALE_STOCK_BALES: `${API_URL}/baleStock/bales`,
+    BALE_STOCK_SUMMARY: `${API_URL}/baleStock/summary`,
+    BALE_STOCK_INVOICES: `${API_URL}/baleStock/invoices`,
+    BALE_STOCK_INSPECT: `${API_URL}/baleStock/inspect`,
+    BALE_STOCK_UNINSPECT: `${API_URL}/baleStock/uninspect`,
+    BALE_STOCK_DESPATCH: `${API_URL}/baleStock/despatch`,
+    BALE_STOCK_UNDESPATCH: `${API_URL}/baleStock/undespatch`,
+    BALE_STOCK_SUGGEST: `${API_URL}/baleStock/suggest`,
     // Finishing SQC — ACTUALS ONLY (router prefix /api/juteSQC, shared with Spinning/Beaming SQC).
     // Proxies to finishingTargetMap with value_role='actual'.
     FINISHING_SQC_SETUP: `${API_URL}/juteSQC/finishing_sqc_setup`,

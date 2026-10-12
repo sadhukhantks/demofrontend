@@ -8,6 +8,11 @@
  * regardless of how they were inserted.
  */
 
+import { printFrameCss, wrapInPrintFrame } from "@/utils/printFrame";
+
+/** Paper margin of every `openStyledPrintWindow` printout, mm. */
+const PRINT_MARGIN_MM = 15;
+
 /**
  * Collects all CSS rules from the current document's stylesheets into a
  * single string that can be injected into a print window.
@@ -46,7 +51,8 @@ export function collectDocumentStyles(): {
  * Opens a new browser window with the given inner HTML and all of the current
  * page's CSS rules, then returns the window reference.
  *
- * @param innerHTML  The HTML content to place inside `<div id="print-root">`.
+ * @param innerHTML  The HTML content to place inside `<div id="print-root">`
+ *                   (itself wrapped in the repeating-margin print frame).
  * @param title      The document title for the print window.
  * @param extraCss   Optional extra CSS text appended after the document styles.
  * @returns The opened window, or `null` if popups are blocked.
@@ -69,14 +75,17 @@ export function openStyledPrintWindow(
     .map((href) => `<link rel="stylesheet" href="${href}" />`)
     .join("\n");
 
-  // Default print helpers
+  // Default print helpers. `@page` margin 0 suppresses the browser's own
+  // header/footer (date, title, URL, page number); the paper margin comes from
+  // the print frame (src/utils/printFrame.ts) so it repeats on every page.
   const printHelpers = `
     @media print {
-      @page { size: A4; margin: 10mm; }
-      body { margin: 0; padding: 20px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      @page { size: A4; margin: 0; }
+      body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       table { width: 100%; border-collapse: collapse; }
       #preview-left-pane { max-width: 25% !important; flex-basis: 25% !important; word-break: break-word; white-space: normal; }
     }
+    ${printFrameCss({ sideMm: PRINT_MARGIN_MM, topMm: PRINT_MARGIN_MM })}
   `;
 
   printWindow.document.open();
@@ -90,7 +99,7 @@ export function openStyledPrintWindow(
   ${extraCss ? `<style>${extraCss}</style>` : ""}
 </head>
 <body>
-  <div id="print-root">${innerHTML}</div>
+  ${wrapInPrintFrame(`<div id="print-root">${innerHTML}</div>`)}
 </body>
 </html>`);
   printWindow.document.close();

@@ -6,7 +6,9 @@
  * Kept out of page.tsx because the app router forbids extra exports there.
  */
 
-/** @page margin used by the report's print stylesheet. */
+/** Paper margin of the report's print sheet, in mm. The @page margin itself is
+ * 0 (so the browser prints no header/footer); this margin is applied as the
+ * print root's top/left offset and width reduction in page.tsx. */
 export const PRINT_PAGE_MARGIN_MM = 8;
 
 /** Printable width of an A4 landscape page (297mm) inside the margins, in

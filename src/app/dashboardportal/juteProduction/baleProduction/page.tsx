@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { minBackdateISO } from "@/utils/backdate";
 import {
 	Alert,
 	Box,
@@ -297,10 +298,10 @@ export default function BaleProductionPage() {
 									value={tranDate}
 									onChange={(e) => {
 										const v = e.target.value;
-										setTranDate(v && v > todayISO() ? todayISO() : v);
+										setTranDate(v && v > todayISO() ? todayISO() : v && v < minBackdateISO() ? minBackdateISO() : v);
 									}}
 									disabled={editing}
-									inputProps={{ max: todayISO() }}
+									inputProps={{ min: minBackdateISO(), max: todayISO() }}
 									InputLabelProps={{ shrink: true }}
 								/>
 								<SearchableOptionSelect

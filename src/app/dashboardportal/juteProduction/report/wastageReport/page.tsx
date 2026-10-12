@@ -392,14 +392,18 @@ function Content() {
       <GlobalStyles
         styles={{
           "@media print": {
-            "@page": { size: "A4 landscape", margin: `${PRINT_PAGE_MARGIN_MM}mm` },
+            // @page margin 0 suppresses the browser's own header/footer (date,
+            // title, URL, page number). The paper margin (PRINT_PAGE_MARGIN_MM)
+            // is applied as the print root's top/left offset and the width
+            // below, so the printable width is identical to the old @page margin.
+            "@page": { size: "A4 landscape", margin: 0 },
             "body *": { visibility: "hidden" },
             ".wsr-print-root, .wsr-print-root *": { visibility: "visible" },
             ".wsr-print-root": {
               position: "absolute",
-              top: 0,
-              left: 0,
-              width: "calc(100% / var(--wsr-print-scale, 1))",
+              top: `${PRINT_PAGE_MARGIN_MM}mm`,
+              left: `${PRINT_PAGE_MARGIN_MM}mm`,
+              width: `calc((100% - ${2 * PRINT_PAGE_MARGIN_MM}mm) / var(--wsr-print-scale, 1))`,
               transform: "scale(var(--wsr-print-scale, 1))",
               transformOrigin: "top left",
             },
