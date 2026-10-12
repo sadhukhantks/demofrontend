@@ -26,6 +26,10 @@ import type {
   PaginatedReportApiResponse,
   ReportApiResponse,
 } from "@/app/dashboardportal/jutePurchase/reports/types/reportTypes";
+import {
+  parseBatchPlanStatus,
+  type BatchPlanStatus,
+} from "@/app/dashboardportal/jutePurchase/reports/batchCost/planStatus";
 
 /** Reporting basis (decision D5, 2026-09-03): "actual" = today's reports;
  * "accounts" = receipt on jute_mr_date, approved weight, issues dated before
@@ -50,12 +54,28 @@ export async function fetchBatchCostReport(
   date: string,
   basis: JuteReportBasis = "actual",
 ): Promise<BatchCostReportRow[]> {
+  return (await fetchBatchCostReportWithPlan(branchId, date, basis)).rows;
+}
+
+/** The batch cost rows plus the plan status (TKT-000206): why planned weight
+ * is 0 — no batch plan assigned for the day / a yarn quality, or no issue.
+ * `planStatus` is null when the backend sends none. */
+export async function fetchBatchCostReportWithPlan(
+  branchId: number,
+  date: string,
+  basis: JuteReportBasis = "actual",
+): Promise<{ rows: BatchCostReportRow[]; planStatus: BatchPlanStatus | null }> {
   const url = `${apiRoutesPortalMasters.JUTE_REPORT_BATCH_COST}?branch_id=${branchId}&date=${date}&basis=${basis}`;
-  const result = await fetchWithCookie<ReportApiResponse<BatchCostReportRow>>(url);
+  const result = await fetchWithCookie<
+    ReportApiResponse<BatchCostReportRow> & { plan_status?: unknown }
+  >(url);
   if (result.error || !result.data) {
     throw new Error(result.error ?? "Failed to fetch batch cost report");
   }
-  return result.data.data;
+  return {
+    rows: result.data.data,
+    planStatus: parseBatchPlanStatus(result.data.plan_status),
+  };
 }
 
 /** GET /api/juteReports/issue-yarn-wise (TKT-000214) — jute issued per yarn
@@ -117,6 +137,36 @@ export async function syncIssueWeights(
     throw new Error(result.error ?? "Failed to sync issued weights");
   }
   return result.data;
+}
+
+export interface RepriceIssuesResult {
+  issues_checked: number;
+  issues_changed: number;
+  value_before: number;
+  value_after: number;
+  /** MRs whose lines still have no rate — their issues stay at 0. */
+  no_rate_mr_ids: number[];
+}
+
+/** POST /api/juteIssue/reprice_issues — Re-evaluate: re-prices every
+ * non-rejected MR-sourced issue of the branch in the range from its MR line's
+ * CURRENT rate (weights untouched). Used by the Batch Cost report. */
+export async function repriceIssues(
+  coId: number | string,
+  branchId: number,
+  dateFrom: string,
+  dateTo: string,
+): Promise<RepriceIssuesResult> {
+  const url = `${apiRoutesPortalMasters.JUTE_ISSUE_REPRICE}?co_id=${coId}`;
+  const result = await fetchWithCookie<{ data: RepriceIssuesResult }>(url, "POST", {
+    branch_id: branchId,
+    date_from: dateFrom,
+    date_to: dateTo,
+  });
+  if (result.error || !result.data?.data) {
+    throw new Error(result.error ?? "Failed to re-evaluate issue values");
+  }
+  return result.data.data;
 }
 
 export async function fetchJuteQtyWiseReport(

@@ -19,6 +19,7 @@ export default function KpiStrip({ summary }: { summary: TrendSummary }) {
   const vsPrev = summary.previous ? `vs prior ${summary.calendar_days}d` : "no prior period";
   const hasStd = summary.std_kg != null;
   const hasTgt = summary.tgt_kg != null;
+  const hasStdc = summary.stdc_kg != null;
 
   return (
     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
@@ -33,7 +34,7 @@ export default function KpiStrip({ summary }: { summary: TrendSummary }) {
         value={hasStd ? `${fmtKg(summary.std_kg)} kg` : "—"}
         sub={
           hasStd
-            ? `actual ${fmtKg(summary.production_kg)} · gap ${fmtKg(summary.gap_kg)} kg`
+            ? `actual ${fmtKg(summary.production_kg)} · gap ${fmtKg(summary.gap_kg)} kg${hasStdc ? ` · ${fmtKg(summary.stdc_kg)} at std count` : ""}`
             : "no Spinning Standards in range"
         }
         state={vsStdState(summary.production_kg, summary.std_kg)}
@@ -57,7 +58,7 @@ export default function KpiStrip({ summary }: { summary: TrendSummary }) {
         value={hasStd ? `${fmtKg(summary.std_kg_per_frame_shift, 1)} kg` : "—"}
         sub={
           hasStd
-            ? `actual ${fmtKg(summary.kg_per_frame_shift, 1)}${hasTgt ? ` · target ${fmtKg(summary.tgt_kg_per_frame_shift, 1)}` : ""}`
+            ? `actual ${fmtKg(summary.kg_per_frame_shift, 1)}${hasStdc ? ` · ${fmtKg(summary.stdc_kg_per_frame_shift, 1)} at std count` : ""}${hasTgt ? ` · target ${fmtKg(summary.tgt_kg_per_frame_shift, 1)}` : ""}`
             : "no Spinning Standards in range"
         }
         state={vsStdState(summary.kg_per_frame_shift, summary.std_kg_per_frame_shift)}

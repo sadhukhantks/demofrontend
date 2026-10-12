@@ -17,7 +17,7 @@ import type { GridSection } from "@/components/reports/gridSections";
 import ExportActions from "../../doffAnalysis/_components/ExportActions";
 import { SectionCard } from "../../dailyProductionReport/_components/DprPieces";
 import type { SpinningTrendData, TrendDayRow } from "../_service";
-import { SERIES_COLORS, STD_COLOR, TGT_COLOR } from "../chartPalette";
+import { SERIES_COLORS, STD_COLOR, STDC_COLOR, TGT_COLOR } from "../chartPalette";
 import { toGridColumns, type Col } from "../tableColumns";
 import {
   actualStdTgtLines,
@@ -25,6 +25,7 @@ import {
   qualitySlots,
   stackByQuality,
   stackByShift,
+  STDC_LABEL,
   type LineSeries,
 } from "../trendRows";
 import DataTable from "./DataTable";
@@ -47,10 +48,12 @@ const dayCols: Col<DayGridRow>[] = [
   { field: "doffs", header: "Doffs", num: true, decimals: 0, width: 80, phone: false },
   { field: "kg", header: "Production (kg)", short: "Kg", num: true, decimals: 0, width: 130 },
   { field: "std_kg", header: "Standard (kg)", short: "Std kg", num: true, decimals: 0, width: 130 },
+  { field: "stdc_kg", header: "Std at std count (kg)", num: true, decimals: 0, width: 160, phone: false },
   { field: "tgt_kg", header: "Target (kg)", short: "Tgt kg", num: true, decimals: 0, width: 120, phone: false },
   { field: "gap_kg", header: "Gap to std (kg)", short: "Gap", num: true, decimals: 0, width: 130 },
   { field: "kg_per_frame_shift", header: "Kg / frame-shift", short: "Kg/fr-shift", num: true, decimals: 1, width: 130 },
   { field: "std_kg_per_frame_shift", header: "Std / frame-shift", short: "Std/fr-shift", num: true, decimals: 1, width: 130 },
+  { field: "stdc_kg_per_frame_shift", header: "Std at std count / frame-shift", num: true, decimals: 1, width: 190, phone: false },
   { field: "tgt_kg_per_frame_shift", header: "Target / frame-shift", num: true, decimals: 1, width: 150, phone: false },
   { field: "kg_per_frame", header: "Kg / frame (day)", num: true, decimals: 1, width: 130, phone: false },
   { field: "avg_doff_kg", header: "Avg doff (kg)", num: true, decimals: 2, width: 120, phone: false },
@@ -86,18 +89,29 @@ export default function DailyTrendTab({
 
   const hasStd = data.summary.std_kg != null;
   const hasTgt = data.summary.tgt_kg != null;
+  const hasStdc = data.summary.stdc_kg != null;
 
-  // Standard / target production per day, over the stacked actual.
+  // Standard / std at std count / target production per day, over the
+  // stacked actual.
   const dayLines = React.useMemo<LineSeries[]>(() => {
     const out: LineSeries[] = [];
     if (hasStd) {
       out.push({ key: "std", label: "Standard", color: STD_COLOR, data: data.days.map((d) => d.std_kg), dash: "dash" });
     }
+    if (hasStdc) {
+      out.push({
+        key: "stdc",
+        label: STDC_LABEL,
+        color: STDC_COLOR,
+        data: data.days.map((d) => d.stdc_kg ?? null),
+        dash: "dashdot",
+      });
+    }
     if (hasTgt) {
       out.push({ key: "tgt", label: "Target", color: TGT_COLOR, data: data.days.map((d) => d.tgt_kg ?? null), dash: "dot" });
     }
     return out;
-  }, [data.days, hasStd, hasTgt]);
+  }, [data.days, hasStd, hasStdc, hasTgt]);
 
   const kpfsLines = React.useMemo(
     () =>
@@ -107,6 +121,7 @@ export default function DailyTrendTab({
         data.days.map((d) => d.kg_per_frame_shift),
         data.days.map((d) => d.std_kg_per_frame_shift ?? null),
         data.days.map((d) => d.tgt_kg_per_frame_shift ?? null),
+        data.days.map((d) => d.stdc_kg_per_frame_shift ?? null),
       ),
     [data.days],
   );
@@ -135,7 +150,7 @@ export default function DailyTrendTab({
 
       <SectionCard
         title="Production by day — actual vs standard"
-        subtitle={`${stackMode === "quality" ? "kg per day stacked by yarn quality (largest first)" : "kg per day stacked by shift"}${hasStd ? "; standard dashed" : ""}${hasTgt ? ", target dotted" : ""}`}
+        subtitle={`${stackMode === "quality" ? "kg per day stacked by yarn quality (largest first)" : "kg per day stacked by shift"}${hasStd ? "; standard dashed" : ""}${hasStdc ? ", std at std count dash-dot" : ""}${hasTgt ? ", target dotted" : ""}`}
       >
         <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 0.5 }}>
           <ToggleButtonGroup
@@ -159,7 +174,7 @@ export default function DailyTrendTab({
 
       <SectionCard
         title="Kg per frame-shift by day — actual vs standard"
-        subtitle={`production ÷ frame-shifts run; period actual ${fmtKg(data.summary.kg_per_frame_shift, 1)} kg${hasStd ? ` vs standard ${fmtKg(data.summary.std_kg_per_frame_shift, 1)} kg` : ""}${hasTgt ? ` vs target ${fmtKg(data.summary.tgt_kg_per_frame_shift, 1)} kg` : ""}`}
+        subtitle={`production ÷ frame-shifts run; period actual ${fmtKg(data.summary.kg_per_frame_shift, 1)} kg${hasStd ? ` vs standard ${fmtKg(data.summary.std_kg_per_frame_shift, 1)} kg` : ""}${hasStdc ? ` (${fmtKg(data.summary.stdc_kg_per_frame_shift, 1)} kg at std count)` : ""}${hasTgt ? ` vs target ${fmtKg(data.summary.tgt_kg_per_frame_shift, 1)} kg` : ""}`}
       >
         <TrendLineChart dates={dates} series={hasStd ? kpfsLines : kpfsLines.slice(0, 1)} height={lineHeight} unit="kg" />
       </SectionCard>
@@ -186,7 +201,9 @@ export default function DailyTrendTab({
         Kg per frame-shift = production ÷ (frames × shifts they ran). Standard = the Spinning
         Production grid&apos;s Std Prod of the frame-shifts that have Spinning Standards and an
         SQC count; target = the same at the yarn&apos;s target efficiency, shown only where that
-        has been entered.
+        has been entered. Std at std count = the standard recomputed with the yarn&apos;s standard
+        count (Yarn master) in place of the day&apos;s SQC count — the standard line itself follows
+        the count actually spun.
       </Typography>
     </Stack>
   );

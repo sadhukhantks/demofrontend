@@ -14,11 +14,14 @@ import {
 	Typography,
 	CircularProgress,
 } from "@mui/material";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileDown, Printer } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import AttachmentUploader from "@/components/AttachmentUploader";
+import useCompanyName from "@/hooks/useCompanyName";
+import { downloadTablesPdf, printTablesPdf } from "@/components/reports/tablesPdf";
+import { buildBillPassPdfSpec } from "../billPassPdf";
 
 /**
  * @component BillPassViewPage
@@ -175,6 +178,25 @@ function BillPassViewPageContent() {
 	const [lineItems, setLineItems] = React.useState<BillPassLineItem[]>([]);
 	const [loading, setLoading] = React.useState(true);
 	const [pageError, setPageError] = React.useState<string | null>(null);
+	const companyName = useCompanyName();
+	const [pdfBusy, setPdfBusy] = React.useState(false);
+	const [pdfError, setPdfError] = React.useState<string | null>(null);
+
+	// Print / Download PDF (TKT-000195) — same document as the edit page.
+	const handlePdf = async (mode: "download" | "print") => {
+		if (!header) return;
+		setPdfBusy(true);
+		setPdfError(null);
+		try {
+			const spec = buildBillPassPdfSpec(header, lineItems, companyName);
+			if (mode === "print") await printTablesPdf(spec);
+			else await downloadTablesPdf(spec);
+		} catch (err) {
+			setPdfError(err instanceof Error ? err.message : "Failed to build the PDF");
+		} finally {
+			setPdfBusy(false);
+		}
+	};
 
 	// Computed financial values — calculate totals from line items
 	const financials = React.useMemo(() => {
@@ -245,7 +267,7 @@ function BillPassViewPageContent() {
 	return (
 		<Box sx={{ p: 2 }}>
 			{/* Page Header */}
-			<Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+			<Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} mb={2}>
 				<Box display="flex" alignItems="center" gap={2}>
 					<Button
 						variant="outlined"
@@ -264,7 +286,30 @@ function BillPassViewPageContent() {
 						</Typography>
 					)}
 				</Box>
+				<Box display="flex" gap={1}>
+					<Button
+						variant="outlined"
+						startIcon={<Printer size={16} />}
+						onClick={() => void handlePdf("print")}
+						disabled={pdfBusy}
+					>
+						Print
+					</Button>
+					<Button
+						variant="outlined"
+						startIcon={<FileDown size={16} />}
+						onClick={() => void handlePdf("download")}
+						disabled={pdfBusy}
+					>
+						{pdfBusy ? "Preparing..." : "Download PDF"}
+					</Button>
+				</Box>
 			</Box>
+			{pdfError && (
+				<Alert severity="error" sx={{ mb: 2 }} onClose={() => setPdfError(null)}>
+					{pdfError}
+				</Alert>
+			)}
 
 			{/* Header Info */}
 			<Card sx={{ mb: 2 }}>

@@ -1257,6 +1257,7 @@ function IndentTransactionPageContent() {
 			onConfirm={handleItemDialogConfirm}
 			filter="purchaseable"
 			excludeItemIds={excludeItemIds}
+			branchId={branchIdForSetup}
 			title="Select Items for Indent"
 		/>
 

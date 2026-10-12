@@ -10,7 +10,11 @@ import { fetchJuteStockReport, type JuteReportBasis } from "@/utils/juteReportSe
 import { tokens } from "@/styles/tokens";
 import type { JuteStockReportRow } from "../types/reportTypes";
 import {
+  kgToMt,
+  MT_DECIMALS,
+  pinGrandTotalLast,
   roundStockRowsToKg,
+  stockRowId,
   stockSplit,
   withStockGrandTotal,
   type StockWeightField,
@@ -22,7 +26,7 @@ const KG_DECIMALS = 0;
 const kgCol = (field: StockWeightField, headerName: string, width?: number) =>
   numCol<JuteStockReportRow>(field, headerName, width, KG_DECIMALS);
 
-const columns: GridColDef<JuteStockReportRow>[] = [
+const baseColumns: GridColDef<JuteStockReportRow>[] = [
   { field: "item_group_name", headerName: "Item Group", flex: 1, minWidth: 140 },
   { field: "item_name", headerName: "Item", flex: 1, minWidth: 160 },
   kgCol("opening_weight", "Opening (kg)", 130),
@@ -34,7 +38,8 @@ const columns: GridColDef<JuteStockReportRow>[] = [
   kgCol("mtd_issue_weight", "MTD Issue (kg)", 140),
 ];
 
-const getRowId = (r: JuteStockReportRow) => `${r.item_grp_id}-${r.item_id}`;
+// Every column keeps the Grand Total row last, whatever the sort (TKT-000205).
+const columns = baseColumns.map(pinGrandTotalLast);
 
 /**
  * The weight columns the summary cards total, in grid order.
@@ -57,10 +62,11 @@ const TOTAL_FIELDS: { field: StockWeightField; label: string }[] = [
   { field: "mtd_issue_weight", label: "MTD Issue" },
 ];
 
-const fmtKg = (n: number) =>
-  n.toLocaleString("en-IN", {
-    minimumFractionDigits: KG_DECIMALS,
-    maximumFractionDigits: KG_DECIMALS,
+/** Card figures are in metric tonnes (TKT-000205); the grid stays in kg. */
+const fmtMt = (kg: number) =>
+  kgToMt(kg).toLocaleString("en-IN", {
+    minimumFractionDigits: MT_DECIMALS,
+    maximumFractionDigits: MT_DECIMALS,
   });
 
 function TotalCard({
@@ -75,10 +81,10 @@ function TotalCard({
   return (
     <Paper elevation={1} sx={{ p: 1.5, minWidth: 150, flex: "1 1 150px" }}>
       <Typography variant="caption" color="text.secondary">
-        {label} (kg)
+        {label} (MT)
       </Typography>
       <Typography variant="h6" sx={{ color: tokens.report.header, fontWeight: 700 }}>
-        {fmtKg(value)}
+        {fmtMt(value)}
       </Typography>
       {sub && (
         <Typography variant="caption" color="text.secondary" component="div">
@@ -94,8 +100,9 @@ function TotalCard({
  * broken into raw jute vs jute waste (process + purchased).
  *
  * Summed off the REAL rows (the appended Grand Total row is skipped, or it
- * would be counted twice). The rows are already whole kg, so a card and the
- * grid's total row always print the same number. The waste share comes from
+ * would be counted twice). The rows are already whole kg; the cards print that
+ * sum in MT (TKT-000205, 2 decimals = 10 kg), so a card is the grid's Grand
+ * Total row / 1000. The waste share comes from
  * is_waste — the item group's own item_type_id — not from a name match on the
  * group.
  */
@@ -109,7 +116,7 @@ function SummaryCards(rows: JuteStockReportRow[]) {
             key={field}
             label={label}
             value={total}
-            sub={`Raw ${fmtKg(raw)} · Waste ${fmtKg(waste)}`}
+            sub={`Raw ${fmtMt(raw)} · Waste ${fmtMt(waste)}`}
           />
         );
       })}
@@ -155,7 +162,7 @@ export default function JuteStockReport({
           .then(withStockGrandTotal)
       }
       columns={columns}
-      getRowId={getRowId}
+      getRowId={stockRowId}
       summary={SummaryCards}
       sortField="item_group_name"
       exportName={exportName}

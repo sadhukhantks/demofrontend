@@ -16,10 +16,15 @@ export function diffCol<T extends GridValidRowModel>(
   field = "diff_wt",
   headerName = "Diff (kg)",
   width = 110,
+  { suffix = "", description = "Target - Actual (positive = short of target)" }: {
+    /** Appended to the on-screen figure, e.g. "%" for a percentage diff. */
+    suffix?: string;
+    description?: string;
+  } = {},
 ): GridColDef<T> {
   return {
     ...numCol<T>(field, headerName, width),
-    description: "Target - Actual (positive = short of target)",
+    description,
     renderCell: (params) => {
       const n = Number(params.value);
       if (params.value == null || !Number.isFinite(n)) return "";
@@ -29,6 +34,7 @@ export function diffCol<T extends GridValidRowModel>(
           sx={{ color: n > 0 ? "error.main" : "success.main", fontWeight: 600 }}
         >
           {n > 0 ? `+${fmtNum(n)}` : fmtNum(n)}
+          {suffix}
         </Box>
       );
     },

@@ -267,6 +267,26 @@ describe("standard and target lines", () => {
     expect(noTgt.map((s) => s.key)).toEqual(["actual", "std"]);
   });
 
+  it("actualStdTgtLines adds the std-at-std-count line dash-dot between standard and target", () => {
+    const all = actualStdTgtLines("Q1", "#2a78d6", [10, 12], [15, 15], [14, null], [13, 13]);
+    expect(all.map((s) => [s.key, s.dash])).toEqual([
+      ["actual", undefined],
+      ["std", "dash"],
+      ["stdc", "dashdot"],
+      ["tgt", "dot"],
+    ]);
+    expect(all[2].label).toBe("Std at std count");
+    const none = actualStdTgtLines("Q1", "#2a78d6", [10], [15], [null], [null]);
+    expect(none.map((s) => s.key)).toEqual(["actual", "std"]);
+  });
+
+  it("qualityLines reads the std-at-std-count figure per frame-shift, null where absent", () => {
+    const slots = qualitySlots([q(1, "Q1", 100)]);
+    const rows = [{ ...dq("2026-10-01", 1, "Q1", 300, 3), stdc_kg: 360, stdc_kg_per_frame_shift: 120 }];
+    expect(qualityLines(DATES, rows, slots, "stdc")[0].data).toEqual([120, null]);
+    expect(qualityLines(DATES, [dq("2026-10-01", 1, "Q1", 300, 3)], slots, "stdc")[0].data).toEqual([null, null]);
+  });
+
   it("pivot carries the standard per frame-shift and the standard kg", () => {
     const qualities = [q(1, "A", 50, { std_kg: 80, std_kg_per_frame_shift: 20 })];
     const rows = [{ ...dq("2026-10-01", 1, "A", 30, 2), std_kg: 40, std_kg_per_frame_shift: 20 }];

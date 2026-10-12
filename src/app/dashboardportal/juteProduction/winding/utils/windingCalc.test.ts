@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { winderWiseRows, winderWiseShiftTotals, winderWiseTotal } from "./windingCalc";
+import {
+	machineLabel,
+	winderWiseRows,
+	winderWiseShiftTotals,
+	winderWiseTotal,
+} from "./windingCalc";
 import type { WindingSpellReportRow } from "../types/windingTypes";
 
 function rec(p: Partial<WindingSpellReportRow>): WindingSpellReportRow {
@@ -75,16 +80,28 @@ describe("winderWiseRows", () => {
 
 // TKT-000169 — machine, target and every shift on the Winder Wise Production tab.
 describe("winderWiseRows machine + target (TKT-000169)", () => {
-	it("labels the machine by code, falls back to name, and shows a dash when unmapped", () => {
+	it("labels the machine by code and name, either alone, and a dash when unmapped", () => {
 		const out = winderWiseRows(
 			[
 				rec({ eb_id: 1, mech_code: "4102", machine_name: "WINDING 4102" }),
 				rec({ eb_id: 2, mech_code: null, machine_name: "WINDING 77" }),
 				rec({ eb_id: 3, mech_code: null, machine_name: null }),
+				rec({ eb_id: 4, mech_code: "88", machine_name: "AUTO CONER" }),
+				rec({ eb_id: 5, mech_code: "3301", machine_name: null }),
 			],
 			null,
 		);
-		expect(out.map((r) => r.machine).sort()).toEqual(["4102", "WINDING 77", "—"].sort());
+		expect(out.map((r) => r.machine).sort()).toEqual(
+			["WINDING 4102", "WINDING 77", "—", "88 - AUTO CONER", "3301"].sort(),
+		);
+	});
+
+	// Follow-up comment: a bare code ("4101") read like an id — show the name too.
+	it("machineLabel never shows a bare code when a name exists", () => {
+		expect(machineLabel({ mech_code: "4101", machine_name: "WINDING4101" })).toBe("WINDING4101");
+		expect(machineLabel({ mech_code: "12", machine_name: "SPOOL WINDER" })).toBe("12 - SPOOL WINDER");
+		expect(machineLabel({ mech_code: " ", machine_name: null })).toBe("");
+		expect(machineLabel({})).toBe("");
 	});
 
 	it("carries the target through, and keeps a missing target null rather than 0", () => {
