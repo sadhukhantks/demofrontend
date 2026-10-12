@@ -12,7 +12,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/dashboardportal/juteProduction/report/longAbsenteeism",
+  usePathname: () => "/dashboardportal/hrms/longAbsenteeism",
 }));
 
 vi.mock("@/components/dashboard/sidebarContext", () => ({

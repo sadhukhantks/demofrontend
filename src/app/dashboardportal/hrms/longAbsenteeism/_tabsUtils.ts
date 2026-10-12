@@ -38,6 +38,17 @@ export function groupByBatch(rows: ReadonlyArray<LaDispatchRow>): DispatchBatch[
   return [...map.values()];
 }
 
+/** Most letters one reprint / PDF may carry (the server's MAX_PRINT_LETTERS). */
+export const MAX_PRINT_LETTERS = 200;
+
+/** The selected letter ids in the order the rows are listed (the print order). */
+export function selectedInRowOrder(
+  rows: ReadonlyArray<Pick<LaDispatchRow, "letter_id">>,
+  selected: ReadonlySet<number>,
+): number[] {
+  return rows.filter((r) => selected.has(r.letter_id)).map((r) => r.letter_id);
+}
+
 /** "Batch B20261011-1030-5" / "Issued one by one". */
 export function batchTitle(batchRef: string | null): string {
   return batchRef ? `Batch ${batchRef}` : "Issued one by one";

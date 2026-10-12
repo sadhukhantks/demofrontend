@@ -23,13 +23,14 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Printer } from "lucide-react";
+import { FileDown, Printer } from "lucide-react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import { TOUCH_TARGET } from "@/components/ui/responsiveEntry";
 import { CompanyHeaderBlock } from "@/app/dashboardportal/procurement/_shared/PrintHeader";
 import {
+  downloadLaLettersPdf,
   issueLaLetter,
   previewLaLetter,
   type LaCase,
@@ -126,6 +127,8 @@ function IssueForm({
   const schema = React.useMemo(() => makeLetterIssueSchema(ctx), [ctx]);
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [issued, setIssued] = React.useState<LaIssueResult | null>(null);
+  const [pdfBusy, setPdfBusy] = React.useState(false);
+  const [pdfError, setPdfError] = React.useState<string | null>(null);
   const {
     control,
     handleSubmit,
@@ -149,6 +152,19 @@ function IssueForm({
       [{ subject: res.letter.subject, body: res.letter.body }],
       `${stageText} - ${c.emp_name ?? c.emp_code ?? c.case_id}`,
     );
+
+  /** Server-side PDF of the issued letter (reportlab: no browser header / footer). */
+  const downloadPdf = async (res: LaIssueResult) => {
+    setPdfBusy(true);
+    setPdfError(null);
+    try {
+      await downloadLaLettersPdf(coId, [res.letter.letter_id]);
+    } catch (err: unknown) {
+      setPdfError(err instanceof Error ? err.message : "Could not download the PDF");
+    } finally {
+      setPdfBusy(false);
+    }
+  };
 
   const submit = async (v: LetterIssueFormValues) => {
     setSaveError(null);
@@ -181,12 +197,23 @@ function IssueForm({
         hideSubmit
         cancelLabel="Done"
         extraActions={
-          <Button variant="contained" startIcon={<Printer size={16} />} onClick={() => print(issued)}>
-            Print again
-          </Button>
+          <>
+            <Button
+              variant="outlined"
+              startIcon={pdfBusy ? <CircularProgress size={16} color="inherit" /> : <FileDown size={16} />}
+              disabled={pdfBusy}
+              onClick={() => void downloadPdf(issued)}
+            >
+              Download PDF
+            </Button>
+            <Button variant="contained" startIcon={<Printer size={16} />} onClick={() => print(issued)}>
+              Print again
+            </Button>
+          </>
         }
       >
         <Stack spacing={2}>
+          {pdfError ? <Alert severity="error">{pdfError}</Alert> : null}
           <Alert severity="success">
             {stageText} for {workerTitle(c)} issued. The print window opened — if your browser blocked it, use Print
             again.

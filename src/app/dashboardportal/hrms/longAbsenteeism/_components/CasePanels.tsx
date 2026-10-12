@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * The smaller case panels: Verification, Performance and Earlier cases.
- * Presentational — the case view owns the data and the dialogs.
+ * The smaller case panels: Leave (read from the leave module), Performance
+ * and Earlier cases. Presentational — the case view owns the data and the
+ * dialogs.
  */
 
 import * as React from "react";
@@ -10,14 +11,13 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   CircularProgress,
   Paper,
   Stack,
   Typography,
 } from "@mui/material";
 import type { Theme } from "@mui/material/styles";
-import { BarChart3, ChevronRight, ShieldCheck } from "lucide-react";
+import { BarChart3, ChevronRight } from "lucide-react";
 import { fmtDate } from "@/components/lowPerformerFollowup/schemas";
 import type {
   LaCase,
@@ -27,7 +27,7 @@ import type {
   LaPerformance,
   LaSetup,
 } from "@/utils/longAbsenteeismService";
-import { fmtNum, labelOf, stageLabel } from "../_utils";
+import { exitLeaveText, fmtNum, isLeaveCode, labelOf, leaveStatusLine, stageLabel } from "../_utils";
 import SimpleTable, { type SimpleColumn } from "./SimpleTable";
 
 /** 44 px touch targets below `md` (FollowupTimeline pattern), compact on desktop. */
@@ -66,58 +66,54 @@ function Line({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-// ─── Verification ────────────────────────────────────────────────────
+// ─── Leave ───────────────────────────────────────────────────────────
 
-export interface VerificationPanelProps {
+export interface LeavePanelProps {
   c: LaCase;
-  esiStlResults: ReadonlyArray<LaCodeLabel>;
-  /** Shows Verify (create access, open case). */
-  canVerify: boolean;
-  onVerify: () => void;
+  /** Server date (YYYY-MM-DD): whether the module leave is on, upcoming or over. */
+  today: string;
+  /** setup.esi_stl_results — labels of an old case's verification result. */
+  esiStlResults?: ReadonlyArray<LaCodeLabel>;
 }
 
-/** ESI / STL check and time keeper confirmation (step 1 of the ladder). */
-export function VerificationPanel({ c, esiStlResults, canVerify, onVerify }: VerificationPanelProps) {
-  const done = c.verified_date != null;
+const LEAVE_ALERT_SEVERITY = { now: "info", upcoming: "info", ended: "warning" } as const;
+
+/**
+ * The worker's leave as the leave module records it (approved requests of the
+ * Leave Request page only), a pending request, and a leave-like exit reason.
+ * Nothing here is entered on this page.
+ */
+export function LeavePanel({ c, today, esiStlResults }: LeavePanelProps) {
+  const status = leaveStatusLine(c, today);
+  const exitLeave = exitLeaveText(c);
+  const oldCheck =
+    c.verified_date && isLeaveCode(c.esi_stl_result)
+      ? c.esi_stl_result_label || labelOf(esiStlResults, c.esi_stl_result)
+      : null;
   return (
     <Paper elevation={1} sx={[{ p: { xs: 1.5, md: 2 }, mb: 2 }, touchTargetsSx]}>
-      <PanelTitle
-        title="Verification"
-        action={
-          canVerify ? (
-            <Button size="small" variant={done ? "outlined" : "contained"} startIcon={<ShieldCheck size={14} />} onClick={onVerify}>
-              {done ? "Update verification" : "Verify"}
-            </Button>
-          ) : null
-        }
-      />
-      {!done ? (
-        <Alert severity="info">
-          Not verified yet: check the ESI / STL records and confirm the absence with the time keeper before the first
-          warning letter.
-        </Alert>
+      <PanelTitle title="Leave (leave module)" />
+      {status.state ? (
+        <Alert severity={LEAVE_ALERT_SEVERITY[status.state]}>{status.text}</Alert>
       ) : (
-        <Box>
-          <Line label="ESI / STL" value={labelOf(esiStlResults, c.esi_stl_result)} />
-          <Line
-            label="Time keeper confirmed"
-            value={
-              <Chip
-                size="small"
-                color={c.timekeeper_confirmed === 1 ? "success" : "default"}
-                label={c.timekeeper_confirmed === 1 ? "Yes" : "No"}
-              />
-            }
-          />
-          <Line label="Habitual absentee" value={c.habitual === 1 ? "Yes" : "No"} />
-          <Line label="Verified on" value={fmtDate(c.verified_date)} />
-          {c.verify_note ? (
-            <Typography variant="body2" sx={{ mt: 1, whiteSpace: "pre-wrap" }}>
-              {c.verify_note}
-            </Typography>
-          ) : null}
-        </Box>
+        <Typography variant="body2" color="text.secondary">
+          {status.text}
+        </Typography>
       )}
+      {c.pending_leave_since ? (
+        <Typography variant="body2" sx={{ mt: 1, color: "warning.main", fontWeight: 600 }}>
+          Leave request pending approval since {fmtDate(c.pending_leave_since)}
+        </Typography>
+      ) : null}
+      {exitLeave || oldCheck ? (
+        <Box sx={{ mt: 1 }}>
+          {exitLeave ? <Line label="Closed as" value={exitLeave} /> : null}
+          {oldCheck ? <Line label="Recorded at verification" value={oldCheck} /> : null}
+        </Box>
+      ) : null}
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+        Leave is read from the Leave Request page (hrms/LeaveRequest); only approved requests count.
+      </Typography>
     </Paper>
   );
 }

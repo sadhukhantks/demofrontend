@@ -10,6 +10,8 @@ import {
   fmtDateTime,
   groupByBatch,
   monthLabel,
+  MAX_PRINT_LETTERS,
+  selectedInRowOrder,
   sentText,
   stageBars,
   stageSummaryTotals,
@@ -160,5 +162,14 @@ describe("template saved time", () => {
     expect(fmtDateTime("2026-10-11 09:30:00")).toBe("11-10-2026 09:30");
     expect(fmtDateTime("2026-10-11")).toBe("11-10-2026");
     expect(fmtDateTime(null)).toBe("");
+  });
+});
+
+describe("bulk reprint selection", () => {
+  it("keeps the register order, whatever the click order", () => {
+    const rows = [{ letter_id: 5 }, { letter_id: 3 }, { letter_id: 9 }];
+    expect(selectedInRowOrder(rows, new Set([9, 5]))).toEqual([5, 9]);
+    expect(selectedInRowOrder(rows, new Set([7]))).toEqual([]);
+    expect(MAX_PRINT_LETTERS).toBe(200);
   });
 });

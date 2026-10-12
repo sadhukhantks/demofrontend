@@ -13,6 +13,7 @@ import {
   type LaCase,
   type LaExtraKey,
   type LaLetter,
+  type LaRecordPayload,
   type LaUpdatePayload,
   type LaUserEventType,
 } from "@/utils/longAbsenteeismService";
@@ -36,7 +37,10 @@ export const SNOOZE_MAX = 365;
 export const EB_NO_MAX = 30;
 
 /** Exits that come back on a known date (the case reappears as a candidate after it). */
-export const RETURN_DATE_REASONS: ReadonlyArray<string> = Object.freeze(["ESI", "STL", "MATERNITY", "MEDICAL"]);
+export const RETURN_DATE_REASONS: ReadonlyArray<string> = Object.freeze(["ESI", "STL", "MATERNITY", "MEDICAL", "LEAVE"]);
+
+/** The code that needs a leave type from the company's leave-type master. */
+const LEAVE_CODE = "LEAVE";
 
 /** Turns a list of field issues into zod issues (one superRefine per schema). */
 function addIssues<P extends string>(issues: FieldIssue<P>[], ctx: z.RefinementCtx): void {
@@ -81,6 +85,11 @@ export interface OpenCaseFormValues {
   eb_no: string;
   /** "" = let the server find the last day seen. */
   last_working_date: string;
+  /**
+   * When the absence was picked up (owner 2026-10-12: cases entered late keep
+   * their real detection day); defaults to today, "" = today.
+   */
+  detected_date: string;
   remarks: string;
 }
 
@@ -98,6 +107,12 @@ export function openCaseIssues(v: OpenCaseFormValues, ctx: OpenCaseContext): Fie
   }
   const lwd = dateIssue(v.last_working_date, "Last working date", { max: ctx.today });
   if (lwd) issues.push({ path: "last_working_date", message: lwd });
+  const lwdOk = !lwd && v.last_working_date.trim() ? v.last_working_date.trim() : null;
+  const detected = dateIssue(v.detected_date, "Detected on", {
+    max: ctx.today,
+    min: lwdOk ? { date: lwdOk, what: "last working date" } : null,
+  });
+  if (detected) issues.push({ path: "detected_date", message: detected });
   const remarks = maxLenIssue(v.remarks, REMARKS_MAX);
   if (remarks) issues.push({ path: "remarks", message: remarks });
   return issues;
@@ -105,8 +120,14 @@ export function openCaseIssues(v: OpenCaseFormValues, ctx: OpenCaseContext): Fie
 
 export function makeOpenCaseSchema(ctx: OpenCaseContext) {
   return z
-    .object({ eb_no: z.string(), last_working_date: z.string(), remarks: z.string() })
+    .object({ eb_no: z.string(), last_working_date: z.string(), detected_date: z.string(), remarks: z.string() })
     .superRefine((v, zctx) => addIssues(openCaseIssues(v, ctx), zctx));
+}
+
+/** The detected date to send: null when blank or today (the server's default). */
+export function detectedDateOrNull(value: string, today: string): string | null {
+  const d = value.trim();
+  return d && d !== today ? d : null;
 }
 
 // ─── Dismiss candidate ───────────────────────────────────────────────
@@ -257,9 +278,11 @@ export function makeNoteSchema(required: boolean) {
 
 export interface ExitFormValues {
   exit_reason: string;
+  /** LEAVE only: the leave type id as text; "" = none. */
+  leave_type_id: string;
   exit_date: string;
   exit_remarks: string;
-  /** ESI / STL / MATERNITY / MEDICAL only; "" = not known. */
+  /** ESI / STL / MATERNITY / MEDICAL / LEAVE only; "" = not known. */
   expected_return_date: string;
 }
 
@@ -269,6 +292,14 @@ export interface ExitFormContext {
   minDate: string | null;
 }
 
+/** Text form value of a leave type id: blank / invalid → null. */
+export function leaveTypeIdOrNull(value: string): number | null {
+  const t = value.trim();
+  if (!t) return null;
+  const n = Number(t);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 export function needsReturnDate(reason: string): boolean {
   return RETURN_DATE_REASONS.includes(reason);
 }
@@ -276,6 +307,9 @@ export function needsReturnDate(reason: string): boolean {
 export function exitIssues(v: ExitFormValues, ctx: ExitFormContext): FieldIssue<keyof ExitFormValues>[] {
   const issues: FieldIssue<keyof ExitFormValues>[] = [];
   if (!v.exit_reason) issues.push({ path: "exit_reason", message: "Pick the reason" });
+  else if (v.exit_reason === LEAVE_CODE && !v.leave_type_id.trim()) {
+    issues.push({ path: "leave_type_id", message: "Pick the leave type" });
+  }
   const d = dateIssue(v.exit_date, "Exit date", {
     required: true,
     max: ctx.today,
@@ -297,6 +331,7 @@ export function makeExitSchema(ctx: ExitFormContext) {
   return z
     .object({
       exit_reason: z.string(),
+      leave_type_id: z.string(),
       exit_date: z.string(),
       exit_remarks: z.string(),
       expected_return_date: z.string(),
@@ -383,6 +418,112 @@ export function letterUpdateChanges(original: LaLetter, v: LetterUpdateFormValue
     if (next !== prev) out[key] = next;
   }
   return out;
+}
+
+// ─── Letter issued outside VoWERP (back-dated entry) ─────────────────
+
+export interface LetterRecordFormValues {
+  issue_date: string;
+  sent_date: string;
+  dispatch_mode: string;
+  ad_no: string;
+  delivery_status: string;
+  delivery_date: string;
+  note: string;
+}
+
+export interface LetterRecordContext {
+  today: string;
+  /** Earliest letter date: the later of the last working date and the previous letter's date. */
+  minDate: { date: string; what: string } | null;
+}
+
+/**
+ * Earliest date of the next letter of a case (the server's check_issue_date_order):
+ * not before the last working date nor before the latest letter already on the case.
+ */
+export function letterRecordMinDate(
+  c: Pick<LaCase, "last_working_date">,
+  letters: ReadonlyArray<Pick<LaLetter, "issue_date" | "stage_code">>,
+): { date: string; what: string } | null {
+  const lwd = isIsoDate(c.last_working_date ?? "") ? (c.last_working_date as string) : null;
+  const previous = letters
+    .filter((l) => l.stage_code !== "STRUCK_OFF" && isIsoDate(l.issue_date))
+    .reduce<string | null>((max, l) => (max == null || l.issue_date > max ? l.issue_date : max), null);
+  if (previous && (!lwd || previous >= lwd)) return { date: previous, what: "previous letter's date" };
+  return lwd ? { date: lwd, what: "last working date" } : null;
+}
+
+export function letterRecordIssues(
+  v: LetterRecordFormValues,
+  ctx: LetterRecordContext,
+): FieldIssue<keyof LetterRecordFormValues>[] {
+  const issues: FieldIssue<keyof LetterRecordFormValues>[] = [];
+  const issue = dateIssue(v.issue_date, "Letter date", { required: true, max: ctx.today, min: ctx.minDate });
+  if (issue) issues.push({ path: "issue_date", message: issue });
+  const issueOk = !issue ? v.issue_date.trim() : null;
+  const afterIssue = issueOk ? { date: issueOk, what: "letter date" } : null;
+  const sent = dateIssue(v.sent_date, "Sent date", { max: ctx.today, min: afterIssue });
+  if (sent) issues.push({ path: "sent_date", message: sent });
+  const sentOk = !sent && v.sent_date.trim() ? v.sent_date.trim() : null;
+  const delivery = dateIssue(v.delivery_date, "Delivery date", {
+    max: ctx.today,
+    min: sentOk ? { date: sentOk, what: "sent date" } : afterIssue,
+  });
+  if (delivery) issues.push({ path: "delivery_date", message: delivery });
+  const ad = maxLenIssue(v.ad_no, AD_NO_MAX);
+  if (ad) issues.push({ path: "ad_no", message: ad });
+  const note = maxLenIssue(v.note, NOTE_MAX);
+  if (note) issues.push({ path: "note", message: note });
+  return issues;
+}
+
+export function makeLetterRecordSchema(ctx: LetterRecordContext) {
+  return z
+    .object({
+      issue_date: z.string(),
+      sent_date: z.string(),
+      dispatch_mode: z.string(),
+      ad_no: z.string(),
+      delivery_status: z.string(),
+      delivery_date: z.string(),
+      note: z.string(),
+    })
+    .superRefine((v, zctx) => addIssues(letterRecordIssues(v, ctx), zctx));
+}
+
+export function letterRecordDefaults(dispatchMode: string): LetterRecordFormValues {
+  return {
+    issue_date: "",
+    sent_date: "",
+    dispatch_mode: dispatchMode,
+    ad_no: "",
+    delivery_status: "",
+    delivery_date: "",
+    note: "",
+  };
+}
+
+/** The POST /letter_record body (blank -> null; A.D. / delivery only for posted letters). */
+export function letterRecordPayload(
+  coId: number,
+  caseId: number,
+  stageCode: string,
+  v: LetterRecordFormValues,
+): LaRecordPayload {
+  const posted = stageCode !== "GATE_NOTICE";
+  return {
+    co_id: coId,
+    case_id: caseId,
+    stage_code: stageCode,
+    issue_date: v.issue_date.trim(),
+    sent_date: textOrNull(v.sent_date),
+    dispatch_mode: textOrNull(v.dispatch_mode),
+    ad_no: posted ? textOrNull(v.ad_no) : null,
+    delivery_status: posted ? textOrNull(v.delivery_status) : null,
+    delivery_date: posted ? textOrNull(v.delivery_date) : null,
+    note: textOrNull(v.note),
+  };
 }
 
 // ─── Union receipt ───────────────────────────────────────────────────

@@ -1,7 +1,8 @@
 /**
  * Pure helpers of the Long Absenteeism page (no React, no fetch): URL params,
- * tabs / views, stage + band grouping, chip colours, letter cells, extra
- * columns, date maths and the letter print HTML. Covered by _utils.test.ts.
+ * tabs / views, stage + band grouping, chip colours, leave choices and leave
+ * chips, letter cells, extra columns, date maths and the letter print HTML.
+ * Covered by _utils.test.ts.
  */
 
 import type { ApprovalActionPermissions, ApprovalStatusId } from "@/components/ui/transaction/ApprovalActionsBar";
@@ -11,6 +12,8 @@ import type {
   LaCodeLabel,
   LaDueBand,
   LaEvent,
+  LaExitPayload,
+  LaLeaveOption,
   LaLetter,
   LaListRow,
   LaPermissions,
@@ -258,11 +261,13 @@ export function stageOrder(setup: Pick<LaSetup, "stages"> | null | undefined, co
 
 // ─── Due-today bands ─────────────────────────────────────────────────
 
-export type BandKey = "CANDIDATES" | Exclude<LaDueBand, "NONE">;
+/** The case bands of the Due-today view (VERIFY is gone: there is no verification step). */
+export type CaseBandKey = Exclude<LaDueBand, "NONE" | "VERIFY">;
+
+export type BandKey = "CANDIDATES" | CaseBandKey;
 
 export const BANDS: ReadonlyArray<{ key: BandKey; title: string; hint: string }> = Object.freeze([
   { key: "CANDIDATES", title: "New candidates", hint: "Absent past the limit with no case yet — open a case or dismiss" },
-  { key: "VERIFY", title: "Verification pending", hint: "Check ESI / STL and confirm with the time keeper" },
   { key: "LETTER_DUE", title: "Letters due", hint: "The next letter can be issued today" },
   {
     key: "STRUCK_OFF_DUE",
@@ -270,22 +275,30 @@ export const BANDS: ReadonlyArray<{ key: BandKey; title: string; hint: string }>
     hint: "Gate notice reply window is over — send for struck-off approval",
   },
   { key: "MARKED_PRESENT", title: "Marked present", hint: "Attendance found after the last working date — check and close" },
+  {
+    key: "ON_LEAVE",
+    title: "On leave (leave module)",
+    hint: "Approved leave covers today — parked automatically, resumes when the leave ends",
+  },
   { key: "REPLY_REVIEW", title: "Replies to review", hint: "Parked while a reply is reviewed" },
   { key: "APPROVAL", title: "Awaiting approval", hint: "Struck-off sent for approval" },
 ]);
 
-/** Live rows grouped by band, in band order; rows of band NONE are left out. */
-export function groupByBand(rows: ReadonlyArray<LaListRow>): Record<Exclude<LaDueBand, "NONE">, LaListRow[]> {
-  const out: Record<Exclude<LaDueBand, "NONE">, LaListRow[]> = {
-    VERIFY: [],
+/**
+ * Live rows grouped by band, in band order; rows of band NONE, and of any band
+ * the page does not show (e.g. an older server's VERIFY), are left out.
+ */
+export function groupByBand(rows: ReadonlyArray<LaListRow>): Record<CaseBandKey, LaListRow[]> {
+  const out: Record<CaseBandKey, LaListRow[]> = {
     LETTER_DUE: [],
     STRUCK_OFF_DUE: [],
     MARKED_PRESENT: [],
+    ON_LEAVE: [],
     REPLY_REVIEW: [],
     APPROVAL: [],
   };
   for (const r of rows) {
-    if (r.due_band !== "NONE") out[r.due_band].push(r);
+    if (Object.prototype.hasOwnProperty.call(out, r.due_band)) out[r.due_band as CaseBandKey].push(r);
   }
   return out;
 }
@@ -312,6 +325,355 @@ export function groupLettersDue(
     g.rows.push(r);
   }
   return [...map.values()].sort((a, b) => stageOrder(setup, a.code) - stageOrder(setup, b.code));
+}
+
+// ─── Leave (leave-type master / leave module) ────────────────────────
+
+/** Verification / exit codes that mean "away on leave" (LEAVE carries a leave type). */
+export const LEAVE_CODES: ReadonlyArray<string> = Object.freeze(["LEAVE", "ESI", "STL", "MATERNITY"]);
+
+export function isLeaveCode(code: string | null | undefined): boolean {
+  return code != null && LEAVE_CODES.includes(code);
+}
+
+/** Only LEAVE needs a leave type (the master types); ESI / STL / MATERNITY are codes of their own. */
+export function needsLeaveType(code: string | null | undefined): boolean {
+  return code === "LEAVE";
+}
+
+/** Dropdown value of a leave choice: `${code}:${leave_type_id ?? ""}` ("LEAVE:12", "ESI:"). */
+export function encodeLeaveOption(o: Pick<LaLeaveOption, "code" | "leave_type_id">): string {
+  return `${o.code}:${o.leave_type_id ?? ""}`;
+}
+
+/** Inverse of encodeLeaveOption. "" (nothing picked) → code ""; a value without ":" is a bare code. */
+export function decodeLeaveOption(v: string): { code: string; leave_type_id: number | null } {
+  const i = v.indexOf(":");
+  if (i < 0) return { code: v, leave_type_id: null };
+  const raw = v.slice(i + 1).trim();
+  const id = raw === "" ? Number.NaN : Number(raw);
+  return { code: v.slice(0, i), leave_type_id: Number.isInteger(id) && id > 0 ? id : null };
+}
+
+/**
+ * The choice matching code + leave type. A bare legacy code (ESI / STL /
+ * MATERNITY stored before the master existed) resolves to the master type
+ * that now stands in for it (its legacy_code). Null when nothing matches.
+ */
+export function findLeaveOption(
+  options: ReadonlyArray<LaLeaveOption> | null | undefined,
+  code: string | null | undefined,
+  leaveTypeId: number | null | undefined,
+): LaLeaveOption | null {
+  if (!code || !options) return null;
+  const id = leaveTypeId ?? null;
+  const exact = options.find((o) => o.code === code && (o.leave_type_id ?? null) === id);
+  if (exact) return exact;
+  return id == null ? (options.find((o) => o.legacy_code === code) ?? null) : null;
+}
+
+/** Label of a choice; falls back to the code ("" without a code). */
+export function leaveOptionLabel(
+  options: ReadonlyArray<LaLeaveOption> | null | undefined,
+  code: string | null | undefined,
+  leaveTypeId: number | null | undefined,
+): string {
+  if (!code) return "";
+  return findLeaveOption(options, code, leaveTypeId)?.label ?? code;
+}
+
+/** An older server's plain code list as leave choices (no leave types). */
+export function codeLabelsAsLeaveOptions(list: ReadonlyArray<LaCodeLabel> | null | undefined): LaLeaveOption[] {
+  return (list ?? []).map((c) => ({
+    code: c.code,
+    leave_type_id: null,
+    label: c.label,
+    legacy_code: null,
+    source: "builtin" as const,
+  }));
+}
+
+/** The server's leave choices, or the older plain code list when it sent none. */
+export function leaveChoices(
+  options: ReadonlyArray<LaLeaveOption> | null | undefined,
+  fallback: ReadonlyArray<LaCodeLabel> | null | undefined,
+): ReadonlyArray<LaLeaveOption> {
+  return options && options.length ? options : codeLabelsAsLeaveOptions(fallback);
+}
+
+/**
+ * A stored code + leave type as it should sit in a form: the matching
+ * choice's own code / type (so a legacy code shows its master type), else
+ * unchanged. leave_type_id is the form's string ("" = none).
+ */
+export function normaliseLeaveChoice(
+  options: ReadonlyArray<LaLeaveOption> | null | undefined,
+  code: string,
+  leaveTypeId: string,
+): { code: string; leave_type_id: string } {
+  const id = leaveTypeId.trim() === "" ? null : Number(leaveTypeId);
+  const found = findLeaveOption(options, code, id != null && Number.isFinite(id) ? id : null);
+  if (!found) return { code, leave_type_id: leaveTypeId };
+  return { code: found.code, leave_type_id: found.leave_type_id != null ? String(found.leave_type_id) : "" };
+}
+
+/** The leave fields of a case / list row the chips and the leave panel read. */
+export type LeaveChipCase = Pick<
+  LaCase,
+  | "on_leave_now"
+  | "on_leave_label"
+  | "leave_transaction_id"
+  | "leave_type_name"
+  | "leave_from"
+  | "leave_to"
+  | "esi_stl_result"
+  | "esi_stl_result_label"
+  | "exit_reason"
+  | "exit_reason_label"
+  | "expected_return_date"
+  | "pending_leave_since"
+>;
+
+/** Linked to an approved leave of the leave module. */
+export function hasModuleLeave(c: Pick<LaCase, "leave_transaction_id">): boolean {
+  return c.leave_transaction_id != null;
+}
+
+function leaveName(c: Pick<LaCase, "leave_type_name">): string {
+  return c.leave_type_name?.trim() ?? "";
+}
+
+export type ModuleLeaveState = "now" | "upcoming" | "ended";
+
+/**
+ * Where the linked module leave stands on `today`: "now" (the server's
+ * on_leave_now, or the dates cover today), "upcoming" (starts after today),
+ * "ended" (ended before today); null without a module leave or its dates.
+ */
+export function moduleLeaveState(
+  c: Pick<LaCase, "leave_transaction_id" | "on_leave_now" | "leave_from" | "leave_to">,
+  today: string,
+): ModuleLeaveState | null {
+  if (!hasModuleLeave(c)) return null;
+  if (c.on_leave_now) return "now";
+  const from = c.leave_from?.slice(0, 10) ?? "";
+  const to = c.leave_to?.slice(0, 10) ?? "";
+  if (from && from > today) return "upcoming";
+  if (to && to < today) return "ended";
+  if (from || to) return "now";
+  return null;
+}
+
+/** "Leave request pending since DD-MM-YYYY", or null. */
+export function pendingLeaveText(c: Pick<LaCase, "pending_leave_since">): string | null {
+  return c.pending_leave_since ? `Leave request pending since ${fmtDate(c.pending_leave_since)}` : null;
+}
+
+/** Label of a leave-like exit reason / old verification result (the leave type's name for LEAVE). */
+function manualLeaveLabel(c: LeaveChipCase): string | null {
+  const name = leaveName(c);
+  if (isLeaveCode(c.exit_reason)) {
+    return (c.exit_reason === "LEAVE" && name ? `On leave: ${name}` : c.exit_reason_label) || (c.exit_reason as string);
+  }
+  if (isLeaveCode(c.esi_stl_result)) {
+    return c.esi_stl_result_label || (c.esi_stl_result === "LEAVE" && name) || (c.esi_stl_result as string);
+  }
+  return null;
+}
+
+/**
+ * Short leave text for the grid / cards, else null:
+ * - module leave covering today → "On leave: <name> till DD-MM-YYYY"
+ * - module leave not started → "Leave <name> from DD-MM-YYYY"
+ * - module leave that has ended → "Leave <name> ended DD-MM-YYYY"
+ * - exit reason (or an old verification result) LEAVE / ESI / STL /
+ *   MATERNITY → the server's on_leave_label, else the reason's label
+ *   + " till DD-MM-YYYY" when an expected return date is known
+ * - a leave request awaiting approval → "Leave request pending since DD-MM-YYYY"
+ */
+export function leaveChipText(c: LeaveChipCase, today: string): string | null {
+  const name = leaveName(c);
+  switch (moduleLeaveState(c, today)) {
+    case "now":
+      return `On leave${name ? `: ${name}` : ""}${c.leave_to ? ` till ${fmtDate(c.leave_to)}` : ""}`;
+    case "upcoming":
+      return `Leave ${name ? `${name} ` : ""}from ${fmtDate(c.leave_from)}`;
+    case "ended":
+      return `Leave ${name ? `${name} ` : ""}ended ${fmtDate(c.leave_to)}`;
+    default:
+      break;
+  }
+  const manual = manualLeaveLabel(c);
+  if (manual) {
+    const serverLabel = c.on_leave_label?.trim();
+    if (serverLabel) return serverLabel;
+    return c.expected_return_date ? `${manual} till ${fmtDate(c.expected_return_date)}` : manual;
+  }
+  return pendingLeaveText(c);
+}
+
+/** Chip colour of leaveChipText: info on leave, amber once it ended, grey otherwise. */
+export function leaveChipColor(c: LeaveChipCase, today: string): ChipColor {
+  const state = moduleLeaveState(c, today);
+  if (state === "now") return "info";
+  if (state === "ended") return "warning";
+  return "default";
+}
+
+/**
+ * The case header's module-leave chip, else null: on leave (info), ended
+ * (amber, "not returned" while the case is live) or upcoming (grey). The
+ * pending-request chip is separate (pendingLeaveText).
+ */
+export function leaveHeaderChip(
+  c: Pick<LaCase, "leave_transaction_id" | "on_leave_now" | "leave_type_name" | "leave_from" | "leave_to" | "status">,
+  today: string,
+): { label: string; color: ChipColor } | null {
+  const name = leaveName(c);
+  switch (moduleLeaveState(c, today)) {
+    case "now":
+      return {
+        label: `On leave${name ? `: ${name}` : ""}${c.leave_to ? ` till ${fmtDate(c.leave_to)}` : ""} (leave module)`,
+        color: "info",
+      };
+    case "ended": {
+      const ended = `Leave ${name ? `${name} ` : ""}ended ${fmtDate(c.leave_to)}`;
+      return c.status !== 0
+        ? { label: `${ended} — not returned`, color: "warning" }
+        : { label: `${ended} (leave module)`, color: "default" };
+    }
+    case "upcoming":
+      return { label: `Leave ${name ? `${name} ` : ""}from ${fmtDate(c.leave_from)}`, color: "default" };
+    default:
+      return null;
+  }
+}
+
+/** "<name> DD-MM-YYYY – DD-MM-YYYY" of the module leave ("" parts are left out). */
+export function moduleLeaveRange(c: Pick<LaCase, "leave_type_name" | "leave_from" | "leave_to">): string {
+  const dates = [fmtDate(c.leave_from), fmtDate(c.leave_to)].filter(Boolean).join(" – ");
+  return [leaveName(c), dates].filter(Boolean).join(" ");
+}
+
+/**
+ * The leave panel's status line from the module leave:
+ * - now → "On leave: <name> DD-MM-YYYY – DD-MM-YYYY (leave module)" + " — case
+ *   parked automatically" while the leave module keeps a live case parked
+ * - ended → "Leave <name> ended DD-MM-YYYY" + " — still absent, case resumed" on a live case
+ * - upcoming → "<name> from DD-MM-YYYY to DD-MM-YYYY (leave module)"
+ * - none → "No approved leave in the leave module after the last working date"
+ */
+export function leaveStatusLine(
+  c: Pick<
+    LaCase,
+    "leave_transaction_id" | "on_leave_now" | "leave_type_name" | "leave_from" | "leave_to" | "status" | "leave_parked"
+  >,
+  today: string,
+): { text: string; state: ModuleLeaveState | null } {
+  const name = leaveName(c);
+  const live = c.status !== 0;
+  const state = moduleLeaveState(c, today);
+  switch (state) {
+    case "now":
+      return {
+        text: `On leave: ${moduleLeaveRange(c) || "leave"} (leave module)${
+          live && c.leave_parked === 1 ? " — case parked automatically" : ""
+        }`,
+        state,
+      };
+    case "ended":
+      return {
+        text: `Leave ${name ? `${name} ` : ""}ended ${fmtDate(c.leave_to)}${live ? " — still absent, case resumed" : ""}`,
+        state,
+      };
+    case "upcoming":
+      return {
+        text: `${name || "Leave"} from ${fmtDate(c.leave_from)}${c.leave_to ? ` to ${fmtDate(c.leave_to)}` : ""} (leave module)`,
+        state,
+      };
+    default:
+      return { text: "No approved leave in the leave module after the last working date", state: null };
+  }
+}
+
+/** The exit's leave reason (LEAVE / ESI / STL / MATERNITY) as words, with the expected return; null otherwise. */
+export function exitLeaveText(
+  c: Pick<LaCase, "exit_reason" | "exit_reason_label" | "leave_type_name" | "expected_return_date">,
+): string | null {
+  if (!isLeaveCode(c.exit_reason)) return null;
+  const name = leaveName(c);
+  const label = (c.exit_reason === "LEAVE" && name ? `On leave: ${name}` : c.exit_reason_label) || (c.exit_reason as string);
+  return c.expected_return_date ? `${label}, expected back ${fmtDate(c.expected_return_date)}` : label;
+}
+
+/**
+ * Leave notes of a candidate row: the approved leave that ended on the
+ * worker's last seen day ("Leave <name> ended DD-MM-YYYY (leave module)") and
+ * a leave request awaiting approval ("Leave request pending since DD-MM-YYYY").
+ */
+export function candidateLeaveNotes(
+  c: Pick<LaCandidate, "leave_type_name" | "leave_to" | "pending_leave_since">,
+): string[] {
+  const out: string[] = [];
+  if (c.leave_to) {
+    const name = c.leave_type_name?.trim() ?? "";
+    out.push(`Leave ${name ? `${name} ` : ""}ended ${fmtDate(c.leave_to)} (leave module)`);
+  }
+  const pending = pendingLeaveText(c);
+  if (pending) out.push(pending);
+  return out;
+}
+
+/** Text of the "Exit as on leave" confirmation. */
+export function exitAsLeaveConfirmText(
+  c: Pick<LaCase, "leave_type_name" | "leave_from" | "leave_to">,
+  today?: string,
+): string {
+  const back = leaveReturnDate(c.leave_to, today) ? `, expected back ${fmtDate(c.leave_to)}` : "";
+  return `Close this case as on leave: ${moduleLeaveRange(c)} (leave module)${back}?`;
+}
+
+/**
+ * The expected return date to send for a module leave: its end, but only while
+ * that end is still today or later — /exit refuses an expected return before
+ * the exit date, so an already-ended leave is closed without one.
+ */
+export function leaveReturnDate(leaveTo: string | null | undefined, today?: string): string | null {
+  if (!leaveTo) return null;
+  if (today && leaveTo < today) return null;
+  return leaveTo;
+}
+
+/**
+ * The /exit payload of "Exit as on leave": reason LEAVE with the module
+ * leave's type, today as exit date, the leave's end as expected return.
+ * Null when the case has no module leave.
+ */
+export function exitAsLeavePayload(
+  c: Pick<LaCase, "case_id" | "leave_transaction_id" | "leave_type_id" | "leave_type_name" | "leave_from" | "leave_to">,
+  coId: number,
+  today: string,
+): LaExitPayload | null {
+  if (!hasModuleLeave(c)) return null;
+  return {
+    co_id: coId,
+    case_id: c.case_id,
+    exit_reason: "LEAVE",
+    leave_type_id: c.leave_type_id,
+    exit_date: today,
+    expected_return_date: leaveReturnDate(c.leave_to, today),
+    exit_remarks: `Approved leave in the leave module: ${moduleLeaveRange(c)}`,
+  };
+}
+
+/** The Exit dialog's preset for a case linked to a module leave (reason LEAVE, its type and end); null otherwise. */
+export function moduleLeaveExitPreset(
+  c: Pick<LaCase, "leave_transaction_id" | "leave_type_id" | "leave_to">,
+  today?: string,
+): { exit_reason: string; leave_type_id: number | null; expected_return_date: string | null } | null {
+  return hasModuleLeave(c)
+    ? { exit_reason: "LEAVE", leave_type_id: c.leave_type_id, expected_return_date: leaveReturnDate(c.leave_to, today) }
+    : null;
 }
 
 // ─── Search ──────────────────────────────────────────────────────────
@@ -519,7 +881,7 @@ export interface PrintableLetter {
 /** Print CSS of the letters (no colours: the browser prints black on white). */
 export const LETTER_PRINT_CSS = `
   .la-letter { font-family: "Times New Roman", Times, serif; font-size: 12pt; line-height: 1.45; max-width: 180mm; margin: 0 auto; }
-  .la-page-break { page-break-after: always; break-after: page; }
+  .la-page-break { display: block; page-break-after: always; break-after: page; }
   .la-head { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid; padding-bottom: 6px; margin-bottom: 14px; }
   .la-head img { max-height: 60px; max-width: 180px; object-fit: contain; }
   .la-co { font-size: 15pt; font-weight: 700; }
@@ -544,12 +906,18 @@ export function buildLetterHtml(head: Letterhead, letter: PrintableLetter): stri
   );
 }
 
-/** Several letters in one window, one per page (page-break-after on all but the last). */
+/**
+ * Several letters in one window, one per page: a block wrapper with a page
+ * break after it on all but the last. The print frame puts the content in a
+ * single table cell — Chrome honours `break-after: page` there; the legacy
+ * `page-break-after: always` is the fallback (both inline as well as in
+ * LETTER_PRINT_CSS, so a host stylesheet cannot drop them).
+ */
 export function buildLettersHtml(head: Letterhead, letters: ReadonlyArray<PrintableLetter>): string {
   return letters
     .map((l, i) =>
       i < letters.length - 1
-        ? `<div class="la-page-break" style="page-break-after:always">${buildLetterHtml(head, l)}</div>`
+        ? `<div class="la-page-break" style="display:block;page-break-after:always;break-after:page">${buildLetterHtml(head, l)}</div>`
         : buildLetterHtml(head, l),
     )
     .join("");

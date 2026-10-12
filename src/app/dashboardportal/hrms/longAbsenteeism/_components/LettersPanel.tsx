@@ -6,6 +6,7 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   Divider,
   IconButton,
   Paper,
@@ -13,7 +14,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { Pencil, Plus, Printer, Trash2, Truck } from "lucide-react";
+import { FileDown, Pencil, Plus, Printer, Trash2, Truck } from "lucide-react";
 import AttachmentUploader from "@/components/AttachmentUploader";
 import { fmtDate } from "@/components/lowPerformerFollowup/schemas";
 import {
@@ -40,6 +41,10 @@ export interface LettersPanelProps {
   printNote?: boolean;
   onUpdate: (letter: LaLetter) => void;
   onPrint: (letter: LaLetter) => void;
+  /** Server-side PDF of the letter (no browser header / footer). */
+  onDownloadPdf?: (letter: LaLetter) => void;
+  /** The letter whose PDF is being downloaded (its button shows a spinner). */
+  pdfBusyId?: number | null;
   onAddReceipt: (letter: LaLetter) => void;
   onEditReceipt: (letter: LaLetter, receipt: LaReceipt) => void;
   onRemoveReceipt: (receipt: LaReceipt) => void;
@@ -68,6 +73,8 @@ export default function LettersPanel({
   printNote = false,
   onUpdate,
   onPrint,
+  onDownloadPdf,
+  pdfBusyId = null,
   onAddReceipt,
   onEditReceipt,
   onRemoveReceipt,
@@ -102,8 +109,17 @@ export default function LettersPanel({
                     <Chip size="small" color="warning" label="Sent date not recorded" />
                   )}
                   {l.forced ? <Chip size="small" color="error" variant="outlined" label="Forced" /> : null}
+                  {l.recorded ? (
+                    <Chip
+                      size="small"
+                      color="info"
+                      variant="outlined"
+                      label="Recorded"
+                      title="Issued outside VoWERP and entered afterwards (back-dated entry)"
+                    />
+                  ) : null}
                 </Stack>
-                <Stack direction="row" spacing={0.5}>
+                <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
                   {canEdit ? (
                     <Button size="small" variant="outlined" startIcon={<Truck size={14} />} onClick={() => onUpdate(l)}>
                       {l.sent_date ? "Dispatch details" : "Record sent date"}
@@ -112,6 +128,18 @@ export default function LettersPanel({
                   <Button size="small" startIcon={<Printer size={14} />} onClick={() => onPrint(l)}>
                     Print again
                   </Button>
+                  {onDownloadPdf ? (
+                    <Button
+                      size="small"
+                      startIcon={
+                        pdfBusyId === l.letter_id ? <CircularProgress size={14} color="inherit" /> : <FileDown size={14} />
+                      }
+                      disabled={pdfBusyId === l.letter_id}
+                      onClick={() => onDownloadPdf(l)}
+                    >
+                      Download PDF
+                    </Button>
+                  ) : null}
                 </Stack>
               </Box>
               <Box

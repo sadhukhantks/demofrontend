@@ -8,7 +8,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { fmtDate } from "@/components/lowPerformerFollowup/schemas";
 import { lookupWorkerByEbNo, type WorkerLookup } from "@/components/lowPerformerFollowup/workerLookup";
 import { openLaCase, type LaCandidate, type LaCase } from "@/utils/longAbsenteeismService";
-import { REMARKS_MAX, makeOpenCaseSchema, textOrNull, type OpenCaseFormValues } from "../_schemas";
+import {
+  REMARKS_MAX,
+  detectedDateOrNull,
+  makeOpenCaseSchema,
+  textOrNull,
+  type OpenCaseFormValues,
+} from "../_schemas";
 import { DialogFormFrame, DialogShell } from "./DialogShell";
 import { RepeatChip } from "./Chips";
 
@@ -56,9 +62,11 @@ function OpenCaseForm({ coId, branchId, candidate, today, onClose, onOpened }: O
     defaultValues: {
       eb_no: "",
       last_working_date: candidate?.last_seen?.slice(0, 10) ?? "",
+      detected_date: today,
       remarks: "",
     },
   });
+  const lwdValue = useWatch({ control, name: "last_working_date" });
 
   const ebNoValue = useWatch({ control, name: "eb_no" });
   const current = lookup && lookup.ebNo === (ebNoValue ?? "").trim() ? lookup : null;
@@ -103,6 +111,7 @@ function OpenCaseForm({ coId, branchId, candidate, today, onClose, onOpened }: O
         branch_id: branchId,
         eb_id: ebId,
         last_working_date: textOrNull(values.last_working_date),
+        detected_date: detectedDateOrNull(values.detected_date, today),
         remarks: textOrNull(values.remarks),
       });
       onOpened(c);
@@ -211,6 +220,27 @@ function OpenCaseForm({ coId, branchId, candidate, today, onClose, onOpened }: O
                 "Leave blank to use the last day seen in attendance / approved leave"
               }
               slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: today } }}
+              fullWidth
+            />
+          )}
+        />
+
+        <Controller
+          name="detected_date"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              type="date"
+              label="Detected on"
+              size="small"
+              disabled={busy}
+              error={Boolean(errors.detected_date)}
+              helperText={
+                errors.detected_date?.message ??
+                "When the absence was picked up — change it only for a case entered late (letters already sent can then be recorded on the case)"
+              }
+              slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: lwdValue || undefined, max: today } }}
               fullWidth
             />
           )}

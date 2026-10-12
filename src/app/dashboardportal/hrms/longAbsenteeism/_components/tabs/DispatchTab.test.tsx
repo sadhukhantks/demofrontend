@@ -5,14 +5,17 @@
  * the last 30 days, groups the cards by batch, "Record dispatch" saves the
  * sent date / A.D. no through the shared dialog and updates the card, "Print
  * register" prints one section per batch, and a bad range is stopped before
- * the call. The service and the print window are mocked.
+ * the call. Bulk reprint (owner 2026-10-12): a checkbox per card, "Reprint
+ * selected" / "Reprint batch" load the stored text and print one letter per
+ * page, "Download PDF" asks the server for the PDF. The service and the print
+ * window are mocked.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/dashboardportal/juteProduction/report/longAbsenteeism",
+  usePathname: () => "/dashboardportal/hrms/longAbsenteeism",
 }));
 vi.mock("@/components/dashboard/sidebarContext", () => ({
   useSidebarContext: () => ({ selectedCompany: { co_id: 9, co_name: "EMPIRE JUTE" } }),
@@ -20,18 +23,32 @@ vi.mock("@/components/dashboard/sidebarContext", () => ({
 vi.mock("@/utils/reportMenuService", () => ({ resolveReportMenuId: vi.fn(async () => 77) }));
 vi.mock("@/components/reports/printReport", () => ({ printReportSections: vi.fn(() => true) }));
 vi.mock("../../_hooks/useIsMobile", () => ({ useIsMobile: () => true }));
+vi.mock("../../_print", () => ({ printLetters: vi.fn(() => true) }));
+vi.mock("@/hooks/useCompanyHeader", () => ({
+  default: () => ({ coName: "EMPIRE JUTE", address: "Mill Road", gstNo: "", cinNo: "", loading: false }),
+}));
 vi.mock("@/utils/longAbsenteeismService", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/utils/longAbsenteeismService")>();
-  return { ...actual, fetchLaDispatch: vi.fn(), updateLaLetter: vi.fn() };
+  return {
+    ...actual,
+    fetchLaDispatch: vi.fn(),
+    updateLaLetter: vi.fn(),
+    fetchLaLettersPrint: vi.fn(),
+    downloadLaLettersPdf: vi.fn(),
+  };
 });
 
 import { printReportSections } from "@/components/reports/printReport";
 import {
+  downloadLaLettersPdf,
   fetchLaDispatch,
+  fetchLaLettersPrint,
   updateLaLetter,
   type LaDispatchRow,
+  type LaPrintLetter,
   type LaSetup,
 } from "@/utils/longAbsenteeismService";
+import { printLetters } from "../../_print";
 import DispatchTab from "./DispatchTab";
 
 const SETUP = {
@@ -165,5 +182,75 @@ describe("DispatchTab", () => {
     await screen.findByText("SITA DEVI");
     fireEvent.click(screen.getAllByRole("button", { name: "Open case" })[1]);
     expect(onOpenCase).toHaveBeenCalledWith(42, 12);
+  });
+
+  it("reprints the selected letters one per page, in the register order", async () => {
+    const printable = (id: number, name: string): LaPrintLetter => ({
+      letter_id: id,
+      case_id: 41,
+      branch_id: 12,
+      case_no: "LA/12/26/0001",
+      emp_code: "1234",
+      emp_name: name,
+      stage_code: "WARNING_1",
+      stage_label: "1st warning",
+      subject: `Subject ${id}`,
+      body: `Body ${id}`,
+      issue_date: "2026-10-10",
+      sent_date: null,
+      recorded: 0,
+    });
+    vi.mocked(fetchLaLettersPrint).mockResolvedValue([printable(301, "RAM KUMAR"), printable(302, "SITA DEVI")]);
+    renderTab();
+    await screen.findByText("SITA DEVI");
+    const reprint = screen.getByRole("button", { name: /Reprint selected/ });
+    expect(reprint).toBeDisabled();
+    // select the second card first: the print still follows the register order
+    fireEvent.click(screen.getByRole("checkbox", { name: /SITA DEVI/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /RAM KUMAR/ }));
+    expect(screen.getByText("2 letters selected")).toBeInTheDocument();
+    fireEvent.click(reprint);
+    await waitFor(() => expect(fetchLaLettersPrint).toHaveBeenCalledWith(9, [301, 302]));
+    await waitFor(() => expect(printLetters).toHaveBeenCalledTimes(1));
+    const [head, letters, title] = vi.mocked(printLetters).mock.calls[0];
+    expect(head).toEqual({ coName: "EMPIRE JUTE", address: "Mill Road", logoBase64: undefined });
+    expect(letters).toEqual([
+      { subject: "Subject 301", body: "Body 301" },
+      { subject: "Subject 302", body: "Body 302" },
+    ]);
+    expect(title).toBe("Long absenteeism letters (2)");
+  });
+
+  it("reprints a whole batch from its header", async () => {
+    vi.mocked(fetchLaLettersPrint).mockResolvedValue([]);
+    vi.mocked(printLetters).mockReturnValueOnce(false);
+    renderTab();
+    await screen.findByText("RAM KUMAR");
+    // only real batches get the button (not the letters issued one by one)
+    expect(screen.getAllByRole("button", { name: /Reprint batch/ })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: /Reprint batch/ }));
+    await waitFor(() => expect(fetchLaLettersPrint).toHaveBeenCalledWith(9, [301]));
+    await waitFor(() => expect(printLetters).toHaveBeenCalledWith(expect.anything(), [], "Letters - batch B20261010-1030-5"));
+    await waitFor(() => expect(onNotify).toHaveBeenCalledWith(expect.stringMatching(/Allow pop-ups/), "warning"));
+  });
+
+  it("downloads the selected letters as one PDF and shows a load error", async () => {
+    vi.mocked(downloadLaLettersPdf).mockResolvedValueOnce("long-absenteeism-letters-20261011.pdf");
+    renderTab();
+    await screen.findByText("RAM KUMAR");
+    fireEvent.click(screen.getByRole("checkbox", { name: /RAM KUMAR/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Download PDF/ }));
+    await waitFor(() => expect(downloadLaLettersPdf).toHaveBeenCalledWith(9, [301]));
+    vi.mocked(fetchLaLettersPrint).mockRejectedValueOnce(new Error("Letter not found: 301"));
+    fireEvent.click(screen.getByRole("button", { name: /Reprint selected/ }));
+    await waitFor(() => expect(onNotify).toHaveBeenCalledWith("Letter not found: 301", "error"));
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    expect(screen.getByText("Select letters to reprint")).toBeInTheDocument();
+  });
+
+  it("marks letters recorded after the fact", async () => {
+    vi.mocked(fetchLaDispatch).mockResolvedValue([letter({ recorded: 1 })]);
+    renderTab();
+    expect(await screen.findByText("Recorded")).toBeInTheDocument();
   });
 });

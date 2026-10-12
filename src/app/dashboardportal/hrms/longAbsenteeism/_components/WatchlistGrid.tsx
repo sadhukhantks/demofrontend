@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Box, Button, Typography } from "@mui/material";
+import { Box, Button, Chip, Typography } from "@mui/material";
 import {
   DataGrid,
   type GridColDef,
@@ -12,7 +12,7 @@ import { ChevronRight } from "lucide-react";
 import { fmtDate } from "@/components/lowPerformerFollowup/schemas";
 import type { LaExtraKey, LaListRow } from "@/utils/longAbsenteeismService";
 import { cellTextIssue, textOrNull } from "../_schemas";
-import { dueText, isDue, letterCell, type ExtraColumn } from "../_utils";
+import { dueText, isDue, leaveChipColor, leaveChipText, letterCell, type ExtraColumn } from "../_utils";
 import { StageChip } from "./Chips";
 
 export type EditableCellField = "remarks" | LaExtraKey;
@@ -156,6 +156,21 @@ export default function WatchlistGrid({
         valueFormatter: (value: string | null) => fmtDate(value),
       },
       { field: "absent_days", headerName: "Absent days", type: "number", width: 100 },
+      {
+        field: "leave",
+        headerName: "Leave",
+        width: 170,
+        sortable: false,
+        valueGetter: (_v, row) => leaveChipText(row, today) ?? "",
+        renderCell: (p) => {
+          const text = leaveChipText(p.row, today);
+          return text ? (
+            <Box sx={{ display: "flex", alignItems: "center", height: "100%", minWidth: 0 }}>
+              <Chip size="small" color={leaveChipColor(p.row, today)} label={text} title={text} sx={{ maxWidth: "100%" }} />
+            </Box>
+          ) : null;
+        },
+      },
       {
         field: "next_due_date",
         headerName: "Next due",

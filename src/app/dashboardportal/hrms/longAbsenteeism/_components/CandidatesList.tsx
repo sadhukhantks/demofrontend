@@ -7,6 +7,7 @@ import { FolderPlus, XCircle } from "lucide-react";
 import { CardStat, MobileCard, TOUCH_TARGET } from "@/components/ui/responsiveEntry";
 import { fmtDate } from "@/components/lowPerformerFollowup/schemas";
 import type { LaCandidate } from "@/utils/longAbsenteeismService";
+import { candidateLeaveNotes } from "../_utils";
 import { RepeatChip } from "./Chips";
 
 export interface CandidatesListProps {
@@ -71,6 +72,23 @@ export default function CandidatesList({
       },
       { field: "absent_days", headerName: "Absent days", type: "number", width: 100 },
       {
+        field: "leave",
+        headerName: "Leave",
+        width: 230,
+        sortable: false,
+        valueGetter: (_v, row) => candidateLeaveNotes(row).join(" · "),
+        renderCell: (p) => {
+          const notes = candidateLeaveNotes(p.row);
+          return notes.length ? (
+            <Box sx={{ display: "flex", alignItems: "center", height: "100%", minWidth: 0 }}>
+              <Typography variant="body2" component="span" noWrap title={notes.join(" · ")}>
+                {notes.join(" · ")}
+              </Typography>
+            </Box>
+          ) : null;
+        },
+      },
+      {
         field: "closed_cases",
         headerName: "Earlier cases",
         width: 140,
@@ -113,6 +131,16 @@ export default function CandidatesList({
             <CardStat label="Last seen" value={fmtDate(c.last_seen)} align="right" />
             <CardStat label="Designation" value={c.designation || "—"} />
             <CardStat label="Earlier cases" value={c.closed_cases ? <RepeatChip count={c.closed_cases} /> : "—"} align="right" />
+            {candidateLeaveNotes(c).map((note) => (
+              <Typography
+                key={note}
+                variant="body2"
+                color="text.secondary"
+                sx={{ gridColumn: "1 / -1", wordBreak: "break-word" }}
+              >
+                {note}
+              </Typography>
+            ))}
             {canAct ? (
               <Stack direction="row" spacing={1} sx={{ gridColumn: "1 / -1" }}>
                 <Button

@@ -7,7 +7,14 @@
  * the wait for the next letter). "Print register" prints the postal register
  * grouped by batch; Export writes the rows to Excel.
  *
- * Backend: GET /dispatch, POST /letter_update (long_absenteeism_letters.py).
+ * Bulk reprint (owner 2026-10-12): rows are selectable (grid checkboxes /
+ * a checkbox per card); "Reprint selected" and "Reprint batch" print the
+ * stored letters one per page under the letterhead, "Download PDF" gets the
+ * same letters as a server-made PDF. Letters recorded after the fact are
+ * included like any other.
+ *
+ * Backend: GET /dispatch, POST /letter_update, GET /letters_print, GET
+ * /letters_pdf (long_absenteeism_letters.py).
  */
 
 import * as React from "react";
@@ -15,20 +22,25 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
+  Chip,
   CircularProgress,
   Paper,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
-import { DataGrid, type GridColDef } from "@mui/x-data-grid";
-import { FileSpreadsheet, Printer, RefreshCw, Send } from "lucide-react";
+import { DataGrid, type GridColDef, type GridRowId, type GridRowSelectionModel } from "@mui/x-data-grid";
+import { FileDown, FileSpreadsheet, Printer, RefreshCw, Send } from "lucide-react";
 import { fmtDate, localTodayISO } from "@/components/lowPerformerFollowup/schemas";
 import { printReportSections } from "@/components/reports/printReport";
 import { CardStat, MobileCard, TOUCH_TARGET } from "@/components/ui/responsiveEntry";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
+import useCompanyHeader from "@/hooks/useCompanyHeader";
 import {
+  downloadLaLettersPdf,
   fetchLaDispatch,
+  fetchLaLettersPrint,
   updateLaLetter,
   type LaDispatchRow,
   type LaLetter,
@@ -43,8 +55,16 @@ import {
   makeDispatchFilterSchema,
   type DispatchFilterValues,
 } from "../../_tabsSchemas";
-import { batchTitle, dispatchPrintSections, groupByBatch, sentText } from "../../_tabsUtils";
-import { addDays, letterTitle, stageLabel } from "../../_utils";
+import {
+  MAX_PRINT_LETTERS,
+  batchTitle,
+  dispatchPrintSections,
+  groupByBatch,
+  selectedInRowOrder,
+  sentText,
+} from "../../_tabsUtils";
+import { addDays, letterTitle, stageLabel, type Letterhead } from "../../_utils";
+import { printLetters } from "../../_print";
 import { StageChip } from "../Chips";
 import LetterUpdateDialog from "../LetterUpdateDialog";
 import type { LaTabProps } from "./types";
@@ -69,15 +89,23 @@ function SentCell({ sent }: { sent: string | null }) {
   );
 }
 
-/** Phone layout: one card per letter. */
+/** Phone layout: one card per letter (each with its selection checkbox). */
 function DispatchCards({
   rows,
   canEdit,
+  selected,
+  busy,
+  onToggle,
+  onReprintBatch,
   onRecord,
   onOpenCase,
 }: {
   rows: LaDispatchRow[];
   canEdit: boolean;
+  selected: ReadonlySet<number>;
+  busy: boolean;
+  onToggle: (letterId: number, checked: boolean) => void;
+  onReprintBatch: (batchRef: string, rows: LaDispatchRow[]) => void;
   onRecord: (row: LaDispatchRow) => void;
   onOpenCase?: (row: LaDispatchRow) => void;
 }) {
@@ -85,15 +113,35 @@ function DispatchCards({
     <Stack spacing={2}>
       {groupByBatch(rows).map((g) => (
         <Box key={g.batchRef ?? "-"}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, wordBreak: "break-all" }}>
-            {batchTitle(g.batchRef)} · {g.rows.length}
-          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mb: 1 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, wordBreak: "break-all", flex: "1 1 auto" }}>
+              {batchTitle(g.batchRef)} · {g.rows.length}
+            </Typography>
+            {g.batchRef ? (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<Printer size={14} />}
+                disabled={busy}
+                onClick={() => onReprintBatch(g.batchRef as string, g.rows)}
+                sx={{ minHeight: TOUCH_TARGET }}
+              >
+                Reprint batch
+              </Button>
+            ) : null}
+          </Box>
           <Stack spacing={1.25}>
             {g.rows.map((r) => (
               <MobileCard
                 key={r.letter_id}
                 header={
                   <>
+                    <Checkbox
+                      checked={selected.has(r.letter_id)}
+                      onChange={(e) => onToggle(r.letter_id, e.target.checked)}
+                      slotProps={{ input: { "aria-label": `Select the letter of ${r.emp_name || r.emp_code || r.case_id}` } }}
+                      sx={{ minWidth: TOUCH_TARGET, minHeight: TOUCH_TARGET, ml: -1, alignSelf: "flex-start" }}
+                    />
                     <Box sx={{ flex: "1 1 auto", minWidth: 0 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 700, wordBreak: "break-word" }}>
                         {r.emp_name || "(no name)"}
@@ -103,7 +151,10 @@ function DispatchCards({
                         {r.dept_desc ? ` · ${r.dept_desc}` : ""}
                       </Typography>
                     </Box>
-                    <StageChip code={r.stage_code} label={r.stage_label} />
+                    <Stack spacing={0.5} alignItems="flex-end">
+                      <StageChip code={r.stage_code} label={r.stage_label} />
+                      {r.recorded ? <Chip size="small" color="info" variant="outlined" label="Recorded" /> : null}
+                    </Stack>
                   </>
                 }
               >
@@ -167,7 +218,15 @@ export default function DispatchTab({ coId, branchId, branches, setup, canEdit, 
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<LaDispatchRow | null>(null);
   const [exporting, setExporting] = React.useState(false);
+  const [selected, setSelected] = React.useState<ReadonlySet<number>>(() => new Set());
+  const [printing, setPrinting] = React.useState(false);
+  const [downloading, setDownloading] = React.useState(false);
   const seq = React.useRef(0);
+  const head = useCompanyHeader(coId, branchId);
+  const letterhead = React.useMemo<Letterhead>(
+    () => ({ coName: head.coName, address: head.address, logoBase64: head.logoBase64 }),
+    [head.coName, head.address, head.logoBase64],
+  );
 
   const load = React.useCallback(
     async (f: DispatchFilterValues) => {
@@ -200,6 +259,85 @@ export default function DispatchTab({ coId, branchId, branches, setup, canEdit, 
   React.useEffect(() => {
     void load(applied);
   }, [load, applied]);
+
+  // A reload keeps only the selected letters that are still listed.
+  React.useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const listed = new Set(rows.map((r) => r.letter_id));
+      const next = new Set([...prev].filter((id) => listed.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [rows]);
+
+  const toggle = React.useCallback((letterId: number, checked: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(letterId);
+      else next.delete(letterId);
+      return next;
+    });
+  }, []);
+
+  const selectedIds = React.useMemo(() => selectedInRowOrder(rows, selected), [rows, selected]);
+
+  /** Loads the stored text of the letters and prints them, one per page. */
+  const reprint = async (letterIds: number[], title: string) => {
+    if (letterIds.length === 0) return;
+    if (letterIds.length > MAX_PRINT_LETTERS) {
+      onNotify(`At most ${MAX_PRINT_LETTERS} letters at a time — narrow the selection.`, "warning");
+      return;
+    }
+    setPrinting(true);
+    try {
+      const letters = await fetchLaLettersPrint(coId, letterIds);
+      const ok = printLetters(
+        letterhead,
+        letters.map((l) => ({ subject: l.subject, body: l.body })),
+        title,
+      );
+      if (!ok) onNotify("Allow pop-ups for this site to print the letters.", "warning");
+    } catch (err: unknown) {
+      onNotify(err instanceof Error ? err.message : "Could not load the letters", "error");
+    } finally {
+      setPrinting(false);
+    }
+  };
+
+  const downloadPdf = async (letterIds: number[]) => {
+    if (letterIds.length === 0) return;
+    if (letterIds.length > MAX_PRINT_LETTERS) {
+      onNotify(`At most ${MAX_PRINT_LETTERS} letters at a time — narrow the selection.`, "warning");
+      return;
+    }
+    setDownloading(true);
+    try {
+      await downloadLaLettersPdf(coId, letterIds);
+    } catch (err: unknown) {
+      onNotify(err instanceof Error ? err.message : "Could not download the PDF", "error");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const reprintBatch = (batchRef: string, batchRows: LaDispatchRow[]) =>
+    void reprint(
+      batchRows.map((r) => r.letter_id),
+      `Letters - batch ${batchRef}`,
+    );
+
+  const batches = React.useMemo(() => groupByBatch(rows).filter((g) => g.batchRef != null), [rows]);
+
+  const gridSelection = React.useMemo<GridRowSelectionModel>(
+    () => ({ type: "include", ids: new Set<GridRowId>(selectedIds) }),
+    [selectedIds],
+  );
+
+  const onGridSelection = (model: GridRowSelectionModel) => {
+    const all = rows.map((r) => r.letter_id);
+    const ids = model.type === "exclude" ? all.filter((id) => !model.ids.has(id)) : all.filter((id) => model.ids.has(id));
+    setSelected(new Set(ids));
+  };
 
   /** Validates the filter bar and loads it (a new object, so Refresh always reloads). */
   const apply = (f: DispatchFilterValues) => {
@@ -323,11 +461,12 @@ export default function DispatchTab({ coId, branchId, branches, setup, canEdit, 
       {
         field: "stage_code",
         headerName: "Letter",
-        width: 160,
+        width: 200,
         valueGetter: (_v, row) => row.stage_label,
         renderCell: (p) => (
-          <Box sx={{ display: "flex", alignItems: "center", height: "100%" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, height: "100%" }}>
             <StageChip code={p.row.stage_code} label={p.row.stage_label} />
+            {p.row.recorded ? <Chip size="small" color="info" variant="outlined" label="Recorded" /> : null}
           </Box>
         ),
       },
@@ -487,6 +626,64 @@ export default function DispatchTab({ coId, branchId, branches, setup, canEdit, 
             }`}
       </Typography>
 
+      {rows.length > 0 ? (
+        <Paper variant="outlined" sx={{ mb: 1.5, p: 1 }}>
+          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center">
+            <Typography variant="body2" sx={{ fontWeight: 600, mr: 0.5 }}>
+              {selectedIds.length
+                ? `${selectedIds.length} letter${selectedIds.length === 1 ? "" : "s"} selected`
+                : "Select letters to reprint"}
+            </Typography>
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={printing ? <CircularProgress size={14} color="inherit" /> : <Printer size={14} />}
+              disabled={selectedIds.length === 0 || printing}
+              onClick={() => void reprint(selectedIds, `Long absenteeism letters (${selectedIds.length})`)}
+              sx={{ minHeight: isMobile ? TOUCH_TARGET : undefined }}
+            >
+              Reprint selected
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={downloading ? <CircularProgress size={14} color="inherit" /> : <FileDown size={14} />}
+              disabled={selectedIds.length === 0 || downloading}
+              onClick={() => void downloadPdf(selectedIds)}
+              sx={{ minHeight: isMobile ? TOUCH_TARGET : undefined }}
+            >
+              Download PDF
+            </Button>
+            {selectedIds.length ? (
+              <Button size="small" onClick={() => setSelected(new Set())} sx={{ minHeight: isMobile ? TOUCH_TARGET : undefined }}>
+                Clear
+              </Button>
+            ) : null}
+            {!isMobile && batches.length ? (
+              <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" alignItems="center" sx={{ ml: { md: "auto" } }}>
+                <Typography variant="caption" color="text.secondary">
+                  Reprint batch:
+                </Typography>
+                {batches.map((g) => (
+                  <Button
+                    key={g.batchRef}
+                    size="small"
+                    variant="outlined"
+                    startIcon={<Printer size={14} />}
+                    disabled={printing}
+                    onClick={() => reprintBatch(g.batchRef as string, g.rows)}
+                    title={`Reprint the ${g.rows.length} letter${g.rows.length === 1 ? "" : "s"} of batch ${g.batchRef}`}
+                    sx={{ textTransform: "none" }}
+                  >
+                    {g.batchRef} · {g.rows.length}
+                  </Button>
+                ))}
+              </Stack>
+            ) : null}
+          </Stack>
+        </Paper>
+      ) : null}
+
       {isMobile ? (
         rows.length === 0 ? (
           loading ? null : (
@@ -498,6 +695,10 @@ export default function DispatchTab({ coId, branchId, branches, setup, canEdit, 
           <DispatchCards
             rows={rows}
             canEdit={canEdit}
+            selected={selected}
+            busy={printing}
+            onToggle={toggle}
+            onReprintBatch={reprintBatch}
             onRecord={setEditing}
             onOpenCase={onOpenCase ? openCase : undefined}
           />
@@ -511,6 +712,9 @@ export default function DispatchTab({ coId, branchId, branches, setup, canEdit, 
             getRowId={(r) => r.letter_id}
             loading={loading}
             density="compact"
+            checkboxSelection
+            rowSelectionModel={gridSelection}
+            onRowSelectionModelChange={onGridSelection}
             disableRowSelectionOnClick
             pageSizeOptions={[25, 50, 100]}
             initialState={{ pagination: { paginationModel: { pageSize: 50, page: 0 } } }}

@@ -1,10 +1,11 @@
 "use client";
 
 /**
- * The small case dialogs: Verify, Note (park / resume / reopen), Exit,
- * Remarks & extras, and the struck-off approval date. Each is a
+ * The small case dialogs: Note (park / resume / reopen), Exit, Remarks &
+ * extras (incl. habitual), and the struck-off approval date. Each is a
  * react-hook-form + zodResolver form over a schema factory in ../_schemas.ts;
- * the backend's refusal is shown inline.
+ * the backend's refusal is shown inline. There is no verification dialog:
+ * leave is read from the leave module (Leave Request page).
  */
 
 import * as React from "react";
@@ -14,28 +15,33 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import { FORM_GRID_2_SX, TOUCH_TARGET } from "@/components/ui/responsiveEntry";
 import { fmtDate } from "@/components/lowPerformerFollowup/schemas";
-import type { LaCase, LaCodeLabel } from "@/utils/longAbsenteeismService";
+import type { LaCase, LaCodeLabel, LaLeaveOption } from "@/utils/longAbsenteeismService";
 import {
   EXIT_REMARKS_MAX,
   EXTRA_MAX,
   NOTE_MAX,
   REMARKS_MAX,
-  VERIFY_NOTE_MAX,
   caseFieldsDefaults,
+  leaveTypeIdOrNull,
   makeApproveSchema,
   makeCaseFieldsSchema,
   makeExitSchema,
   makeNoteSchema,
-  makeVerifySchema,
   needsReturnDate,
-  verifyDefaults,
   type ApproveFormValues,
   type CaseFieldsFormValues,
   type ExitFormValues,
   type NoteFormValues,
-  type VerifyFormValues,
 } from "../_schemas";
-import type { ExtraColumn } from "../_utils";
+import {
+  decodeLeaveOption,
+  encodeLeaveOption,
+  hasModuleLeave,
+  leaveChoices,
+  moduleLeaveRange,
+  normaliseLeaveChoice,
+  type ExtraColumn,
+} from "../_utils";
 import { DialogFormFrame, DialogShell } from "./DialogShell";
 
 function errorText(err: unknown, fallback: string): string {
@@ -43,138 +49,6 @@ function errorText(err: unknown, fallback: string): string {
 }
 
 const checkboxSx = { minWidth: TOUCH_TARGET, minHeight: TOUCH_TARGET } as const;
-
-// ─── Verify ──────────────────────────────────────────────────────────
-
-export interface VerifyDialogProps {
-  open: boolean;
-  c: LaCase;
-  esiStlResults: ReadonlyArray<LaCodeLabel>;
-  onClose: () => void;
-  onSubmit: (v: VerifyFormValues) => Promise<void>;
-}
-
-export function VerifyDialog(props: VerifyDialogProps) {
-  return (
-    <DialogShell open={props.open} onClose={props.onClose}>
-      <VerifyForm {...props} />
-    </DialogShell>
-  );
-}
-
-function VerifyForm({ c, esiStlResults, onClose, onSubmit }: VerifyDialogProps) {
-  const schema = React.useMemo(() => makeVerifySchema(), []);
-  const [saveError, setSaveError] = React.useState<string | null>(null);
-  const {
-    control,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<VerifyFormValues>({ resolver: zodResolver(schema), defaultValues: verifyDefaults(c) });
-  const result = useWatch({ control, name: "esi_stl_result" });
-  const confirmed = useWatch({ control, name: "timekeeper_confirmed" });
-  const options = React.useMemo(() => esiStlResults.map((r) => ({ value: r.code, label: r.label })), [esiStlResults]);
-
-  const submit = async (v: VerifyFormValues) => {
-    setSaveError(null);
-    try {
-      await onSubmit(v);
-    } catch (err: unknown) {
-      setSaveError(errorText(err, "Could not save the verification"));
-    }
-  };
-
-  return (
-    <DialogFormFrame
-      title="Verify absence"
-      onClose={onClose}
-      onSubmit={(e) => void handleSubmit(submit)(e)}
-      busy={isSubmitting}
-      submitLabel="Save"
-    >
-      <Stack spacing={2} sx={{ pt: 1 }}>
-        {saveError ? <Alert severity="error">{saveError}</Alert> : null}
-        <Controller
-          name="esi_stl_result"
-          control={control}
-          render={({ field }) => (
-            <SearchableOptionSelect<string>
-              label="ESI / STL check"
-              placeholder="Select result"
-              options={options}
-              value={field.value}
-              onChange={(v) => field.onChange(v)}
-              required
-              disabled={isSubmitting}
-              error={Boolean(errors.esi_stl_result)}
-              helperText={errors.esi_stl_result?.message}
-              fullWidth
-            />
-          )}
-        />
-        <Controller
-          name="timekeeper_confirmed"
-          control={control}
-          render={({ field }) => (
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={field.value}
-                  onChange={(e) => field.onChange(e.target.checked)}
-                  disabled={isSubmitting}
-                  sx={checkboxSx}
-                />
-              }
-              label="Time keeper confirmed the absence"
-            />
-          )}
-        />
-        <Controller
-          name="habitual"
-          control={control}
-          render={({ field }) => (
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={field.value}
-                  onChange={(e) => field.onChange(e.target.checked)}
-                  disabled={isSubmitting}
-                  sx={checkboxSx}
-                />
-              }
-              label="Habitual absentee"
-            />
-          )}
-        />
-        <Controller
-          name="note"
-          control={control}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              label="Note"
-              size="small"
-              multiline
-              minRows={2}
-              disabled={isSubmitting}
-              error={Boolean(errors.note)}
-              helperText={errors.note?.message ?? "Optional"}
-              slotProps={{ htmlInput: { maxLength: VERIFY_NOTE_MAX } }}
-              fullWidth
-            />
-          )}
-        />
-        {result === "ESI" || result === "STL" ? (
-          <Alert severity="warning">
-            Cases on ESI / STL go to the labour office, not through the letters. After saving you can close the case
-            with this reason and an expected return date.
-          </Alert>
-        ) : result === "NONE" && !confirmed ? (
-          <Alert severity="info">The first warning becomes due once the time keeper confirms the absence.</Alert>
-        ) : null}
-      </Stack>
-    </DialogFormFrame>
-  );
-}
 
 // ─── Note (park / resume / reopen) ───────────────────────────────────
 
@@ -256,18 +130,27 @@ function NoteForm({ title, message, submitLabel, submitColor, required, onClose,
 
 // ─── Exit ────────────────────────────────────────────────────────────
 
+/** Starting values of the Exit dialog (e.g. reason LEAVE + the module leave's type and end). */
 export interface ExitPreset {
   exit_reason?: string;
+  /** With exit_reason LEAVE: the leave type of the leave-type master. */
+  leave_type_id?: number | null;
   exit_date?: string;
+  expected_return_date?: string | null;
+  exit_remarks?: string | null;
 }
 
 export interface ExitDialogProps {
   open: boolean;
   c: LaCase;
-  exitReasons: ReadonlyArray<LaCodeLabel>;
+  /** setup.exit_options: REJOINED, the leave choices ("On leave: …"), MEDICAL, RESIGNED, EXPIRED, OTHER. */
+  exitOptions: ReadonlyArray<LaLeaveOption>;
+  /** An older server without exit_options: its plain exit reasons. */
+  exitReasons?: ReadonlyArray<LaCodeLabel>;
   today: string;
   preset: ExitPreset | null;
   onClose: () => void;
+  /** exit_reason holds the choice's code, leave_type_id its leave type ("" = none). */
   onSubmit: (v: ExitFormValues) => Promise<void>;
 }
 
@@ -279,28 +162,47 @@ export function ExitDialog(props: ExitDialogProps) {
   );
 }
 
-function ExitForm({ c, exitReasons, today, preset, onClose, onSubmit }: ExitDialogProps) {
+function exitDefaults(
+  preset: ExitPreset | null,
+  today: string,
+  choices: ReadonlyArray<LaLeaveOption>,
+): ExitFormValues {
+  const choice = normaliseLeaveChoice(
+    choices,
+    preset?.exit_reason ?? "",
+    preset?.leave_type_id != null ? String(preset.leave_type_id) : "",
+  );
+  return {
+    exit_reason: choice.code,
+    leave_type_id: choice.leave_type_id,
+    exit_date: preset?.exit_date ?? today,
+    exit_remarks: preset?.exit_remarks ?? "",
+    expected_return_date: preset?.expected_return_date ?? "",
+  };
+}
+
+function ExitForm({ c, exitOptions, exitReasons, today, preset, onClose, onSubmit }: ExitDialogProps) {
   const schema = React.useMemo(
     () => makeExitSchema({ today, minDate: c.last_working_date }),
     [today, c.last_working_date],
   );
+  const choices = React.useMemo(() => leaveChoices(exitOptions, exitReasons), [exitOptions, exitReasons]);
+  const [defaults] = React.useState(() => exitDefaults(preset, today, choices));
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const {
     control,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
-  } = useForm<ExitFormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      exit_reason: preset?.exit_reason ?? "",
-      exit_date: preset?.exit_date ?? today,
-      exit_remarks: "",
-      expected_return_date: "",
-    },
-  });
+  } = useForm<ExitFormValues>({ resolver: zodResolver(schema), defaultValues: defaults });
   const reason = useWatch({ control, name: "exit_reason" });
+  const leaveTypeId = useWatch({ control, name: "leave_type_id" });
   const exitDate = useWatch({ control, name: "exit_date" });
-  const options = React.useMemo(() => exitReasons.map((r) => ({ value: r.code, label: r.label })), [exitReasons]);
+  const options = React.useMemo(
+    () => choices.map((o) => ({ value: encodeLeaveOption(o), label: o.label })),
+    [choices],
+  );
+  const selected = reason ? encodeLeaveOption({ code: reason, leave_type_id: leaveTypeIdOrNull(leaveTypeId) }) : "";
 
   const submit = async (v: ExitFormValues) => {
     setSaveError(null);
@@ -322,6 +224,11 @@ function ExitForm({ c, exitReasons, today, preset, onClose, onSubmit }: ExitDial
     >
       <Stack spacing={2} sx={{ pt: 1 }}>
         {saveError ? <Alert severity="error">{saveError}</Alert> : null}
+        {hasModuleLeave(c) ? (
+          <Alert severity="info">
+            Approved leave in the leave module: {moduleLeaveRange(c) || "dates not known"}.
+          </Alert>
+        ) : null}
         <Box sx={FORM_GRID_2_SX}>
           <Controller
             name="exit_reason"
@@ -331,12 +238,18 @@ function ExitForm({ c, exitReasons, today, preset, onClose, onSubmit }: ExitDial
                 label="Reason"
                 placeholder="Select reason"
                 options={options}
-                value={field.value}
-                onChange={(v) => field.onChange(v)}
+                value={selected}
+                onChange={(v) => {
+                  const picked = decodeLeaveOption(v);
+                  field.onChange(picked.code);
+                  setValue("leave_type_id", picked.leave_type_id != null ? String(picked.leave_type_id) : "", {
+                    shouldValidate: Boolean(errors.leave_type_id),
+                  });
+                }}
                 required
                 disabled={isSubmitting}
-                error={Boolean(errors.exit_reason)}
-                helperText={errors.exit_reason?.message}
+                error={Boolean(errors.exit_reason ?? errors.leave_type_id)}
+                helperText={errors.exit_reason?.message ?? errors.leave_type_id?.message}
                 fullWidth
               />
             )}

@@ -1,15 +1,18 @@
 "use client";
 
 /**
- * Case page (?case_id=N): header card + actions, struck-off approval,
- * verification, letters, timeline, performance and earlier cases. Container:
- * owns the data hooks and every dialog; the panels are presentational.
+ * Case page (?case_id=N): header card + actions, struck-off approval, leave
+ * (read from the leave module), letters, timeline, performance and earlier
+ * cases. Container: owns the data hooks and every dialog; the panels are
+ * presentational. There is no verification step: a case opens at VERIFIED.
  */
 
 import * as React from "react";
-import { Alert, Box, Button, CircularProgress } from "@mui/material";
+import { Alert, Box, Button, CircularProgress, Typography } from "@mui/material";
 import {
   ArrowLeft,
+  CalendarCheck,
+  FileClock,
   FileText,
   LogOut,
   MessageSquare,
@@ -18,7 +21,6 @@ import {
   Pause,
   Play,
   RotateCcw,
-  ShieldCheck,
   Undo2,
 } from "lucide-react";
 import type { BranchOption } from "@/components/reports/types";
@@ -30,6 +32,7 @@ import {
   deactivateLaEvent,
   deactivateLaReceipt,
   createLaReceipt,
+  downloadLaLettersPdf,
   exitLaCase,
   fetchLaPerformance,
   fetchLaUnionNames,
@@ -37,13 +40,13 @@ import {
   rejectLaStruckOff,
   reopenLaCase,
   reopenLaStruckOff,
+  recordLaLetter,
   resumeLaCase,
   sendLaStruckOff,
   updateLaCase,
   updateLaEvent,
   updateLaLetter,
   updateLaReceipt,
-  verifyLaCase,
   type LaEvent,
   type LaLetter,
   type LaPerformance,
@@ -54,28 +57,34 @@ import { useLaCase } from "../_hooks/useLaCase";
 import { useLaSetup } from "../_hooks/useLaSetup";
 import {
   caseFieldsChanges,
+  leaveTypeIdOrNull,
+  letterRecordPayload,
   needsReturnDate,
   textOrNull,
   type ApproveFormValues,
   type CaseFieldsFormValues,
   type EventFormValues,
   type ExitFormValues,
+  type LetterRecordFormValues,
   type LetterUpdateFields,
   type ReceiptFormValues,
-  type VerifyFormValues,
 } from "../_schemas";
-import { extraColumns, nextLetterStage, showsStruckOffPanel, stageLabel, type Letterhead } from "../_utils";
-import { printLetters } from "../_print";
 import {
-  ApproveStruckOffDialog,
-  CaseFieldsDialog,
-  ExitDialog,
-  NoteDialog,
-  VerifyDialog,
-  type ExitPreset,
-} from "./CaseDialogs";
+  exitAsLeaveConfirmText,
+  exitAsLeavePayload,
+  extraColumns,
+  hasModuleLeave,
+  moduleLeaveExitPreset,
+  needsLeaveType,
+  nextLetterStage,
+  showsStruckOffPanel,
+  stageLabel,
+  type Letterhead,
+} from "../_utils";
+import { printLetters } from "../_print";
+import { ApproveStruckOffDialog, CaseFieldsDialog, ExitDialog, NoteDialog, type ExitPreset } from "./CaseDialogs";
 import CaseHeaderCard from "./CaseHeaderCard";
-import { EarlierCasesPanel, PerformancePanel, VerificationPanel } from "./CasePanels";
+import { EarlierCasesPanel, LeavePanel, PerformancePanel } from "./CasePanels";
 import CaseTimeline from "./CaseTimeline";
 import ConfirmDialog from "./ConfirmDialog";
 import EventDialog, { type EventDialogTarget } from "./EventDialog";
@@ -83,6 +92,7 @@ import LetterPreviewDialog from "./LetterPreviewDialog";
 import LettersPanel from "./LettersPanel";
 import LetterUpdateDialog from "./LetterUpdateDialog";
 import ReceiptDialog, { type ReceiptDialogTarget } from "./ReceiptDialog";
+import RecordLetterDialog from "./RecordLetterDialog";
 import StruckOffPanel from "./StruckOffPanel";
 import type { LaNotifySeverity } from "./tabs";
 
@@ -163,10 +173,10 @@ export default function CaseView({
   );
 
   // Dialogs
-  const [verifyOpen, setVerifyOpen] = React.useState(false);
   const [eventTarget, setEventTarget] = React.useState<EventDialogTarget | null>(null);
   const [noteKind, setNoteKind] = React.useState<NoteKind | null>(null);
   const [exitState, setExitState] = React.useState<{ preset: ExitPreset | null } | null>(null);
+  const [exitAsLeaveOpen, setExitAsLeaveOpen] = React.useState(false);
   const [fieldsOpen, setFieldsOpen] = React.useState(false);
   const [approveOpen, setApproveOpen] = React.useState(false);
   const [preview, setPreview] = React.useState<{ stage: string | null } | null>(null);
@@ -176,6 +186,8 @@ export default function CaseView({
   const [removeReceipt, setRemoveReceipt] = React.useState<LaReceipt | null>(null);
   const [unionNames, setUnionNames] = React.useState<string[]>([]);
   const [approvalBusy, setApprovalBusy] = React.useState(false);
+  const [recordOpen, setRecordOpen] = React.useState(false);
+  const [pdfLetterId, setPdfLetterId] = React.useState<number | null>(null);
 
   // Performance (on demand)
   const [perf, setPerf] = React.useState<LaPerformance | null>(null);
@@ -236,25 +248,6 @@ export default function CaseView({
 
   // ─── Handlers ──────────────────────────────────────────────────────
 
-  const handleVerify = async (v: VerifyFormValues) => {
-    await verifyLaCase({
-      co_id: coId,
-      case_id: c.case_id,
-      esi_stl_result: v.esi_stl_result,
-      timekeeper_confirmed: v.timekeeper_confirmed,
-      habitual: v.habitual,
-      note: textOrNull(v.note),
-    });
-    setVerifyOpen(false);
-    await reload();
-    if ((v.esi_stl_result === "ESI" || v.esi_stl_result === "STL") && canEdit) {
-      onNotify("Verification saved. Close the case with the ESI / STL reason.", "warning");
-      setExitState({ preset: { exit_reason: v.esi_stl_result } });
-    } else {
-      onNotify("Verification saved.", "success");
-    }
-  };
-
   const handleEvent = async (values: EventFormValues, target: EventDialogTarget) => {
     const isReply = target.eventType === "REPLY";
     if (target.mode === "edit" && target.event) {
@@ -305,6 +298,7 @@ export default function CaseView({
       co_id: coId,
       case_id: c.case_id,
       exit_reason: v.exit_reason,
+      leave_type_id: needsLeaveType(v.exit_reason) ? leaveTypeIdOrNull(v.leave_type_id) : null,
       exit_date: v.exit_date,
       exit_remarks: textOrNull(v.exit_remarks),
       expected_return_date: needsReturnDate(v.exit_reason) ? textOrNull(v.expected_return_date) : null,
@@ -312,6 +306,16 @@ export default function CaseView({
     setExitState(null);
     await reload();
     onNotify("Case closed.", "success");
+  };
+
+  /** "Exit as on leave": one click, from the module leave linked to the case. */
+  const handleExitAsLeave = async () => {
+    const payload = exitAsLeavePayload(c, coId, today);
+    if (!payload) return;
+    await exitLaCase(payload);
+    setExitAsLeaveOpen(false);
+    await reload();
+    onNotify("Case closed as on leave.", "success");
   };
 
   const handleFields = async (v: CaseFieldsFormValues) => {
@@ -380,20 +384,41 @@ export default function CaseView({
     printLetters(letterhead, [{ subject: l.subject, body: l.body }], `${l.stage_label} - ${c.emp_name ?? c.emp_code ?? ""}`);
   };
 
+  /** Server-side PDF of one letter (reportlab: no browser header / footer). */
+  const downloadPdf = async (l: LaLetter) => {
+    setPdfLetterId(l.letter_id);
+    try {
+      await downloadLaLettersPdf(coId, [l.letter_id]);
+    } catch (err: unknown) {
+      onNotify(err instanceof Error ? err.message : "Could not download the PDF", "error");
+    } finally {
+      setPdfLetterId(null);
+    }
+  };
+
+  /** A letter issued outside VoWERP, entered as the case's next letter (back-dated entry). */
+  const handleRecord = async (v: LetterRecordFormValues) => {
+    if (!nextLetter) return;
+    await recordLaLetter(letterRecordPayload(coId, c.case_id, nextLetter, v));
+    setRecordOpen(false);
+    await reload();
+    onNotify(`${stageLabel(setup, nextLetter)} recorded as already issued.`, "success");
+  };
+
   const addEntry = (type: LaUserEventType) => setEventTarget({ mode: "create", eventType: type, event: null });
 
   // ─── Actions (per contract section 5) ──────────────────────────────
 
   const actions = (
     <>
-      {canCreate && isOpen && c.stage_code === "DETECTED" ? (
-        <Button size="small" variant="contained" startIcon={<ShieldCheck size={14} />} onClick={() => setVerifyOpen(true)}>
-          Verify
-        </Button>
-      ) : null}
       {canEdit && isOpen && !pending && nextLetter ? (
         <Button size="small" variant="contained" startIcon={<FileText size={14} />} onClick={() => setPreview({ stage: null })}>
           Issue {stageLabel(setup, nextLetter).toLowerCase()}
+        </Button>
+      ) : null}
+      {canEdit && isOpen && !pending && nextLetter ? (
+        <Button size="small" variant="outlined" startIcon={<FileClock size={14} />} onClick={() => setRecordOpen(true)}>
+          Record a letter already issued
         </Button>
       ) : null}
       {canEdit && c.stage_code === "STRUCK_OFF" && !memoIssued ? (
@@ -424,8 +449,30 @@ export default function CaseView({
           Resume
         </Button>
       ) : null}
+      {parked && c.leave_parked === 1 ? (
+        <Typography variant="caption" color="text.secondary" sx={{ alignSelf: "center" }}>
+          Parked automatically by the leave module
+        </Typography>
+      ) : null}
+      {canEdit && live && !pending && hasModuleLeave(c) ? (
+        <Button
+          size="small"
+          variant="outlined"
+          color="info"
+          startIcon={<CalendarCheck size={14} />}
+          onClick={() => setExitAsLeaveOpen(true)}
+        >
+          Exit as on leave
+        </Button>
+      ) : null}
       {canEdit && live && !pending ? (
-        <Button size="small" variant="outlined" color="warning" startIcon={<LogOut size={14} />} onClick={() => setExitState({ preset: null })}>
+        <Button
+          size="small"
+          variant="outlined"
+          color="warning"
+          startIcon={<LogOut size={14} />}
+          onClick={() => setExitState({ preset: moduleLeaveExitPreset(c, today) })}
+        >
           Close case
         </Button>
       ) : null}
@@ -505,12 +552,7 @@ export default function CaseView({
         }}
       >
         <Box sx={{ minWidth: 0 }}>
-          <VerificationPanel
-            c={c}
-            esiStlResults={setup?.esi_stl_results ?? []}
-            canVerify={canCreate && isOpen}
-            onVerify={() => setVerifyOpen(true)}
-          />
+          <LeavePanel c={c} today={today} esiStlResults={setup?.esi_stl_results ?? []} />
           <LettersPanel
             letters={letters}
             coId={coId}
@@ -526,6 +568,8 @@ export default function CaseView({
             }
             onUpdate={setLetterToUpdate}
             onPrint={printLetter}
+            onDownloadPdf={(l) => void downloadPdf(l)}
+            pdfBusyId={pdfLetterId}
             onAddReceipt={(l) => openReceipt({ letter: l, receipt: null })}
             onEditReceipt={(l, r) => openReceipt({ letter: l, receipt: r })}
             onRemoveReceipt={setRemoveReceipt}
@@ -553,13 +597,6 @@ export default function CaseView({
       </Box>
 
       {/* ─── Dialogs ─── */}
-      <VerifyDialog
-        open={verifyOpen}
-        c={c}
-        esiStlResults={setup?.esi_stl_results ?? []}
-        onClose={() => setVerifyOpen(false)}
-        onSubmit={handleVerify}
-      />
       <EventDialog
         target={eventTarget}
         replyChannels={setup?.reply_channels ?? []}
@@ -585,6 +622,7 @@ export default function CaseView({
       <ExitDialog
         open={exitState != null}
         c={c}
+        exitOptions={setup?.exit_options ?? []}
         exitReasons={setup?.exit_reasons ?? []}
         today={today}
         preset={exitState?.preset ?? null}
@@ -619,6 +657,20 @@ export default function CaseView({
         onClose={() => setPreview(null)}
         onIssued={() => void reload()}
       />
+      {nextLetter ? (
+        <RecordLetterDialog
+          open={recordOpen}
+          c={c}
+          stageCode={nextLetter}
+          stageLabel={stageLabel(setup, nextLetter)}
+          letters={letters}
+          dispatchModes={setup?.dispatch_modes ?? []}
+          deliveryStatuses={setup?.delivery_statuses ?? []}
+          today={today}
+          onClose={() => setRecordOpen(false)}
+          onSubmit={handleRecord}
+        />
+      ) : null}
       <LetterUpdateDialog
         letter={letterToUpdate}
         dispatchModes={setup?.dispatch_modes ?? []}
@@ -633,6 +685,15 @@ export default function CaseView({
         today={today}
         onClose={() => setReceiptTarget(null)}
         onSubmit={handleReceipt}
+      />
+      <ConfirmDialog
+        open={exitAsLeaveOpen}
+        title="Exit as on leave"
+        message={exitAsLeaveConfirmText(c, today)}
+        confirmLabel="Close case"
+        confirmColor="warning"
+        onClose={() => setExitAsLeaveOpen(false)}
+        onConfirm={handleExitAsLeave}
       />
       <ConfirmDialog
         open={removeEvent != null}

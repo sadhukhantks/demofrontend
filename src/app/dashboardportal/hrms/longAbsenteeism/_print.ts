@@ -1,6 +1,13 @@
 /**
  * Opens the letter print window (browser side effect; the HTML itself is
  * built by the pure helpers in _utils.ts).
+ *
+ * The shared openStyledPrintWindow already prints without the browser's own
+ * header / footer (`@page { margin: 0 }`) and wraps the content in the print
+ * frame (src/utils/printFrame.ts), whose repeated header / footer spacers give
+ * EVERY page its 15 mm top and bottom margin — so no page CSS of our own here
+ * (a body padding would double the top margin of page 1). Each letter starts on
+ * a new page through the .la-page-break wrapper (LETTER_PRINT_CSS).
  */
 
 import { openStyledPrintWindow } from "@/utils/printUtils";

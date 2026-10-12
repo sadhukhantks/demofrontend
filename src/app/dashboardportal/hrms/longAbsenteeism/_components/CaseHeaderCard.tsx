@@ -4,7 +4,7 @@ import * as React from "react";
 import { Alert, Box, Chip, Paper, Stack, Typography } from "@mui/material";
 import { fmtDate } from "@/components/lowPerformerFollowup/schemas";
 import type { LaCase } from "@/utils/longAbsenteeismService";
-import { dueText, isDue } from "../_utils";
+import { dueText, isDue, leaveHeaderChip, pendingLeaveText } from "../_utils";
 import { ApprovalChip, CaseStatusChip, StageChip } from "./Chips";
 
 export interface CaseHeaderCardProps {
@@ -33,6 +33,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 /** Who the case is about (snapshot at opening), how long absent, where on the ladder. */
 export default function CaseHeaderCard({ c, branchName, today, actions, rejoinAction }: CaseHeaderCardProps) {
   const live = c.status !== 0;
+  const leaveChip = leaveHeaderChip(c, today);
+  const pendingLeave = pendingLeaveText(c);
   return (
     <Paper elevation={1} sx={{ p: { xs: 1.5, md: 2 }, mb: 2 }}>
       <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap" }}>
@@ -45,6 +47,8 @@ export default function CaseHeaderCard({ c, branchName, today, actions, rejoinAc
             <CaseStatusChip status={c.status} label={c.status_label} />
             <ApprovalChip statusId={c.status_id} level={c.approval_level} />
             {c.habitual === 1 ? <Chip size="small" color="error" variant="outlined" label="Habitual" /> : null}
+            {leaveChip ? <Chip size="small" color={leaveChip.color} label={leaveChip.label} sx={{ maxWidth: "100%" }} /> : null}
+            {pendingLeave ? <Chip size="small" variant="outlined" label={pendingLeave} sx={{ maxWidth: "100%" }} /> : null}
           </Stack>
           <Typography variant="body2" color="text.secondary">
             EB {c.emp_code ?? c.eb_id}
