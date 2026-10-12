@@ -106,12 +106,7 @@ const baseColumns: GridColDef<WithId<WeavingLowProdBaseRow>>[] = [
   { field: "loom", headerName: "Loom", width: 110 },
   { field: "loom_group", headerName: "Loom Group", width: 110 },
   { field: "worker_name", headerName: "Weaver", flex: 1, minWidth: 160 },
-  {
-    field: "eb_id",
-    headerName: "EB",
-    width: 90,
-    valueGetter: (_, row) => (row.eb_id != null ? String(row.eb_id) : ""),
-  },
+  { field: "eb_no", headerName: "EB No", width: 100 },
   { field: "quality_name", headerName: "Quality", flex: 1, minWidth: 150 },
   numCol("act_prod_kg", "Actual Prod (kg)", 130),
   numCol("prod_100_kg", "100% Prod (kg)", 130),
@@ -120,12 +115,7 @@ const baseColumns: GridColDef<WithId<WeavingLowProdBaseRow>>[] = [
 ];
 
 const workerColumns: GridColDef<WithId<WeavingLowProdWorkerRow>>[] = [
-  {
-    field: "eb_id",
-    headerName: "EB",
-    width: 90,
-    valueGetter: (_, row) => (row.eb_id != null ? String(row.eb_id) : ""),
-  },
+  { field: "eb_no", headerName: "EB No", width: 100 },
   { field: "worker_name", headerName: "Weaver", flex: 1, minWidth: 180 },
   numCol("days_attended", "Days Attended", 130),
   numCol("avg_looms_run", "Avg Looms Run", 130),
