@@ -9,6 +9,7 @@
 
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { fetchWithCookie } from "@/utils/apiClient2";
+import type { FinishingQualityType } from "@/utils/finishingStockService";
 
 export interface DprShiftRow {
   shift: string;
@@ -896,4 +897,138 @@ export function fetchAttendanceChecklist(
     params,
     "attendance checklist",
   );
+}
+
+// ------------------------------------------------------------------------
+// Bale Register — opening / pressed / repacked out / despatched / closing,
+// day by day for a date range, per quality or per sacking series.
+// Backend: GET /api/juteProductionReports/bale_register
+// (vowerp3be src/juteProduction/bale_register.py). Contract: spec
+// docs/superpowers/specs/2026-10-12-bale-stock-inspection-design.md §7c.
+// No inspection figures — the Finishing Stock report carries them.
+// ------------------------------------------------------------------------
+
+/** One calendar day of a register group. Every day of the range is listed,
+ * zero-movement days included — it is a register. `closing(d)` = opening(d+1). */
+export interface BaleRegisterDay {
+  date: string;
+  opening: number;
+  /** Bale entries dated the day — PROD and REPACK alike (a REPACK row is a new bale). */
+  pressed: number;
+  /** Bales consumed by a REPACK dated the day. */
+  repacked_out: number;
+  /** Despatch rows dated the day against a live invoice. */
+  despatched_invoice: number;
+  /** Despatch rows dated the day without an invoice (challan / DO / transfer / sample). */
+  despatched_no_invoice: number;
+  /** despatched_invoice + despatched_no_invoice. */
+  despatched: number;
+  closing: number;
+}
+
+/** Period figures of a group or a quality-type total: opening = opening of
+ * date_from, movements summed over the range, closing = closing of date_to.
+ * `*_kg` / `*_mt` are the Σ net_wt of the bales in stock (MT at 3 dp). */
+export interface BaleRegisterPeriod {
+  opening: number;
+  opening_kg: number;
+  opening_mt: number;
+  pressed: number;
+  repacked_out: number;
+  despatched_invoice: number;
+  despatched_no_invoice: number;
+  despatched: number;
+  closing: number;
+  closing_kg: number;
+  closing_mt: number;
+}
+
+export type BaleRegisterGroupBy = "quality" | "series";
+
+/** One register card: a quality (`group_by=quality`, key "q:<fq>") or a
+ * series × quality (`group_by=series`, key "s:<series>:<fq>"). Groups with no
+ * activity and zero opening are omitted by the backend. */
+export interface BaleRegisterGroup {
+  key: string;
+  finishing_quality_id: number;
+  item_name: string | null;
+  /** 1 = Hessian, 2 = Sacking. */
+  quality_type: FinishingQualityType;
+  /** Set when grouped by series; null when grouped by quality. */
+  bale_series_id: number | null;
+  series_name: string | null;
+  days: BaleRegisterDay[];
+  period: BaleRegisterPeriod;
+}
+
+/** One despatch line: the despatches of one day × series × quality × (invoice
+ * or reason/ref), bale numbers compressed ("601, 603-604"). Either the invoice
+ * fields or `despatch_reason_label` / `despatch_ref` are filled, never both. */
+export interface BaleRegisterDespatchDetail {
+  date: string;
+  series_name: string | null;
+  item_name: string | null;
+  quality_type: FinishingQualityType;
+  bale_nos: string;
+  count: number;
+  invoice_id: number | null;
+  invoice_no: string | null;
+  invoice_date: string | null;
+  party_name: string | null;
+  /** "Delivery challan", "Delivery order", … for a no-invoice despatch (spec §7b). */
+  despatch_reason_label: string | null;
+  despatch_ref: string | null;
+  remarks: string | null;
+}
+
+export interface BaleRegisterReport {
+  date_from: string;
+  date_to: string;
+  group_by: BaleRegisterGroupBy;
+  co_name: string | null;
+  branch_name: string | null;
+  /** Ordered quality_type, item_name, series_name. */
+  groups: BaleRegisterGroup[];
+  totals: {
+    hessian: BaleRegisterPeriod;
+    sacking: BaleRegisterPeriod;
+    all: BaleRegisterPeriod;
+  };
+  despatch_detail: BaleRegisterDespatchDetail[];
+}
+
+export interface BaleRegisterParams {
+  coId: number;
+  branchId: number;
+  dateFrom: string;
+  dateTo: string;
+  /** 1 = Hessian, 2 = Sacking; omit for both. */
+  qualityType?: FinishingQualityType;
+  finishingQualityId?: number;
+  baleSeriesId?: number;
+  groupBy: BaleRegisterGroupBy;
+}
+
+/** Bale Register for a date range — the server caps the range at 92 days and
+ * refuses `date_to` after today or `date_from` after `date_to` (400). */
+export async function fetchBaleRegister(
+  params: BaleRegisterParams,
+): Promise<BaleRegisterReport> {
+  const qs = new URLSearchParams();
+  qs.set("co_id", String(params.coId));
+  qs.set("branch_id", String(params.branchId));
+  qs.set("date_from", params.dateFrom);
+  qs.set("date_to", params.dateTo);
+  if (params.qualityType != null) qs.set("quality_type", String(params.qualityType));
+  if (params.finishingQualityId != null) {
+    qs.set("finishing_quality_id", String(params.finishingQualityId));
+  }
+  if (params.baleSeriesId != null) qs.set("bale_series_id", String(params.baleSeriesId));
+  qs.set("group_by", params.groupBy);
+  const url = `${apiRoutesPortalMasters.BALE_REPORT_REGISTER}?${qs.toString()}`;
+  const res = await fetchWithCookie<{ data: BaleRegisterReport }>(url);
+  if (res.error || !res.data) {
+    throw new Error(res.error ?? "Failed to fetch the Bale Register");
+  }
+  return res.data.data;
 }
