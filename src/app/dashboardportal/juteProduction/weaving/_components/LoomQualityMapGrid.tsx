@@ -1,12 +1,24 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Autocomplete, Box, Button, Chip, CircularProgress, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
-import { Save as SaveIcon } from "lucide-react";
+import { Alert, Autocomplete, Box, Button, Checkbox, Chip, CircularProgress, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@mui/material";
+import { CopyPlus as FillIcon, Save as SaveIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { WeavingSetup, LoomQualityMapRow } from "../types/weavingTypes";
 import type { LoomQualityMapState } from "../hooks/useLoomQualityMap";
+import { fetchLoomGroupings, type CarryForwardResult, type LoomGrouping } from "@/utils/weavingQualityMapService";
+import {
+	applyQualityToSelection,
+	loomsInGroup,
+	loomsWithQuality,
+	manualEditCount,
+	rangeBetween,
+	selectionState,
+	setIds,
+} from "../utils/bulkMapping";
+import BulkQualityBar from "./BulkQualityBar";
+import CarryForwardDialog from "./CarryForwardDialog";
 
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 // Sort looms by shed line (nulls last), then by loom code — the render groups on line_no.
@@ -38,11 +50,43 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spellI
 	const [snack, setSnack] = React.useState<string | null>(null);
 	const [lineFilter, setLineFilter] = React.useState<string>("");
 	const [query, setQuery] = React.useState<string>("");
+	// TKT-000119 bulk tools: ticked looms (survive line/search changes), shift-click anchor,
+	// existing loom groupings for "select by group", and the fill-from-previous dialog.
+	const [selected, setSelected] = React.useState<Set<number>>(() => new Set());
+	const anchorRef = React.useRef<number | null>(null);
+	const [groups, setGroups] = React.useState<LoomGrouping[]>([]);
+	const [fillOpen, setFillOpen] = React.useState(false);
 
-	// Reset local edits when the cell identity (date/spell) changes — a fresh grid.
+	// Reset local edits + selection when the cell identity (date/spell) changes — a fresh grid.
 	React.useEffect(() => {
 		setEdits({});
+		setSelected(new Set());
+		anchorRef.current = null;
 	}, [date, spellId]);
+
+	// Groupings are branch master data — fetched once per company/branch, best-effort.
+	React.useEffect(() => {
+		let cancelled = false;
+		fetchLoomGroupings(Number(coId), Number(branchId))
+			.then((g) => {
+				if (!cancelled) setGroups(g);
+			})
+			.catch(() => {
+				if (!cancelled) setGroups([]);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [coId, branchId]);
+
+	const qualityOptions = React.useMemo(
+		() =>
+			setup.qualities.map((qq) => ({
+				value: qq.weaving_quality_id,
+				label: `${qq.weaving_quality_name ?? qq.weaving_quality_code} (${qq.weaving_quality_code})`,
+			})),
+		[setup.qualities]
+	);
 
 	// Default the Line filter to the first line once rows arrive — rendering every loom at
 	// once (400+ rows of selects) is what made the tab slow, so there is no "All lines" option.
@@ -128,6 +172,21 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spellI
 		refresh();
 	};
 
+	const handleFilled = (result: CarryForwardResult) => {
+		setSnack(
+			`Filled ${result.filled} loom mapping(s)` +
+				(result.restamped > 0 ? `; ${result.restamped} production entr(ies) got their quality.` : ".")
+		);
+		// When the fill wrote rows into THIS spell, reseed from what is now saved (a fill may
+		// differ from the prefill, e.g. when it took the quality already on a production entry).
+		// Fills of other dates/spells leave the operator's pending edits here alone.
+		const touchedHere = result.cells.some(
+			(c) => c.tran_date === date && c.spell_id === spellId && c.to_fill > 0
+		);
+		if (touchedHere) setEdits({});
+		refresh();
+	};
+
 	if (spellId == null) {
 		return <Alert severity="info">Select a spell to load loom → quality mapping.</Alert>;
 	}
@@ -154,6 +213,32 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spellI
 		);
 	});
 
+	const visibleIds = visibleRows.map((r) => r.machine_id);
+	const visibleSet = new Set(visibleIds);
+	const hiddenSelected = Array.from(selected).filter((id) => !visibleSet.has(id)).length;
+	const headerState = selectionState(visibleIds, selected);
+	const groupsHere = groups.filter((g) => loomsInGroup(rows, g).length > 0);
+
+	const toggleLoom = (machineId: number, shift: boolean) => {
+		const on = !selected.has(machineId);
+		const ids =
+			shift && anchorRef.current != null
+				? rangeBetween(visibleIds, anchorRef.current, machineId)
+				: [machineId];
+		setSelected((prev) => setIds(prev, ids.length > 0 ? ids : [machineId], on));
+		anchorRef.current = machineId;
+	};
+
+	const applyToSelected = (qualityId: number) => {
+		const { edits: next, changed } = applyQualityToSelection(edits, selected, qualityId);
+		setEdits(next);
+		setSnack(
+			changed > 0
+				? `Quality set on ${changed} loom(s) — press Save Map to keep it.`
+				: "Selected looms already have that quality."
+		);
+	};
+
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
 			<Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
@@ -166,6 +251,15 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spellI
 					disabled={saving || loading || rows.length === 0}
 				>
 					{saving ? "Saving…" : dirtyCount > 0 ? `Save Map (${dirtyCount} unsaved)` : "Save Map"}
+				</Button>
+				<Button
+					variant="outlined"
+					size="small"
+					startIcon={<FillIcon size={16} />}
+					onClick={() => setFillOpen(true)}
+					disabled={saving || loading || rows.length === 0}
+				>
+					Fill from previous
 				</Button>
 				<TextField
 					size="small"
@@ -202,6 +296,23 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spellI
 
 			{error ? <Alert severity="error">{error}</Alert> : null}
 
+			{!loading && rows.length > 0 ? (
+				<BulkQualityBar
+					qualityOptions={qualityOptions}
+					groups={groupsHere}
+					selectedCount={selected.size}
+					hiddenSelectedCount={hiddenSelected}
+					shownCount={visibleIds.length}
+					onSelectShown={() => setSelected((prev) => setIds(prev, visibleIds, true))}
+					onSelectQuality={(qid) =>
+						setSelected((prev) => setIds(prev, loomsWithQuality(rows, edits, qid), true))
+					}
+					onSelectGroup={(g) => setSelected((prev) => setIds(prev, loomsInGroup(rows, g), true))}
+					onClear={() => setSelected(new Set())}
+					onApply={applyToSelected}
+				/>
+			) : null}
+
 			{!loading && rows.length > 0 && hasCarryForward ? (
 				<Alert severity="info">
 					Prefilled from {prevDate ?? "the last saved day"}
@@ -220,6 +331,18 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spellI
 					<Table size="small" sx={{ minWidth: 600 }}>
 						<TableHead>
 							<TableRow>
+								<TableCell padding="checkbox">
+									<Checkbox
+										size="small"
+										checked={headerState === "all"}
+										indeterminate={headerState === "some"}
+										disabled={visibleIds.length === 0}
+										onChange={() =>
+											setSelected((prev) => setIds(prev, visibleIds, headerState !== "all"))
+										}
+										inputProps={{ "aria-label": "Select shown looms" }}
+									/>
+								</TableCell>
 								<TableCell>Mc Code</TableCell>
 								<TableCell>Loom</TableCell>
 								<TableCell>Quality</TableCell>
@@ -235,21 +358,30 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spellI
 									<React.Fragment key={r.machine_id}>
 									{newLine ? (
 										<TableRow>
-											<TableCell colSpan={4} sx={{ bgcolor: "action.hover", fontWeight: 600, py: 0.25 }}>
+											<TableCell colSpan={5} sx={{ bgcolor: "action.hover", fontWeight: 600, py: 0.25 }}>
 												{r.line_no != null ? `Line ${r.line_no}` : "No line"}
 											</TableCell>
 										</TableRow>
 									) : null}
 									<TableRow
 										sx={{ bgcolor: dirty ? "rgba(255, 193, 7, 0.12)" : undefined }}
+										selected={selected.has(r.machine_id)}
 									>
+										<TableCell padding="checkbox">
+											<Checkbox
+												size="small"
+												checked={selected.has(r.machine_id)}
+												onClick={(e) => toggleLoom(r.machine_id, e.shiftKey)}
+												inputProps={{ "aria-label": `Select loom ${r.mech_code ?? r.machine_id}` }}
+											/>
+										</TableCell>
 										<TableCell>{r.mech_code}</TableCell>
 										<TableCell>{r.machine_name}</TableCell>
 										<TableCell>
 											<SearchableOptionSelect
 												size="small"
 												placeholder="None"
-												options={setup.qualities.map((qq) => ({ value: qq.weaving_quality_id, label: `${qq.weaving_quality_name ?? qq.weaving_quality_code} (${qq.weaving_quality_code})` }))}
+												options={qualityOptions}
 												value={q}
 												onChange={(selectedValue) => setQuality(
 														r.machine_id,
@@ -282,6 +414,17 @@ export default function LoomQualityMapGrid({ coId, branchId, setup, date, spellI
 					</Table>
 				</Box>
 			)}
+
+			<CarryForwardDialog
+				open={fillOpen}
+				onClose={() => setFillOpen(false)}
+				coId={Number(coId)}
+				branchId={Number(branchId)}
+				spells={setup.spells}
+				defaultDate={date}
+				discardCount={manualEditCount(rows, edits)}
+				onFilled={handleFilled}
+			/>
 
 			<Snackbar
 				open={!!snack}

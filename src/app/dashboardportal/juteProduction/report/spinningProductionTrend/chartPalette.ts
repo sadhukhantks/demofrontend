@@ -34,6 +34,11 @@ export const REFERENCE_COLOR = "#52514e";
 export const STD_COLOR = "#52514e";
 export const TGT_COLOR = "#898781";
 
+/** The standard restated at the yarn's standard count (dash-dot): a third
+ * context line in a muted ochre ink, apart from the two greys yet never
+ * competing with the series colours. */
+export const STDC_COLOR = "#8c6d3f";
+
 /** Hairline grid, one step off the surface. */
 export const GRID_COLOR = "#e1e0d9";
 

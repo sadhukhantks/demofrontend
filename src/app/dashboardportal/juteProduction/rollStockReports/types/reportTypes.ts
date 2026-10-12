@@ -71,3 +71,44 @@ export type ProductionSummaryResponse = {
 		unique_items: number;
 	};
 };
+
+/** Status of one quality's actual roll stock against the planner target (TKT-000170). */
+export type TargetStockStatus = "on_target" | "short" | "excess" | "no_target";
+
+export type TargetVsActualRow = {
+	item_id: number;
+	quality_name: string | null;
+	maturity_hours: number | null;
+	maturity_source: "master" | "default" | null;
+	target_stock_date: string | null;
+	target_date_clamped: boolean;
+	target_mt: number;
+	actual_mt: number;
+	diff_mt: number;
+	diff_pct: number | null;
+	status: TargetStockStatus;
+};
+
+export type TargetVsActualTotals = {
+	target_mt: number;
+	actual_mt: number;
+	diff_mt: number;
+	diff_pct: number | null;
+	status: TargetStockStatus;
+	short_count: number;
+	excess_count: number;
+	excluded_waste_target_mt: number;
+	excluded_waste_count: number;
+};
+
+export type TargetVsActualResponse = {
+	as_of_dt: string;
+	target_day: string;
+	target_day_from: string;
+	target_day_to: string;
+	plan_window_from: string;
+	plan_window_to: string;
+	tolerance_pct: number;
+	rows: TargetVsActualRow[];
+	totals: TargetVsActualTotals;
+};

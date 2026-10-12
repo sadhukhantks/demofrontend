@@ -2,7 +2,8 @@
 
 /**
  * Frame Analysis tab — a date range of doffs seen frame-first:
- *   1. average doff weight per quality x shift,
+ *   1. average doff weight per quality x shift, beside the average standard
+ *      (Std Prod) and the deviation from it (TKT-000212),
  *   2. the frame x date pivot (each cell is the day's weight normalised by the
  *      number of shifts that ran), with avg / max / min down the side,
  *   3. the drill-down for one frame: its day+shift weights and the doff events
@@ -25,7 +26,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import type { GridColDef, GridValidRowModel } from "@mui/x-data-grid";
+import type { GridColDef } from "@mui/x-data-grid";
 import ReportGrid, { fmtNum, numCol } from "@/components/reports/ReportGrid";
 import type { ReportExportHeader } from "@/components/reports/exportExcel";
 import type { GridSection } from "@/components/reports/gridSections";
@@ -39,6 +40,11 @@ import {
   type QualityShiftAvgRow,
 } from "../doffAnalysisService";
 import {
+  pivotQualityShiftRows,
+  qsKey,
+  type QualityShiftPivotRow,
+} from "../qualityShift";
+import {
   emptySel,
   matchSel,
   scorePivot,
@@ -48,7 +54,7 @@ import {
 import ExportActions from "./ExportActions";
 import FrameCards, { type FrameCardItem } from "./FrameCards";
 import QuickFilters from "./QuickFilters";
-import { targetColumns } from "./targetColumns";
+import { diffCol, targetColumns } from "./targetColumns";
 
 type WithId<T> = T & { id: number };
 type ScoredPivotRow = FramePivotRow & {
@@ -62,12 +68,6 @@ const PERF_CLASS: Record<PerfStatus, string> = {
   watch: "report-perf-watch",
   ok: "",
 };
-
-/** Row of a grid whose columns are built from the data (shift or date keys). */
-interface DynamicRow extends GridValidRowModel {
-  id: number;
-  label: string;
-}
 
 const dateShiftColumns: GridColDef<WithId<FrameDateShiftRow>>[] = [
   { field: "date", headerName: "Date", width: 120 },
@@ -87,26 +87,55 @@ const doffEventColumns: GridColDef<WithId<FrameDoffEventRow>>[] = [
   numCol("min_doff", "Min Doff", 110),
 ];
 
-/** quality x shift average — the server sends it long, the sheet reads it wide. */
-function pivotQualityShift(rows: QualityShiftAvgRow[]): {
-  rows: DynamicRow[];
-  columns: GridColDef<DynamicRow>[];
-} {
-  const shifts = Array.from(new Set(rows.map((r) => r.shift ?? "—"))).sort();
-  const byQuality = new Map<string, DynamicRow>();
-  rows.forEach((r) => {
-    const label = r.quality_name ?? "—";
-    const acc = byQuality.get(label) ?? { id: byQuality.size, label };
-    acc[`shift_${r.shift ?? "—"}`] = r.avg_net_wt;
-    byQuality.set(label, acc);
-  });
+/** Std cell: the average standard, flagged when only part of the
+ * frame-shifts behind the row had one (the diff then covers those only). */
+function stdCol(shift: string): GridColDef<QualityShiftPivotRow> {
   return {
-    rows: Array.from(byQuality.values()),
+    ...numCol<QualityShiftPivotRow>(qsKey.std(shift), `${shift} Std`, 100),
+    description:
+      "Average standard production per frame-shift: Std Prod of the Spinning Production grid (100% production x Std Eff %, Spinning Standards). Blank until the standards are entered.",
+    renderCell: (params) => {
+      if (params.value == null) return "";
+      const cov = params.row[qsKey.coverage(shift)];
+      return cov ? (
+        <Box
+          component="span"
+          title={`Standard entered for ${cov} frame-shifts only — Std and Diff cover those`}
+        >
+          {fmtNum(params.value)}
+          <Box component="sup" sx={{ color: "warning.main", ml: 0.25 }}>
+            {cov}
+          </Box>
+        </Box>
+      ) : (
+        fmtNum(params.value)
+      );
+    },
+  };
+}
+
+/** quality x shift average — the server sends it long, the sheet reads it
+ * wide: per shift the actual average, the standard, Std - Actual and Diff %. */
+function pivotQualityShift(rows: QualityShiftAvgRow[]): {
+  rows: QualityShiftPivotRow[];
+  columns: GridColDef<QualityShiftPivotRow>[];
+} {
+  const pivot = pivotQualityShiftRows(rows);
+  return {
+    rows: pivot.rows,
     columns: [
       { field: "label", headerName: "Quality", flex: 1, minWidth: 200 },
-      ...shifts.map<GridColDef<DynamicRow>>((s) =>
-        numCol(`shift_${s}`, `Shift ${s}`, 120),
-      ),
+      ...pivot.shifts.flatMap<GridColDef<QualityShiftPivotRow>>((s) => [
+        numCol(qsKey.actual(s), `Shift ${s}`, 110),
+        stdCol(s),
+        diffCol<QualityShiftPivotRow>(qsKey.diff(s), `${s} Diff`, 100, {
+          description: "Std - Actual (kg, positive = short of standard)",
+        }),
+        diffCol<QualityShiftPivotRow>(qsKey.diffPct(s), `${s} Diff %`, 100, {
+          suffix: "%",
+          description: "(Std - Actual) as a % of Std (positive = short of standard)",
+        }),
+      ]),
     ],
   };
 }
@@ -274,7 +303,7 @@ export default function FrameAnalysisTab({
 
       <SectionCard
         title="Quality × Shift Average"
-        subtitle="Average doff weight (kg) per quality, by shift"
+        subtitle="Average weight (kg) per frame-shift, by quality and shift, against the average standard (Std Prod, Spinning Standards). Diff = Std - Actual: red = short of standard, green = on or over"
       >
         <ReportGrid
           rows={qualityPivot.rows}

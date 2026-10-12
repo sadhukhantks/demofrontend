@@ -85,10 +85,20 @@ export interface DoffDetailsData {
   meta?: DoffMeta;
 }
 
-export interface QualityShiftAvgRow {
+/**
+ * Average doff weight per frame-shift for one quality and shift. The target
+ * fields (TKT-000212) are the average Std Prod per frame-shift and Target -
+ * Actual, both over the `target_cells` of `cells` frame-shifts that have a
+ * standard; null when none has.
+ */
+export interface QualityShiftAvgRow extends TargetFields {
   quality_name: string | null;
   shift: string | null;
   avg_net_wt: number | null;
+  /** diff_wt as a % of target_wt (positive = short of standard). */
+  diff_pct?: number | null;
+  target_cells?: number;
+  cells?: number;
 }
 
 export interface FramePivotRow {
