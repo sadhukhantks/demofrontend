@@ -4,7 +4,7 @@
  * Both reuse the shared report builders and add the two things this report
  * needs: day columns sized to their content (the shared sheet builder floors
  * every column at 10 chars, far too wide for "01/09") and the light-green
- * shading on days that earned an incentive, as the grid shows it.
+ * shading on days at or above the incentive floor, as the grid shows it.
  */
 
 import type { GridColDef } from "@mui/x-data-grid";
@@ -19,12 +19,14 @@ import { exportRowsToPdf } from "@/components/reports/exportPdf";
 export type S4GridRow = Record<string, string | number | null> & { row_id: number };
 
 export const dayField = (iso: string) => `d_${iso}`;
-/** Marker field (not a column, so never exported): 1 when that day earned an incentive. */
-export const incField = (iso: string) => `i_${iso}`;
 
-/** True for a day cell whose day earned an incentive. */
+/** Legacy colour bands for a day's efficiency: 60+ green, 1..39 red. */
+export const GOOD_EFF = 60;
+export const BAD_EFF = 40;
+
+/** True for a day cell at or above the incentive floor. */
 function isIncentiveCell(row: S4GridRow, column: GridColDef<S4GridRow>): boolean {
-  return column.field.startsWith("d_") && !!row[`i_${column.field.slice(2)}`];
+  return column.field.startsWith("d_") && Number(row[column.field] ?? 0) >= GOOD_EFF;
 }
 
 export async function exportS4Excel(
