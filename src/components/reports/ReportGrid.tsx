@@ -241,6 +241,9 @@ export default function ReportGrid<T extends GridValidRowModel>({
             "& .MuiDataGrid-cell.report-cell-good": {
               backgroundColor: (t: Theme) => alpha(t.palette.success.main, 0.2),
             },
+            "& .MuiDataGrid-cell.report-cell-bad": {
+              backgroundColor: (t: Theme) => alpha(t.palette.error.main, 0.2),
+            },
           }}
         />
       </Box>
