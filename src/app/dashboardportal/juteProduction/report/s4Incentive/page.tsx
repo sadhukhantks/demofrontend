@@ -1,9 +1,10 @@
 "use client";
 
 /**
- * S4 Incentive Report — per weaver on the S4 looms: efficiency of each day in
- * the range, days worked, average efficiency and the efficiency-slab incentive
- * earned. Port of the legacy Data-Portal "S4 Loom Incentive" report (submenu 677).
+ * S4 Incentive Report — per S4 weaver or S4 helper: efficiency of each day in
+ * the range, average efficiency, days worked, incentive days and the
+ * efficiency-slab incentive earned. Port of the legacy code3i
+ * "S4 Incentive Report" (admin/reports/S4_incentive_report).
  */
 
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -17,17 +18,28 @@ import { currentMonthRange } from "@/components/reports/reportDates";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { resolveReportMenuId } from "@/utils/reportMenuService";
 import type { BranchOption } from "@/components/reports/types";
-import { fetchS4Incentive, type S4IncentiveReport } from "./_service";
+import { fetchS4Incentive, type S4IncentiveReport, type S4WorkerType } from "./_service";
 import {
+  BAD_EFF,
   dayField,
   exportS4Excel,
   exportS4Pdf,
-  incField,
+  GOOD_EFF,
   type S4GridRow as GridRow,
 } from "./_export";
 
 const TITLE = "S4 Incentive Report";
 
+interface WorkerTypeOption {
+  value: S4WorkerType;
+  label: string;
+  /** Export heading, as the legacy sheet titled it. */
+  heading: string;
+}
+const WORKER_TYPES: readonly WorkerTypeOption[] = Object.freeze([
+  { value: "weaver", label: "Weaver", heading: "S4 Weavers Incentive" },
+  { value: "helper", label: "Helper", heading: "S4 Helpers Incentive" },
+]);
 
 /** Whole-number column — efficiencies and day counts are integers, so the
  * shared 2-decimal numCol format would only add ".00" noise. */
@@ -45,6 +57,7 @@ function Content() {
   const [branchId, setBranchId] = useState<number | null>(initialBranchId);
   const [dateFrom, setDateFrom] = useState(month.from);
   const [dateTo, setDateTo] = useState(dateParam || month.to);
+  const [workerType, setWorkerType] = useState<WorkerTypeOption>(WORKER_TYPES[0]);
   const [ebNo, setEbNo] = useState("");
   const [report, setReport] = useState<S4IncentiveReport | null>(null);
   const [loading, setLoading] = useState(false);
@@ -68,14 +81,16 @@ function Content() {
     setLoading(true);
     setError(null);
     try {
-      setReport(await fetchS4Incentive({ coId, branchId, dateFrom, dateTo, ebNo }));
+      setReport(
+        await fetchS4Incentive({ coId, branchId, dateFrom, dateTo, workerType: workerType.value, ebNo }),
+      );
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load the report");
       setReport(null);
     } finally {
       setLoading(false);
     }
-  }, [coId, branchId, dateFrom, dateTo, ebNo]);
+  }, [coId, branchId, dateFrom, dateTo, workerType, ebNo]);
 
   const columns = useMemo<GridColDef<GridRow>[]>(
     () => [
@@ -85,14 +100,21 @@ function Content() {
       ...(report?.dates ?? []).map(
         (iso): GridColDef<GridRow> => ({
           ...intCol(dayField(iso), `${iso.slice(8, 10)}/${iso.slice(5, 7)}`, 70),
-          // Light green = that day's efficiency earned an incentive.
-          cellClassName: (p) => (p.row[incField(iso)] ? "report-cell-good" : ""),
+          // Legacy cell rules: "X" = not worked / nothing produced.
+          valueFormatter: (value: unknown, row: GridRow) =>
+            row.total_days == null ? "" : Number(value ?? 0) > 0 ? String(value) : "X",
+          // Green = at or above the incentive floor, red = very low.
+          cellClassName: (p) => {
+            const eff = Number(p.value ?? 0);
+            if (eff >= GOOD_EFF) return "report-cell-good";
+            return eff > 0 && eff < BAD_EFF ? "report-cell-bad" : "";
+          },
         }),
       ),
-      intCol("total_days", "Total Days", 100),
-      intCol("avg_eff", "Avg Eff %", 100),
-      numCol<GridRow>("total_inc_amt", "Total Incentive", 130),
-      intCol("inc_days", "Incentive Days", 120),
+      intCol("avg_eff", "Avg Eff(%)", 100),
+      intCol("total_days", "No of Days", 100),
+      intCol("inc_days", "Inc Days", 100),
+      numCol<GridRow>("total_inc_amt", "Inc Amount", 130),
     ],
     [report],
   );
@@ -110,7 +132,6 @@ function Content() {
         inc_days: r.inc_days,
       };
       for (const [iso, eff] of Object.entries(r.days)) row[dayField(iso)] = eff;
-      for (const iso of r.inc_dates ?? []) row[incField(iso)] = 1;
       return row;
     });
     if (out.length) {
@@ -129,8 +150,8 @@ function Content() {
   const exportHeader = async () => ({
     companyName,
     branchName: branch?.branch_name,
-    reportName: TITLE,
-    reportFor: `${dateFrom} To ${dateTo}`,
+    reportName: workerType.heading,
+    reportFor: `For the Period From ${dateFrom} To ${dateTo}`,
     reportNo: await resolveReportMenuId(pathname),
   });
 
@@ -178,6 +199,21 @@ function Content() {
                 slotProps={{ inputLabel: { shrink: true } }}
                 sx={{ width: 170 }}
               />
+              <Box sx={{ minWidth: 160 }}>
+                <SearchableSelect<WorkerTypeOption>
+                  options={WORKER_TYPES}
+                  value={workerType}
+                  onChange={(v) => {
+                    if (!v) return;
+                    setWorkerType(v);
+                    // The loaded rows belong to the other worker type.
+                    setReport(null);
+                  }}
+                  getOptionLabel={(o) => o.label}
+                  isOptionEqualToValue={(o, v) => o.value === v.value}
+                  label="Loom Type"
+                />
+              </Box>
               <TextField
                 label="EB No"
                 value={ebNo}

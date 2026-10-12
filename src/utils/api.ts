@@ -1099,6 +1099,8 @@ const apiRoutesPortalMasters = {
     SPREADER_ROLL_STOCK_TARGET_VS_ACTUAL: `${API_URL}/spreaderProd/roll_stock_target_vs_actual`,
     JUTE_PROD_MATURITY_REPORT: `${API_URL}/juteProductionReports/maturity_time_report`,
     JUTE_PROD_SPREADER_SUMMARY: `${API_URL}/juteProductionReports/spreader_production_summary`,
+    JUTE_PROD_SPREADER_DATEWISE: `${API_URL}/juteProductionReports/spreader_production_datewise`,
+    JUTE_PROD_SPINNING_DATEWISE: `${API_URL}/juteProductionReports/spinning_production_datewise`,
 
     SPREADER_BIN_LIST: `${API_URL}/spreaderMasters/bin_list`,
     SPREADER_BIN_CREATE: `${API_URL}/spreaderMasters/bin_create`,
