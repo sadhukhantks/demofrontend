@@ -34,6 +34,7 @@ import {
 } from "@mui/material";
 import { ChevronDown, ChevronUp, FileSpreadsheet, Printer } from "lucide-react";
 import { useReportBranches } from "@/components/reports/useReportBranches";
+import PrintFrame from "@/components/reports/PrintFrame";
 import { useMounted } from "@/components/reports/useMounted";
 import { todayIso } from "@/components/reports/reportDates";
 import { exportRowsToExcel } from "@/components/reports/exportExcel";
@@ -279,6 +280,12 @@ function Content() {
       <GlobalStyles
         styles={{
           "@media print": {
+            // @page margin 0 suppresses the browser's own header/footer (date,
+            // title, URL, page number). The paper margin (10mm ~ the old
+            // browser-default margin) is the print root's side padding plus the
+            // <PrintFrame> top/bottom spacers, which repeat on every page.
+            // No `size`, so paper size / orientation stay the user's choice.
+            "@page": { margin: 0 },
             "body *": { visibility: "hidden" },
             ".fin-print-root, .fin-print-root *": { visibility: "visible" },
             ".fin-print-root": {
@@ -286,6 +293,8 @@ function Content() {
               top: 0,
               left: 0,
               width: "100%",
+              boxSizing: "border-box",
+              padding: "0 10mm",
             },
           },
         }}
@@ -366,207 +375,209 @@ function Content() {
 
       {!loading && data ? (
         <Box className="fin-print-root">
-          {/* Print letterhead */}
-          <Box
-            sx={{
-              display: "none",
-              displayPrint: "block",
-              mb: 1,
-              textAlign: "center",
-            }}
-          >
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-              {data.co_name || companyName || ""} — {REPORT_TITLE}
-            </Typography>
-            <Typography variant="caption">
-              {data.branch_name || selectedBranch?.branch_name || ""} ·{" "}
-              {data.tran_date}
-            </Typography>
-          </Box>
+          <PrintFrame marginMm={10}>
+            {/* Print letterhead */}
+            <Box
+              sx={{
+                display: "none",
+                displayPrint: "block",
+                mb: 1,
+                textAlign: "center",
+              }}
+            >
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                {data.co_name || companyName || ""} — {REPORT_TITLE}
+              </Typography>
+              <Typography variant="caption">
+                {data.branch_name || selectedBranch?.branch_name || ""} ·{" "}
+                {data.tran_date}
+              </Typography>
+            </Box>
 
-          {empty ? (
-            <Alert severity="info">No entries for this date</Alert>
-          ) : (
-            <>
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: { xs: "column", md: "row" },
-                  alignItems: "flex-start",
-                  gap: 2,
-                  // Print has one column: the cards stack full width. `gap`
-                  // does nothing on a block box, so the stacked columns get
-                  // their breathing room from a margin instead.
-                  displayPrint: "block",
-                  "@media print": { "& > * + *": { mt: 2 } },
-                }}
-              >
-                {/* Left: bales per owner + despatch */}
-                <Stack spacing={2} sx={{ flex: 2, minWidth: 0, width: "100%" }}>
-                  {data.bales.map((b) => (
-                    <BaleBlockCard
-                      key={b.owner_co_id ?? "own"}
-                      block={b}
-                      tranDate={data.tran_date}
-                    />
-                  ))}
-
-                  <SectionCard title={`Despatch on ${data.tran_date}`}>
-                    {data.despatch.length ? (
-                      <DprTable
-                        head={
-                          <Tr>
-                            <Td>Item</Td>
-                            <Td align="right">Bales</Td>
-                            <Td align="right">Qty</Td>
-                            <Td>UoM</Td>
-                          </Tr>
-                        }
-                      >
-                        {data.despatch.map((d) => (
-                          <Tr key={d.item_id}>
-                            <Td>{d.item_name ?? "—"}</Td>
-                            <NumTd value={d.bales} digits={0} />
-                            <NumTd value={d.qty} digits={3} />
-                            <Td>{d.uom_name ?? "—"}</Td>
-                          </Tr>
-                        ))}
-                      </DprTable>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        No despatch invoiced on this date.
-                      </Typography>
-                    )}
-                  </SectionCard>
-                </Stack>
-
-                {/* Right: loose stock + stage-wise detail */}
-                <Stack spacing={2} sx={{ flex: 1, minWidth: 0, width: "100%" }}>
-                  <SectionCard
-                    title="Loose Stock"
-                    subtitle={`As on ${data.tran_date}`}
-                  >
-                    <DprTable
-                      head={
-                        <Tr>
-                          <Td>Quality</Td>
-                          <Td align="right">MT</Td>
-                        </Tr>
-                      }
-                    >
-                      <LooseLines
-                        label="Hessian"
-                        lines={data.loose.hessian}
-                        totalMt={data.loose.hessian_total_mt}
+            {empty ? (
+              <Alert severity="info">No entries for this date</Alert>
+            ) : (
+              <>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: { xs: "column", md: "row" },
+                    alignItems: "flex-start",
+                    gap: 2,
+                    // Print has one column: the cards stack full width. `gap`
+                    // does nothing on a block box, so the stacked columns get
+                    // their breathing room from a margin instead.
+                    displayPrint: "block",
+                    "@media print": { "& > * + *": { mt: 2 } },
+                  }}
+                >
+                  {/* Left: bales per owner + despatch */}
+                  <Stack spacing={2} sx={{ flex: 2, minWidth: 0, width: "100%" }}>
+                    {data.bales.map((b) => (
+                      <BaleBlockCard
+                        key={b.owner_co_id ?? "own"}
+                        block={b}
+                        tranDate={data.tran_date}
                       />
-                      <LooseLines
-                        label="Sacking"
-                        lines={data.loose.sacking}
-                        totalMt={data.loose.sacking_total_mt}
-                      />
-                      {/* Guarded like flattenReport: nothing to total when
-                          neither section has a line. */}
-                      {data.loose.hessian.length ||
-                      data.loose.sacking.length ? (
-                        <Tr sx={totalRowSx()}>
-                          <Td>GRAND TOTAL</Td>
-                          <NumTd value={data.loose.total_mt} digits={3} bold />
-                        </Tr>
-                      ) : null}
-                    </DprTable>
-                  </SectionCard>
+                    ))}
 
-                  {data.loose_lines.length ? (
-                    <SectionCard title="Loose by stage">
-                      <Button
-                        size="small"
-                        sx={{ mb: 1, displayPrint: "none" }}
-                        endIcon={
-                          showStages ? (
-                            <ChevronUp size={16} />
-                          ) : (
-                            <ChevronDown size={16} />
-                          )
-                        }
-                        onClick={() => setShowStages((v) => !v)}
-                      >
-                        {showStages ? "Hide" : "Show"} {data.loose_lines.length}{" "}
-                        lines
-                      </Button>
-                      {/* Collapsed on screen to keep the card short. A
-                          collapsed MUI Collapse is height 0 + visibility
-                          hidden, so print has to undo all three or the sheet
-                          would silently lose the stage detail. */}
-                      <Collapse
-                        in={showStages}
-                        sx={{
-                          "@media print": {
-                            height: "auto !important",
-                            visibility: "visible",
-                            overflow: "visible",
-                          },
-                        }}
-                      >
+                    <SectionCard title={`Despatch on ${data.tran_date}`}>
+                      {data.despatch.length ? (
                         <DprTable
                           head={
                             <Tr>
-                              <Td>Stage</Td>
-                              <Td>Work by</Td>
-                              <Td>Quality</Td>
+                              <Td>Item</Td>
+                              <Td align="right">Bales</Td>
                               <Td align="right">Qty</Td>
                               <Td>UoM</Td>
-                              <Td align="right">MT</Td>
                             </Tr>
                           }
                         >
-                          {data.loose_lines.map((l, i) => (
-                            <Tr
-                              key={`${l.stage ?? "none"}-${l.item_name ?? ""}-${i}`}
-                            >
-                              <Td>{l.stage_label ?? l.stage ?? "—"}</Td>
-                              <Td>{WORK_BY_LABEL[l.work_by]}</Td>
-                              <Td>
-                                {l.quality_type === 1 ? "Hessian" : "Sacking"} ·{" "}
-                                {l.item_name ?? "—"}
-                              </Td>
-                              <NumTd value={l.qty} digits={0} />
-                              <Td>{l.qty_uom}</Td>
-                              <NumTd value={l.wt_mt} digits={3} />
+                          {data.despatch.map((d) => (
+                            <Tr key={d.item_id}>
+                              <Td>{d.item_name ?? "—"}</Td>
+                              <NumTd value={d.bales} digits={0} />
+                              <NumTd value={d.qty} digits={3} />
+                              <Td>{d.uom_name ?? "—"}</Td>
                             </Tr>
                           ))}
                         </DprTable>
-                      </Collapse>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          No despatch invoiced on this date.
+                        </Typography>
+                      )}
                     </SectionCard>
-                  ) : null}
-                </Stack>
-              </Box>
+                  </Stack>
 
-              {/* KPI footer line */}
-              <Paper
-                variant="outlined"
-                sx={{
-                  mt: 2,
-                  p: 1.5,
-                  display: "flex",
-                  gap: 3,
-                  flexWrap: "wrap",
-                  justifyContent: "flex-end",
-                }}
-              >
-                {(
-                  [
-                    ["Bales MT", data.totals.bales_mt],
-                    ["Loose MT", data.totals.loose_mt],
-                    ["Stock MT", data.totals.stock_mt],
-                  ] as const
-                ).map(([label, value]) => (
-                  <Typography key={label} variant="body2">
-                    {label}: <strong>{fmt(value, 3)}</strong>
-                  </Typography>
-                ))}
-              </Paper>
-            </>
-          )}
+                  {/* Right: loose stock + stage-wise detail */}
+                  <Stack spacing={2} sx={{ flex: 1, minWidth: 0, width: "100%" }}>
+                    <SectionCard
+                      title="Loose Stock"
+                      subtitle={`As on ${data.tran_date}`}
+                    >
+                      <DprTable
+                        head={
+                          <Tr>
+                            <Td>Quality</Td>
+                            <Td align="right">MT</Td>
+                          </Tr>
+                        }
+                      >
+                        <LooseLines
+                          label="Hessian"
+                          lines={data.loose.hessian}
+                          totalMt={data.loose.hessian_total_mt}
+                        />
+                        <LooseLines
+                          label="Sacking"
+                          lines={data.loose.sacking}
+                          totalMt={data.loose.sacking_total_mt}
+                        />
+                        {/* Guarded like flattenReport: nothing to total when
+                            neither section has a line. */}
+                        {data.loose.hessian.length ||
+                        data.loose.sacking.length ? (
+                          <Tr sx={totalRowSx()}>
+                            <Td>GRAND TOTAL</Td>
+                            <NumTd value={data.loose.total_mt} digits={3} bold />
+                          </Tr>
+                        ) : null}
+                      </DprTable>
+                    </SectionCard>
+
+                    {data.loose_lines.length ? (
+                      <SectionCard title="Loose by stage">
+                        <Button
+                          size="small"
+                          sx={{ mb: 1, displayPrint: "none" }}
+                          endIcon={
+                            showStages ? (
+                              <ChevronUp size={16} />
+                            ) : (
+                              <ChevronDown size={16} />
+                            )
+                          }
+                          onClick={() => setShowStages((v) => !v)}
+                        >
+                          {showStages ? "Hide" : "Show"} {data.loose_lines.length}{" "}
+                          lines
+                        </Button>
+                        {/* Collapsed on screen to keep the card short. A
+                            collapsed MUI Collapse is height 0 + visibility
+                            hidden, so print has to undo all three or the sheet
+                            would silently lose the stage detail. */}
+                        <Collapse
+                          in={showStages}
+                          sx={{
+                            "@media print": {
+                              height: "auto !important",
+                              visibility: "visible",
+                              overflow: "visible",
+                            },
+                          }}
+                        >
+                          <DprTable
+                            head={
+                              <Tr>
+                                <Td>Stage</Td>
+                                <Td>Work by</Td>
+                                <Td>Quality</Td>
+                                <Td align="right">Qty</Td>
+                                <Td>UoM</Td>
+                                <Td align="right">MT</Td>
+                              </Tr>
+                            }
+                          >
+                            {data.loose_lines.map((l, i) => (
+                              <Tr
+                                key={`${l.stage ?? "none"}-${l.item_name ?? ""}-${i}`}
+                              >
+                                <Td>{l.stage_label ?? l.stage ?? "—"}</Td>
+                                <Td>{WORK_BY_LABEL[l.work_by]}</Td>
+                                <Td>
+                                  {l.quality_type === 1 ? "Hessian" : "Sacking"} ·{" "}
+                                  {l.item_name ?? "—"}
+                                </Td>
+                                <NumTd value={l.qty} digits={0} />
+                                <Td>{l.qty_uom}</Td>
+                                <NumTd value={l.wt_mt} digits={3} />
+                              </Tr>
+                            ))}
+                          </DprTable>
+                        </Collapse>
+                      </SectionCard>
+                    ) : null}
+                  </Stack>
+                </Box>
+
+                {/* KPI footer line */}
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    mt: 2,
+                    p: 1.5,
+                    display: "flex",
+                    gap: 3,
+                    flexWrap: "wrap",
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  {(
+                    [
+                      ["Bales MT", data.totals.bales_mt],
+                      ["Loose MT", data.totals.loose_mt],
+                      ["Stock MT", data.totals.stock_mt],
+                    ] as const
+                  ).map(([label, value]) => (
+                    <Typography key={label} variant="body2">
+                      {label}: <strong>{fmt(value, 3)}</strong>
+                    </Typography>
+                  ))}
+                </Paper>
+              </>
+            )}
+          </PrintFrame>
         </Box>
       ) : null}
 

@@ -11,6 +11,7 @@ import {
   type DeptGroup,
 } from "../_components/payrollPrint";
 import type { PayRegisterPrintRow } from "@/utils/hrmsReportService";
+import PrintFrame from "@/components/reports/PrintFrame";
 
 /**
  * Pay Register print (legacy Data_entry payregisterprint, "Main Pay Roll"):
@@ -152,31 +153,33 @@ function Content() {
 `}</style>
       {controls}
       <Box className="pay-print-area">
-        {groups.map((g) => (
-          <section key={g.deptCode} className="pay-dept-section">
-            <div className="reg-caption">
-              <span>{companyName ?? ""}</span>
-              <span>{scheme?.payscheme_name ?? ""} — PAY REGISTER</span>
-              <span>
-                F/E: {fmtDate(period?.to_date ?? null)} DEPT: {g.deptCode} {g.deptDesc}
-              </span>
-            </div>
-            <div className="reg-headblock">
-              <Line cells={LINE1} grid={G1} leftCount={4} header />
-              <Line cells={LINE2} grid={G2} header />
-              <Line cells={LINE3} grid={G3} leftCount={2} header />
-            </div>
-            {g.rows.map((r) => (
-              <div key={r.id} className="reg-emp">
-                <Line cells={LINE1} grid={G1} leftCount={4} row={r} />
-                <Line cells={LINE2} grid={G2} row={r} />
-                <Line cells={LINE3} grid={G3} leftCount={2} row={r} />
+        <PrintFrame marginMm={8}>
+          {groups.map((g) => (
+            <section key={g.deptCode} className="pay-dept-section">
+              <div className="reg-caption">
+                <span>{companyName ?? ""}</span>
+                <span>{scheme?.payscheme_name ?? ""} — PAY REGISTER</span>
+                <span>
+                  F/E: {fmtDate(period?.to_date ?? null)} DEPT: {g.deptCode} {g.deptDesc}
+                </span>
               </div>
-            ))}
-            <TotalsLine label={`DEPT TOTAL ${g.deptCode}`} rows={g.rows} />
-          </section>
-        ))}
-        {rows.length > 0 && <TotalsLine label="GRAND TOTAL" rows={rows} />}
+              <div className="reg-headblock">
+                <Line cells={LINE1} grid={G1} leftCount={4} header />
+                <Line cells={LINE2} grid={G2} header />
+                <Line cells={LINE3} grid={G3} leftCount={2} header />
+              </div>
+              {g.rows.map((r) => (
+                <div key={r.id} className="reg-emp">
+                  <Line cells={LINE1} grid={G1} leftCount={4} row={r} />
+                  <Line cells={LINE2} grid={G2} row={r} />
+                  <Line cells={LINE3} grid={G3} leftCount={2} row={r} />
+                </div>
+              ))}
+              <TotalsLine label={`DEPT TOTAL ${g.deptCode}`} rows={g.rows} />
+            </section>
+          ))}
+          {rows.length > 0 && <TotalsLine label="GRAND TOTAL" rows={rows} />}
+        </PrintFrame>
       </Box>
     </>
   );

@@ -309,9 +309,11 @@ const SalesInvoicePreview: React.FC<InvoicePreviewProps> = ({ header, items, tot
 	<meta charset="utf-8"/>
 	<title>Tax Invoice - ${titleSuffix}</title>
 	<style>
-		@page { size: A4; margin: 8mm; }
+		/* @page margin 0 suppresses the browser's own header/footer (date, title,
+		   about:blank, page number) - body padding provides the paper margin instead. */
+		@page { size: A4; margin: 0; }
 		* { box-sizing: border-box; }
-		body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+		body { font-family: Arial, sans-serif; margin: 0; padding: 8mm; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 	</style>
 </head>
 <body>

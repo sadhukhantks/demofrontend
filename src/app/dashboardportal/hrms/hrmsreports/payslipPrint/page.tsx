@@ -12,6 +12,7 @@ import {
   type DeptGroup,
 } from "../_components/payrollPrint";
 import type { PayRegisterPrintRow } from "@/utils/hrmsReportService";
+import PrintFrame from "@/components/reports/PrintFrame";
 
 /**
  * Payslip print (legacy Data_entry payslipprint, "Main Pay Roll"): one slip
@@ -171,19 +172,21 @@ function Content() {
 `}</style>
       {controls}
       <Box className="pay-print-area">
-        {groups.map((g) => (
-          <section key={g.deptCode} className="pay-dept-section">
-            {g.rows.map((r) => (
-              <Slip
-                key={r.id}
-                row={r}
-                companyName={companyName ?? ""}
-                toDate={period?.to_date ?? null}
-                deptLabel={`${g.deptCode} ${g.deptDesc}`}
-              />
-            ))}
-          </section>
-        ))}
+        <PrintFrame marginMm={8}>
+          {groups.map((g) => (
+            <section key={g.deptCode} className="pay-dept-section">
+              {g.rows.map((r) => (
+                <Slip
+                  key={r.id}
+                  row={r}
+                  companyName={companyName ?? ""}
+                  toDate={period?.to_date ?? null}
+                  deptLabel={`${g.deptCode} ${g.deptDesc}`}
+                />
+              ))}
+            </section>
+          ))}
+        </PrintFrame>
       </Box>
     </>
   );
