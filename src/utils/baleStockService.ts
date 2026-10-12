@@ -204,6 +204,8 @@ export interface BaleStockRowsQuery {
   baleNoTo?: number | null;
   dateFrom?: string | null;
   dateTo?: string | null;
+  /** Bales whose active despatch row points at this invoice (live or void); pair with status "ALL". */
+  invoiceId?: number | null;
 }
 
 export interface MarkInspectedPayload {
@@ -277,6 +279,7 @@ export async function fetchBaleStockRows(params: BaleStockRowsQuery): Promise<Ba
   if (params.baleNoTo != null) qs.set("bale_no_to", String(params.baleNoTo));
   if (params.dateFrom) qs.set("date_from", params.dateFrom);
   if (params.dateTo) qs.set("date_to", params.dateTo);
+  if (params.invoiceId != null) qs.set("invoice_id", String(params.invoiceId));
   const url = `${apiRoutesPortalMasters.BALE_STOCK_BALES}?${qs.toString()}`;
   const res = await fetchWithCookie<{ data: BaleStockRowsResult }>(url);
   if (res.error || !res.data) throw new Error(res.error ?? "Failed to load bales");
@@ -358,4 +361,48 @@ export async function unlinkBalesFromInvoice(payload: BaleIdsPayload) {
     payload,
   );
   return { ok: !res.error, error: res.error, unlinked: res.data?.data?.unlinked ?? 0 };
+}
+
+// ---------------------------------------------------------------------------
+// Suggested pick by series + count (spec §7e)
+// ---------------------------------------------------------------------------
+
+export type BaleSuggestPurpose = "inspect" | "despatch";
+
+export interface BaleSuggestResult {
+  purpose: BaleSuggestPurpose;
+  bale_series_id: number;
+  /** The first `count` eligible bales in the suggestion order. */
+  rows: BaleStockRow[];
+  /** How many bales of the series are eligible in total. */
+  available: number;
+}
+
+/**
+ * GET /baleStock/suggest — the default pick for "state + number of bales":
+ * inspect → uninspected sacking bales of the series, oldest first; despatch →
+ * in-stock bales of the series, inspected first then oldest. The user adjusts
+ * the returned selection by hand.
+ */
+export async function fetchBaleSuggestions(params: {
+  coId: string | number;
+  branchId: number;
+  baleSeriesId: number;
+  count: number;
+  purpose: BaleSuggestPurpose;
+  asOn?: string;
+  finishingQualityId?: number | null;
+}): Promise<BaleSuggestResult> {
+  const qs = scopeParams(params.coId, params.branchId);
+  qs.set("bale_series_id", String(params.baleSeriesId));
+  qs.set("count", String(params.count));
+  qs.set("purpose", params.purpose);
+  if (params.asOn) qs.set("as_on", params.asOn);
+  if (params.finishingQualityId != null) {
+    qs.set("finishing_quality_id", String(params.finishingQualityId));
+  }
+  const url = `${apiRoutesPortalMasters.BALE_STOCK_SUGGEST}?${qs.toString()}`;
+  const res = await fetchWithCookie<{ data: BaleSuggestResult }>(url);
+  if (res.error || !res.data) throw new Error(res.error ?? "Failed to suggest bales");
+  return res.data.data;
 }

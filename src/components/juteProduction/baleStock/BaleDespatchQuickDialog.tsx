@@ -17,10 +17,12 @@ import { Link2 as LinkIcon, Truck as DespatchIcon } from "lucide-react";
 import { fetchBaleStockRows, linkBalesToInvoice, type BaleStockRow } from "@/utils/baleStockService";
 import BaleRangeSelector from "./BaleRangeSelector";
 import BaleStockGrid from "./BaleStockGrid";
+import BaleSuggestPicker from "./BaleSuggestPicker";
 import {
 	canLink,
 	latestPressDate,
 	mergeLinkableRows,
+	mergeRowsById,
 	noInvoiceDespatchCount,
 	seriesOptionsFromRows,
 	todayISO,
@@ -58,8 +60,9 @@ export interface BaleDespatchQuickDialogProps {
  * bale line (hessian or sacking): loads that quality's bales in stock as on the
  * day plus the ones already despatched without an invoice (GET
  * /baleStock/bales?status=STOCK and ?status=DESPATCHED, the latter kept only
- * where `despatch.invoice_id` is null), lets the operator tick them
- * (checkboxes or a bale-number range) and either links them to one sales
+ * where `despatch.invoice_id` is null), lets the operator pick them — series +
+ * count with a suggested default (`BaleSuggestPicker`), a bale-number range,
+ * or checkboxes — and either links them to one sales
  * invoice or marks them despatched without one, with the same form as
  * `LinkInvoiceDialog` (`InvoiceLinkFields` over `useInvoiceLinkForm`) — POST
  * /baleStock/despatch. Uninspected sacking is only warned about, not blocked.
@@ -80,6 +83,8 @@ function QuickBody({ onClose, coId, branchId, asOn, finishingQualityId, qualityN
 	const [loadError, setLoadError] = React.useState<string | null>(null);
 	const [saveError, setSaveError] = React.useState<string | null>(null);
 	const [selectedIds, setSelectedIds] = React.useState<number[]>([]);
+	/** Selected rows the suggest picker knows — they may lie beyond this dialog's (capped) row list. */
+	const [pickerRows, setPickerRows] = React.useState<BaleStockRow[]>([]);
 
 	React.useEffect(() => {
 		let cancelled = false;
@@ -94,6 +99,7 @@ function QuickBody({ onClose, coId, branchId, asOn, finishingQualityId, qualityN
 				if (cancelled) return;
 				setRows(mergeLinkableRows(stock.rows, despatched.rows));
 				setSelectedIds([]);
+				setPickerRows([]);
 			})
 			.catch((err: Error) => {
 				if (cancelled) return;
@@ -112,8 +118,8 @@ function QuickBody({ onClose, coId, branchId, asOn, finishingQualityId, qualityN
 	const noInvoiceRows = React.useMemo(() => noInvoiceDespatchCount(rows), [rows]);
 	const selectedRows = React.useMemo(() => {
 		const wanted = new Set(selectedIds);
-		return rows.filter((r) => wanted.has(r.bale_entry_id));
-	}, [rows, selectedIds]);
+		return mergeRowsById(rows, pickerRows).filter((r) => wanted.has(r.bale_entry_id));
+	}, [rows, pickerRows, selectedIds]);
 	const gate = React.useMemo(() => canLink(selectedRows), [selectedRows]);
 	const minDate = React.useMemo(() => latestPressDate(selectedRows), [selectedRows]);
 	const uninspectedSacking = React.useMemo(() => uninspectedSackingCount(selectedRows), [selectedRows]);
@@ -137,6 +143,18 @@ function QuickBody({ onClose, coId, branchId, asOn, finishingQualityId, qualityN
 			ids.forEach((id) => next.add(id));
 			return [...next];
 		});
+	const clearSelection = () => {
+		setSelectedIds([]);
+		setPickerRows([]);
+	};
+	const onPickerSelection = (ids: number[], fromPicker: BaleStockRow[]) => {
+		setSelectedIds(ids);
+		setPickerRows((prev) => {
+			const keep = new Set(ids);
+			const fresh = new Set(fromPicker.map((r) => r.bale_entry_id));
+			return [...prev.filter((r) => keep.has(r.bale_entry_id) && !fresh.has(r.bale_entry_id)), ...fromPicker];
+		});
+	};
 
 	const submit = async (values: LinkFormValues) => {
 		if (!gate.ok) return;
@@ -173,8 +191,8 @@ function QuickBody({ onClose, coId, branchId, asOn, finishingQualityId, qualityN
 						{noInvoiceRows > 0
 							? `, plus ${noInvoiceRows} already despatched without an invoice (shown last — tick them to link their invoice)`
 							: ""}
-						. Tick the bales (or pick a bale-number range), then either choose the sales invoice they went out on or
-						mark them despatched without one (delivery challan / DO / transfer / sample, invoice linked later) — they
+						. Pick the bales — series + number of bales with Suggest, a bale-number range, or the ticks — then either
+						choose the sales invoice they went out on or mark them despatched without one (delivery challan / DO / transfer / sample, invoice linked later) — they
 						leave stock from the despatch date.
 					</Typography>
 					{loadError ? <Alert severity="error">{loadError}</Alert> : null}
@@ -187,12 +205,29 @@ function QuickBody({ onClose, coId, branchId, asOn, finishingQualityId, qualityN
 						</Alert>
 					) : (
 						<>
+							<Box>
+								<Typography variant="subtitle2" sx={{ mb: 1 }}>
+									Pick by state and count
+								</Typography>
+								<BaleSuggestPicker
+									coId={coId}
+									branchId={branchId}
+									asOn={asOn}
+									purpose="despatch"
+									selectedIds={selectedIds}
+									onSelectionChange={onPickerSelection}
+									finishingQualityId={finishingQualityId}
+									disabled={loading || isSubmitting}
+									compact
+								/>
+							</Box>
+							<Typography variant="subtitle2">All bales of this quality</Typography>
 							<BaleRangeSelector
 								series={series}
 								rows={rows}
 								selectedCount={n}
 								onAddIds={addIds}
-								onClearSelection={() => setSelectedIds([])}
+								onClearSelection={clearSelection}
 								disabled={loading || isSubmitting}
 							/>
 							<BaleStockGrid

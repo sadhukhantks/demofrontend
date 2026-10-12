@@ -1,10 +1,13 @@
 import type { ChipProps } from "@mui/material";
 import type {
   BaleStockInvoice,
+  BaleStockQuality,
   BaleStockRow,
+  BaleStockSeries,
   BaleStockSeriesLine,
   BaleStockStatus,
   BaleStockSummaryLine,
+  BaleSuggestPurpose,
 } from "@/utils/baleStockService";
 
 /**
@@ -506,4 +509,77 @@ export function invoiceLabel(inv: BaleStockInvoice): string {
   ]
     .filter((p): p is string => typeof p === "string" && p.trim() !== "")
     .join(" · ");
+}
+
+// ---------------------------------------------------------------------------
+// Suggested pick by series + count (spec §7e) — BaleSuggestPicker
+// ---------------------------------------------------------------------------
+
+/**
+ * `primary` keeps its order and wins on a duplicate id; rows of `extra` not
+ * already present follow. The page and the quick dialogs gate their actions on
+ * the rows they loaded plus the rows the suggest picker reported, which may
+ * lie outside the loaded (filtered / capped) set.
+ */
+export function mergeRowsById(
+  primary: ReadonlyArray<BaleStockRow>,
+  extra: ReadonlyArray<BaleStockRow>,
+): BaleStockRow[] {
+  const seen = new Set(primary.map((r) => r.bale_entry_id));
+  const out = [...primary];
+  extra.forEach((r) => {
+    if (!seen.has(r.bale_entry_id)) {
+      seen.add(r.bale_entry_id);
+      out.push(r);
+    }
+  });
+  return out;
+}
+
+/**
+ * Series the picker offers, by name. `inspect` keeps sacking series only
+ * (spec D3). When `finishingQualityId` names a quality in `qualities`, the
+ * list narrows to series of that quality's type whose `item_id` is null
+ * (open to every quality of the type) or that quality's item; a quality the
+ * setup does not know leaves every series of the right type.
+ */
+export function suggestSeriesOptions(
+  series: ReadonlyArray<BaleStockSeries>,
+  qualities: ReadonlyArray<BaleStockQuality>,
+  purpose: BaleSuggestPurpose,
+  finishingQualityId?: number | null,
+): BaleStockSeries[] {
+  let list = purpose === "inspect" ? series.filter((s) => s.quality_type === SACKING_QUALITY_TYPE) : [...series];
+  const quality =
+    finishingQualityId == null ? undefined : qualities.find((q) => q.finishing_quality_id === finishingQualityId);
+  if (quality) {
+    list = list.filter(
+      (s) => s.quality_type === quality.quality_type && (s.item_id == null || s.item_id === quality.item_id),
+    );
+  }
+  return list.sort((a, b) => a.series_name.localeCompare(b.series_name));
+}
+
+/** Σ net_wt / 1000 over the rows whose id is in `ids`, at the printed scale. */
+export function selectedMt(
+  rows: ReadonlyArray<Pick<BaleStockRow, "bale_entry_id" | "net_wt">>,
+  ids: ReadonlyArray<number>,
+): number {
+  const wanted = new Set(ids);
+  let kg = 0;
+  rows.forEach((r) => {
+    if (wanted.has(r.bale_entry_id)) kg += Number(r.net_wt) || 0;
+  });
+  return round3(kg / 1000);
+}
+
+/** "n selected of m available · x.xxx MT" — the line under the picker's grid. */
+export function suggestCaption(selected: number, available: number, mt: number): string {
+  return `${selected} selected of ${available} available · ${formatMt(mt)} MT`;
+}
+
+/** "Only m bales available in this series" when the asked count exceeds the eligible total; null otherwise. */
+export function shortfallMessage(count: number, available: number): string | null {
+  if (!Number.isFinite(count) || count <= available) return null;
+  return `Only ${available} ${available === 1 ? "bale" : "bales"} available in this series`;
 }

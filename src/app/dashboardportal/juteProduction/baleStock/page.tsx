@@ -1,12 +1,22 @@
 "use client";
 
 import * as React from "react";
-import { Alert, Box, CircularProgress, Snackbar, TextField, Typography } from "@mui/material";
+import {
+	Alert,
+	Box,
+	CircularProgress,
+	Snackbar,
+	TextField,
+	ToggleButton,
+	ToggleButtonGroup,
+	Typography,
+} from "@mui/material";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import BaleRangeSelector from "@/components/juteProduction/baleStock/BaleRangeSelector";
 import BaleStockGrid from "@/components/juteProduction/baleStock/BaleStockGrid";
+import BaleSuggestPicker from "@/components/juteProduction/baleStock/BaleSuggestPicker";
 import LinkInvoiceDialog, {
 	type LinkInvoiceDialogResult,
 } from "@/components/juteProduction/baleStock/LinkInvoiceDialog";
@@ -17,6 +27,7 @@ import {
 	canUninspect,
 	canUnlink,
 	despatchDoneMessage,
+	mergeRowsById,
 	SACKING_QUALITY_TYPE,
 	todayISO,
 } from "@/components/juteProduction/baleStock/baleStockCalc";
@@ -26,9 +37,11 @@ import {
 	fetchBaleStockSummary,
 	unlinkBalesFromInvoice,
 	unmarkBalesInspected,
+	type BaleStockRow,
 	type BaleStockRowsResult,
 	type BaleStockSetup,
 	type BaleStockSummary,
+	type BaleSuggestPurpose,
 } from "@/utils/baleStockService";
 import BaleStockFilters, {
 	DEFAULT_BALE_STOCK_FILTERS,
@@ -84,11 +97,31 @@ export default function BaleStockPage() {
 	const [draft, setDraft] = React.useState<BaleStockFilterValues>({ ...DEFAULT_BALE_STOCK_FILTERS });
 	const [applied, setApplied] = React.useState<BaleStockFilterValues>({ ...DEFAULT_BALE_STOCK_FILTERS });
 	const [selectedIds, setSelectedIds] = React.useState<number[]>([]);
+	/**
+	 * Selected rows reported by the suggest picker. Its series grid can tick
+	 * bales the master grid below has filtered out, so the action gates run on
+	 * the master rows merged with these (see `knownRows`). Pruned to the
+	 * selection on every picker change; the ref lets the rows effect read it
+	 * without refetching.
+	 */
+	const [pickerRows, setPickerRows] = React.useState<BaleStockRow[]>([]);
+	const pickerRowsRef = React.useRef<BaleStockRow[]>([]);
+	React.useEffect(() => {
+		pickerRowsRef.current = pickerRows;
+	}, [pickerRows]);
+	/** What the "Pick by state and count" picker proposes for — Despatch by default. */
+	const [pickPurpose, setPickPurpose] = React.useState<BaleSuggestPurpose>("despatch");
 	const [snack, setSnack] = React.useState<string | null>(null);
 	const [actionError, setActionError] = React.useState<string | null>(null);
 	// Bumped after every mutation; rows and summary both watch it.
 	const [version, setVersion] = React.useState(0);
 	const refresh = React.useCallback(() => setVersion((v) => v + 1), []);
+
+	// A new company, branch or as-on date voids every selected bale's status.
+	React.useEffect(() => {
+		setSelectedIds([]);
+		setPickerRows([]);
+	}, [coId, branchId, asOn]);
 
 	// ---------------------------------------------------------------------
 	// Setup (qualities, series, status options, bale_source) — per company/branch.
@@ -174,8 +207,9 @@ export default function BaleStockPage() {
 				if (cancelled) return;
 				setRowsError(null);
 				setResult(data);
-				// A selection can only ever point at bales that are on screen.
+				// A selection can only point at bales on screen — in this grid or in the picker's.
 				const present = new Set(data.rows.map((r) => r.bale_entry_id));
+				pickerRowsRef.current.forEach((r) => present.add(r.bale_entry_id));
 				setSelectedIds((prev) => prev.filter((id) => present.has(id)));
 			})
 			.catch((err: Error) => {
@@ -193,10 +227,12 @@ export default function BaleStockPage() {
 	}, [coId, branchId, asOn, applied, version]);
 
 	const rows = React.useMemo(() => result?.rows ?? [], [result]);
+	/** Master rows first (fresher after a mutation), then picker-only rows. */
+	const knownRows = React.useMemo(() => mergeRowsById(rows, pickerRows), [rows, pickerRows]);
 	const selectedRows = React.useMemo(() => {
 		const wanted = new Set(selectedIds);
-		return rows.filter((r) => wanted.has(r.bale_entry_id));
-	}, [rows, selectedIds]);
+		return knownRows.filter((r) => wanted.has(r.bale_entry_id));
+	}, [knownRows, selectedIds]);
 
 	const inspectCheck = React.useMemo(() => canInspect(selectedRows), [selectedRows]);
 	const uninspectCheck = React.useMemo(() => canUninspect(selectedRows), [selectedRows]);
@@ -219,6 +255,7 @@ export default function BaleStockPage() {
 		(message: string) => {
 			setSnack(message);
 			setSelectedIds([]);
+			setPickerRows([]);
 			refresh();
 		},
 		[refresh]
@@ -229,6 +266,18 @@ export default function BaleStockPage() {
 			const next = new Set(prev);
 			ids.forEach((id) => next.add(id));
 			return [...next];
+		});
+	}, []);
+	const clearSelection = React.useCallback(() => {
+		setSelectedIds([]);
+		setPickerRows([]);
+	}, []);
+	const onPickerSelection = React.useCallback((ids: number[], fromPicker: BaleStockRow[]) => {
+		setSelectedIds(ids);
+		setPickerRows((prev) => {
+			const keep = new Set(ids);
+			const fresh = new Set(fromPicker.map((r) => r.bale_entry_id));
+			return [...prev.filter((r) => keep.has(r.bale_entry_id) && !fresh.has(r.bale_entry_id)), ...fromPicker];
 		});
 	}, []);
 
@@ -421,6 +470,50 @@ export default function BaleStockPage() {
 								</Alert>
 							) : null}
 
+							<Box>
+								<Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center", mb: 0.5 }}>
+									<Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+										Pick by state and count
+									</Typography>
+									<ToggleButtonGroup
+										size="small"
+										exclusive
+										value={pickPurpose}
+										onChange={(_e, v: BaleSuggestPurpose | null) => {
+											if (v) setPickPurpose(v);
+										}}
+										disabled={rowsLoading || busy}
+										aria-label="What the suggestion is for"
+									>
+										<ToggleButton value="inspect">Inspect</ToggleButton>
+										<ToggleButton value="despatch">Despatch</ToggleButton>
+									</ToggleButtonGroup>
+								</Box>
+								<Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+									Choose the series (state) and how many bales. Suggest proposes the{" "}
+									{pickPurpose === "inspect"
+										? "oldest uninspected sacking bales"
+										: "inspected bales first, then the oldest in stock"}
+									; adjust the ticks by hand, then use the actions below. Bales picked here count in the
+									selection even when the list below is filtered.
+								</Typography>
+								<BaleSuggestPicker
+									// Remounted after every mutation so the eligible rows reload.
+									key={version}
+									coId={Number(coId)}
+									branchId={branchId}
+									asOn={asOn}
+									purpose={pickPurpose}
+									selectedIds={selectedIds}
+									onSelectionChange={onPickerSelection}
+									disabled={rowsLoading || busy}
+								/>
+							</Box>
+
+							<Typography variant="subtitle1" sx={{ fontWeight: 600, mt: 1 }}>
+								All bales
+							</Typography>
+
 							<SelectionToolbar
 								count={selectedIds.length}
 								inspect={inspectCheck}
@@ -443,7 +536,7 @@ export default function BaleStockPage() {
 								rows={rows}
 								selectedCount={selectedIds.length}
 								onAddIds={addIds}
-								onClearSelection={() => setSelectedIds([])}
+								onClearSelection={clearSelection}
 								disabled={rowsLoading || busy}
 							/>
 

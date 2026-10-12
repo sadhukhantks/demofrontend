@@ -2,9 +2,13 @@ import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
 import { createInvoice, updateInvoice, type SaveInvoiceRequest } from "@/utils/salesInvoiceService";
+import { linkBalesToInvoice } from "@/utils/baleStockService";
 import { roundAmount, roundAmountOrUndefined, roundRateOrUndefined } from "@/utils/numberRounding";
 import type { EditableLineItem } from "../types/salesInvoiceTypes";
 import { isRawJuteInvoice, isHessianInvoice, isGovtSkgInvoice } from "../utils/salesInvoiceConstants";
+import { baleLinkToastSuffix, capDateToToday } from "../utils/salesInvoiceBales";
+
+const EMPTY_BALE_IDS: ReadonlyArray<number> = Object.freeze([]);
 
 type ApprovalPermissions = {
 	canSave?: boolean;
@@ -53,10 +57,20 @@ type Params = {
 			gstTotal?: number;
 		};
 	}>;
+	/**
+	 * Bales picked in the "Bales despatched" card (spec §7e). Create mode only:
+	 * linked to the new invoice right after `createInvoice` succeeds; a link
+	 * failure is reported in a second toast and never blocks the invoice.
+	 * Edit mode never relinks — the card is read-only there.
+	 */
+	baleEntryIds?: ReadonlyArray<number>;
+	baleCoId?: number | null;
+	baleBranchId?: number | null;
 };
 
 export const useSalesInvoiceFormSubmission = ({
 	mode, pageError, setupError, filledLineItems, isLineItemsReady, requestedId, formValues, approvalPermissions, additionalCharges,
+	baleEntryIds = EMPTY_BALE_IDS, baleCoId = null, baleBranchId = null,
 }: Params) => {
 	const [saving, setSaving] = React.useState(false);
 	const router = useRouter();
@@ -257,7 +271,44 @@ export const useSalesInvoiceFormSubmission = ({
 				const fn = mode === "edit" && requestedId ? updateInvoice : createInvoice;
 				const result = await fn(payload);
 				const invoiceId = result?.invoice_id ?? requestedId;
-				toast({ title: result?.message ?? (mode === "edit" ? "Sales invoice updated" : "Sales invoice created") });
+				let title = result?.message ?? (mode === "edit" ? "Sales invoice updated" : "Sales invoice created");
+
+				// Link the picked bales to the invoice just created (spec §7e). The invoice
+				// is already saved at this point, so a failure here only adds a warning
+				// toast — the flow below (toast + redirect to the saved invoice) continues.
+				let baleLinkFailure: string | null = null;
+				const newInvoiceId = Number(result?.invoice_id);
+				if (mode === "create" && baleEntryIds.length > 0) {
+					if (!Number.isFinite(newInvoiceId) || newInvoiceId <= 0 || !baleCoId || !baleBranchId) {
+						baleLinkFailure = "the saved invoice, company or branch could not be resolved";
+					} else {
+						try {
+							const link = await linkBalesToInvoice({
+								co_id: baleCoId,
+								branch_id: baleBranchId,
+								bale_entry_ids: [...baleEntryIds],
+								invoice_id: newInvoiceId,
+								despatch_date: capDateToToday(payload.date),
+								despatch_reason: null,
+								despatch_ref: null,
+								remarks: null,
+							});
+							if (link.ok) title += baleLinkToastSuffix(link);
+							else baleLinkFailure = link.error ?? "unknown error";
+						} catch (linkError) {
+							baleLinkFailure = linkError instanceof Error ? linkError.message : "unknown error";
+						}
+					}
+				}
+
+				toast({ title });
+				if (baleLinkFailure) {
+					toast({
+						variant: "destructive",
+						title: "Invoice saved, but the bales could not be linked",
+						description: `${baleLinkFailure} — link them from Bale Stock & Inspection`,
+					});
+				}
 				if (invoiceId) {
 					// Preserve branch_id and menu_id so the post-save refetch runs with the same
 					// context as an index-entry (permissions, menu resolution). Without these,
@@ -278,7 +329,10 @@ export const useSalesInvoiceFormSubmission = ({
 				setSaving(false);
 			}
 		},
-		[mode, pageError, setupError, filledLineItems, isLineItemsReady, requestedId, router, searchParams, formValues, additionalCharges, approvalPermissions],
+		[
+			mode, pageError, setupError, filledLineItems, isLineItemsReady, requestedId, router, searchParams, formValues, additionalCharges, approvalPermissions,
+			baleEntryIds, baleCoId, baleBranchId,
+		],
 	);
 
 	return { saving, handleFormSubmit };

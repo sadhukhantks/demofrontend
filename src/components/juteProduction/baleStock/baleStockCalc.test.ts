@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import type {
   BaleStockDespatch,
   BaleStockInvoice,
+  BaleStockQuality,
   BaleStockRow,
+  BaleStockSeries,
   BaleStockSeriesLine,
   BaleStockSummaryLine,
 } from "@/utils/baleStockService";
@@ -21,17 +23,22 @@ import {
   isNoInvoiceDespatch,
   latestPressDate,
   mergeLinkableRows,
+  mergeRowsById,
   noInvoiceDespatchCount,
   qualityTypeLabel,
   repackedByCell,
   sackingSeriesLines,
   selectRange,
+  selectedMt,
   selectionSummary,
   seriesLineName,
   seriesOptionsFromRows,
   seriesSummaryTotals,
+  shortfallMessage,
   statusColor,
   statusLabel,
+  suggestCaption,
+  suggestSeriesOptions,
   summaryTotals,
   todayISO,
   uninspectedSackingCount,
@@ -595,5 +602,115 @@ describe("cell text", () => {
     };
     expect(invoiceLabel(inv)).toBe("#52 · 2026-05-08 · BIHAR STATE FOOD · Govt Sacking");
     expect(invoiceLabel({ ...inv, invoice_no: null, party_name: null })).toBe("#171 · 2026-05-08 · Govt Sacking");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Suggested pick by series + count (spec §7e)
+// ---------------------------------------------------------------------------
+
+describe("mergeRowsById", () => {
+  it("keeps the primary order, lets primary win on a duplicate id and appends new extras", () => {
+    const primary = [row({ bale_entry_id: 1, bale_no: 612 }), row({ bale_entry_id: 2, bale_no: 613 })];
+    const extra = [
+      row({ bale_entry_id: 2, bale_no: 999, status: "INSPECTED" }),
+      row({ bale_entry_id: 3, bale_no: 614 }),
+      row({ bale_entry_id: 3, bale_no: 614 }),
+    ];
+    const merged = mergeRowsById(primary, extra);
+    expect(merged.map((r) => r.bale_entry_id)).toEqual([1, 2, 3]);
+    expect(merged[1].bale_no).toBe(613);
+    expect(merged[1].status).toBe("IN_STOCK");
+  });
+  it("does not mutate its inputs and copes with empty sides", () => {
+    const primary = [row({ bale_entry_id: 1 })];
+    expect(mergeRowsById(primary, [])).toEqual(primary);
+    expect(mergeRowsById(primary, [])).not.toBe(primary);
+    expect(mergeRowsById([], primary)).toEqual(primary);
+    expect(primary).toHaveLength(1);
+  });
+});
+
+describe("suggestSeriesOptions", () => {
+  const series: BaleStockSeries[] = [
+    { bale_series_id: 3, series_name: "PUNJAB", quality_type: 2, item_id: null },
+    { bale_series_id: 1, series_name: "BIHAR", quality_type: 2, item_id: 270011 },
+    { bale_series_id: 2, series_name: "HESSIAN", quality_type: 1, item_id: null },
+    { bale_series_id: 4, series_name: "ASSAM", quality_type: 2, item_id: 270099 },
+  ];
+  const qualities: BaleStockQuality[] = [
+    { finishing_quality_id: 2, item_id: 270011, item_name: "PRINTED TYPE A", quality_type: 2 },
+    { finishing_quality_id: 7, item_id: 110001, item_name: "HESSIAN 10 OZ", quality_type: 1 },
+  ];
+  it("inspect keeps sacking series only, sorted by name", () => {
+    expect(suggestSeriesOptions(series, qualities, "inspect").map((s) => s.series_name)).toEqual([
+      "ASSAM",
+      "BIHAR",
+      "PUNJAB",
+    ]);
+  });
+  it("despatch keeps every series, sorted by name", () => {
+    expect(suggestSeriesOptions(series, qualities, "despatch").map((s) => s.series_name)).toEqual([
+      "ASSAM",
+      "BIHAR",
+      "HESSIAN",
+      "PUNJAB",
+    ]);
+  });
+  it("a known quality keeps series of its type that are unpinned or pinned to its item", () => {
+    expect(suggestSeriesOptions(series, qualities, "despatch", 2).map((s) => s.series_name)).toEqual([
+      "BIHAR",
+      "PUNJAB",
+    ]);
+    expect(suggestSeriesOptions(series, qualities, "despatch", 7).map((s) => s.series_name)).toEqual(["HESSIAN"]);
+    // Hessian is never inspected: inspect + a hessian quality leaves nothing.
+    expect(suggestSeriesOptions(series, qualities, "inspect", 7)).toEqual([]);
+  });
+  it("a quality the setup does not know, or no quality, leaves every series of the right type", () => {
+    expect(suggestSeriesOptions(series, qualities, "inspect", 999).map((s) => s.series_name)).toEqual([
+      "ASSAM",
+      "BIHAR",
+      "PUNJAB",
+    ]);
+    expect(suggestSeriesOptions(series, qualities, "despatch", null)).toHaveLength(4);
+    expect(suggestSeriesOptions(series, qualities, "despatch", undefined)).toHaveLength(4);
+  });
+  it("does not reorder the caller's array", () => {
+    const copy = [...series];
+    suggestSeriesOptions(series, qualities, "despatch");
+    expect(series).toEqual(copy);
+  });
+});
+
+describe("selectedMt / suggestCaption / shortfallMessage", () => {
+  const rows = [
+    row({ bale_entry_id: 1, net_wt: 290 }),
+    row({ bale_entry_id: 2, net_wt: 290.5 }),
+    row({ bale_entry_id: 3, net_wt: 300 }),
+  ];
+  it("selectedMt sums net kg of the selected rows only, in MT at 3 dp", () => {
+    expect(selectedMt(rows, [1, 2])).toBe(0.581);
+    expect(selectedMt(rows, [1, 2, 3])).toBe(0.881);
+    expect(selectedMt(rows, [])).toBe(0);
+    expect(selectedMt(rows, [99])).toBe(0);
+    expect(selectedMt([], [1])).toBe(0);
+  });
+  it("selectedMt rounds float drift and ignores non-numeric weights", () => {
+    const drift = [row({ bale_entry_id: 1, net_wt: 0.1 }), row({ bale_entry_id: 2, net_wt: 0.2 })];
+    expect(selectedMt(drift, [1, 2])).toBe(0);
+    expect(selectedMt([row({ bale_entry_id: 1, net_wt: Number.NaN })], [1])).toBe(0);
+    expect(selectedMt([row({ bale_entry_id: 1, net_wt: 1234.5 })], [1])).toBe(1.235);
+  });
+  it("suggestCaption reads n selected of m available · x.xxx MT", () => {
+    expect(suggestCaption(10, 38, 2.9)).toBe("10 selected of 38 available · 2.900 MT");
+    expect(suggestCaption(0, 0, 0)).toBe("0 selected of 0 available · 0.000 MT");
+  });
+  it("shortfallMessage only speaks when the asked count exceeds the eligible total", () => {
+    expect(shortfallMessage(10, 38)).toBeNull();
+    expect(shortfallMessage(38, 38)).toBeNull();
+    expect(shortfallMessage(40, 12)).toBe("Only 12 bales available in this series");
+    expect(shortfallMessage(2, 1)).toBe("Only 1 bale available in this series");
+    expect(shortfallMessage(5, 0)).toBe("Only 0 bales available in this series");
+    expect(shortfallMessage(Number.NaN, 3)).toBeNull();
   });
 });

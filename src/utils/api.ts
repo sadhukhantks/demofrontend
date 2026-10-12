@@ -1575,6 +1575,7 @@ const apiRoutesPortalMasters = {
     BALE_STOCK_UNINSPECT: `${API_URL}/baleStock/uninspect`,
     BALE_STOCK_DESPATCH: `${API_URL}/baleStock/despatch`,
     BALE_STOCK_UNDESPATCH: `${API_URL}/baleStock/undespatch`,
+    BALE_STOCK_SUGGEST: `${API_URL}/baleStock/suggest`,
     // Finishing SQC — ACTUALS ONLY (router prefix /api/juteSQC, shared with Spinning/Beaming SQC).
     // Proxies to finishingTargetMap with value_role='actual'.
     FINISHING_SQC_SETUP: `${API_URL}/juteSQC/finishing_sqc_setup`,
