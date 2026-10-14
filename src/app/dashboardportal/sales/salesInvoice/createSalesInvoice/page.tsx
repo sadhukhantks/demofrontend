@@ -28,6 +28,7 @@ import {
 	type SoExtensionData,
 } from "@/utils/salesInvoiceService";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import { fetchBaleStockSetup, type BaleStockRow, type BaleStockSource } from "@/utils/baleStockService";
 import { toast } from "@/hooks/use-toast";
 import { useMenuId } from "@/hooks/useMenuId";
 import { useCompanyName } from "@/hooks/useCompanyName";
@@ -62,9 +63,16 @@ import {
 	isGovtSkgFreightInvoice,
 } from "./utils/salesInvoiceConstants";
 import { GovtSackingFreightForm } from "./components/GovtSackingFreightForm";
+import BalesDespatchedCard from "./components/BalesDespatchedCard";
+import { invoiceTypeUsesBales } from "./utils/salesInvoiceBales";
 import { AdditionalChargesSection, type AdditionalChargeRow } from "../../salesOrder/createSalesOrder/components/AdditionalChargesSection";
 import { computeGovtskgTransportCharges, mergeTransportCharges } from "../../utils/govtskgTransportCharges";
 import { computeConvertedQtyBales } from "@/utils/uomConversion";
+
+/** Bales picked in the "Bales despatched" card — ids plus the rows for display (spec §7e). */
+type BaleSelection = { ids: number[]; rows: BaleStockRow[] };
+const EMPTY_BALE_SELECTION: BaleSelection = Object.freeze({ ids: [], rows: [] }) as BaleSelection;
+const EMPTY_BALE_IDS: ReadonlyArray<number> = Object.freeze([]);
 
 function InvoicePageLoading() {
 	return (
@@ -116,6 +124,9 @@ function InvoiceTransactionPageContent() {
 	const [pageError, setPageError] = React.useState<string | null>(null);
 	const [linesLoading, setLinesLoading] = React.useState(false);
 	const [additionalCharges, setAdditionalCharges] = React.useState<AdditionalChargeRow[]>([]);
+	const [baleSelection, setBaleSelection] = React.useState<BaleSelection>(EMPTY_BALE_SELECTION);
+	/** `bale_source` of the selected branch — the card shows only for BALE_PROD; null until loaded. */
+	const [baleSource, setBaleSource] = React.useState<BaleStockSource | null>(null);
 
 	const branchValue = React.useMemo(() => {
 		if (lockedBranchId) return lockedBranchId;
@@ -154,6 +165,31 @@ function InvoiceTransactionPageContent() {
 	const memoizedFetchSetup1 = React.useCallback(fetchInvoiceSetup1, []);
 
 	const setupEnabled = React.useMemo(() => Boolean(coId && branchIdForSetup), [coId, branchIdForSetup]);
+
+	// Bale picking (spec §7e): read the branch's bale source once per branch and
+	// drop any picked bales when the branch changes — they belong to the old one.
+	const baleCoId = coId && /^\d+$/.test(coId) ? Number(coId) : 0;
+	const baleBranchId = branchIdForSetup ? Number(branchIdForSetup) : 0;
+	React.useEffect(() => {
+		setBaleSelection(EMPTY_BALE_SELECTION);
+		setBaleSource(null);
+		if (!baleCoId || !baleBranchId) return;
+		let cancelled = false;
+		fetchBaleStockSetup({ coId: baleCoId, branchId: baleBranchId })
+			.then((setup) => {
+				if (!cancelled) setBaleSource(setup.bale_source);
+			})
+			.catch(() => {
+				// No bale stock for this branch (or the setup could not be read) — no card.
+				if (!cancelled) setBaleSource(null);
+			});
+		return () => { cancelled = true; };
+	}, [baleCoId, baleBranchId]);
+
+	const handleBaleSelectionChange = React.useCallback(
+		(ids: number[], rows: BaleStockRow[]) => setBaleSelection({ ids, rows }),
+		[],
+	);
 
 	const { data: setupData, loading: setupLoading, error: setupError } = useTransactionSetup<{ branchId?: string }, Record<string, unknown>, InvoiceSetupData>({
 		coId: coId || undefined,
@@ -1345,6 +1381,19 @@ function InvoiceTransactionPageContent() {
 		],
 	});
 
+	// "Bales despatched" card: Regular / Hessian / Govt Sacking invoices on a
+	// BALE_PROD branch; in edit / view it needs the saved invoice id to list links.
+	const requestedIdNum = /^\d+$/.test(requestedId) ? Number(requestedId) : 0;
+	const balesCardVisible =
+		baleSource === "BALE_PROD"
+		&& baleCoId > 0
+		&& baleBranchId > 0
+		&& invoiceTypeUsesBales(String(formValues.invoice_type ?? invoiceDetails?.invoiceType ?? ""))
+		&& (mode === "create" || requestedIdNum > 0);
+	// Only a visible card's pick is linked — switching to a Raw Jute / Yarn type
+	// after picking hides the card and drops the pick from the submit.
+	const baleEntryIdsForSubmit = balesCardVisible && mode === "create" ? baleSelection.ids : EMPTY_BALE_IDS;
+
 	const { saving, handleFormSubmit } = useSalesInvoiceFormSubmission({
 		mode,
 		pageError,
@@ -1355,6 +1404,9 @@ function InvoiceTransactionPageContent() {
 		formValues,
 		approvalPermissions,
 		additionalCharges,
+		baleEntryIds: baleEntryIdsForSubmit,
+		baleCoId: baleCoId || null,
+		baleBranchId: baleBranchId || null,
 	});
 
 	// Unified primary actions — shows Create, Save, or Approval buttons in the same location
@@ -1535,6 +1587,18 @@ function InvoiceTransactionPageContent() {
 			}}
 			footer={
 				<div className="space-y-6 pt-4 border-t">
+					{balesCardVisible ? (
+						<BalesDespatchedCard
+							mode={mode}
+							coId={baleCoId}
+							branchId={baleBranchId}
+							invoiceDate={String(formValues.date ?? "")}
+							invoiceId={requestedIdNum > 0 ? requestedIdNum : null}
+							selectedIds={baleSelection.ids}
+							onSelectionChange={handleBaleSelectionChange}
+							disabled={!canSave || saving}
+						/>
+					) : null}
 					<SalesInvoiceFooterForm
 						schema={footerSchema}
 						formKey={formKey}

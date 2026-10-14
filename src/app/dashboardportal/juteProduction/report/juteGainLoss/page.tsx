@@ -30,6 +30,7 @@ import {
 import { Printer } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useReportBranches } from "@/components/reports/useReportBranches";
+import PrintFrame from "@/components/reports/PrintFrame";
 import type { BranchOption } from "@/components/reports/types";
 import {
   fetchGainLossReport,
@@ -191,6 +192,12 @@ function Content() {
       <GlobalStyles
         styles={{
           "@media print": {
+            // @page margin 0 suppresses the browser's own header/footer (date,
+            // title, URL, page number). The paper margin (10mm ~ the old
+            // browser-default margin) is the print root's side padding plus the
+            // <PrintFrame> top/bottom spacers, which repeat on every page.
+            // No `size`, so paper size / orientation stay the user's choice.
+            "@page": { margin: 0 },
             "body *": { visibility: "hidden" },
             ".jgl-print-root, .jgl-print-root *": { visibility: "visible" },
             ".jgl-print-root": {
@@ -198,6 +205,8 @@ function Content() {
               top: 0,
               left: 0,
               width: "100%",
+              boxSizing: "border-box",
+              padding: "0 10mm",
             },
           },
         }}
@@ -268,53 +277,55 @@ function Content() {
 
       {!loading && data && statement ? (
         <Box className="jgl-print-root">
-          <Tabs
-            value={tab}
-            onChange={(_, v: GlStatementCode) => setTab(v)}
-            sx={{ mb: 2, displayPrint: "none" }}
-          >
-            {STATEMENT_ORDER.map((code) => (
-              <Tab key={code} value={code} label={TAB_LABELS[code]} />
-            ))}
-          </Tabs>
+          <PrintFrame marginMm={10}>
+            <Tabs
+              value={tab}
+              onChange={(_, v: GlStatementCode) => setTab(v)}
+              sx={{ mb: 2, displayPrint: "none" }}
+            >
+              {STATEMENT_ORDER.map((code) => (
+                <Tab key={code} value={code} label={TAB_LABELS[code]} />
+              ))}
+            </Tabs>
 
-          {data.missing_months.length > 0 ? (
-            <Alert severity="warning" sx={{ mb: 2, displayPrint: "none" }}>
-              To-Date excludes unsaved months:{" "}
-              {data.missing_months.map(monthShortLabel).join(", ")}
-            </Alert>
-          ) : null}
+            {data.missing_months.length > 0 ? (
+              <Alert severity="warning" sx={{ mb: 2, displayPrint: "none" }}>
+                To-Date excludes unsaved months:{" "}
+                {data.missing_months.map(monthShortLabel).join(", ")}
+              </Alert>
+            ) : null}
 
-          <GlStatementView
-            statement={statement}
-            monthLong={monthLongLabel(data.month)}
-            monthShort={monthShort}
-            prevShort={prevShort}
-          />
+            <GlStatementView
+              statement={statement}
+              monthLong={monthLongLabel(data.month)}
+              monthShort={monthShort}
+              prevShort={prevShort}
+            />
 
-          {/* Remarks — part of the printed sheet */}
-          {data.remarks || data.prev_remarks ? (
-            <Paper variant="outlined" sx={{ p: 1.5, mt: 2, breakInside: "avoid" }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.25 }}>
-                Remarks
-              </Typography>
-              {data.remarks ? (
-                <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                  {data.remarks}
+            {/* Remarks — part of the printed sheet */}
+            {data.remarks || data.prev_remarks ? (
+              <Paper variant="outlined" sx={{ p: 1.5, mt: 2, breakInside: "avoid" }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.25 }}>
+                  Remarks
                 </Typography>
-              ) : null}
-              {data.prev_remarks ? (
-                <Box sx={{ mt: data.remarks ? 1 : 0 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    {prevShort}
-                  </Typography>
+                {data.remarks ? (
                   <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                    {data.prev_remarks}
+                    {data.remarks}
                   </Typography>
-                </Box>
-              ) : null}
-            </Paper>
-          ) : null}
+                ) : null}
+                {data.prev_remarks ? (
+                  <Box sx={{ mt: data.remarks ? 1 : 0 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {prevShort}
+                    </Typography>
+                    <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                      {data.prev_remarks}
+                    </Typography>
+                  </Box>
+                ) : null}
+              </Paper>
+            ) : null}
+          </PrintFrame>
         </Box>
       ) : null}
 

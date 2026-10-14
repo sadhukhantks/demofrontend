@@ -13,6 +13,8 @@
  * `window.open` document, then trigger the browser print dialog.
  */
 
+import { printFrameCss, wrapInPrintFrame } from "@/utils/printFrame";
+
 export type PrintAlign = "left" | "right" | "center";
 
 export type PrintColumn = {
@@ -223,17 +225,21 @@ export function buildSqcReportHtml(report: SqcPrintReport): string {
 				td.strong, .footer-row td { font-weight: 700; background: #fafafa; }
 				.empty { font-size: 12px; color: #888; padding: 8px 0; }
 				.print-footer { margin-top: 24px; font-size: 10px; color: #999; text-align: right; }
-				@media print { @page { size: A4; margin: 10mm; } body { margin: 0; } }
+				/* @page margin 0 suppresses the browser's own header/footer (date, title,
+				   URL, page number); the paper margin is applied by the print frame so it
+				   repeats on every printed page. */
+				@media print { @page { size: A4; margin: 0; } body { margin: 0; } }
+				${printFrameCss({ sideMm: 10, topMm: 10 })}
 			</style>
 		</head>
 		<body>
-			<div class="report-head">
+			${wrapInPrintFrame(`<div class="report-head">
 				<div class="company">${esc(report.companyName || "Company")}</div>
 				<div class="report-title">${esc(report.reportTitle)}</div>
 				${report.reportCode ? `<div class="report-code">${esc(report.reportCode)}</div>` : ""}
 			</div>
 			${headerChips ? `<div class="meta-grid">${headerChips}</div>` : ""}
-			${sections}
+			${sections}`)}
 		</body>
 		</html>
 	`;

@@ -12,6 +12,7 @@ import {
   Alert,
   Box,
   Chip,
+  GlobalStyles,
   Paper,
   Snackbar,
   Typography,
@@ -485,7 +486,12 @@ function AttendanceChecklistContent() {
 
       {/* Print-only register (browser print renders just this) */}
       {showGrid && (
-        <div className="hidden print:block">
+        <div className="hidden print:block" style={{ padding: "10mm" }}>
+          {/* @page margin 0 suppresses the browser's own header/footer (date,
+              title, URL, page number) - the padding above provides the paper
+              margin instead (10mm ~ the old browser-default margin). No `size`,
+              so paper size / orientation stay the user's choice. */}
+          <GlobalStyles styles={{ "@media print": { "@page": { margin: 0 } } }} />
           <h1 className="mb-1 text-lg font-semibold">Attendance Checklist</h1>
           <p className="mb-3 text-sm">
             {searchedRange.from} to {searchedRange.to} — {gridRows.length} records

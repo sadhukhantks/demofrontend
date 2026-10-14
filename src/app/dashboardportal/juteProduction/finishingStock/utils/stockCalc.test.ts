@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
+import type { BaleStockSummaryLine } from "@/utils/baleStockService";
 import type { FinishingStockRow } from "@/utils/finishingStockService";
 import {
+  derivedSectionTotals,
   footerTotals,
   groupRows,
+  isSuperseded,
   kgToMt,
   lineTotalKg,
   prefillWtKg,
@@ -35,6 +38,24 @@ function row(over: Partial<FinishingStockRow>): FinishingStockRow {
     wt_kg: null,
     total_kg: 0,
     remarks: null,
+    ...over,
+  };
+}
+
+/** Minimal derived (Bale Production) line builder. */
+function derivedLine(over: Partial<BaleStockSummaryLine>): BaleStockSummaryLine {
+  return {
+    finishing_quality_id: 1,
+    item_id: 100,
+    item_name: "HESSIAN CLOTH 40-6.5",
+    quality_type: 1,
+    bales: 0,
+    inspected_bales: 0,
+    total_kg: 0,
+    inspected_kg: 0,
+    per_wt_kg: null,
+    wt_mt: 0,
+    despatched_bales: 0,
     ...over,
   };
 }
@@ -173,9 +194,49 @@ describe("groupRows", () => {
   it("returns empty groups for an empty day", () => {
     const empty = groupRows([]);
     expect(empty.bale.own).toEqual([]);
+    expect(empty.bale.superseded).toEqual([]);
     expect(empty.bale.others).toEqual({});
     expect(empty.loose.hessian).toEqual([]);
     expect(empty.loose.sacking).toEqual([]);
+  });
+
+  it("keeps superseded own-company rows out of the own block", () => {
+    const stale = row({ finishing_stock_id: 6, qty: 5, wt_per_unit_kg: 200, superseded: true });
+    const g = groupRows([own, stale, foreign]);
+    expect(g.bale.own.map((r) => r.finishing_stock_id)).toEqual([1]);
+    expect(g.bale.superseded.map((r) => r.finishing_stock_id)).toEqual([6]);
+    expect(Object.keys(g.bale.others)).toEqual(["NEXGEN JUTE"]);
+  });
+});
+
+describe("isSuperseded", () => {
+  it("is true only when the backend flagged the row", () => {
+    expect(isSuperseded(row({ superseded: true }))).toBe(true);
+    expect(isSuperseded(row({ superseded: false }))).toBe(false);
+    expect(isSuperseded(row({}))).toBe(false);
+  });
+});
+
+describe("derivedSectionTotals", () => {
+  it("sums bales, inspected bales and MT across the lines", () => {
+    const totals = derivedSectionTotals([
+      derivedLine({ bales: 70, inspected_bales: 0, wt_mt: 16.002 }),
+      derivedLine({
+        finishing_quality_id: 2,
+        quality_type: 2,
+        bales: 4,
+        inspected_bales: 3,
+        wt_mt: 1.16,
+      }),
+    ]);
+    expect(totals).toEqual({ bales: 74, inspected: 3, mt: 17.162 });
+  });
+
+  it("is zero for no lines and never leaks float noise", () => {
+    expect(derivedSectionTotals([])).toEqual({ bales: 0, inspected: 0, mt: 0 });
+    expect(derivedSectionTotals([derivedLine({ wt_mt: 0.1 }), derivedLine({ wt_mt: 0.2 })]).mt).toBe(
+      0.3,
+    );
   });
 });
 
@@ -218,6 +279,45 @@ describe("footerTotals", () => {
       baleOthersMt: 0,
       looseMt: 0,
       totalMt: 0,
+    });
+  });
+
+  it("takes the own bale MT from the derived lines when there are any", () => {
+    const totals = footerTotals(
+      [
+        // A manual own-company line that the backend has not flagged — it must
+        // still lose to the derived figure.
+        row({ finishing_stock_id: 1, qty: 70, wt_per_unit_kg: 228.6 }),
+        row({ finishing_stock_id: 2, owner_co_id: 9, qty: 10, wt_per_unit_kg: 200 }),
+        row({ finishing_stock_id: 3, bucket: "LOOSE", qty_uom: "CUTS", qty: 19, wt_kg: 246 }),
+      ],
+      [
+        derivedLine({ bales: 50, wt_mt: 11.5 }),
+        derivedLine({ finishing_quality_id: 2, quality_type: 2, bales: 4, wt_mt: 1.16 }),
+      ],
+    );
+    expect(totals.baleOwnMt).toBe(12.66);
+    expect(totals.baleOthersMt).toBe(2);
+    expect(totals.looseMt).toBe(0.246);
+    expect(totals.totalMt).toBe(14.906);
+  });
+
+  it("never counts a superseded row, with or without derived lines", () => {
+    const rows = [
+      row({ finishing_stock_id: 1, qty: 70, wt_per_unit_kg: 228.6, superseded: true }),
+      row({ finishing_stock_id: 2, owner_co_id: 9, qty: 10, wt_per_unit_kg: 200 }),
+    ];
+    expect(footerTotals(rows)).toEqual({
+      baleOwnMt: 0,
+      baleOthersMt: 2,
+      looseMt: 0,
+      totalMt: 2,
+    });
+    expect(footerTotals(rows, [derivedLine({ bales: 50, wt_mt: 11.5 })])).toEqual({
+      baleOwnMt: 11.5,
+      baleOthersMt: 2,
+      looseMt: 0,
+      totalMt: 13.5,
     });
   });
 });

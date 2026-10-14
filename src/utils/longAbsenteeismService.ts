@@ -22,6 +22,8 @@
  * Spec: vowerp3be docs/superpowers/specs/2026-10-11-long-absenteeism-followup.md
  */
 
+import axios from "axios";
+import { saveAs } from "file-saver";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { fetchWithCookie } from "@/utils/apiClient2";
 
@@ -48,13 +50,18 @@ export interface LaStatusLabel {
 /**
  * Grouping of a live case on the "Due today" view (GET /list). STRUCK_OFF_DUE =
  * a gate-notice case whose reply window has ended: send it for struck-off
- * approval (a gate-notice case is never LETTER_DUE).
+ * approval (a gate-notice case is never LETTER_DUE). ON_LEAVE = an approved
+ * leave in the HRMS leave module covers today: the case is parked
+ * automatically and resumes when the leave ends (tested right after
+ * MARKED_PRESENT, before REPLY_REVIEW). VERIFY is no longer produced (no
+ * verification step) and stays only so an older server's rows still parse.
  */
 export type LaDueBand =
   | "VERIFY"
   | "LETTER_DUE"
   | "STRUCK_OFF_DUE"
   | "MARKED_PRESENT"
+  | "ON_LEAVE"
   | "REPLY_REVIEW"
   | "APPROVAL"
   | "NONE";
@@ -64,6 +71,7 @@ export const LA_DUE_BANDS: ReadonlyArray<LaDueBand> = Object.freeze([
   "LETTER_DUE",
   "STRUCK_OFF_DUE",
   "MARKED_PRESENT",
+  "ON_LEAVE",
   "REPLY_REVIEW",
   "APPROVAL",
   "NONE",
@@ -128,6 +136,32 @@ export interface LaDept {
   dept_desc: string;
 }
 
+/** A row of the company's HRMS leave-type master (GET /setup.leave_types). */
+export interface LaLeaveType {
+  leave_type_id: number;
+  leave_type_code: string | null;
+  leave_type_description: string | null;
+  payable: string | null;
+}
+
+/** Where a leave choice comes from: the leave-type master, an unmatched legacy code, or a fixed choice. */
+export type LaLeaveOptionSource = "master" | "legacy" | "builtin";
+
+/**
+ * One "on leave?" (verify) or exit choice. Master leave types come as code
+ * LEAVE + their leave_type_id (label e.g. "STL LEAVE (L)"); the legacy codes
+ * ESI / STL / MATERNITY that match no master type keep their own code with a
+ * null leave_type_id. Code + leave_type_id together identify a choice.
+ */
+export interface LaLeaveOption {
+  code: string;
+  leave_type_id: number | null;
+  label: string;
+  /** The legacy code (ESI / STL / MATERNITY) a master type stands in for, if any. */
+  legacy_code: string | null;
+  source: LaLeaveOptionSource;
+}
+
 /** GET /setup — codes_payload() + the branch's departments + rule + server date + access. */
 export interface LaSetup {
   stages: LaStage[];
@@ -135,11 +169,18 @@ export interface LaSetup {
   letter_stages: string[];
   template_codes: LaCodeLabel[];
   statuses: LaStatusLabel[];
-  /** Exits the user may choose on /exit. */
+  /** Exits the user may choose on /exit (older list; the dialog uses exit_options). */
   exit_reasons: LaCodeLabel[];
-  /** Every exit reason (incl. STRUCK_OFF / DISMISSED) — for labels. */
+  /** Every exit reason (incl. STRUCK_OFF / DISMISSED / LEAVE) — for labels. */
   all_exit_reasons: LaCodeLabel[];
+  /** NONE / ESI / STL — only to label old rows (verification is no longer a step). */
   esi_stl_results: LaCodeLabel[];
+  /** The company's HRMS leave-type master. [] from an older server. */
+  leave_types: LaLeaveType[];
+  /** The leave choices (master types, then unmatched legacy codes). [] from an older server. */
+  leave_options: LaLeaveOption[];
+  /** Exit choices: REJOINED, the leave options ("On leave: …"), MEDICAL, RESIGNED, EXPIRED, OTHER. [] from an older server. */
+  exit_options: LaLeaveOption[];
   event_types: LaCodeLabel[];
   user_event_types: string[];
   reply_channels: LaCodeLabel[];
@@ -190,11 +231,22 @@ export interface LaCase {
   next_due_date: string | null;
   status: LaCaseStatus;
   habitual: number;
-  // verification
+  // verification (old cases only: new cases open at VERIFIED, leave comes from the leave module)
   esi_stl_result: string | null;
   timekeeper_confirmed: number;
   verified_date: string | null;
   verify_note: string | null;
+  // leave: the approved leave of the leave module (Leave Request page), or the exit's leave type
+  leave_type_id: number | null;
+  leave_type_name: string | null;
+  leave_from: string | null;
+  leave_to: string | null;
+  /** Non-null = linked to an approved leave recorded in the leave module. */
+  leave_transaction_id: number | null;
+  /** 1 = parked automatically because the module leave covers today (resumed when it ends). */
+  leave_parked: number;
+  /** Not stored (list / get rows): a leave request awaiting approval since this date. */
+  pending_leave_since: string | null;
   // exit
   exit_reason: string | null;
   exit_date: string | null;
@@ -226,6 +278,12 @@ export interface LaCase {
   stage_order: number;
   status_label: string;
   exit_reason_label: string | null;
+  /** Label of esi_stl_result (the leave type's name for LEAVE). */
+  esi_stl_result_label: string | null;
+  /** The leave-module leave covers today (leave_to >= today). */
+  on_leave_now: boolean;
+  /** e.g. "STL LEAVE (L) 16.10.2026 – 24.10.2026 (leave module)" / "STL LEAVE (L) till 24.10.2026". */
+  on_leave_label: string | null;
   /** Live: today (or the rejoined date) - last working date. */
   absent_days: number;
 }
@@ -261,6 +319,17 @@ export interface LaCandidate {
   absent_days: number;
   /** Earlier closed cases of the worker in the branch (repeat absentee). */
   closed_cases: number;
+  /** A leave request awaiting approval since this date; null when none. */
+  pending_leave_since: string | null;
+  /**
+   * The approved leave (leave module) that ended on the worker's last seen
+   * day without a return; all null when there is none.
+   */
+  leave_transaction_id: number | null;
+  leave_type_id: number | null;
+  leave_type_name: string | null;
+  leave_from: string | null;
+  leave_to: string | null;
 }
 
 export interface LaEarlierCase {
@@ -308,6 +377,8 @@ export interface LaLetter {
   dept_display_date: string | null;
   batch_ref: string | null;
   forced: number;
+  /** 1 = recorded as already issued outside VoWERP (POST /letter_record); 0 when absent. */
+  recorded: number;
   stage_label: string;
   template_label: string | null;
   dispatch_mode_label: string | null;
@@ -315,6 +386,23 @@ export interface LaLetter {
   receipts: LaReceipt[];
   /** Latest active attachment per file type (signed_copy / ad_card). */
   attachments: Record<string, LaAttachmentRef | null>;
+}
+
+/** GET /letters_print row: what a reprint needs (stored subject / body), in the requested order. */
+export interface LaPrintLetter {
+  letter_id: number;
+  case_id: number;
+  branch_id: number | null;
+  case_no: string | null;
+  emp_code: string | null;
+  emp_name: string | null;
+  stage_code: string;
+  stage_label: string | null;
+  subject: string | null;
+  body: string;
+  issue_date: string | null;
+  sent_date: string | null;
+  recorded: number;
 }
 
 /** POST /letter_preview — the merged text of the next (or given) stage. */
@@ -609,6 +697,8 @@ export interface LaOpenPayload {
   branch_id: number;
   eb_id: number;
   last_working_date?: string | null;
+  /** When the absence was picked up (back-dated entry); null / absent = today. */
+  detected_date?: string | null;
   remarks?: string | null;
 }
 
@@ -623,7 +713,12 @@ export interface LaDismissPayload {
 export interface LaVerifyPayload {
   co_id: number;
   case_id: number;
+  /** NONE / ESI / STL / MATERNITY / LEAVE. */
   esi_stl_result: string;
+  /** Required when esi_stl_result is LEAVE. */
+  leave_type_id?: number | null;
+  /** ISO date; meaningful for ESI / STL / MATERNITY / LEAVE. */
+  expected_return_date?: string | null;
   timekeeper_confirmed: boolean;
   habitual: boolean;
   note?: string | null;
@@ -653,6 +748,8 @@ export interface LaExitPayload {
   co_id: number;
   case_id: number;
   exit_reason: string;
+  /** Required when exit_reason is LEAVE. */
+  leave_type_id?: number | null;
   exit_date: string;
   exit_remarks?: string | null;
   expected_return_date?: string | null;
@@ -697,6 +794,23 @@ export interface LaIssuePayload {
   dispatch_mode?: string | null;
   force?: boolean;
   force_reason?: string | null;
+}
+
+/**
+ * POST /letter_record — a letter already issued outside VoWERP, entered as the
+ * case's next stage (no wait / sent-date gate; the server merges the template).
+ */
+export interface LaRecordPayload {
+  co_id: number;
+  case_id: number;
+  stage_code: string;
+  issue_date: string;
+  sent_date?: string | null;
+  dispatch_mode?: string | null;
+  ad_no?: string | null;
+  delivery_status?: string | null;
+  delivery_date?: string | null;
+  note?: string | null;
 }
 
 export interface LaIssueBatchPayload {
@@ -806,6 +920,50 @@ function toDepts(value: unknown): LaDept[] {
   });
 }
 
+function toLeaveTypes(value: unknown): LaLeaveType[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((t) => {
+    if (!isRecord(t)) return [];
+    const id = num(t.leave_type_id);
+    return id != null
+      ? [
+          {
+            leave_type_id: id,
+            leave_type_code: str(t.leave_type_code),
+            leave_type_description: str(t.leave_type_description),
+            payable: str(t.payable),
+          },
+        ]
+      : [];
+  });
+}
+
+const LEAVE_OPTION_SOURCES: ReadonlyArray<LaLeaveOptionSource> = ["master", "legacy", "builtin"];
+
+/** Leave choices from /setup; entries without a code are dropped, a missing label falls back to the code. */
+function toLeaveOptions(value: unknown): LaLeaveOption[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((o) => {
+    if (!isRecord(o) || !isStr(o.code) || o.code === "") return [];
+    const leaveTypeId = num(o.leave_type_id);
+    const source = str(o.source);
+    return [
+      {
+        code: o.code,
+        leave_type_id: leaveTypeId,
+        label: str(o.label) ?? o.code,
+        legacy_code: str(o.legacy_code),
+        source:
+          source && (LEAVE_OPTION_SOURCES as ReadonlyArray<string>).includes(source)
+            ? (source as LaLeaveOptionSource)
+            : leaveTypeId != null
+              ? "master"
+              : "builtin",
+      },
+    ];
+  });
+}
+
 export function isLaRule(value: unknown): value is LaRule {
   return isRecord(value) && LA_RULE_INT_FIELDS.every((k) => num(value[k]) != null);
 }
@@ -860,6 +1018,9 @@ function toSetup(value: LaSetup): LaSetup {
     exit_reasons: value.exit_reasons,
     all_exit_reasons: codeList("all_exit_reasons"),
     esi_stl_results: value.esi_stl_results,
+    leave_types: toLeaveTypes(raw.leave_types),
+    leave_options: toLeaveOptions(raw.leave_options),
+    exit_options: toLeaveOptions(raw.exit_options),
     event_types: value.event_types,
     user_event_types: Array.isArray(raw.user_event_types) ? (raw.user_event_types as unknown[]).filter(isStr) : [],
     reply_channels: value.reply_channels,
@@ -905,6 +1066,16 @@ function toCase<T extends LaCase>(value: T): T {
     status_label: str(raw.status_label) ?? String(value.status),
     exit_reason_label: str(raw.exit_reason_label),
     emp_code: str(raw.emp_code),
+    leave_type_id: num(raw.leave_type_id),
+    leave_type_name: str(raw.leave_type_name),
+    leave_from: str(raw.leave_from),
+    leave_to: str(raw.leave_to),
+    leave_transaction_id: num(raw.leave_transaction_id),
+    leave_parked: num(raw.leave_parked) ?? 0,
+    pending_leave_since: str(raw.pending_leave_since),
+    esi_stl_result_label: str(raw.esi_stl_result_label),
+    on_leave_now: bool(raw.on_leave_now),
+    on_leave_label: str(raw.on_leave_label),
   };
 }
 
@@ -947,6 +1118,12 @@ function toCandidate(value: LaCandidate): LaCandidate {
     emp_code: str(raw.emp_code),
     absent_days: num(raw.absent_days) ?? 0,
     closed_cases: num(raw.closed_cases) ?? 0,
+    pending_leave_since: str(raw.pending_leave_since),
+    leave_transaction_id: num(raw.leave_transaction_id),
+    leave_type_id: num(raw.leave_type_id),
+    leave_type_name: str(raw.leave_type_name),
+    leave_from: str(raw.leave_from),
+    leave_to: str(raw.leave_to),
   };
 }
 
@@ -995,6 +1172,7 @@ function toLetter<T extends LaLetter>(value: T): T {
     ...value,
     letter_no: num(raw.letter_no),
     forced: num(raw.forced) ?? 0,
+    recorded: num(raw.recorded) ?? 0,
     stage_label: str(raw.stage_label) ?? value.stage_code,
     receipts: Array.isArray(raw.receipts) ? (raw.receipts as unknown[]).filter(isReceipt) : [],
     attachments: toAttachments(raw.attachments),
@@ -1100,6 +1278,29 @@ function toDispatchRow(value: LaDispatchRow): LaDispatchRow {
     dept_desc: str(raw.dept_desc),
     designation: str(raw.designation),
     address: str(raw.address),
+  };
+}
+
+export function isLaPrintLetter(value: unknown): value is LaPrintLetter {
+  return isRecord(value) && isNum(value.letter_id) && isNum(value.case_id) && isStr(value.stage_code);
+}
+
+function toPrintLetter(value: LaPrintLetter): LaPrintLetter {
+  const raw = value as unknown as Record<string, unknown>;
+  return {
+    letter_id: value.letter_id,
+    case_id: value.case_id,
+    branch_id: num(raw.branch_id),
+    case_no: str(raw.case_no),
+    emp_code: str(raw.emp_code),
+    emp_name: str(raw.emp_name),
+    stage_code: value.stage_code,
+    stage_label: str(raw.stage_label),
+    subject: str(raw.subject),
+    body: isStr(raw.body) ? raw.body : "",
+    issue_date: str(raw.issue_date),
+    sent_date: str(raw.sent_date),
+    recorded: num(raw.recorded) ?? 0,
   };
 }
 
@@ -1399,7 +1600,11 @@ export async function dismissLaCandidate(payload: LaDismissPayload): Promise<LaC
   return requireCase(data, "dismiss candidate");
 }
 
-/** ESI / STL check + time keeper confirmation (moves DETECTED -> VERIFIED when clear). */
+/**
+ * Kept for compatibility only: verification is no longer a step (new cases
+ * open at VERIFIED and leave is read from the leave module), so no screen
+ * calls it.
+ */
 export async function verifyLaCase(payload: LaVerifyPayload): Promise<LaCase> {
   const data = await request(R.LA_VERIFY, "Failed to save the verification", "POST", payload);
   return requireCase(data, "verify case");
@@ -1423,7 +1628,7 @@ export async function resumeLaCase(payload: LaNotePayload): Promise<LaCase> {
   return requireCase(data, "resume case");
 }
 
-/** Closes a live case with a reason (rejoined, ESI, resigned …). */
+/** Closes a live case with a reason (rejoined, on leave + leave_type_id, ESI, resigned …). */
 export async function exitLaCase(payload: LaExitPayload): Promise<LaCase> {
   const data = await request(R.LA_EXIT, "Failed to close the case", "POST", payload);
   return requireCase(data, "exit case");
@@ -1652,6 +1857,98 @@ export async function fetchLaDispatch(params: LaDispatchParams): Promise<LaDispa
     "Failed to load the dispatch register",
   );
   return expectList(data, isLaDispatchRow, "dispatch register").map(toDispatchRow);
+}
+
+// ─── Reprint / PDF / letters issued outside VoWERP ───────────────────
+
+/** `letter_ids=3,1,2` (order kept, repeats dropped). */
+export function letterIdsParam(letterIds: ReadonlyArray<number>): string {
+  return Array.from(new Set(letterIds)).join(",");
+}
+
+/** The stored text of the given letters, in the given order (bulk reprint). */
+export async function fetchLaLettersPrint(coId: number, letterIds: ReadonlyArray<number>): Promise<LaPrintLetter[]> {
+  const data = await request(
+    `${R.LA_LETTERS_PRINT}?${qs({ co_id: coId, letter_ids: letterIdsParam(letterIds) })}`,
+    "Failed to load the letters",
+  );
+  return expectList(data, isLaPrintLetter, "letters print").map(toPrintLetter);
+}
+
+/** File name from a Content-Disposition header (`attachment; filename="x.pdf"`), else null. */
+export function filenameFromDisposition(header: string | null | undefined): string | null {
+  if (!header) return null;
+  const star = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(header);
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].trim().replace(/^"|"$/g, ""));
+    } catch {
+      // fall through to the plain filename
+    }
+  }
+  const plain = /filename="?([^";]+)"?/i.exec(header);
+  return plain ? plain[1].trim() : null;
+}
+
+/** Default name when the server sends none: long-absenteeism-letters-<yyyymmdd>.pdf. */
+export function defaultLettersPdfName(today: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `long-absenteeism-letters-${today.getFullYear()}${pad(today.getMonth() + 1)}${pad(today.getDate())}.pdf`;
+}
+
+/** Text of a Blob (Blob.text where the runtime has it, else a FileReader). */
+function blobText(blob: Blob): Promise<string> {
+  if (typeof blob.text === "function") return blob.text();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.onerror = () => reject(reader.error ?? new Error("Could not read the response"));
+    reader.readAsText(blob);
+  });
+}
+
+/**
+ * Downloads the given letters as one A4 PDF (GET /letters_pdf, reportlab on the
+ * server: one letter per page, letterhead, no browser header / footer). The
+ * blob pattern of fetchExcelBlob: a JSON error inside the Blob becomes the Error
+ * message. Resolves with the saved file name.
+ */
+export async function downloadLaLettersPdf(coId: number, letterIds: ReadonlyArray<number>): Promise<string> {
+  if (letterIds.length === 0) throw new Error("Select at least one letter");
+  const url = `${R.LA_LETTERS_PDF}?${qs({ co_id: coId, letter_ids: letterIdsParam(letterIds) })}`;
+  let blob: Blob;
+  let filename: string | null = null;
+  try {
+    const res = await axios.get<Blob>(url, { responseType: "blob", withCredentials: true });
+    blob = res.data;
+    const disposition: unknown = res.headers?.["content-disposition"];
+    filename = filenameFromDisposition(typeof disposition === "string" ? disposition : null);
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
+      let detail: string | undefined;
+      try {
+        detail = (JSON.parse(await blobText(err.response.data)) as { detail?: string }).detail;
+      } catch {
+        // non-JSON error body
+      }
+      throw new Error(detail ?? "PDF download failed");
+    }
+    throw err instanceof Error ? err : new Error(String(err));
+  }
+  if (!blob || blob.size === 0) throw new Error("The PDF came back empty");
+  const name = filename ?? defaultLettersPdfName();
+  saveAs(blob, name);
+  return name;
+}
+
+/** Records a letter already issued outside VoWERP as the case's next stage (back-dated entry). */
+export async function recordLaLetter(payload: LaRecordPayload): Promise<LaIssueResult> {
+  const data = await request(R.LA_LETTER_RECORD, "Failed to record the letter", "POST", payload);
+  if (isRecord(data) && isLaLetter(data.letter)) {
+    const c = extractCase(data);
+    if (c) return { letter: toLetter(data.letter), case: c };
+  }
+  throw new Error("Unexpected response for letter record");
 }
 
 // ─── Union receipts ──────────────────────────────────────────────────

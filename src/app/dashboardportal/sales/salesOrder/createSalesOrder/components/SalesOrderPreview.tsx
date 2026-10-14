@@ -121,7 +121,10 @@ export function SalesOrderPreview({ header, items, remarks, additionalCharges, f
 					.summary-table td.label { text-align: right; color: #666; }
 					.summary-table td.value { text-align: right; font-weight: 600; }
 					.summary-table tr.grand-total td { font-size: 14px; font-weight: 700; border-top: 2px solid #333; padding-top: 8px; }
-					@media print { @page { size: A4; margin: 10mm; } body { margin: 10px; } }
+					/* @page margin 0 suppresses the browser's own header/footer (date, title,
+					   about:blank, page number) - body padding provides the paper margin instead
+					   (10mm former page margin + 10px former body margin). */
+					@media print { @page { size: A4; margin: 0; } body { margin: 0; padding: calc(10mm + 10px); } }
 				</style>
 			</head>
 			<body>${el.innerHTML}</body>

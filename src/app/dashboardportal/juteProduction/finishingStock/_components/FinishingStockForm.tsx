@@ -14,6 +14,8 @@ import { Save as SaveIcon, X as CancelIcon } from "lucide-react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import SearchableOptionSelect from "@/components/ui/SearchableOptionSelect";
+import { minBackdateISO, todayISO } from "@/utils/backdate";
+import type { BaleStockSource } from "@/utils/baleStockService";
 import type {
 	FinishingStockBucket,
 	FinishingStockRow,
@@ -22,8 +24,7 @@ import type {
 import {
 	BALE_QTY_UOM,
 	buildDefaultFormValues,
-	DEFAULT_LOOSE_UOM,
-	finishingStockSchema,
+	buildFinishingStockSchema,
 	QTY_MAX,
 	REMARKS_MAX,
 	WT_MAX,
@@ -41,8 +42,12 @@ import {
 export interface FinishingStockFormProps {
 	/** Dropdown data from GET /finishingStock/setup. */
 	setup: FinishingStockSetup;
-	/** Company doing the count — the Owner picker defaults to it. */
+	/** Company doing the count — the Owner picker defaults to it (MANUAL mode)
+	 * or excludes it (BALE_PROD mode). */
 	coId: number;
+	/** BALE_PROD: own-company bales are derived from Bale Production, so a
+	 * BALE line here must name another owner; MANUAL: today's behaviour. */
+	baleSource: BaleStockSource;
 	/** Date the day grid is showing — new lines default to it. */
 	tranDate: string;
 	/** Row lifted from the grid for editing, or null while creating. */
@@ -69,6 +74,7 @@ export interface FinishingStockFormProps {
 export default function FinishingStockForm({
 	setup,
 	coId,
+	baleSource,
 	tranDate,
 	editingEntry,
 	formResetToken,
@@ -78,13 +84,23 @@ export default function FinishingStockForm({
 	onCancelEdit,
 }: FinishingStockFormProps) {
 	const editing = editingEntry != null;
+	const derivedMode = baleSource === "BALE_PROD";
 
 	const defaults = React.useCallback(
 		(date: string, bucket: FinishingStockBucket = "BALE"): FinishingStockFormValues => ({
 			...buildDefaultFormValues(date, bucket),
-			owner_co_id: String(coId),
+			// MANUAL: own company unless changed. BALE_PROD: own bales are
+			// derived, so the owner must be picked (zod refuses a blank one).
+			owner_co_id: derivedMode ? "" : String(coId),
 		}),
-		[coId]
+		[coId, derivedMode]
+	);
+
+	// react-hook-form re-reads the resolver on every render, so switching mode
+	// (company / branch change) swaps the owner rule without a remount.
+	const schema = React.useMemo(
+		() => buildFinishingStockSchema({ ownerRequired: derivedMode }),
+		[derivedMode]
 	);
 
 	const {
@@ -95,8 +111,10 @@ export default function FinishingStockForm({
 		getValues,
 		formState: { errors },
 	} = useForm<FinishingStockFormInput, unknown, FinishingStockFormValues>({
-		resolver: zodResolver(finishingStockSchema),
-		defaultValues: defaults(tranDate),
+		resolver: zodResolver(schema),
+		// Derived mode: own bales are never typed here, so the operator lands on
+		// the Loose Stock half of the form; MANUAL keeps the sheet's bale-first order.
+		defaultValues: defaults(tranDate, derivedMode ? "LOOSE" : "BALE"),
 		mode: "onTouched",
 	});
 
@@ -123,9 +141,13 @@ export default function FinishingStockForm({
 		[setup.qualities]
 	);
 
+	// BALE_PROD: the own company is not an owner choice — its bales are derived.
 	const companyOptions = React.useMemo(
-		() => setup.companies.map((c) => ({ value: String(c.co_id), label: c.co_name })),
-		[setup.companies]
+		() =>
+			setup.companies
+				.filter((c) => !derivedMode || c.co_id !== coId)
+				.map((c) => ({ value: String(c.co_id), label: c.co_name })),
+		[setup.companies, derivedMode, coId]
 	);
 
 	const stageOptions = React.useMemo(
@@ -171,7 +193,14 @@ export default function FinishingStockForm({
 			bucket: editingEntry.bucket,
 			finishing_quality_id: String(editingEntry.finishing_quality_id),
 			// NULL owner = own company; the payload builder maps it back to NULL.
-			owner_co_id: String(editingEntry.owner_co_id ?? coId),
+			// (In BALE_PROD mode an own-company row is delete-only, so this
+			// branch is only ever reached in MANUAL mode.)
+			owner_co_id:
+				editingEntry.owner_co_id == null
+					? derivedMode
+						? ""
+						: String(coId)
+					: String(editingEntry.owner_co_id),
 			stage: editingEntry.stage ?? "",
 			work_by: String(editingEntry.work_by),
 			qty: String(editingEntry.qty),
@@ -181,7 +210,7 @@ export default function FinishingStockForm({
 			wt_kg: editingEntry.wt_kg == null ? "" : String(editingEntry.wt_kg),
 			remarks: editingEntry.remarks ?? "",
 		});
-	}, [editingEntry, coId, reset]);
+	}, [editingEntry, coId, derivedMode, reset]);
 
 	// 2. Clear the form after a save / on leaving edit mode, keeping the bucket.
 	const firstResetToken = React.useRef(true);
@@ -249,6 +278,12 @@ export default function FinishingStockForm({
 			noValidate
 			sx={{ display: "flex", flexDirection: "column", gap: 2 }}
 		>
+			{derivedMode ? (
+				<Typography variant="body2" color="text.secondary">
+					Loose stock entry — pressed bales are counted from Bale Production for this branch and are
+					not entered here.
+				</Typography>
+			) : (
 			<Controller
 				name="bucket"
 				control={control}
@@ -270,6 +305,8 @@ export default function FinishingStockForm({
 					</ToggleButtonGroup>
 				)}
 			/>
+			)}
+
 
 			<Box
 				sx={{
@@ -293,6 +330,7 @@ export default function FinishingStockForm({
 							size="small"
 							fullWidth
 							disabled={editing}
+							inputProps={{ min: minBackdateISO(), max: todayISO() }}
 							InputLabelProps={{ shrink: true }}
 							error={!!errors.tran_date}
 							helperText={errors.tran_date?.message}
@@ -325,13 +363,20 @@ export default function FinishingStockForm({
 							control={control}
 							render={({ field }) => (
 								<SearchableOptionSelect
-									label="Owner Company"
+									label={derivedMode ? "Owner (other company)" : "Owner Company"}
 									fullWidth
+									required={derivedMode}
 									clearable={false}
 									options={companyOptions}
 									value={field.value}
 									onChange={(next) => field.onChange(String(next))}
-									helperText="Whose bales these are — defaults to the counting company"
+									error={!!errors.owner_co_id}
+									helperText={
+										errors.owner_co_id?.message ??
+										(derivedMode
+											? "Own-company bales are counted from Bale Production — use this bucket only for bales held for another company"
+											: "Whose bales these are — defaults to the counting company")
+									}
 								/>
 							)}
 						/>

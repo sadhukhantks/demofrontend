@@ -109,3 +109,30 @@ FE pages: `juteProduction/baleProduction` (entry), `juteProduction/masters/baleS
 `juteProduction/report/baleDailySheet`, `juteProduction/report/baleHeavyLight`;
 `juteProduction/finishing/balePress` now redirects to the entry page. Constants `BALE_PROD_*`,
 `BALE_SERIES_*`, `BALE_REPORT_*` in `src/utils/api.ts`.
+
+## Bale Stock & Inspection — added 2026-10-12
+
+Spec: `../vowerp3be/docs/superpowers/specs/2026-10-12-bale-stock-inspection-design.md`. Portal persona, no
+approval workflow. Bale stock is DERIVED from `jute_prod_bale_entry` (one row = one bale, PROD or REPACK);
+a bale leaves stock when a REPACK names it as `original_bale_no` or when it is linked to a live sales
+invoice. Everything is "as on" a date.
+
+| BE file | Prefix | Endpoints |
+|---|---|---|
+| `bale_stock.py` (+ `bale_stock_query.py`, `bale_stock_models.py`) | `/api/baleStock` | GET `setup?co_id&branch_id` (qualities, series, statuses, `bale_source`), `bales?co_id&branch_id[&as_on][&status=STOCK\|INSPECTED\|NOT_INSPECTED\|DESPATCHED\|REPACKED\|ALL][&quality_type][&finishing_quality_id][&bale_series_id][&bale_no_from][&bale_no_to][&date_from][&date_to]` (cap 3000, `truncated`), `summary?co_id&branch_id[&as_on]`, `invoices?co_id&branch_id[&as_on][&days=120]`; POST `inspect` (sacking bales only, in stock), `uninspect`, `despatch` (link to a Regular / Hessian / Govt Sacking invoice of the branch; returns `uninspected_sacking`), `undespatch`. |
+| `finishing_stock.py` (changed) | `/api/finishingStock` | `setup` + `rows_by_date` + `report` now carry `bale_source` (`BALE_PROD` when the branch has bale entries dated ≤ the day, else `MANUAL`); `rows_by_date` adds `derived_bales` (per-quality bales / inspected / kg / MT from Bale Production) and flags own-company manual BALE rows `superseded`; the report's own bale block is built from the derived lines in BALE_PROD mode and every bale line carries `inspected_bales`; `row_create` / `row_edit` 400 on an own-company BALE line in BALE_PROD mode. |
+
+Tables: `jute_prod_bale_inspection` (bale_entry_id, inspection_date, inspection_ref, inspector, remarks;
+one active row per bale, soft delete) and `jute_prod_bale_despatch` (bale_entry_id, invoice_id,
+invoice_line_item_id NULL, despatch_date, remarks; a link to a Rejected/Cancelled invoice is void at read).
+Migrations: `20261012_jute_prod_bale_inspection_despatch.sql`, `20261012_seed_bale_stock_menu.sql`
+(menu 'Bale Stock & Inspection' → `juteProduction/baleStock`, role grants mirrored from 'Finishing Stock').
+Applied on dev3 2026-10-12; sls pending.
+
+FE: page `juteProduction/baleStock` (summary table, filters, range selector, checkbox grid, Mark inspected /
+Undo / Link to invoice / Unlink); shared components `src/components/juteProduction/baleStock/`
+(`BaleStockGrid`, `BaleRangeSelector`, `MarkInspectedDialog`, `LinkInvoiceDialog`, `BaleInspectQuickDialog`
+— the last one is what `juteProduction/finishingStock` opens from a derived sacking line); service
+`src/utils/baleStockService.ts`; constants `BALE_STOCK_*` in `src/utils/api.ts`. The Finishing Stock
+entry grid shows "Bales · from Bale Production" with an Inspected column, and the Finishing Stock Report
+gains an Inspected column in BALE_PROD mode.

@@ -34,14 +34,18 @@ import {
 } from "@mui/material";
 import { ChevronDown, ChevronUp, FileSpreadsheet, Printer } from "lucide-react";
 import { useReportBranches } from "@/components/reports/useReportBranches";
+import PrintFrame from "@/components/reports/PrintFrame";
 import { useMounted } from "@/components/reports/useMounted";
 import { todayIso } from "@/components/reports/reportDates";
 import { exportRowsToExcel } from "@/components/reports/exportExcel";
 import type { BranchOption } from "@/components/reports/types";
+import type { BaleStockSource } from "@/utils/baleStockService";
 import {
   fetchFinishingStockReport,
   type FinishingStockBaleBlock,
   type FinishingStockBaleLine,
+  type FinishingStockBaleSeriesLine,
+  type FinishingStockBaleSeriesTotal,
   type FinishingStockBaleTotal,
   type FinishingStockLooseLine,
   type FinishingStockReport,
@@ -65,6 +69,15 @@ import {
 
 const REPORT_TITLE = "Finishing Stock";
 
+/**
+ * Quality names run to ~120 characters on the real masters ("PRINTED TYPE A
+ * JUTE BAGS(580 GMS) WITH FOUR CONSECUTIVE …"). DprTable keeps every cell on
+ * one line so the numeric columns would scroll off the card; the name cell is
+ * the one place wrapping is right. `&&` doubles the class so this outranks the
+ * table-level `& td { white-space: nowrap }` rule.
+ */
+const WRAP_SX = { "&&": { whiteSpace: "normal", minWidth: 200 } } as const;
+
 /** Section label row inside a stacked table (HESSIAN / SACKING). */
 function SectionRow({ label, span }: { label: string; span: number }) {
   return (
@@ -80,19 +93,36 @@ function BaleLines({
   label,
   lines,
   total,
+  showInspected,
+  inspectable,
 }: {
   label: string;
   lines: FinishingStockBaleLine[];
   total: FinishingStockBaleTotal;
+  /** BALE_PROD mode: the table carries an Inspected column. */
+  showInspected: boolean;
+  /** The column holds a figure only on the own block's sacking lines —
+   * hessian is never inspected and other owners' bales are not derived. */
+  inspectable: boolean;
 }) {
   if (!lines.length) return null;
+  const inspectedTotal = inspectable
+    ? lines.reduce((sum, l) => sum + (l.inspected_bales ?? 0), 0)
+    : null;
   return (
     <>
-      <SectionRow label={label} span={4} />
+      <SectionRow label={label} span={showInspected ? 5 : 4} />
       {lines.map((l) => (
         <Tr key={l.finishing_quality_id}>
-          <Td>{l.item_name ?? "—"}</Td>
+          <Td sx={WRAP_SX}>{l.item_name ?? "—"}</Td>
           <NumTd value={l.bales} digits={0} />
+          {showInspected ? (
+            inspectable && l.inspected_bales != null ? (
+              <NumTd value={l.inspected_bales} digits={0} />
+            ) : (
+              <Td align="right">—</Td>
+            )
+          ) : null}
           <NumTd value={l.per_wt_kg} digits={3} />
           <NumTd value={l.wt_mt} digits={3} />
         </Tr>
@@ -100,9 +130,68 @@ function BaleLines({
       <Tr sx={totalRowSx()}>
         <Td>Total</Td>
         <NumTd value={total.bales} digits={0} bold />
+        {showInspected ? (
+          inspectedTotal != null ? (
+            <NumTd value={inspectedTotal} digits={0} bold />
+          ) : (
+            <Td />
+          )
+        ) : null}
         <Td />
         <NumTd value={total.wt_mt} digits={3} bold />
       </Tr>
+    </>
+  );
+}
+
+/**
+ * "Sacking bales by series" — the own block's sacking stock split by the
+ * consignee series the bales are numbered in (spec §7a). A breakup of lines
+ * the table above already counts, so it sits after the block's grand total
+ * and never feeds it.
+ */
+function SeriesLines({
+  series,
+  total,
+}: {
+  series: FinishingStockBaleSeriesLine[];
+  total: FinishingStockBaleSeriesTotal;
+}) {
+  return (
+    <>
+      <Typography variant="subtitle2" sx={{ fontWeight: 700, mt: 1.5, mb: 0.5 }}>
+        Sacking bales by series
+      </Typography>
+      <DprTable
+        head={
+          <Tr>
+            <Td>Series</Td>
+            <Td>Quality</Td>
+            <Td align="right">Bales</Td>
+            <Td align="right">Inspected</Td>
+            <Td align="right">Per-bale Kg</Td>
+            <Td align="right">MT</Td>
+          </Tr>
+        }
+      >
+        {series.map((s) => (
+          <Tr key={`${s.bale_series_id}-${s.finishing_quality_id}`}>
+            <Td sx={{ fontWeight: 600 }}>{s.series_name ?? "—"}</Td>
+            <Td sx={WRAP_SX}>{s.item_name ?? "—"}</Td>
+            <NumTd value={s.bales} digits={0} />
+            <NumTd value={s.inspected_bales} digits={0} />
+            <NumTd value={s.per_wt_kg} digits={3} />
+            <NumTd value={s.wt_mt} digits={3} />
+          </Tr>
+        ))}
+        <Tr sx={totalRowSx()}>
+          <Td colSpan={2}>Total</Td>
+          <NumTd value={total.bales} digits={0} bold />
+          <NumTd value={total.inspected_bales} digits={0} bold />
+          <Td />
+          <NumTd value={total.wt_mt} digits={3} bold />
+        </Tr>
+      </DprTable>
     </>
   );
 }
@@ -111,20 +200,28 @@ function BaleLines({
 function BaleBlockCard({
   block,
   tranDate,
+  baleSource,
 }: {
   block: FinishingStockBaleBlock;
   tranDate: string;
+  baleSource: BaleStockSource;
 }) {
+  // BALE_PROD: the own block is derived from Bale Production and every bale
+  // table on the sheet gets the Inspected column ("—" where it does not apply).
+  const derived = baleSource === "BALE_PROD";
+  const subtitle = block.is_own
+    ? `Bales as on ${tranDate}${derived ? " · from Bale Production" : ""}`
+    : `Bales as on ${tranDate} (held for another company)`;
+  // Own block, BALE_PROD mode only — the backend sends [] everywhere else.
+  const series = derived && block.is_own ? (block.series ?? []) : [];
   return (
-    <SectionCard
-      title={block.owner_co_name}
-      subtitle={`Bales as on ${tranDate}${block.is_own ? "" : " (held for another company)"}`}
-    >
+    <SectionCard title={block.owner_co_name} subtitle={subtitle}>
       <DprTable
         head={
           <Tr>
             <Td>Quality</Td>
             <Td align="right">Bales</Td>
+            {derived ? <Td align="right">Inspected</Td> : null}
             <Td align="right">Per-bale Kg</Td>
             <Td align="right">MT</Td>
           </Tr>
@@ -134,11 +231,15 @@ function BaleBlockCard({
           label="Hessian"
           lines={block.hessian}
           total={block.hessian_total}
+          showInspected={derived}
+          inspectable={false}
         />
         <BaleLines
           label="Sacking"
           lines={block.sacking}
           total={block.sacking_total}
+          showInspected={derived}
+          inspectable={derived && block.is_own}
         />
         {/* Same guard as flattenReport: a block with no line on either side
             has nothing to total. */}
@@ -146,11 +247,15 @@ function BaleBlockCard({
           <Tr sx={totalRowSx()}>
             <Td>GRAND TOTAL</Td>
             <NumTd value={block.total.bales} digits={0} bold />
+            {derived ? <Td /> : null}
             <Td />
             <NumTd value={block.total.wt_mt} digits={3} bold />
           </Tr>
         ) : null}
       </DprTable>
+      {series.length ? (
+        <SeriesLines series={series} total={block.series_total} />
+      ) : null}
     </SectionCard>
   );
 }
@@ -170,7 +275,7 @@ function LooseLines({
       <SectionRow label={label} span={2} />
       {lines.map((l) => (
         <Tr key={l.finishing_quality_id}>
-          <Td>{l.item_name ?? "—"}</Td>
+          <Td sx={WRAP_SX}>{l.item_name ?? "—"}</Td>
           <NumTd value={l.wt_mt} digits={3} />
         </Tr>
       ))}
@@ -279,6 +384,12 @@ function Content() {
       <GlobalStyles
         styles={{
           "@media print": {
+            // @page margin 0 suppresses the browser's own header/footer (date,
+            // title, URL, page number). The paper margin (10mm ~ the old
+            // browser-default margin) is the print root's side padding plus the
+            // <PrintFrame> top/bottom spacers, which repeat on every page.
+            // No `size`, so paper size / orientation stay the user's choice.
+            "@page": { margin: 0 },
             "body *": { visibility: "hidden" },
             ".fin-print-root, .fin-print-root *": { visibility: "visible" },
             ".fin-print-root": {
@@ -286,6 +397,8 @@ function Content() {
               top: 0,
               left: 0,
               width: "100%",
+              boxSizing: "border-box",
+              padding: "0 10mm",
             },
           },
         }}
@@ -366,207 +479,210 @@ function Content() {
 
       {!loading && data ? (
         <Box className="fin-print-root">
-          {/* Print letterhead */}
-          <Box
-            sx={{
-              display: "none",
-              displayPrint: "block",
-              mb: 1,
-              textAlign: "center",
-            }}
-          >
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-              {data.co_name || companyName || ""} — {REPORT_TITLE}
-            </Typography>
-            <Typography variant="caption">
-              {data.branch_name || selectedBranch?.branch_name || ""} ·{" "}
-              {data.tran_date}
-            </Typography>
-          </Box>
+          <PrintFrame marginMm={10}>
+            {/* Print letterhead */}
+            <Box
+              sx={{
+                display: "none",
+                displayPrint: "block",
+                mb: 1,
+                textAlign: "center",
+              }}
+            >
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                {data.co_name || companyName || ""} — {REPORT_TITLE}
+              </Typography>
+              <Typography variant="caption">
+                {data.branch_name || selectedBranch?.branch_name || ""} ·{" "}
+                {data.tran_date}
+              </Typography>
+            </Box>
 
-          {empty ? (
-            <Alert severity="info">No entries for this date</Alert>
-          ) : (
-            <>
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: { xs: "column", md: "row" },
-                  alignItems: "flex-start",
-                  gap: 2,
-                  // Print has one column: the cards stack full width. `gap`
-                  // does nothing on a block box, so the stacked columns get
-                  // their breathing room from a margin instead.
-                  displayPrint: "block",
-                  "@media print": { "& > * + *": { mt: 2 } },
-                }}
-              >
-                {/* Left: bales per owner + despatch */}
-                <Stack spacing={2} sx={{ flex: 2, minWidth: 0, width: "100%" }}>
-                  {data.bales.map((b) => (
-                    <BaleBlockCard
-                      key={b.owner_co_id ?? "own"}
-                      block={b}
-                      tranDate={data.tran_date}
-                    />
-                  ))}
-
-                  <SectionCard title={`Despatch on ${data.tran_date}`}>
-                    {data.despatch.length ? (
-                      <DprTable
-                        head={
-                          <Tr>
-                            <Td>Item</Td>
-                            <Td align="right">Bales</Td>
-                            <Td align="right">Qty</Td>
-                            <Td>UoM</Td>
-                          </Tr>
-                        }
-                      >
-                        {data.despatch.map((d) => (
-                          <Tr key={d.item_id}>
-                            <Td>{d.item_name ?? "—"}</Td>
-                            <NumTd value={d.bales} digits={0} />
-                            <NumTd value={d.qty} digits={3} />
-                            <Td>{d.uom_name ?? "—"}</Td>
-                          </Tr>
-                        ))}
-                      </DprTable>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        No despatch invoiced on this date.
-                      </Typography>
-                    )}
-                  </SectionCard>
-                </Stack>
-
-                {/* Right: loose stock + stage-wise detail */}
-                <Stack spacing={2} sx={{ flex: 1, minWidth: 0, width: "100%" }}>
-                  <SectionCard
-                    title="Loose Stock"
-                    subtitle={`As on ${data.tran_date}`}
-                  >
-                    <DprTable
-                      head={
-                        <Tr>
-                          <Td>Quality</Td>
-                          <Td align="right">MT</Td>
-                        </Tr>
-                      }
-                    >
-                      <LooseLines
-                        label="Hessian"
-                        lines={data.loose.hessian}
-                        totalMt={data.loose.hessian_total_mt}
+            {empty ? (
+              <Alert severity="info">No entries for this date</Alert>
+            ) : (
+              <>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: { xs: "column", md: "row" },
+                    alignItems: "flex-start",
+                    gap: 2,
+                    // Print has one column: the cards stack full width. `gap`
+                    // does nothing on a block box, so the stacked columns get
+                    // their breathing room from a margin instead.
+                    displayPrint: "block",
+                    "@media print": { "& > * + *": { mt: 2 } },
+                  }}
+                >
+                  {/* Left: bales per owner + despatch */}
+                  <Stack spacing={2} sx={{ flex: 2, minWidth: 0, width: "100%" }}>
+                    {data.bales.map((b) => (
+                      <BaleBlockCard
+                        key={b.owner_co_id ?? "own"}
+                        block={b}
+                        tranDate={data.tran_date}
+                        baleSource={data.bale_source}
                       />
-                      <LooseLines
-                        label="Sacking"
-                        lines={data.loose.sacking}
-                        totalMt={data.loose.sacking_total_mt}
-                      />
-                      {/* Guarded like flattenReport: nothing to total when
-                          neither section has a line. */}
-                      {data.loose.hessian.length ||
-                      data.loose.sacking.length ? (
-                        <Tr sx={totalRowSx()}>
-                          <Td>GRAND TOTAL</Td>
-                          <NumTd value={data.loose.total_mt} digits={3} bold />
-                        </Tr>
-                      ) : null}
-                    </DprTable>
-                  </SectionCard>
+                    ))}
 
-                  {data.loose_lines.length ? (
-                    <SectionCard title="Loose by stage">
-                      <Button
-                        size="small"
-                        sx={{ mb: 1, displayPrint: "none" }}
-                        endIcon={
-                          showStages ? (
-                            <ChevronUp size={16} />
-                          ) : (
-                            <ChevronDown size={16} />
-                          )
-                        }
-                        onClick={() => setShowStages((v) => !v)}
-                      >
-                        {showStages ? "Hide" : "Show"} {data.loose_lines.length}{" "}
-                        lines
-                      </Button>
-                      {/* Collapsed on screen to keep the card short. A
-                          collapsed MUI Collapse is height 0 + visibility
-                          hidden, so print has to undo all three or the sheet
-                          would silently lose the stage detail. */}
-                      <Collapse
-                        in={showStages}
-                        sx={{
-                          "@media print": {
-                            height: "auto !important",
-                            visibility: "visible",
-                            overflow: "visible",
-                          },
-                        }}
-                      >
+                    <SectionCard title={`Despatch on ${data.tran_date}`}>
+                      {data.despatch.length ? (
                         <DprTable
                           head={
                             <Tr>
-                              <Td>Stage</Td>
-                              <Td>Work by</Td>
-                              <Td>Quality</Td>
+                              <Td>Item</Td>
+                              <Td align="right">Bales</Td>
                               <Td align="right">Qty</Td>
                               <Td>UoM</Td>
-                              <Td align="right">MT</Td>
                             </Tr>
                           }
                         >
-                          {data.loose_lines.map((l, i) => (
-                            <Tr
-                              key={`${l.stage ?? "none"}-${l.item_name ?? ""}-${i}`}
-                            >
-                              <Td>{l.stage_label ?? l.stage ?? "—"}</Td>
-                              <Td>{WORK_BY_LABEL[l.work_by]}</Td>
-                              <Td>
-                                {l.quality_type === 1 ? "Hessian" : "Sacking"} ·{" "}
-                                {l.item_name ?? "—"}
-                              </Td>
-                              <NumTd value={l.qty} digits={0} />
-                              <Td>{l.qty_uom}</Td>
-                              <NumTd value={l.wt_mt} digits={3} />
+                          {data.despatch.map((d) => (
+                            <Tr key={d.item_id}>
+                              <Td sx={WRAP_SX}>{d.item_name ?? "—"}</Td>
+                              <NumTd value={d.bales} digits={0} />
+                              <NumTd value={d.qty} digits={3} />
+                              <Td>{d.uom_name ?? "—"}</Td>
                             </Tr>
                           ))}
                         </DprTable>
-                      </Collapse>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          No despatch invoiced on this date.
+                        </Typography>
+                      )}
                     </SectionCard>
-                  ) : null}
-                </Stack>
-              </Box>
+                  </Stack>
 
-              {/* KPI footer line */}
-              <Paper
-                variant="outlined"
-                sx={{
-                  mt: 2,
-                  p: 1.5,
-                  display: "flex",
-                  gap: 3,
-                  flexWrap: "wrap",
-                  justifyContent: "flex-end",
-                }}
-              >
-                {(
-                  [
-                    ["Bales MT", data.totals.bales_mt],
-                    ["Loose MT", data.totals.loose_mt],
-                    ["Stock MT", data.totals.stock_mt],
-                  ] as const
-                ).map(([label, value]) => (
-                  <Typography key={label} variant="body2">
-                    {label}: <strong>{fmt(value, 3)}</strong>
-                  </Typography>
-                ))}
-              </Paper>
-            </>
-          )}
+                  {/* Right: loose stock + stage-wise detail */}
+                  <Stack spacing={2} sx={{ flex: 1, minWidth: 0, width: "100%" }}>
+                    <SectionCard
+                      title="Loose Stock"
+                      subtitle={`As on ${data.tran_date}`}
+                    >
+                      <DprTable
+                        head={
+                          <Tr>
+                            <Td>Quality</Td>
+                            <Td align="right">MT</Td>
+                          </Tr>
+                        }
+                      >
+                        <LooseLines
+                          label="Hessian"
+                          lines={data.loose.hessian}
+                          totalMt={data.loose.hessian_total_mt}
+                        />
+                        <LooseLines
+                          label="Sacking"
+                          lines={data.loose.sacking}
+                          totalMt={data.loose.sacking_total_mt}
+                        />
+                        {/* Guarded like flattenReport: nothing to total when
+                            neither section has a line. */}
+                        {data.loose.hessian.length ||
+                        data.loose.sacking.length ? (
+                          <Tr sx={totalRowSx()}>
+                            <Td>GRAND TOTAL</Td>
+                            <NumTd value={data.loose.total_mt} digits={3} bold />
+                          </Tr>
+                        ) : null}
+                      </DprTable>
+                    </SectionCard>
+
+                    {data.loose_lines.length ? (
+                      <SectionCard title="Loose by stage">
+                        <Button
+                          size="small"
+                          sx={{ mb: 1, displayPrint: "none" }}
+                          endIcon={
+                            showStages ? (
+                              <ChevronUp size={16} />
+                            ) : (
+                              <ChevronDown size={16} />
+                            )
+                          }
+                          onClick={() => setShowStages((v) => !v)}
+                        >
+                          {showStages ? "Hide" : "Show"} {data.loose_lines.length}{" "}
+                          lines
+                        </Button>
+                        {/* Collapsed on screen to keep the card short. A
+                            collapsed MUI Collapse is height 0 + visibility
+                            hidden, so print has to undo all three or the sheet
+                            would silently lose the stage detail. */}
+                        <Collapse
+                          in={showStages}
+                          sx={{
+                            "@media print": {
+                              height: "auto !important",
+                              visibility: "visible",
+                              overflow: "visible",
+                            },
+                          }}
+                        >
+                          <DprTable
+                            head={
+                              <Tr>
+                                <Td>Stage</Td>
+                                <Td>Work by</Td>
+                                <Td>Quality</Td>
+                                <Td align="right">Qty</Td>
+                                <Td>UoM</Td>
+                                <Td align="right">MT</Td>
+                              </Tr>
+                            }
+                          >
+                            {data.loose_lines.map((l, i) => (
+                              <Tr
+                                key={`${l.stage ?? "none"}-${l.item_name ?? ""}-${i}`}
+                              >
+                                <Td>{l.stage_label ?? l.stage ?? "—"}</Td>
+                                <Td>{WORK_BY_LABEL[l.work_by]}</Td>
+                                <Td>
+                                  {l.quality_type === 1 ? "Hessian" : "Sacking"} ·{" "}
+                                  {l.item_name ?? "—"}
+                                </Td>
+                                <NumTd value={l.qty} digits={0} />
+                                <Td>{l.qty_uom}</Td>
+                                <NumTd value={l.wt_mt} digits={3} />
+                              </Tr>
+                            ))}
+                          </DprTable>
+                        </Collapse>
+                      </SectionCard>
+                    ) : null}
+                  </Stack>
+                </Box>
+
+                {/* KPI footer line */}
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    mt: 2,
+                    p: 1.5,
+                    display: "flex",
+                    gap: 3,
+                    flexWrap: "wrap",
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  {(
+                    [
+                      ["Bales MT", data.totals.bales_mt],
+                      ["Loose MT", data.totals.loose_mt],
+                      ["Stock MT", data.totals.stock_mt],
+                    ] as const
+                  ).map(([label, value]) => (
+                    <Typography key={label} variant="body2">
+                      {label}: <strong>{fmt(value, 3)}</strong>
+                    </Typography>
+                  ))}
+                </Paper>
+              </>
+            )}
+          </PrintFrame>
         </Box>
       ) : null}
 

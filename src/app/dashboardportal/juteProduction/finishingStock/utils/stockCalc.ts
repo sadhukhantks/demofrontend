@@ -1,3 +1,4 @@
+import type { BaleStockSummaryLine } from "@/utils/baleStockService";
 import type { FinishingStockQuality, FinishingStockRow } from "@/utils/finishingStockService";
 
 export { todayISO } from "../../finishing/_shared/finishingConfig";
@@ -72,10 +73,21 @@ export function prefillWtKg(count: string | number, unitWt: number | null): stri
   return String(round3(n * unitWt));
 }
 
+/**
+ * True for an own-company manual BALE row the backend flagged as no longer
+ * counted — the date's own-company bales come from Bale Production instead.
+ * Such a row is shown greyed, delete-only, and is left out of every total.
+ */
+export function isSuperseded(row: Pick<FinishingStockRow, "superseded">): boolean {
+  return row.superseded === true;
+}
+
 export interface GroupedRows {
   bale: {
-    /** owner_co_id NULL — the company doing the count. */
+    /** owner_co_id NULL — the company doing the count (superseded rows excluded). */
     own: FinishingStockRow[];
+    /** Own-company manual rows no longer counted (bales derived for the date). */
+    superseded: FinishingStockRow[];
     /** One entry per foreign owner, keyed by its display name. */
     others: Record<string, FinishingStockRow[]>;
   };
@@ -89,13 +101,13 @@ export interface GroupedRows {
  */
 export function groupRows(rows: ReadonlyArray<FinishingStockRow>): GroupedRows {
   const grouped: GroupedRows = {
-    bale: { own: [], others: {} },
+    bale: { own: [], superseded: [], others: {} },
     loose: { hessian: [], sacking: [] },
   };
   rows.forEach((r) => {
     if (r.bucket === "BALE") {
       if (r.owner_co_id == null) {
-        grouped.bale.own.push(r);
+        (isSuperseded(r) ? grouped.bale.superseded : grouped.bale.own).push(r);
         return;
       }
       const name = r.owner_co_name ?? `Company #${r.owner_co_id}`;
@@ -125,6 +137,33 @@ export function sectionTotals(rows: ReadonlyArray<FinishingStockRow>): SectionTo
   return { bales: round3(bales), kg: round3(kg), mt: kgToMt(kg) };
 }
 
+export interface DerivedSectionTotals {
+  /** Bales in stock across the lines. */
+  bales: number;
+  /** Inspected bales across the lines (only sacking is ever inspected). */
+  inspected: number;
+  mt: number;
+}
+
+/**
+ * Totals of a block of derived (Bale Production) lines. The lines already
+ * carry MT at the printed scale, so the sum is re-rounded rather than rebuilt
+ * from kg — it must match the figures printed on the lines above it.
+ */
+export function derivedSectionTotals(
+  lines: ReadonlyArray<BaleStockSummaryLine>,
+): DerivedSectionTotals {
+  let bales = 0;
+  let inspected = 0;
+  let mt = 0;
+  lines.forEach((l) => {
+    bales += Number(l.bales) || 0;
+    inspected += Number(l.inspected_bales) || 0;
+    mt += Number(l.wt_mt) || 0;
+  });
+  return { bales, inspected, mt: round3(mt) };
+}
+
 export interface FooterTotals {
   baleOwnMt: number;
   baleOthersMt: number;
@@ -132,21 +171,34 @@ export interface FooterTotals {
   totalMt: number;
 }
 
-export function footerTotals(rows: ReadonlyArray<FinishingStockRow>): FooterTotals {
+/**
+ * Day totals for the footer. With derived lines (BALE_PROD mode) the own bale
+ * MT is their sum and the manual own-company rows are ignored; without them it
+ * is the manual own rows as before. Superseded rows never count anywhere.
+ * The day total is the sum of the three printed chips, so they always add up.
+ */
+export function footerTotals(
+  rows: ReadonlyArray<FinishingStockRow>,
+  derived: ReadonlyArray<BaleStockSummaryLine> = [],
+): FooterTotals {
   let ownKg = 0;
   let othersKg = 0;
   let looseKg = 0;
   rows.forEach((r) => {
+    if (isSuperseded(r)) return;
     const kg = lineTotalKg(r);
     if (r.bucket === "LOOSE") looseKg += kg;
     else if (r.owner_co_id == null) ownKg += kg;
     else othersKg += kg;
   });
+  const baleOwnMt = derived.length > 0 ? derivedSectionTotals(derived).mt : kgToMt(ownKg);
+  const baleOthersMt = kgToMt(othersKg);
+  const looseMt = kgToMt(looseKg);
   return {
-    baleOwnMt: kgToMt(ownKg),
-    baleOthersMt: kgToMt(othersKg),
-    looseMt: kgToMt(looseKg),
-    totalMt: kgToMt(ownKg + othersKg + looseKg),
+    baleOwnMt,
+    baleOthersMt,
+    looseMt,
+    totalMt: round3(baleOwnMt + baleOthersMt + looseMt),
   };
 }
 
