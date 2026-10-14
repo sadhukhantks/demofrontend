@@ -3,6 +3,7 @@ import {
   buildCreatePayload,
   buildDefaultFormValues,
   buildEditPayload,
+  buildFinishingStockSchema,
   finishingStockSchema,
   type FinishingStockFormValues,
 } from "./stockSchema";
@@ -139,5 +140,34 @@ describe("finishingStockSchema", () => {
     const { stage, work_by, qty_uom, wt_kg, ...baleWithoutLooseFields } = baleValues;
     expect(finishingStockSchema.safeParse(looseWithoutBaleFields).success).toBe(true);
     expect(finishingStockSchema.safeParse(baleWithoutLooseFields).success).toBe(true);
+  });
+
+  it("accepts a blank owner (= own company) in MANUAL mode", () => {
+    expect(messages({ ...baleValues, owner_co_id: "" })).toEqual([]);
+  });
+});
+
+describe("buildFinishingStockSchema({ ownerRequired })", () => {
+  const schema = buildFinishingStockSchema({ ownerRequired: true });
+  const messages = (values: FinishingStockFormValues) => {
+    const parsed = schema.safeParse(values);
+    return parsed.success ? [] : parsed.error.issues.map((i) => i.message);
+  };
+
+  it("demands an owner on a BALE line — own-company bales are derived", () => {
+    expect(messages({ ...baleValues, owner_co_id: "" })).toContain("Owner company is required");
+    expect(messages({ ...baleValues, owner_co_id: "9" })).toEqual([]);
+  });
+
+  it("does not care about the owner on a LOOSE line", () => {
+    expect(messages({ ...looseValues, owner_co_id: "" })).toEqual([]);
+  });
+
+  it("is the plain schema when the option is off", () => {
+    const off = buildFinishingStockSchema({ ownerRequired: false });
+    expect(off.safeParse({ ...baleValues, owner_co_id: "" }).success).toBe(true);
+    expect(buildFinishingStockSchema().safeParse({ ...baleValues, owner_co_id: "" }).success).toBe(
+      true,
+    );
   });
 });

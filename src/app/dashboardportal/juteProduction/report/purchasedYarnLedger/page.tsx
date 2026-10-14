@@ -28,6 +28,7 @@ import {
 } from "@mui/material";
 import { Printer } from "lucide-react";
 import { useReportBranches } from "@/components/reports/useReportBranches";
+import PrintFrame from "@/components/reports/PrintFrame";
 import { useMounted } from "@/components/reports/useMounted";
 import type { BranchOption } from "@/components/reports/types";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -184,6 +185,12 @@ function Content() {
       <GlobalStyles
         styles={{
           "@media print": {
+            // @page margin 0 suppresses the browser's own header/footer (date,
+            // title, URL, page number). The paper margin (10mm ~ the old
+            // browser-default margin) is the print root's side padding plus the
+            // <PrintFrame> top/bottom spacers, which repeat on every page.
+            // No `size`, so paper size / orientation stay the user's choice.
+            "@page": { margin: 0 },
             "body *": { visibility: "hidden" },
             ".pyl-print-root, .pyl-print-root *": { visibility: "visible" },
             ".pyl-print-root": {
@@ -191,6 +198,8 @@ function Content() {
               top: 0,
               left: 0,
               width: "100%",
+              boxSizing: "border-box",
+              padding: "0 10mm",
             },
           },
         }}
@@ -272,41 +281,43 @@ function Content() {
 
       {!loading && loaded && data && totals ? (
         <Box className="pyl-print-root">
-          {/* Print letterhead — the branch the figures were fetched for. */}
-          <Box sx={{ display: "none", displayPrint: "block", mb: 1, textAlign: "center" }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-              {companyName ?? ""} — {TITLE}
-            </Typography>
-            <Typography variant="caption">
-              {loaded.branchName ?? ""} · {monthLabel(data.month)} ({data.from_date} to{" "}
-              {data.to_date})
-            </Typography>
-          </Box>
-          <Stack spacing={2}>
-            <ExceptionsStrip exceptions={data.exceptions ?? []} />
+          <PrintFrame marginMm={10}>
+            {/* Print letterhead — the branch the figures were fetched for. */}
+            <Box sx={{ display: "none", displayPrint: "block", mb: 1, textAlign: "center" }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                {companyName ?? ""} — {TITLE}
+              </Typography>
+              <Typography variant="caption">
+                {loaded.branchName ?? ""} · {monthLabel(data.month)} ({data.from_date} to{" "}
+                {data.to_date})
+              </Typography>
+            </Box>
+            <Stack spacing={2}>
+              <ExceptionsStrip exceptions={data.exceptions ?? []} />
 
-            <LedgerMetaLine
-              meta={data.meta}
-              rows={data.rows}
-              fromDate={data.from_date}
-              toDate={data.to_date}
-            />
-
-            <SectionCard
-              title={`Purchased yarn — ${monthLabel(data.month)} (kg)`}
-              subtitle="Godown: opening + purchases − issues + returns = book closing, against the counted closing. Floor: opening + issues − returns − closing = consumption. Days of stock = floor closing ÷ average daily consumption."
-            >
-              <LedgerTable
+              <LedgerMetaLine
+                meta={data.meta}
                 rows={data.rows}
-                totals={totals}
-                flaggedDiffItems={flaggedDiff}
-                expanded={expanded}
-                onToggle={toggle}
-                onExpandAll={expandAll}
-                onCollapseAll={collapseAll}
+                fromDate={data.from_date}
+                toDate={data.to_date}
               />
-            </SectionCard>
-          </Stack>
+
+              <SectionCard
+                title={`Purchased yarn — ${monthLabel(data.month)} (kg)`}
+                subtitle="Godown: opening + purchases − issues + returns = book closing, against the counted closing. Floor: opening + issues − returns − closing = consumption. Days of stock = floor closing ÷ average daily consumption."
+              >
+                <LedgerTable
+                  rows={data.rows}
+                  totals={totals}
+                  flaggedDiffItems={flaggedDiff}
+                  expanded={expanded}
+                  onToggle={toggle}
+                  onExpandAll={expandAll}
+                  onCollapseAll={collapseAll}
+                />
+              </SectionCard>
+            </Stack>
+          </PrintFrame>
         </Box>
       ) : null}
 

@@ -275,7 +275,11 @@ function Content() {
       <GlobalStyles
         styles={{
           "@media print": {
-            "@page": { size: "landscape" },
+            // @page margin 0 suppresses the browser's own header/footer (date,
+            // title, URL, page number). The paper margin (10mm ~ the old
+            // browser-default margin) is the print root's side padding plus the
+            // <PrintFrame> top/bottom spacers, which repeat on every page.
+            "@page": { size: "landscape", margin: 0 },
             "body *": { visibility: "hidden" },
             ".bhl-print-root, .bhl-print-root *": { visibility: "visible" },
             ".bhl-print-root": {
@@ -283,6 +287,8 @@ function Content() {
               top: 0,
               left: 0,
               width: "100%",
+              boxSizing: "border-box",
+              padding: "0 10mm",
             },
           },
         }}

@@ -2,23 +2,42 @@
 
 import * as React from "react";
 import { Box, Chip, Divider, Typography } from "@mui/material";
+import type { BaleStockSummaryLine } from "@/utils/baleStockService";
 import type { FinishingStockRow } from "@/utils/finishingStockService";
-import { footerTotals, formatMt } from "../utils/stockCalc";
+import { derivedSectionTotals, footerTotals, formatMt } from "../utils/stockCalc";
+
+const NO_DERIVED: ReadonlyArray<BaleStockSummaryLine> = Object.freeze([]);
 
 export interface StockTotalsFooterProps {
 	/** The rows currently in the grid — totals are computed client-side from
 	 * them (mirroring the server formula) so the footer always matches what is
 	 * on screen. */
 	rows: FinishingStockRow[];
+	/** Own-company bale lines derived from Bale Production (BALE_PROD mode).
+	 * When present they are "Bales (own)" and the manual own-company rows are
+	 * not counted; omit / empty in MANUAL mode. */
+	derived?: ReadonlyArray<BaleStockSummaryLine>;
 }
 
 /**
  * Footer under the day grid: bale MT split own / other owners, loose MT, and
  * the day's total. Chips are always rendered, so a zero bucket reads as
- * "counted, none on hand" rather than vanishing.
+ * "counted, none on hand" rather than vanishing. With derived sacking lines an
+ * extra chip shows how many of those bales are inspected.
  */
-export default function StockTotalsFooter({ rows }: StockTotalsFooterProps) {
-	const totals = React.useMemo(() => footerTotals(rows), [rows]);
+export default function StockTotalsFooter({
+	rows,
+	derived = NO_DERIVED,
+}: StockTotalsFooterProps) {
+	const totals = React.useMemo(() => footerTotals(rows, derived), [rows, derived]);
+	const sacking = React.useMemo(
+		() => derived.filter((l) => l.quality_type === 2),
+		[derived]
+	);
+	const inspectedSacking = React.useMemo(
+		() => derivedSectionTotals(sacking).inspected,
+		[sacking]
+	);
 
 	return (
 		<Box
@@ -53,6 +72,14 @@ export default function StockTotalsFooter({ rows }: StockTotalsFooterProps) {
 					color="primary"
 					label={`Loose: ${formatMt(totals.looseMt)}`}
 				/>
+				{sacking.length > 0 ? (
+					<Chip
+						size="small"
+						variant="outlined"
+						color="success"
+						label={`Inspected (sacking): ${inspectedSacking} bales`}
+					/>
+				) : null}
 				<Divider flexItem orientation="vertical" sx={{ mx: 0.5 }} />
 				<Typography variant="body2" sx={{ fontWeight: 600 }}>
 					Total: {formatMt(totals.totalMt)} MT

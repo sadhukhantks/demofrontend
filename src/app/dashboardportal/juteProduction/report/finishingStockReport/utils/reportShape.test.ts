@@ -4,13 +4,19 @@ import type {
   FinishingStockReport,
 } from "@/utils/finishingStockService";
 import { reportTotalLevel } from "@/components/reports/ReportGrid";
-import { EXPORT_COLUMNS, flattenReport, isReportEmpty } from "./reportShape";
+import {
+  EXPORT_COLUMNS,
+  SERIES_SECTION,
+  flattenReport,
+  isReportEmpty,
+} from "./reportShape";
 
 const baleLine = (
   name: string,
   bales: number,
   per: number | null,
   mt: number,
+  inspected: number | null = null,
 ) => ({
   finishing_quality_id: 1,
   item_id: 10,
@@ -18,6 +24,7 @@ const baleLine = (
   bales,
   per_wt_kg: per,
   wt_mt: mt,
+  inspected_bales: inspected,
 });
 
 const block = (
@@ -33,7 +40,29 @@ const block = (
   hessian_total: { bales: 0, wt_mt: 0 },
   sacking_total: { bales: 0, wt_mt: 0 },
   total: { bales: 0, wt_mt: 0 },
+  series: [],
+  series_total: { bales: 0, inspected_bales: 0, wt_mt: 0 },
   ...over,
+});
+
+const seriesLine = (
+  series: string | null,
+  quality: string,
+  bales: number,
+  inspected: number,
+  per: number | null,
+  mt: number,
+  seriesId = 1,
+  qualityId = 2,
+) => ({
+  bale_series_id: seriesId,
+  series_name: series,
+  finishing_quality_id: qualityId,
+  item_name: quality,
+  bales,
+  inspected_bales: inspected,
+  per_wt_kg: per,
+  wt_mt: mt,
 });
 
 const report = (
@@ -53,6 +82,7 @@ const report = (
   loose_lines: [],
   despatch: [],
   totals: { bales_mt: 0, loose_mt: 0, stock_mt: 0 },
+  bale_source: "MANUAL",
   ...over,
 });
 
@@ -77,6 +107,7 @@ describe("flattenReport — bale blocks", () => {
       section: "HESSIAN",
       item: "HESSIAN CLOTH 40-6.5",
       bales: 70,
+      inspected: null,
       per_wt_kg: 228.6,
       wt_mt: 16.002,
     });
@@ -140,6 +171,134 @@ describe("flattenReport — bale blocks", () => {
   });
 });
 
+describe("flattenReport — inspected bales (BALE_PROD)", () => {
+  const rows = flattenReport(
+    report({
+      bale_source: "BALE_PROD",
+      bales: [
+        block("EMPIRE", true, {
+          hessian: [baleLine("H1", 70, 228.6, 16.002, 0)],
+          sacking: [baleLine("S1", 4, 290, 1.16, 3)],
+          hessian_total: { bales: 70, wt_mt: 16.002 },
+          sacking_total: { bales: 4, wt_mt: 1.16 },
+          total: { bales: 74, wt_mt: 17.162 },
+        }),
+        block("NEXGEN", false, {
+          sacking: [baleLine("S2", 2, 200, 0.4)],
+          sacking_total: { bales: 2, wt_mt: 0.4 },
+          total: { bales: 2, wt_mt: 0.4 },
+        }),
+      ],
+    }),
+  );
+
+  it("carries inspected_bales onto each bale line and leaves the totals null", () => {
+    expect(rows[0]).toMatchObject({ item: "H1", inspected: 0 });
+    expect(rows[1]).toMatchObject({ item: "TOTAL", inspected: null });
+    expect(rows[2]).toMatchObject({ item: "S1", inspected: 3 });
+    expect(rows[3]).toMatchObject({ item: "TOTAL", inspected: null });
+    expect(rows[4]).toMatchObject({ item: "GRAND TOTAL", inspected: null });
+  });
+
+  it("is null on another owner's manual lines", () => {
+    expect(rows[5]).toMatchObject({ block: "NEXGEN", item: "S2", inspected: null });
+  });
+});
+
+describe("flattenReport — sacking by series (BALE_PROD, own block)", () => {
+  const rows = flattenReport(
+    report({
+      bale_source: "BALE_PROD",
+      bales: [
+        block("EMPIRE", true, {
+          hessian: [baleLine("H1", 70, 228.6, 16.002, 0)],
+          sacking: [baleLine("S1", 120, 290, 34.8, 80)],
+          hessian_total: { bales: 70, wt_mt: 16.002 },
+          sacking_total: { bales: 120, wt_mt: 34.8 },
+          total: { bales: 190, wt_mt: 50.802 },
+          series: [
+            seriesLine("BIHAR", "S1", 20, 20, 290, 5.8, 2),
+            seriesLine("PUNJAB", "S1", 100, 60, 290, 29, 1),
+          ],
+          series_total: { bales: 120, inspected_bales: 80, wt_mt: 34.8 },
+        }),
+        block("NEXGEN", false, {
+          sacking: [baleLine("S2", 2, 200, 0.4)],
+          sacking_total: { bales: 2, wt_mt: 0.4 },
+          total: { bales: 2, wt_mt: 0.4 },
+        }),
+      ],
+    }),
+  );
+
+  it("emits the series rows right after the block's GRAND TOTAL, in the order sent", () => {
+    expect(rows[4]).toMatchObject({ block: "EMPIRE", item: "GRAND TOTAL" });
+    expect(rows[5]).toEqual({
+      block: "EMPIRE",
+      section: SERIES_SECTION,
+      item: "BIHAR",
+      bales: 20,
+      inspected: 20,
+      per_wt_kg: 290,
+      wt_mt: 5.8,
+    });
+    expect(rows[6]).toEqual({
+      block: "EMPIRE",
+      section: SERIES_SECTION,
+      item: "PUNJAB",
+      bales: 100,
+      inspected: 60,
+      per_wt_kg: 290,
+      wt_mt: 29,
+    });
+  });
+
+  it("closes the section with a TOTAL row from series_total (no per-bale kg)", () => {
+    expect(rows[7]).toEqual({
+      block: "EMPIRE",
+      section: SERIES_SECTION,
+      item: "TOTAL",
+      bales: 120,
+      inspected: 80,
+      per_wt_kg: null,
+      wt_mt: 34.8,
+    });
+    expect(SERIES_SECTION).toBe("SACKING BY SERIES");
+  });
+
+  it("leaves the block's own GRAND TOTAL alone — the series rows are a breakup, not extra stock", () => {
+    expect(rows[4]).toMatchObject({ bales: 190, wt_mt: 50.802 });
+  });
+
+  it("emits no series rows for a block without any, and keeps the next block after them", () => {
+    expect(rows[8]).toMatchObject({ block: "NEXGEN", item: "S2" });
+    expect(rows.filter((r) => r.section === SERIES_SECTION).map((r) => r.block)).toEqual([
+      "EMPIRE",
+      "EMPIRE",
+      "EMPIRE",
+    ]);
+    expect(rows).toHaveLength(11);
+  });
+
+  it("renders an unnamed series as an empty cell rather than the word null", () => {
+    const unnamed = flattenReport(
+      report({
+        bale_source: "BALE_PROD",
+        bales: [
+          block("EMPIRE", true, {
+            sacking: [baleLine("S1", 1, 290, 0.29, 0)],
+            sacking_total: { bales: 1, wt_mt: 0.29 },
+            total: { bales: 1, wt_mt: 0.29 },
+            series: [seriesLine(null, "S1", 1, 0, 290, 0.29, 9)],
+            series_total: { bales: 1, inspected_bales: 0, wt_mt: 0.29 },
+          }),
+        ],
+      }),
+    );
+    expect(unnamed.find((r) => r.section === SERIES_SECTION)?.item).toBe("");
+  });
+});
+
 describe("flattenReport — loose stock", () => {
   const rows = flattenReport(
     report({
@@ -173,6 +332,7 @@ describe("flattenReport — loose stock", () => {
       section: "HESSIAN",
       item: "H CUTS",
       bales: null,
+      inspected: null,
       per_wt_kg: null,
       wt_mt: 10.674,
     });
@@ -231,6 +391,7 @@ describe("flattenReport — despatch", () => {
         section: "DESPATCH",
         item: "HESSIAN CLOTH 40",
         bales: 22,
+        inspected: null,
         per_wt_kg: null,
         wt_mt: 6.123,
       },
@@ -239,6 +400,7 @@ describe("flattenReport — despatch", () => {
         section: "DESPATCH",
         item: "SACKING",
         bales: null,
+        inspected: null,
         per_wt_kg: null,
         wt_mt: 1.5,
       },
@@ -405,6 +567,49 @@ describe("isReportEmpty", () => {
     ).toBe(false);
   });
 
+  it("is false when a block lists bales by series (they always come with a counted sacking line)", () => {
+    expect(
+      isReportEmpty(
+        report({
+          bale_source: "BALE_PROD",
+          bales: [
+            block("EMPIRE", true, {
+              hessian: [baleLine("H ZERO", 0, 228.6, 0, 0)],
+              sacking: [baleLine("S1", 20, 290, 5.8, 20)],
+              series: [seriesLine("BIHAR", "S1", 20, 20, 290, 5.8, 2)],
+              series_total: { bales: 20, inspected_bales: 20, wt_mt: 5.8 },
+            }),
+          ],
+        }),
+      ),
+    ).toBe(false);
+    // Defensive: a series line with bales is enough on its own.
+    expect(
+      isReportEmpty(
+        report({
+          bale_source: "BALE_PROD",
+          bales: [
+            block("EMPIRE", true, {
+              sacking: [baleLine("S1", 0, 290, 0, 0)],
+              series: [seriesLine("BIHAR", "S1", 20, 20, 290, 5.8, 2)],
+            }),
+          ],
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it("stays true for an empty block whose series list is empty", () => {
+    expect(
+      isReportEmpty(
+        report({
+          bale_source: "BALE_PROD",
+          bales: [block("EMPIRE", true, { sacking: [baleLine("S1", 0, 290, 0, 0)], series: [] })],
+        }),
+      ),
+    ).toBe(true);
+  });
+
   it("is false when only the stage detail carries lines", () => {
     expect(
       isReportEmpty(
@@ -494,6 +699,11 @@ describe("EXPORT_COLUMNS", () => {
 
   it("leads with the column that carries the total label", () => {
     expect(lead).toBe("item");
+  });
+
+  it("puts Inspected right after Bales", () => {
+    const fields = EXPORT_COLUMNS.map((c) => c.field);
+    expect(fields.indexOf("inspected")).toBe(fields.indexOf("bales") + 1);
   });
 
   it("shades a data row as nothing, a section total as a group, a block total as grand", () => {

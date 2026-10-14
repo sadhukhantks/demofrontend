@@ -11,6 +11,7 @@
  * function that touches `window`.
  */
 import type { GridColDef, GridValidRowModel } from "@mui/x-data-grid";
+import { printFrameCss, wrapInPrintFrame } from "@/utils/printFrame";
 import { gridCellText, isDataColumn } from "./gridExportRows";
 
 export interface PrintColumn {
@@ -83,8 +84,13 @@ const CSS = `
   .r { text-align: right; } .c { text-align: center; }
   .empty { color: #777; font-style: italic; }
   .foot { margin-top: 12px; color: #555; font-size: 10px; }
-  @media print { body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 `;
+
+/** Paper margin of the printout, mm. @page margin is 0 (see buildPrintHtml) so
+ * the browser omits its own header/footer (date, title, URL, page number); the
+ * margin is applied by the print frame so it repeats on every printed page. */
+const PRINT_MARGIN_MM = 10;
 
 export function buildPrintHtml(
   opts: PrintReportOptions,
@@ -124,11 +130,14 @@ export function buildPrintHtml(
     .join("");
 
   const foot = opts.footnote ? `<p class="foot">${escapeHtml(opts.footnote)}</p>` : "";
-  const page = `@page { size: ${opts.landscape ? "landscape" : "portrait"}; margin: 10mm; }`;
+  const page = `@page { size: ${opts.landscape ? "landscape" : "portrait"}; margin: 0; }`;
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(
     opts.title,
-  )}</title><style>${page}${CSS}</style></head><body>${head}${body}${foot}</body></html>`;
+  )}</title><style>${page}${CSS}${printFrameCss({
+    sideMm: PRINT_MARGIN_MM,
+    topMm: PRINT_MARGIN_MM,
+  })}</style></head><body>${wrapInPrintFrame(`${head}${body}${foot}`)}</body></html>`;
 }
 
 /**

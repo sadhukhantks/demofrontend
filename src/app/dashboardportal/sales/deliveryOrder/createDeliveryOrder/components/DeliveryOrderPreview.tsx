@@ -119,9 +119,12 @@ const DeliveryOrderPreview: React.FC<DOPreviewProps> = ({ header, items, remarks
 	<meta charset="utf-8"/>
 	<title>Delivery Order - ${titleSuffix}</title>
 	<style>
-		@page { size: A4; margin: 10mm; }
+		/* @page margin 0 suppresses the browser's own header/footer (date, title,
+		   about:blank, page number) - body padding provides the paper margin instead
+		   (10mm former page margin + 20px former padding). */
+		@page { size: A4; margin: 0; }
 		* { box-sizing: border-box; }
-		body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+		body { font-family: Arial, sans-serif; margin: 0; padding: calc(10mm + 20px); color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 		.header-label { font-size:12px; font-weight:600; padding:2px 6px; white-space:nowrap; }
 		.header-colon { font-size:12px; padding:2px 2px; }
 		.header-value { font-size:12px; padding:2px 6px; font-weight:500; }

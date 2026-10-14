@@ -235,10 +235,14 @@ export function printStyles(orientation: "landscape" | "portrait"): string {
 @media print {
   body * { visibility: hidden; }
   .pay-print-area, .pay-print-area * { visibility: visible; }
-  .pay-print-area { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; }
+  /* @page margin 0 suppresses the browser's own header/footer (date, title, URL,
+     page number). The former 8mm page margin is the left offset / width here plus
+     the repeating top/bottom spacers of <PrintFrame marginMm={8}> around the
+     content, so it shows on every printed page. */
+  .pay-print-area { position: absolute; left: 8mm; top: 0; width: calc(100% - 16mm); margin: 0; padding: 0; }
   .pay-dept-section { break-before: page; }
   .pay-dept-section:first-of-type { break-before: auto; }
-  @page { size: A4 ${orientation}; margin: 8mm; }
+  @page { size: A4 ${orientation}; margin: 0; }
 }
 `;
 }

@@ -16,17 +16,25 @@ import type {
 export interface FlatRow {
   /** Owner company name, "LOOSE STOCK" or "DESPATCH". */
   block: string;
-  /** "HESSIAN", "SACKING" or "DESPATCH". */
+  /** "HESSIAN", "SACKING", "SACKING BY SERIES" or "DESPATCH". */
   section: string;
-  /** Quality / item name, or "TOTAL" / "GRAND TOTAL" on a summary row. */
+  /** Quality / item name (the series name in the SACKING BY SERIES section),
+   * or "TOTAL" / "GRAND TOTAL" on a summary row. */
   item: string;
   bales: number | null;
+  /** Inspected bales — set on the derived own block's lines (BALE_PROD mode)
+   * and on the SACKING BY SERIES rows including their TOTAL (the backend
+   * totals it); null on manual / other-owner lines and on every other total,
+   * loose and despatch row. */
+  inspected: number | null;
   per_wt_kg: number | null;
   wt_mt: number;
 }
 
 const LOOSE_BLOCK = "LOOSE STOCK";
 const DESPATCH_BLOCK = "DESPATCH";
+/** The own block's sacking-by-series breakup (spec §7a), after its GRAND TOTAL. */
+export const SERIES_SECTION = "SACKING BY SERIES";
 
 /**
  * Columns of the flattened Excel sheet (the screen layout is hand-laid).
@@ -43,6 +51,7 @@ export const EXPORT_COLUMNS: GridColDef<FlatRow>[] = [
   { field: "block", headerName: "Block", width: 220 },
   { field: "section", headerName: "Section", width: 120 },
   { field: "bales", headerName: "Bales", type: "number", width: 100 },
+  { field: "inspected", headerName: "Inspected", type: "number", width: 110 },
   { field: "per_wt_kg", headerName: "Per-bale Kg", type: "number", width: 130 },
   { field: "wt_mt", headerName: "MT", type: "number", width: 110 },
 ];
@@ -56,6 +65,7 @@ const baleRow = (
   section,
   item: line.item_name ?? "",
   bales: line.bales,
+  inspected: line.inspected_bales,
   per_wt_kg: line.per_wt_kg,
   wt_mt: line.wt_mt,
 });
@@ -68,7 +78,7 @@ const totalRow = (
   item: string,
   bales: number | null,
   wt_mt: number,
-): FlatRow => ({ block, section, item, bales, per_wt_kg: null, wt_mt });
+): FlatRow => ({ block, section, item, bales, inspected: null, per_wt_kg: null, wt_mt });
 
 export function flattenReport(report: FinishingStockReport): FlatRow[] {
   const rows: FlatRow[] = [];
@@ -103,6 +113,32 @@ export function flattenReport(report: FinishingStockReport): FlatRow[] {
       rows.push(
         totalRow(block, "", "GRAND TOTAL", b.total.bales, b.total.wt_mt),
       );
+    }
+    // Series breakup of the sacking bales — own block, BALE_PROD mode; the
+    // backend sends [] everywhere else. A breakup of lines already listed
+    // above, so it follows the block's grand total rather than feeding it.
+    const series = b.series ?? [];
+    if (series.length) {
+      for (const s of series) {
+        rows.push({
+          block,
+          section: SERIES_SECTION,
+          item: s.series_name ?? "",
+          bales: s.bales,
+          inspected: s.inspected_bales,
+          per_wt_kg: s.per_wt_kg,
+          wt_mt: s.wt_mt,
+        });
+      }
+      rows.push({
+        block,
+        section: SERIES_SECTION,
+        item: "TOTAL",
+        bales: b.series_total.bales,
+        inspected: b.series_total.inspected_bales,
+        per_wt_kg: null,
+        wt_mt: b.series_total.wt_mt,
+      });
     }
   }
 
@@ -149,6 +185,7 @@ export function flattenReport(report: FinishingStockReport): FlatRow[] {
       section: DESPATCH_BLOCK,
       item: d.item_name ?? "",
       bales: d.bales,
+      inspected: null,
       per_wt_kg: null,
       wt_mt: d.qty,
     });
@@ -157,7 +194,7 @@ export function flattenReport(report: FinishingStockReport): FlatRow[] {
   return rows;
 }
 
-const isZeroBale = (l: FinishingStockBaleLine): boolean =>
+const isZeroBale = (l: Pick<FinishingStockBaleLine, "bales" | "wt_mt">): boolean =>
   l.bales === 0 && l.wt_mt === 0;
 
 /**
@@ -168,11 +205,17 @@ const isZeroBale = (l: FinishingStockBaleLine): boolean =>
  * question of values, never of array length: every bale line 0 bales and
  * 0 MT, every loose line 0 MT, and no stage or despatch line at all.
  * (`[].every(...)` is true, so genuinely empty arrays pass the same test.)
+ * Series lines only ever accompany a non-zero sacking line, so they can never
+ * flip the verdict on their own; they are read anyway so a block is never
+ * called empty while it lists bales by series.
  */
 export function isReportEmpty(report: FinishingStockReport): boolean {
   return (
     report.bales.every(
-      (b) => b.hessian.every(isZeroBale) && b.sacking.every(isZeroBale),
+      (b) =>
+        b.hessian.every(isZeroBale) &&
+        b.sacking.every(isZeroBale) &&
+        (b.series ?? []).every(isZeroBale),
     ) &&
     report.loose.hessian.every((l) => l.wt_mt === 0) &&
     report.loose.sacking.every((l) => l.wt_mt === 0) &&
