@@ -19,9 +19,14 @@ import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayISO } from "../spreader/utils/shift";
 import { useRollStock } from "../spreader/hooks/useRollStock";
 import RollStockTable from "../spreader/_components/RollStockTable";
-import { useMaturityReport, useProductionSummary } from "./hooks/useReports";
+import {
+	useMaturityReport,
+	useProductionSummary,
+	useRollStockTargetVsActual,
+} from "./hooks/useReports";
 import MaturityReportTable from "./_components/MaturityReportTable";
 import PivotTable from "./_components/PivotTable";
+import TargetVsActualTable from "./_components/TargetVsActualTable";
 
 const TABS = ["Maturity Time", "Spreader Production", "Stock As At"] as const;
 const SHIFTS = ["A1", "B1", "A2", "B2", "C"] as const;
@@ -90,6 +95,17 @@ export default function RollStockReportsPage() {
 		setAsOfHour(end.hour);
 	};
 	const stockAsAt = useRollStock(tab === 2 ? coId : null, branchId, asOfDt);
+	// TKT-000170: planner target vs actual at the same as-at time.
+	const targetVsActual = useRollStockTargetVsActual(tab === 2 ? coId : null, branchId, asOfDt);
+	const targetExportHeader = React.useMemo(
+		() => ({
+			companyName: selectedCompany?.co_name ?? null,
+			branchName: branchOptions.find((b) => Number(b.branch_id) === branchId)?.branch_name ?? null,
+			reportName: "Roll Stock Target vs Actual",
+			reportFor: asOfDt ? asOfDt.replace("T", " ") : null,
+		}),
+		[selectedCompany, branchOptions, branchId, asOfDt]
+	);
 
 	const [mounted, setMounted] = React.useState(false);
 	React.useEffect(() => {
@@ -134,7 +150,7 @@ export default function RollStockReportsPage() {
 				Roll Stock Reports
 			</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-				Maturity time by issue, spreader production summary, and roll stock as at any date &amp; time.
+				Maturity time by issue, spreader production summary, and roll stock (target vs actual) as at any date &amp; time.
 			</Typography>
 
 			<Tabs
@@ -348,6 +364,12 @@ export default function RollStockReportsPage() {
 						<Alert severity="info">Select a branch to load spreader data.</Alert>
 					) : (
 						<>
+							<TargetVsActualTable
+								data={targetVsActual.data}
+								loading={targetVsActual.loading}
+								error={targetVsActual.error}
+								exportHeader={targetExportHeader}
+							/>
 							{stockAsAt.error ? <Alert severity="error">{stockAsAt.error}</Alert> : null}
 							<RollStockTable
 								rows={stockAsAt.rows}

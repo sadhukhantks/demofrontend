@@ -71,9 +71,18 @@ export type WinderWiseRow = {
 	target_kg: number | null;
 };
 
-// Machine label as the Quality tab shows it: code first, name as the fallback.
-function machineLabel(r: WindingSpellReportRow): string {
-	return r.mech_code || r.machine_name || "";
+// Machine label: code AND name (TKT-000169 follow-up — a bare code like "4101"
+// read as an id). When the name already contains the code (sls "WINDING4101"
+// for code "4101") the name alone says both; otherwise "code - name". Either one
+// alone when the other is missing; "" when the winder has no mapped machine.
+export function machineLabel(r: {
+	mech_code?: string | null;
+	machine_name?: string | null;
+}): string {
+	const code = (r.mech_code ?? "").trim();
+	const name = (r.machine_name ?? "").trim();
+	if (code && name) return name.includes(code) ? name : `${code} - ${name}`;
+	return code || name;
 }
 
 // A, B, C in order; anything else (a spell with no A/B/C code) sorts last.

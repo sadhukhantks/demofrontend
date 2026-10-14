@@ -143,6 +143,7 @@ const apiRoutesPortalMasters = {
     ITEM_MAKE_CREATE_SETUP: `${API_URL}/itemMaster/item_make_create_setup`,
     ITEM_MAKE_CREATE: `${API_URL}/itemMaster/item_make_create`,
     ITEM_SEARCH: `${API_URL}/itemMaster/item_search`,
+    ITEM_BRANCH_POSITION: `${API_URL}/itemMaster/item_branch_position`, // TKT-000193: stock / pending indent / pending PO / in receipt per item at a branch
 
         // Item BOM Master endpoints
     BOM_LIST: `${API_URL}/itemBomMaster/get_bom_list`,
@@ -381,6 +382,7 @@ const apiRoutesPortalMasters = {
     JUTE_ISSUE_REJECT: `${API_URL}/juteIssue/reject_issues`,
     JUTE_ISSUE_DOWNLOAD: `${API_URL}/juteIssue/download_issue_table`,
     JUTE_ISSUE_SYNC_WEIGHTS: `${API_URL}/juteIssue/sync_issue_weights`,
+    JUTE_ISSUE_REPRICE: `${API_URL}/juteIssue/reprice_issues`,
 
     // Yarn Purchase (receipt of purchased yarn, kg) — vowerp3be/docs/superpowers/specs/2026-09-25-yarn-purchase-issue-consumption-design.md §3.1
     YARN_PURCHASE_SETUP: `${API_URL}/yarnPurchase/setup`,
@@ -1095,6 +1097,7 @@ const apiRoutesPortalMasters = {
     SPREADER_ISSUE_DELETE: `${API_URL}/spreaderProd/issue_delete`,
     SPREADER_ROLL_STOCK: `${API_URL}/spreaderProd/roll_stock`,
     SPREADER_ROLL_STOCK_QUALITY_SUMMARY: `${API_URL}/spreaderProd/roll_stock_quality_summary`,
+    SPREADER_ROLL_STOCK_TARGET_VS_ACTUAL: `${API_URL}/spreaderProd/roll_stock_target_vs_actual`,
     JUTE_PROD_MATURITY_REPORT: `${API_URL}/juteProductionReports/maturity_time_report`,
     JUTE_PROD_SPREADER_SUMMARY: `${API_URL}/juteProductionReports/spreader_production_summary`,
     JUTE_PROD_SPREADER_DATEWISE: `${API_URL}/juteProductionReports/spreader_production_datewise`,
@@ -1179,6 +1182,9 @@ const apiRoutesPortalMasters = {
     WINDING_QUALITY_ADD: `${API_URL}/windingProd/quality_add`,
     WINDING_QUALITY_DELETE: `${API_URL}/windingProd/quality_delete`,
     WINDING_QUALITY_BY_DATE: `${API_URL}/windingProd/quality_by_date`,
+    // TKT-000171: reconcile the map with the unit's attendance (winding freezes nothing,
+    // so this is the winding "Sync" — a fill-sync of the map, not a reprocess).
+    WINDING_QUALITY_SYNC: `${API_URL}/windingProd/quality_sync`,
     // Winding stock — daily counted snapshot (router prefix /api/windingStock).
     // *_EDIT / *_DELETE are base paths; caller appends /${id}?co_id=...
     WINDING_STOCK_SETUP: `${API_URL}/windingStock/setup`,
@@ -1234,6 +1240,50 @@ const apiRoutesPortalMasters = {
     LPF_EVENT_DEACTIVATE: `${API_URL}/lowPerformerFollowup/event_deactivate`,
     LPF_PERFORMANCE: `${API_URL}/lowPerformerFollowup/performance`,
     LPF_TRACKED: `${API_URL}/lowPerformerFollowup/tracked`,
+    // Long Absenteeism follow-up (name struck off) — router prefix /api/longAbsenteeism.
+    // Cases / candidates / events (long_absenteeism.py):
+    LA_SETUP: `${API_URL}/longAbsenteeism/setup`,
+    LA_CANDIDATES: `${API_URL}/longAbsenteeism/candidates`,
+    LA_LIST: `${API_URL}/longAbsenteeism/list`,
+    LA_GET: `${API_URL}/longAbsenteeism/get`,
+    LA_OPEN: `${API_URL}/longAbsenteeism/open`,
+    LA_DISMISS: `${API_URL}/longAbsenteeism/dismiss`,
+    LA_VERIFY: `${API_URL}/longAbsenteeism/verify`,
+    LA_UPDATE: `${API_URL}/longAbsenteeism/update`,
+    LA_PARK: `${API_URL}/longAbsenteeism/park`,
+    LA_RESUME: `${API_URL}/longAbsenteeism/resume`,
+    LA_EXIT: `${API_URL}/longAbsenteeism/exit`,
+    LA_REOPEN: `${API_URL}/longAbsenteeism/reopen`,
+    LA_EVENTS: `${API_URL}/longAbsenteeism/events`,
+    LA_EVENT_CREATE: `${API_URL}/longAbsenteeism/event_create`,
+    LA_EVENT_UPDATE: `${API_URL}/longAbsenteeism/event_update`,
+    LA_EVENT_DEACTIVATE: `${API_URL}/longAbsenteeism/event_deactivate`,
+    LA_PERFORMANCE: `${API_URL}/longAbsenteeism/performance`,
+    // Rule / templates / letters / dispatch / receipts / struck-off approval / reports (long_absenteeism_letters.py):
+    LA_RULE: `${API_URL}/longAbsenteeism/rule`,
+    LA_RULE_SAVE: `${API_URL}/longAbsenteeism/rule_save`,
+    LA_TEMPLATES: `${API_URL}/longAbsenteeism/templates`,
+    LA_TEMPLATE_SAVE: `${API_URL}/longAbsenteeism/template_save`,
+    LA_TEMPLATE_RESET: `${API_URL}/longAbsenteeism/template_reset`,
+    LA_LETTERS: `${API_URL}/longAbsenteeism/letters`,
+    LA_LETTERS_DUE: `${API_URL}/longAbsenteeism/letters_due`,
+    LA_LETTER_PREVIEW: `${API_URL}/longAbsenteeism/letter_preview`,
+    LA_LETTER_ISSUE: `${API_URL}/longAbsenteeism/letter_issue`,
+    LA_LETTER_ISSUE_BATCH: `${API_URL}/longAbsenteeism/letter_issue_batch`,
+    LA_LETTER_UPDATE: `${API_URL}/longAbsenteeism/letter_update`,
+    LA_DISPATCH: `${API_URL}/longAbsenteeism/dispatch`,
+    LA_RECEIPT_CREATE: `${API_URL}/longAbsenteeism/receipt_create`,
+    LA_RECEIPT_UPDATE: `${API_URL}/longAbsenteeism/receipt_update`,
+    LA_RECEIPT_DEACTIVATE: `${API_URL}/longAbsenteeism/receipt_deactivate`,
+    LA_UNION_NAMES: `${API_URL}/longAbsenteeism/union_names`,
+    LA_STRUCK_OFF_SEND: `${API_URL}/longAbsenteeism/struck_off/send`,
+    LA_STRUCK_OFF_APPROVE: `${API_URL}/longAbsenteeism/struck_off/approve`,
+    LA_STRUCK_OFF_REJECT: `${API_URL}/longAbsenteeism/struck_off/reject`,
+    LA_STRUCK_OFF_REOPEN: `${API_URL}/longAbsenteeism/struck_off/reopen`,
+    LA_STRUCK_OFF_PERMISSIONS: `${API_URL}/longAbsenteeism/struck_off/permissions`,
+    LA_REPORT_STRUCK_OFF_REGISTER: `${API_URL}/longAbsenteeism/report/struck_off_register`,
+    LA_REPORT_STAGE_SUMMARY: `${API_URL}/longAbsenteeism/report/stage_summary`,
+    LA_REPORT_MONTHLY_TREND: `${API_URL}/longAbsenteeism/report/monthly_trend`,
     JP_HANDS_REPORT: `${API_URL}/juteProductionReports/hands_report`,
     JP_HANDS_REPORT_MACHINE_OVERRIDE: `${API_URL}/juteProductionReports/hands_report_machine_override`,
     JP_HANDS_REPORT_MACHINE_OVERRIDE_UNDO: `${API_URL}/juteProductionReports/hands_report_machine_override_undo`,
@@ -1590,6 +1640,10 @@ const apiRoutesPortalMasters = {
     // Cheap saved-mapping-only read (no carry-forward) — used by the entry grid.
     WEAVING_QUALITY_MAP_SAVED: `${API_URL}/weavingProd/quality_map_saved`,
     WEAVING_QUALITY_MAP_SAVE: `${API_URL}/weavingProd/quality_map_save`,
+    // TKT-000119: fill unmapped looms from their previous mapping (date/spell range) and
+    // the existing loom groupings (Hands Norms machine groups + Loom Groups) for bulk select.
+    WEAVING_QUALITY_MAP_CARRY_FORWARD: `${API_URL}/weavingProd/quality_map_carry_forward`,
+    WEAVING_QUALITY_MAP_GROUPS: `${API_URL}/weavingProd/quality_map_groups`,
     // Beam-change tab (router prefix /api/weavingProd)
     WEAVING_BEAM_MAP_GET: `${API_URL}/weavingProd/beam_map_get`,
     WEAVING_BEAM_MAP_SAVE: `${API_URL}/weavingProd/beam_map_save`,

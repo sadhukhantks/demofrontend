@@ -34,11 +34,14 @@ import {
 import { Search, Plus, AlertCircle } from "lucide-react";
 import {
 	fetchItemSearch,
+	fetchItemBranchPosition,
 	type ItemSearchResult,
 	type ItemSearchMake,
 	type ItemSearchUom,
+	type ItemBranchPosition,
 } from "@/utils/itemSearchService";
 import { useDebounce } from "@/hooks/use-debounce";
+import Tooltip from "@mui/material/Tooltip";
 
 /**
  * Represents a selected item with all related metadata needed to create a line item.
@@ -81,9 +84,54 @@ type ItemSelectionDialogProps = {
 	excludeItemIds?: Set<number>;
 	/** Dialog title override */
 	title?: string;
+	/**
+	 * Branch whose procurement position to show per item (TKT-000193). When set,
+	 * four extra columns appear — Stock, Indent Pending, PO Pending, In Receipt —
+	 * loaded for the current page after the items themselves render.
+	 */
+	branchId?: string;
 };
 
 const PAGE_SIZE = 15;
+
+/** Position columns shown when `branchId` is given, in display order. */
+export const POSITION_COLUMNS: ReadonlyArray<{
+	key: Exclude<keyof ItemBranchPosition, "item_id">;
+	label: string;
+	tooltip: string;
+}> = Object.freeze([
+	{
+		key: "cur_stock",
+		label: "Stock",
+		tooltip: "Current stock at the selected branch: approved store receipts less issues and returns.",
+	},
+	{
+		key: "pending_indent_qty",
+		label: "Indent Pending",
+		tooltip: "Already indented, but no purchase order placed yet.",
+	},
+	{
+		key: "pending_po_qty",
+		label: "PO Pending",
+		tooltip: "Ordered on a purchase order, but not yet received at the gate.",
+	},
+	{
+		key: "in_process_qty",
+		label: "In Receipt",
+		tooltip: "Gate entry done, but material inspection or store receipt approval is still pending.",
+	},
+]);
+
+/**
+ * Format a position quantity for the dialog: up to 3 decimals, no trailing
+ * zeros, Indian digit grouping, and "0" for missing or non-finite values.
+ */
+export function formatPositionQty(value: number | null | undefined): string {
+	if (value == null || !Number.isFinite(value)) return "0";
+	const rounded = Math.round(value * 1000) / 1000;
+	if (rounded === 0) return "0";
+	return rounded.toLocaleString("en-IN", { maximumFractionDigits: 3 });
+}
 
 export function ItemSelectionDialog({
 	open,
@@ -93,8 +141,13 @@ export function ItemSelectionDialog({
 	filter,
 	excludeItemIds,
 	title = "Select Items",
+	branchId,
 }: ItemSelectionDialogProps) {
 	const [rows, setRows] = React.useState<ItemSearchResult[]>([]);
+	const [positions, setPositions] = React.useState<Record<number, ItemBranchPosition>>({});
+	const [positionLoading, setPositionLoading] = React.useState(false);
+	const positionRequestRef = React.useRef(0);
+	const showPosition = Boolean(branchId);
 	const [makes, setMakes] = React.useState<ItemSearchMake[]>([]);
 	const [uoms, setUoms] = React.useState<ItemSearchUom[]>([]);
 	const [loading, setLoading] = React.useState(false);
@@ -152,6 +205,31 @@ export function ItemSelectionDialog({
 	React.useEffect(() => {
 		setSelectedIds(new Set());
 	}, [rows]);
+
+	// TKT-000193: load the procurement position of the items on this page once
+	// a branch is known. Runs after the rows render so the item list is never
+	// held up by it; the request counter drops responses that arrive late.
+	React.useEffect(() => {
+		const requestId = ++positionRequestRef.current;
+		if (!branchId || rows.length === 0) {
+			setPositions({});
+			setPositionLoading(false);
+			return;
+		}
+		setPositionLoading(true);
+		fetchItemBranchPosition(branchId, rows.map((row) => row.item_id))
+			.then((result) => {
+				if (positionRequestRef.current !== requestId) return;
+				setPositions(result);
+			})
+			.catch(() => {
+				if (positionRequestRef.current !== requestId) return;
+				setPositions({});
+			})
+			.finally(() => {
+				if (positionRequestRef.current === requestId) setPositionLoading(false);
+			});
+	}, [branchId, rows]);
 
 	const handleSelectAll = React.useCallback(
 		(checked: boolean) => {
@@ -238,12 +316,14 @@ export function ItemSelectionDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-5xl max-h-[85vh] flex flex-col p-0 gap-0 max-sm:max-w-none max-sm:w-full max-sm:h-full max-sm:max-h-full max-sm:rounded-none">
+			<DialogContent className={`${showPosition ? "max-w-7xl" : "max-w-5xl"} max-h-[85vh] flex flex-col p-0 gap-0 max-sm:max-w-none max-sm:w-full max-sm:h-full max-sm:max-h-full max-sm:rounded-none`}>
 				{/* Header */}
 				<DialogHeader className="p-4 pb-3 border-b border-gray-200">
 					<DialogTitle>{title}</DialogTitle>
 					<DialogDescription>
-						Search and select items to add to the transaction.
+						{showPosition
+							? "Search and select items to add. Quantities are for the selected branch: Stock = current stock, Indent Pending = indented but not ordered, PO Pending = ordered but not received, In Receipt = received at the gate but SR not yet approved."
+							: "Search and select items to add to the transaction."}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -306,13 +386,21 @@ export function ItemSelectionDialog({
 								<TableHead className="w-16">UOM</TableHead>
 								<TableHead className="w-24">HSN Code</TableHead>
 								<TableHead className="w-16 text-right">Tax %</TableHead>
+								{showPosition &&
+									POSITION_COLUMNS.map((col) => (
+										<TableHead key={col.key} className="w-24 text-right whitespace-nowrap">
+											<Tooltip title={col.tooltip} arrow placement="top">
+												<span className="cursor-help underline decoration-dotted">{col.label}</span>
+											</Tooltip>
+										</TableHead>
+									))}
 							</TableRow>
 						</TableHeader>
 						<TableBody>
 							{rows.length === 0 ? (
 								<TableRow>
 									<TableCell
-										colSpan={7}
+										colSpan={showPosition ? 7 + POSITION_COLUMNS.length : 7}
 										className="text-center py-8 text-gray-500"
 									>
 										{debouncedSearch
@@ -373,6 +461,25 @@ export function ItemSelectionDialog({
 													? `${row.tax_percentage}%`
 													: "-"}
 											</TableCell>
+											{showPosition &&
+												POSITION_COLUMNS.map((col) => {
+													const value = positions[row.item_id]?.[col.key];
+													const pending = positionLoading && value == null;
+													return (
+														<TableCell
+															key={col.key}
+															className="text-right font-mono text-xs whitespace-nowrap"
+														>
+															{pending ? (
+																<span className="text-gray-300">…</span>
+															) : (
+																<span className={value ? "text-gray-800" : "text-gray-400"}>
+																	{formatPositionQty(value)}
+																</span>
+															)}
+														</TableCell>
+													);
+												})}
 										</TableRow>
 									);
 								})

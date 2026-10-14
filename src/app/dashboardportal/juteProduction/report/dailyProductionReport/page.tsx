@@ -54,6 +54,13 @@ import {
 import { DprAvgCountTable, avgCountKpi } from "./_components/DprAvgCountTable";
 import { DprWindingTable } from "./_components/DprWindingTable";
 import { juteCoverKpiSub, juteCoverSubtitle } from "./_components/dprJuteCover";
+import {
+  commonSplitLabel,
+  fallbackHandsText,
+  handsKpiSub,
+  stageDeptsText,
+  yarnBalanceText,
+} from "./_components/dprHands";
 
 // Status thresholds for the KPI strip.
 const UTIL_GOOD_PCT = 80;
@@ -310,10 +317,10 @@ function Content() {
             <KpiCard
               label="Hands / MT"
               value={fmt(data.kpi.hands_per_mt, 1)}
-              // Denominator on the card (TKT-000117): "396 hands" beside a spinning
-              // MT elsewhere on the page made the ratio look wrong — it divides by
-              // spinning + weaving, so show that MT here.
-              sub={`${fmt(data.kpi.total_hands, 0)} hands ÷ ${fmt(data.kpi.hands_basis_mt, 3)} MT`}
+              // TKT-000185: per MT of cloth = yarn stage + cloth stage; the two
+              // addends and the MTD figure ride on the card so it reconciles
+              // here (TKT-000117 asked for the arithmetic to be visible).
+              sub={handsKpiSub(data.kpi)}
             />
             <KpiCard
               label="Jute Closing Stock"
@@ -330,7 +337,8 @@ function Content() {
               state={utilState(data.kpi.frame_utilization_pct)}
             />
             {/* Average count by frames / production / std production
-                (TKT-000173) — the detail table sits under the quality section. */}
+                (TKT-000173): SQC actual count as the headline, std count in the
+                caption (TKT-000201) — the detail table sits under the quality section. */}
             {spinning?.avg_count ? (
               <KpiCard label="Avg Count (lb)" {...avgCountKpi(spinning.avg_count)} />
             ) : null}
@@ -774,10 +782,68 @@ function Content() {
                 <NumTd value={data.hands.total.mtd_hands} digits={0} bold />
               </Tr>
             </DprTable>
+            {data.hands.stages.available ? (
+              <>
+                {/* TKT-000185: each stage over its own tonnage, common hands
+                    spread pro-rata, the headline the sum (per MT of cloth). */}
+                <Box sx={{ mt: 1.5 }}>
+                  <DprTable
+                    head={
+                      <Tr>
+                        <Td>Stage</Td>
+                        <Td align="right">Hands</Td>
+                        <Td align="right">MT</Td>
+                        <Td align="right">Hands / MT</Td>
+                        <Td align="right">MTD Hands / MT</Td>
+                      </Tr>
+                    }
+                  >
+                    {[data.hands.stages.yarn, data.hands.stages.cloth].map((s) => (
+                      <Tr key={s.label}>
+                        <Td>
+                          {s.label} ÷ {s.basis_label}
+                        </Td>
+                        <NumTd value={s.day_hands} />
+                        <NumTd value={s.day_mt} digits={3} />
+                        <NumTd value={s.hands_per_mt} digits={1} />
+                        <NumTd value={s.mtd_hands_per_mt} digits={1} />
+                      </Tr>
+                    ))}
+                    <Tr>
+                      <Td>{commonSplitLabel(data.hands.stages)}</Td>
+                      <NumTd value={data.hands.stages.common.day_hands} />
+                      <Td align="right">—</Td>
+                      <Td align="right">—</Td>
+                      <Td align="right">—</Td>
+                    </Tr>
+                    <Tr sx={totalRowSx()}>
+                      <Td>Hands per MT of cloth (yarn + cloth)</Td>
+                      <NumTd value={data.hands.stages.total.day_hands} bold />
+                      <Td align="right">—</Td>
+                      <NumTd value={data.hands.stages.total.hands_per_mt} digits={1} bold />
+                      <NumTd value={data.hands.stages.total.mtd_hands_per_mt} digits={1} bold />
+                    </Tr>
+                    {/* The previous figure (TKT-000117), kept for continuity. */}
+                    <Tr>
+                      <Td>{data.hands.spinning_basis.label}</Td>
+                      <NumTd value={data.hands.spinning_basis.day_hands} />
+                      <NumTd value={data.hands.spinning_basis.day_mt} digits={3} />
+                      <NumTd value={data.hands.spinning_basis.hands_per_mt} digits={1} />
+                      <NumTd value={data.hands.spinning_basis.mtd_hands_per_mt} digits={1} />
+                    </Tr>
+                  </DprTable>
+                </Box>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+                  {stageDeptsText(data.hands.stages)}
+                </Typography>
+              </>
+            ) : (
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+                {fallbackHandsText(data.hands)}
+              </Typography>
+            )}
             <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-              Overall labour productivity: {fmt(data.hands.total.day_hands, 2)} hands ÷{" "}
-              {fmt(data.hands.basis_mt, 3)} MT ({data.hands.basis_label}) ={" "}
-              {fmt(data.hands.hands_per_mt, 1)} hands per MT.
+              {yarnBalanceText(data.hands.yarn_balance)}
             </Typography>
           </SectionCard>
 

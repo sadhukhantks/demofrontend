@@ -12,6 +12,7 @@ import {
   SHIFT_LABEL,
   SHIFT_ORDER,
   STD_COLOR,
+  STDC_COLOR,
   TGT_COLOR,
 } from "./chartPalette";
 import type {
@@ -125,14 +126,15 @@ export function stackByShift(dates: string[], rows: TrendDayShiftRow[]): Stacked
 
 export interface LineSeries extends SeriesDef {
   data: (number | null)[];
-  /** Standard and target lines are drawn dashed / dotted so the actual
-   * (solid) is the one the eye lands on. */
-  dash?: "dash" | "dot";
+  /** Standard, std-at-std-count and target lines are drawn dashed /
+   * dash-dot / dotted so the actual (solid) is the one the eye lands on. */
+  dash?: "dash" | "dot" | "dashdot";
 }
 
-/** Which figure a line carries: the actual kg per frame-shift, the standard
- * or the target (where a target efficiency is entered). */
-export type LineMeasure = "actual" | "std" | "tgt";
+/** Which figure a line carries: the actual kg per frame-shift, the standard,
+ * the standard at the yarn's standard count, or the target (where a target
+ * efficiency is entered). */
+export type LineMeasure = "actual" | "std" | "tgt" | "stdc";
 
 interface RatioParts {
   num: number;
@@ -144,8 +146,13 @@ interface RatioParts {
  * average of averages. */
 function measureParts(r: TrendDayQualityRow, measure: LineMeasure): RatioParts | null {
   if (measure === "actual") return r.frame_shifts ? { num: r.kg, den: r.frame_shifts } : null;
-  const kg = measure === "std" ? r.std_kg : r.tgt_kg;
-  const perFs = measure === "std" ? r.std_kg_per_frame_shift : r.tgt_kg_per_frame_shift;
+  const kg = measure === "std" ? r.std_kg : measure === "tgt" ? r.tgt_kg : r.stdc_kg;
+  const perFs =
+    measure === "std"
+      ? r.std_kg_per_frame_shift
+      : measure === "tgt"
+        ? r.tgt_kg_per_frame_shift
+        : r.stdc_kg_per_frame_shift;
   if (kg == null || !perFs) return null;
   return { num: kg, den: kg / perFs };
 }
@@ -179,20 +186,26 @@ export function qualityLines(
   }));
 }
 
-/** Actual / standard / target lines for ONE series over the days — the
- * small-multiple form (one quality, one shift, the whole mill). `tgt` is
- * left out when no day carries a target. */
+/** Actual / standard / std-at-std-count / target lines for ONE series over
+ * the days — the small-multiple form (one quality, one shift, the whole
+ * mill). `stdc` and `tgt` are left out when no day carries them. */
+export const STDC_LABEL = "Std at std count";
+
 export function actualStdTgtLines(
   label: string,
   color: string,
   actual: (number | null)[],
   std: (number | null)[],
   tgt: (number | null)[],
+  stdc: (number | null)[] = [],
 ): LineSeries[] {
   const out: LineSeries[] = [
     { key: "actual", label: `${label} actual`, color, data: actual },
     { key: "std", label: "Standard", color: STD_COLOR, data: std, dash: "dash" },
   ];
+  if (stdc.some((v) => v != null)) {
+    out.push({ key: "stdc", label: STDC_LABEL, color: STDC_COLOR, data: stdc, dash: "dashdot" });
+  }
   if (tgt.some((v) => v != null)) {
     out.push({ key: "tgt", label: "Target", color: TGT_COLOR, data: tgt, dash: "dot" });
   }
@@ -204,6 +217,8 @@ export type PivotMeasure =
   | "kg_per_frame_shift"
   | "std_kg_per_frame_shift"
   | "std_kg"
+  | "stdc_kg_per_frame_shift"
+  | "stdc_kg"
   | "tgt_kg_per_frame_shift"
   | "tgt_kg"
   | "frame_shifts";
@@ -216,11 +231,15 @@ export const PIVOT_MEASURES: {
   decimals: number;
   /** Only offered when the data carries a target. */
   needsTarget?: boolean;
+  /** Only offered when the data carries a standard at the standard count. */
+  needsStdc?: boolean;
 }[] = [
   { value: "kg", label: "Production (kg)", short: "Kg", decimals: 0 },
   { value: "kg_per_frame_shift", label: "Kg per frame-shift", short: "Kg / fr-shift", decimals: 1 },
   { value: "std_kg_per_frame_shift", label: "Std per frame-shift", short: "Std / fr-shift", decimals: 1 },
   { value: "std_kg", label: "Standard (kg)", short: "Std kg", decimals: 0 },
+  { value: "stdc_kg_per_frame_shift", label: "Std at std count per frame-shift", short: "Std@count / fr-shift", decimals: 1, needsStdc: true },
+  { value: "stdc_kg", label: "Std at std count (kg)", short: "Std@count kg", decimals: 0, needsStdc: true },
   { value: "tgt_kg_per_frame_shift", label: "Target per frame-shift", short: "Tgt / fr-shift", decimals: 1, needsTarget: true },
   { value: "tgt_kg", label: "Target (kg)", short: "Tgt kg", decimals: 0, needsTarget: true },
   { value: "frame_shifts", label: "Frame-shifts", short: "Fr-shifts", decimals: 0 },

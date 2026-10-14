@@ -17,11 +17,14 @@ import {
 	CircularProgress,
 	Snackbar,
 } from "@mui/material";
-import { ArrowLeft, Save, CheckCircle } from "lucide-react";
+import { ArrowLeft, Save, CheckCircle, FileDown, Printer } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import AttachmentUploader from "@/components/AttachmentUploader";
+import useCompanyName from "@/hooks/useCompanyName";
+import { downloadTablesPdf, printTablesPdf } from "@/components/reports/tablesPdf";
+import { buildBillPassPdfSpec } from "../billPassPdf";
 
 /**
  * @component BillPassEditPage
@@ -157,6 +160,7 @@ function BillPassEditPageContent() {
 	const searchParams = useSearchParams();
 	const billPassIdParam = searchParams.get("id");
 	const { coId } = useSelectedCompanyCoId();
+	const companyName = useCompanyName();
 
 	// State
 	const [header, setHeader] = React.useState<BillPassHeader | null>(null);
@@ -164,7 +168,8 @@ function BillPassEditPageContent() {
 	const [loading, setLoading] = React.useState(true);
 	const [saving, setSaving] = React.useState(false);
 	const [pageError, setPageError] = React.useState<string | null>(null);
-	const [snackbar, setSnackbar] = React.useState<{ open: boolean; message: string; severity: "success" | "error" }>({
+	const [pdfBusy, setPdfBusy] = React.useState(false);
+	const [snackbar, setSnackbar] = React.useState<{ open: boolean; message: string; severity: "success" | "error" | "warning" }>({
 		open: false,
 		message: "",
 		severity: "success",
@@ -364,6 +369,47 @@ function BillPassEditPageContent() {
 		}
 	};
 
+	// Print / Download PDF (TKT-000195) — the SAVED bill pass, so the paper copy
+	// always matches the record accounting will look up.
+	const hasUnsavedEdits = React.useMemo(() => {
+		if (!header) return false;
+		const saved: Record<string, string> = {
+			invoice_no: header.invoice_no ?? "",
+			invoice_date: toDateInput(header.invoice_date),
+			invoice_amount: header.invoice_amount?.toString() ?? "",
+			invoice_received_date: toDateInput(header.invoice_received_date),
+			payment_due_date: toDateInput(header.payment_due_date),
+			freight_charges: header.freight_charges?.toString() ?? "",
+			remarks: header.remarks ?? "",
+		};
+		return Object.entries(saved).some(([k, v]) => formData[k as keyof typeof formData] !== v);
+	}, [header, formData]);
+
+	const handlePdf = async (mode: "download" | "print") => {
+		if (!header) return;
+		setPdfBusy(true);
+		try {
+			const spec = buildBillPassPdfSpec(header, lineItems, companyName);
+			if (mode === "print") await printTablesPdf(spec);
+			else await downloadTablesPdf(spec);
+			if (hasUnsavedEdits) {
+				setSnackbar({
+					open: true,
+					message: "The PDF shows the last saved values. Save first to include your unsaved changes.",
+					severity: "warning",
+				});
+			}
+		} catch (err) {
+			setSnackbar({
+				open: true,
+				message: err instanceof Error ? err.message : "Failed to build the PDF",
+				severity: "error",
+			});
+		} finally {
+			setPdfBusy(false);
+		}
+	};
+
 	// Calculate line item amount
 	// Weight is stored in KG, rate is per quintal (1 QNT = 100 KG)
 	const getLineAmount = (line: BillPassLineItem): number => {
@@ -402,7 +448,7 @@ function BillPassEditPageContent() {
 	return (
 		<Box sx={{ p: 2 }}>
 			{/* Header */}
-			<Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+			<Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} mb={2}>
 				<Box display="flex" alignItems="center" gap={2}>
 					<Button
 						variant="outlined"
@@ -421,6 +467,23 @@ function BillPassEditPageContent() {
 						</Typography>
 					)}
 				</Box>
+				<Box display="flex" gap={1} flexWrap="wrap" justifyContent="flex-end">
+					<Button
+						variant="outlined"
+						startIcon={<Printer size={16} />}
+						onClick={() => void handlePdf("print")}
+						disabled={pdfBusy}
+					>
+						Print
+					</Button>
+					<Button
+						variant="outlined"
+						startIcon={<FileDown size={16} />}
+						onClick={() => void handlePdf("download")}
+						disabled={pdfBusy}
+					>
+						{pdfBusy ? "Preparing..." : "Download PDF"}
+					</Button>
 				{!isComplete && (
 					<Box display="flex" gap={1}>
 						<Button
@@ -442,6 +505,7 @@ function BillPassEditPageContent() {
 						</Button>
 					</Box>
 				)}
+				</Box>
 			</Box>
 
 			{/* Header Info - Read Only */}
