@@ -782,6 +782,7 @@ const apiRoutesPortalMasters = {
     // alongside the A4 PDF above.
     HRMS_PAY_REGISTER_PAYSLIP_TEXT: `${API_URL}/hrms/pay_register_payslip_text`,
     HRMS_PAY_REGISTER_BANK_SHEET: `${API_URL}/hrms/pay_register_bank_sheet`,
+    HRMS_PAY_REGISTER_ECR: `${API_URL}/hrms/pay_register_ecr`,
 
     // HRMS Pay Register Display Setup (tbl_payslip_print_component) endpoints
     HRMS_PAYSLIP_PRINT_COMPONENT_LIST: `${API_URL}/hrms/payslip_print_component_list`,
