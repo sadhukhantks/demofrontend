@@ -14,7 +14,12 @@ import {
 } from "@/utils/hrmsReportService";
 
 /** A data row, or one of the Total rows built below it. */
-type Row = DailyHandsComplementRow;
+type Row = DailyHandsComplementRow & {
+  total: number;
+  mtd_shift: number;
+  mtd_ot: number;
+  mtd_total: number;
+};
 
 const NUM_FIELDS = [
   "shift_a",
@@ -25,7 +30,20 @@ const NUM_FIELDS = [
   "ot_b",
   "ot_c",
   "ot_total",
+  "total",
+  "mtd_shift",
+  "mtd_ot",
+  "mtd_total",
 ] as const;
+
+const DAY_FIELDS = NUM_FIELDS.slice(0, 8) as (keyof DailyHandsComplementRow & (typeof NUM_FIELDS)[number])[];
+
+/** Backend order: dept_code (blank last), department, occupation. */
+const cmp = (a: Row, b: Row) =>
+  Number(!a.dept_code) - Number(!b.dept_code) ||
+  (a.dept_code ?? "").localeCompare(b.dept_code ?? "") ||
+  (a.department ?? "").localeCompare(b.department ?? "") ||
+  (a.occupation ?? "").localeCompare(b.occupation ?? "");
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -35,11 +53,12 @@ function Content() {
   const fetcher = useCallback(
     async (f: ReportFilters): Promise<Row[]> => {
       if (coId == null) return [];
-      // Single-date report (legacy "Hands Complement for <date>").
-      const rows = await fetchDailyHandsComplement({
+      // Single-date report (legacy "Hands Complement for <date>") plus
+      // month-to-date: one fetch from the 1st, split client-side.
+      const raw = await fetchDailyHandsComplement({
         coId,
         branchId: f.branchId,
-        dateFrom: f.dateTo,
+        dateFrom: f.dateTo.slice(0, 8) + "01",
         dateTo: f.dateTo,
       });
 
@@ -54,6 +73,28 @@ function Content() {
         for (const k of NUM_FIELDS) r[k] = 0;
         return r;
       };
+
+      const byKey = new Map<string, Row>();
+      for (const d of raw) {
+        const key = `${d.dept_code}|${d.department}|${d.occupation}`;
+        let r = byKey.get(key);
+        if (!r) {
+          r = blank(byKey.size, d.department ?? "", d.occupation ?? "");
+          r.dept_code = d.dept_code;
+          byKey.set(key, r);
+        }
+        if (d.attendance_date === f.dateTo) {
+          for (const k of DAY_FIELDS) r[k] = r2(r[k] + d[k]);
+        }
+        r.mtd_shift = r2(r.mtd_shift + d.shift_total);
+        r.mtd_ot = r2(r.mtd_ot + d.ot_total);
+      }
+      const rows = [...byKey.values()].sort(cmp);
+      for (const r of rows) {
+        r.total = r2(r.shift_total + r.ot_total);
+        r.mtd_total = r2(r.mtd_shift + r.mtd_ot);
+      }
+
       const add = (target: Row, src: Row) => {
         for (const k of NUM_FIELDS) target[k] = r2(target[k] + src[k]);
       };
@@ -93,6 +134,10 @@ function Content() {
       numCol<Row>("ot_b", "OT B", 100),
       numCol<Row>("ot_c", "OT C", 100),
       numCol<Row>("ot_total", "OT Total", 110),
+      numCol<Row>("total", "Total Hands", 110),
+      numCol<Row>("mtd_shift", "MTD Shift Hands", 130),
+      numCol<Row>("mtd_ot", "MTD OT Hands", 120),
+      numCol<Row>("mtd_total", "MTD Total Hands", 130),
     ],
     [],
   );
