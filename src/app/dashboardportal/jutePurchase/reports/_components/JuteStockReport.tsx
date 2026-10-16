@@ -166,6 +166,9 @@ export default function JuteStockReport({
       summary={SummaryCards}
       sortField="item_group_name"
       exportName={exportName}
+      // TKT-000227: "Download as PDF" beside Export to Excel — the kit's A4
+      // landscape sheet of the rows as shown (9 columns fit), Grand Total last.
+      pdfExport
     />
   );
 }
