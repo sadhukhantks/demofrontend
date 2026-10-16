@@ -11,6 +11,7 @@ import MuiDataGrid from "@/components/ui/muiDataGrid";
 import { useSelectedCompanyCoId } from "@/hooks/use-selected-company-coid";
 import {
   exportBankSheet,
+  exportEcrFile,
   exportPayRegister,
   fetchPayRegisterById,
   fetchPayRegisterSalary,
@@ -40,6 +41,7 @@ function ViewPayRegisterContent() {
   const [printing, setPrinting] = useState(false);
   const [printingText, setPrintingText] = useState(false);
   const [bankSheeting, setBankSheeting] = useState(false);
+  const [ecrPart, setEcrPart] = useState<"contrib" | "noncontrib" | null>(null);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
     open: false, message: "", severity: "success",
   });
@@ -212,6 +214,25 @@ function ViewPayRegisterContent() {
     }
   }, [coId, payRegisterId]);
 
+  // EPFO ECR .txt — contributors, or (separate file) active members with
+  // no contribution this period.
+  const handleEcr = useCallback(async (part: "contrib" | "noncontrib") => {
+    if (!coId || !payRegisterId) return;
+    setEcrPart(part);
+    try {
+      const blob = await exportEcrFile(coId, payRegisterId, part);
+      if (!blob || blob.size === 0) {
+        setSnackbar({ open: true, message: "No data for ECR file.", severity: "error" });
+        return;
+      }
+      saveAs(blob, `ECR_${part === "contrib" ? "Contribution" : "NonContribution"}_${payRegisterId}.txt`);
+    } catch (err: unknown) {
+      setSnackbar({ open: true, message: err instanceof Error ? err.message : "Failed to export ECR file", severity: "error" });
+    } finally {
+      setEcrPart(null);
+    }
+  }, [coId, payRegisterId]);
+
   const showApprovalButtons = detail?.approveButton === true;
   const isNotApproved = detail?.status_id != null && String(detail.status_id) !== String(PAY_REGISTER_STATUS.APPROVED);
 
@@ -258,6 +279,24 @@ function ViewPayRegisterContent() {
           >
             <LandmarkIcon size={16} />
             {bankSheeting ? "Generating..." : "Bank Sheet"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleEcr("contrib")}
+            disabled={ecrPart !== null}
+            className="flex items-center gap-2"
+          >
+            <DownloadIcon size={16} />
+            {ecrPart === "contrib" ? "Generating..." : "EPFO ECR"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleEcr("noncontrib")}
+            disabled={ecrPart !== null}
+            className="flex items-center gap-2"
+          >
+            <DownloadIcon size={16} />
+            {ecrPart === "noncontrib" ? "Generating..." : "ECR Non-Contributing"}
           </Button>
           <Button variant="outline" onClick={() => router.push("/dashboardportal/hrms/payRegister")}>
             Back

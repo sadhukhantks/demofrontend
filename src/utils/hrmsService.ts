@@ -461,6 +461,17 @@ export const exportBankSheet = (
     `${apiRoutesPortalMasters.HRMS_PAY_REGISTER_BANK_SHEET}?co_id=${coId}&pay_period_id=${payPeriodId}`,
   );
 
+/** EPFO ECR upload .txt — `contrib` for members with an EPF deduction,
+ *  `noncontrib` for active members without one (NCP = month days). */
+export const exportEcrFile = (
+  coId: string,
+  payPeriodId: number | string,
+  part: "contrib" | "noncontrib",
+): Promise<Blob> =>
+  fetchHrmsBlob(
+    `${apiRoutesPortalMasters.HRMS_PAY_REGISTER_ECR}?co_id=${coId}&pay_period_id=${payPeriodId}&part=${part}`,
+  );
+
 /** Dot-matrix .txt print for the EJM Wages Data Preparation selects — the
  *  legacy screens' "Print" (register) and text "Payslip" buttons. `list` is
  *  which select the code belongs to. */
