@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Alert, CircularProgress, Box, Typography } from "@mui/material";
+import { Alert, Button, CircularProgress, Box, Typography } from "@mui/material";
 import AttachmentUploader from "@/components/AttachmentUploader";
 import TransactionWrapper from "@/components/ui/TransactionWrapper";
 import { fetchWithCookie } from "@/utils/apiClient2";
@@ -18,6 +18,7 @@ import { MRPreview } from "../components/MRPreview";
 import { useMRLineItems } from "../hooks/useMRLineItems";
 import { useMRApproval } from "../hooks/useMRApproval";
 import { MR_STATUS_IDS } from "../utils/mrConstants";
+import { splitEmptyMrLines } from "../utils/mrLineVisibility";
 import type { JuteMRHeader, JuteMRLineItemAPI, MRLineItem, MuiFormMode, PartyBranchOption } from "../types/mrTypes";
 
 type JuteMRDetailsResponse = {
@@ -189,6 +190,17 @@ function JuteMREditPageContent() {
 	// are hidden until isDirty === false to prevent sending stale data to
 	// the approval workflow before Save has persisted the latest changes.
 	const [isDirty, setIsDirty] = React.useState(false);
+
+	// TKT-000224: lines with no quantity and no weight (a quality on the PO /
+	// gate entry that did not arrive) are hidden by default; a header button
+	// reveals them. They stay in `lineItems`, so totals and Save are unchanged.
+	const [showEmptyLines, setShowEmptyLines] = React.useState(false);
+	const { visible: visibleLineItems, empty: emptyLineItems } = React.useMemo(
+		() => splitEmptyMrLines(lineItems),
+		[lineItems]
+	);
+	const shownLineItems = showEmptyLines ? lineItems : visibleLineItems;
+	const hiddenCount = showEmptyLines ? 0 : emptyLineItems.length;
 
 	const handleHeaderChange = React.useCallback(
 		(field: keyof JuteMRHeader, value: string | number | null) => {
@@ -517,6 +529,7 @@ function JuteMREditPageContent() {
 		canSetOpen,
 		canSetPending,
 		canReopen,
+		reopenQcOnly,
 		canReturnLorry,
 		partyHasNoBranches,
 		// Approval dialog state
@@ -653,12 +666,22 @@ function JuteMREditPageContent() {
 			statusChip={statusChipProps}
 			primaryActions={actions}
 			lineItems={{
-				items: lineItems,
+				items: shownLineItems,
 				columns: lineItemColumns,
 				getItemId: (item: MRLineItem) => item.id,
 				canEdit: canEdit,
 				title: "Line Items",
-				subtitle: `${lineItems.length} items | Total Accepted Weight: ${totalAcceptedWeight.toFixed(2)}`,
+				subtitle: `${shownLineItems.length} items${
+					hiddenCount > 0 ? ` (${hiddenCount} empty hidden)` : ""
+				} | Total Accepted Weight: ${totalAcceptedWeight.toFixed(2)}`,
+				headerAction:
+					emptyLineItems.length > 0 ? (
+						<Button size="small" variant="outlined" onClick={() => setShowEmptyLines((v) => !v)}>
+							{showEmptyLines
+								? "Hide empty lines"
+								: `Show ${emptyLineItems.length} empty line${emptyLineItems.length === 1 ? "" : "s"}`}
+						</Button>
+					) : undefined,
 			}}
 			alerts={
 				pageError ? (
@@ -693,6 +716,7 @@ function JuteMREditPageContent() {
 						canSetOpen={canSetOpen}
 						canSetPending={canSetPending}
 						canReopen={canReopen}
+						reopenQcOnly={reopenQcOnly}
 						canReturnLorry={canReturnLorry}
 						canUnreturnLorry={canUnreturnLorry}
 						isReturned={Boolean(header?.is_returned)}
@@ -767,6 +791,7 @@ function JuteMREditPageContent() {
 				open={reopenDialogOpen}
 				loading={approvalLoading}
 				warning={reopenWarning}
+				qcOnly={reopenQcOnly}
 				onClose={handleReopenDialogClose}
 				onConfirm={handleReopenConfirm}
 			/>

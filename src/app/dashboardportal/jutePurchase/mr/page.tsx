@@ -10,7 +10,9 @@ import { apiRoutesPortalMasters } from "@/utils/api";
 import IndexWrapper from "@/components/ui/IndexWrapper";
 import { useRouter } from "next/navigation";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import { useSessionStorageState } from "@/hooks/useSessionStorageState";
 import { createStatusBasedEditCheck } from "@/utils/editability";
+import { mrDownloadSuffix } from "./utils/mrDownloadName";
 import { fetchJuteMRDownload } from "./utils/mrService";
 
 /**
@@ -75,6 +77,35 @@ const MR_STATUS_FILTER_OPTIONS: ReadonlyArray<{ value: number; label: string }> 
 	{ value: 6, label: "Cancelled" },
 ];
 
+/**
+ * Everything the list remembers between visits (TKT-000226): the user opens
+ * an MR, comes back, and finds the same filters and the same page. Kept per
+ * tab in sessionStorage; "Clear dates" / emptying a field is how it is reset.
+ */
+type MRListState = {
+	paginationModel: GridPaginationModel;
+	searchValue: string;
+	/** MR date bounds (from_date / to_date). */
+	fromDate: string;
+	toDate: string;
+	/** Gate entry date bounds (ge_from_date / ge_to_date) — combinable with the MR-date ones. */
+	geFromDate: string;
+	geToDate: string;
+	statusFilter: number | null;
+};
+
+const MR_LIST_STATE_KEY = "jutePurchase.mr.list.v1";
+
+const MR_LIST_STATE_DEFAULTS: MRListState = {
+	paginationModel: { page: 0, pageSize: 10 },
+	searchValue: "",
+	fromDate: "",
+	toDate: "",
+	geFromDate: "",
+	geToDate: "",
+	statusFilter: null,
+};
+
 const getStatusColor = (status: string): "success" | "error" | "warning" | "info" | "default" => {
 	const normalized = status?.toLowerCase() ?? "";
 	if (normalized.includes("approved") || normalized.includes("closed")) return "success";
@@ -90,11 +121,13 @@ export default function JuteMRIndexPage() {
 	const [rows, setRows] = React.useState<JuteMRRow[]>([]);
 	const [totalRows, setTotalRows] = React.useState(0);
 	const [loading, setLoading] = React.useState(false);
-	const [paginationModel, setPaginationModel] = React.useState<GridPaginationModel>({ page: 0, pageSize: 10 });
-	const [searchValue, setSearchValue] = React.useState("");
-	const [fromDate, setFromDate] = React.useState("");
-	const [toDate, setToDate] = React.useState("");
-	const [statusFilter, setStatusFilter] = React.useState<number | null>(null);
+	// Filters + page survive opening an MR and coming back (TKT-000226). The
+	// first fetch waits for the restore so the list is not loaded twice.
+	const [listState, setListState, listStateRestored] = useSessionStorageState<MRListState>(
+		MR_LIST_STATE_KEY,
+		MR_LIST_STATE_DEFAULTS,
+	);
+	const { paginationModel, searchValue, fromDate, toDate, geFromDate, geToDate, statusFilter } = listState;
 	const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 	const [downloading, setDownloading] = React.useState(false);
 	const [downloadError, setDownloadError] = React.useState<string | null>(null);
@@ -262,6 +295,8 @@ export default function JuteMRIndexPage() {
 			if (trimmedSearch) query.set("search", trimmedSearch);
 			if (fromDate) query.set("from_date", fromDate);
 			if (toDate) query.set("to_date", toDate);
+			if (geFromDate) query.set("ge_from_date", geFromDate);
+			if (geToDate) query.set("ge_to_date", geToDate);
 			if (statusFilter !== null) query.set("status_id", String(statusFilter));
 
 			const url = `${apiRoutesPortalMasters.JUTE_MR_TABLE}?${query.toString()}`;
@@ -315,35 +350,54 @@ export default function JuteMRIndexPage() {
 		} finally {
 			setLoading(false);
 		}
-	}, [coId, paginationModel.page, paginationModel.pageSize, searchValue, fromDate, toDate, statusFilter]);
+	}, [coId, paginationModel.page, paginationModel.pageSize, searchValue, fromDate, toDate, geFromDate, geToDate, statusFilter]);
 
 	React.useEffect(() => {
-		if (coId) {
+		if (coId && listStateRestored) {
 			fetchJuteMRs();
 		}
-	}, [fetchJuteMRs, coId]);
+	}, [fetchJuteMRs, coId, listStateRestored]);
 
-	const handlePaginationModelChange = (model: GridPaginationModel) => {
-		setPaginationModel(model);
-	};
+	const handlePaginationModelChange = React.useCallback(
+		(model: GridPaginationModel) => setListState((prev) => ({ ...prev, paginationModel: model })),
+		[setListState],
+	);
 
-	const handleSearchChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-		const value = event.target.value;
-		setPaginationModel((prev) => ({ ...prev, page: 0 }));
-		setSearchValue(value);
-	}, []);
+	/** Set one filter and go back to the first page. */
+	const setFilter = React.useCallback(
+		<K extends keyof MRListState>(field: K, value: MRListState[K]) =>
+			setListState((prev) => ({
+				...prev,
+				[field]: value,
+				paginationModel: { ...prev.paginationModel, page: 0 },
+			})),
+		[setListState],
+	);
 
-	const handleFromDateChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-		const value = event.target.value;
-		setPaginationModel((prev) => ({ ...prev, page: 0 }));
-		setFromDate(value);
-	}, []);
+	const handleSearchChange = React.useCallback(
+		(event: React.ChangeEvent<HTMLInputElement>) => setFilter("searchValue", event.target.value),
+		[setFilter],
+	);
 
-	const handleToDateChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-		const value = event.target.value;
-		setPaginationModel((prev) => ({ ...prev, page: 0 }));
-		setToDate(value);
-	}, []);
+	const handleFromDateChange = React.useCallback(
+		(event: React.ChangeEvent<HTMLInputElement>) => setFilter("fromDate", event.target.value),
+		[setFilter],
+	);
+
+	const handleToDateChange = React.useCallback(
+		(event: React.ChangeEvent<HTMLInputElement>) => setFilter("toDate", event.target.value),
+		[setFilter],
+	);
+
+	const handleGeFromDateChange = React.useCallback(
+		(event: React.ChangeEvent<HTMLInputElement>) => setFilter("geFromDate", event.target.value),
+		[setFilter],
+	);
+
+	const handleGeToDateChange = React.useCallback(
+		(event: React.ChangeEvent<HTMLInputElement>) => setFilter("geToDate", event.target.value),
+		[setFilter],
+	);
 
 	const statusFilterOptions = React.useMemo<MRStatusFilterOption[]>(
 		() => [{ value: null, label: "All statuses" }, ...MR_STATUS_FILTER_OPTIONS],
@@ -355,16 +409,23 @@ export default function JuteMRIndexPage() {
 		[statusFilterOptions, statusFilter],
 	);
 
-	const handleStatusFilterChange = React.useCallback((option: MRStatusFilterOption | null) => {
-		setPaginationModel((prev) => ({ ...prev, page: 0 }));
-		setStatusFilter(option?.value ?? null);
-	}, []);
+	const handleStatusFilterChange = React.useCallback(
+		(option: MRStatusFilterOption | null) => setFilter("statusFilter", option?.value ?? null),
+		[setFilter],
+	);
 
-	const handleClearDates = React.useCallback(() => {
-		setPaginationModel((prev) => ({ ...prev, page: 0 }));
-		setFromDate("");
-		setToDate("");
-	}, []);
+	const handleClearDates = React.useCallback(
+		() =>
+			setListState((prev) => ({
+				...prev,
+				fromDate: "",
+				toDate: "",
+				geFromDate: "",
+				geToDate: "",
+				paginationModel: { ...prev.paginationModel, page: 0 },
+			})),
+		[setListState],
+	);
 
 	const handleDownload = React.useCallback(async () => {
 		if (!coId) {
@@ -379,24 +440,22 @@ export default function JuteMRIndexPage() {
 				search: searchValue,
 				fromDate,
 				toDate,
+				geFromDate,
+				geToDate,
 				statusId: statusFilter,
 			});
 			if (!blob || blob.size === 0) {
 				setDownloadError("No data for the selected filters.");
 				return;
 			}
-			const suffixParts: string[] = [];
-			if (fromDate) suffixParts.push(fromDate);
-			if (toDate) suffixParts.push(toDate);
-			const suffix = suffixParts.length > 0 ? suffixParts.join("_") : "all";
-			saveAs(blob, `jute_mr_${suffix}.xlsx`);
+			saveAs(blob, `jute_mr_${mrDownloadSuffix({ fromDate, toDate, geFromDate, geToDate })}.xlsx`);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Failed to download Excel";
 			setDownloadError(message);
 		} finally {
 			setDownloading(false);
 		}
-	}, [coId, searchValue, fromDate, toDate, statusFilter]);
+	}, [coId, searchValue, fromDate, toDate, geFromDate, geToDate, statusFilter]);
 
 	const handleView = React.useCallback(
 		(row: JuteMRRow) => {
@@ -449,7 +508,7 @@ export default function JuteMRIndexPage() {
 					<TextField
 						size="small"
 						type="date"
-						label="From"
+						label="MR From"
 						value={fromDate}
 						onChange={handleFromDateChange}
 						InputLabelProps={{ shrink: true }}
@@ -457,9 +516,26 @@ export default function JuteMRIndexPage() {
 					<TextField
 						size="small"
 						type="date"
-						label="To"
+						label="MR To"
 						value={toDate}
 						onChange={handleToDateChange}
+						InputLabelProps={{ shrink: true }}
+					/>
+					{/* Gate entry date bounds (TKT-000226); work together with the MR dates */}
+					<TextField
+						size="small"
+						type="date"
+						label="Gate Entry From"
+						value={geFromDate}
+						onChange={handleGeFromDateChange}
+						InputLabelProps={{ shrink: true }}
+					/>
+					<TextField
+						size="small"
+						type="date"
+						label="Gate Entry To"
+						value={geToDate}
+						onChange={handleGeToDateChange}
 						InputLabelProps={{ shrink: true }}
 					/>
 					<SearchableSelect<MRStatusFilterOption>
@@ -475,7 +551,7 @@ export default function JuteMRIndexPage() {
 						getOptionKey={(option) => String(option.value ?? "all")}
 						isOptionEqualToValue={(option, selected) => option.value === selected.value}
 					/>
-					{(fromDate || toDate) ? (
+					{(fromDate || toDate || geFromDate || geToDate) ? (
 						<Button size="small" variant="outlined" onClick={handleClearDates}>
 							Clear dates
 						</Button>
