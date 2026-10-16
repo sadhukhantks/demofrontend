@@ -529,6 +529,7 @@ function JuteMREditPageContent() {
 		canSetOpen,
 		canSetPending,
 		canReopen,
+		reopenQcOnly,
 		canReturnLorry,
 		partyHasNoBranches,
 		// Approval dialog state
@@ -715,6 +716,7 @@ function JuteMREditPageContent() {
 						canSetOpen={canSetOpen}
 						canSetPending={canSetPending}
 						canReopen={canReopen}
+						reopenQcOnly={reopenQcOnly}
 						canReturnLorry={canReturnLorry}
 						canUnreturnLorry={canUnreturnLorry}
 						isReturned={Boolean(header?.is_returned)}
@@ -789,6 +791,7 @@ function JuteMREditPageContent() {
 				open={reopenDialogOpen}
 				loading={approvalLoading}
 				warning={reopenWarning}
+				qcOnly={reopenQcOnly}
 				onClose={handleReopenDialogClose}
 				onConfirm={handleReopenConfirm}
 			/>

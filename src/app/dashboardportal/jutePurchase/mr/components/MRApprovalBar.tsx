@@ -27,6 +27,8 @@ type MRApprovalBarProps = {
 	canSetOpen: boolean;
 	canSetPending: boolean;
 	canReopen: boolean;
+	/** Open MR with QC done: the button rolls back to QC only (TKT-000229). */
+	reopenQcOnly?: boolean;
 	canReturnLorry: boolean;
 	canUnreturnLorry: boolean;
 	isReturned: boolean;
@@ -54,6 +56,7 @@ export function MRApprovalBar({
 	canSetOpen,
 	canSetPending,
 	canReopen,
+	reopenQcOnly = false,
 	canReturnLorry,
 	canUnreturnLorry,
 	isReturned,
@@ -93,7 +96,8 @@ export function MRApprovalBar({
 				</Button>
 			)}
 
-			{/* Reopen - Pending/Approved only, edit-access users only (decision D2) */}
+			{/* Reopen - Pending/Approved (decision D2) or, as a QC rollback, an Open MR
+			    whose QC is done (TKT-000229); edit-access users only */}
 			{canReopen && (
 				<Button
 					variant="outlined"
@@ -101,9 +105,13 @@ export function MRApprovalBar({
 					size="small"
 					disabled={loading}
 					onClick={onReopen}
-					title="Reopen this MR for editing or QC"
+					title={
+						reopenQcOnly
+							? "Send this Open MR back to Jute Quality Check so the inspection can be redone"
+							: "Reopen this MR for editing or QC"
+					}
 				>
-					Reopen
+					{reopenQcOnly ? "Roll back to QC" : "Reopen"}
 				</Button>
 			)}
 
