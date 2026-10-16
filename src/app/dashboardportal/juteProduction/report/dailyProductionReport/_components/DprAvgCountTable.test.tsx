@@ -169,4 +169,11 @@ describe("TKT-000201 — SQC actual count beside the std count", () => {
     expect(note).toContain("SQC count covers 29,000 of 30,160 kg.");
     expect(note).toContain("std count stands in the actual column: 9-HSWP.");
   });
+
+  it("says moisture-corrected when the payload is on the corrected basis (from Oct-2026)", () => {
+    expect(avgCountNote({ ...ACT, count_basis: "corrected" })).toContain(
+      "the day's average moisture-corrected count entered in Spinning SQC",
+    );
+    expect(avgCountNote(ACT)).not.toContain("moisture-corrected");
+  });
 });
