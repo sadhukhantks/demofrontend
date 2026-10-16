@@ -69,6 +69,12 @@ export interface DprSpinningAvgCount {
   act_measured_kg?: number;
   /** Qualities with no SQC count for the day — std count used instead. */
   act_fallback?: string[];
+  /**
+   * Which SQC count the act_* figures (and the quality table's Act Count) are
+   * on: "corrected" (moisture-corrected) from Oct-2026, "observed" before
+   * (TKT-000201, owner ruling 2026-10-13). Absent on older payloads.
+   */
+  count_basis?: "observed" | "corrected";
 }
 
 export interface DprSpinningSection {

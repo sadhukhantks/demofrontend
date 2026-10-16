@@ -23,4 +23,14 @@ describe("fetchExcelBlob", () => {
 		rejectWithBody("<html>502</html>");
 		await expect(fetchExcelBlob("/x", { coId: 1 })).rejects.toThrow("Excel download failed");
 	});
+
+	it("sends gate-entry-date bounds as ge_from_date / ge_to_date beside the document dates (TKT-000226)", async () => {
+		const spy = vi.spyOn(axios, "get").mockResolvedValueOnce({ data: new Blob() } as AxiosResponse);
+		await fetchExcelBlob("/x", { coId: 1, fromDate: "2026-09-01", geFromDate: "2026-10-01", geToDate: "2026-10-12" });
+		const qs = new URLSearchParams(String(spy.mock.calls[0][0]).split("?")[1]);
+		expect(qs.get("from_date")).toBe("2026-09-01");
+		expect(qs.has("to_date")).toBe(false);
+		expect(qs.get("ge_from_date")).toBe("2026-10-01");
+		expect(qs.get("ge_to_date")).toBe("2026-10-12");
+	});
 });
