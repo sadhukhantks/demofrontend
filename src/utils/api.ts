@@ -1357,6 +1357,9 @@ const apiRoutesPortalMasters = {
     WEAVING_SQC_PICK_SAVE:    `${API_URL}/juteSQC/weaving_sqc_pick_save`,
     WEAVING_SQC_PICK_BY_DATE: `${API_URL}/juteSQC/weaving_sqc_pick_by_date`,
     WEAVING_SQC_PICK_DELETE:  `${API_URL}/juteSQC/weaving_sqc_pick_delete`,
+    // ITM-013: per-quality standard picks hint (target map qid/standard/picks, PPI) + measured-vs-standard coverage report (date range, cap 93 days)
+    WEAVING_SQC_PICK_STANDARDS: `${API_URL}/juteSQC/weaving_sqc_pick_standards`,
+    WEAVING_SQC_PICK_COVERAGE: `${API_URL}/juteSQC/weaving_pick_coverage`,
     // R-08-15 Yarn QR & CV % (router prefix /api/juteSQC) — SPINNING_SQC_QR_CV_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_QR_CV_SETUP: `${API_URL}/juteSQC/sqc_qr_cv_setup`,
     SPINNING_SQC_QR_CV_SAVE: `${API_URL}/juteSQC/sqc_qr_cv_save`,
