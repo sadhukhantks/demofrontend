@@ -446,14 +446,22 @@ export const BillPassPreview: React.FC<BillPassPreviewProps> = ({
 // ─── Print CSS ────────────────────────────────────────────────────────────────
 
 export const BILL_PASS_PRINT_CSS = `
-  @page { size: A4; margin: 10mm; }
+  /* @page margin 0 suppresses the browser's own header/footer (date, title,
+     URL, page number). The paper margin (10mm former page margin + 12pt former
+     padding) is applied sideways on body and top/bottom by the repeating print
+     frame spacers (src/utils/printFrame.ts), so it shows on every page. */
+  @page { size: A4; margin: 0; }
 
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
     font-size: 10pt;
     color: #111;
     margin: 0;
-    padding: 12pt;
+    padding: 0 calc(10mm + 12pt);
+  }
+
+  @media print {
+    .print-frame-top, .print-frame-bottom { height: calc(10mm + 12pt); }
   }
 
   .bp-root { position: relative; z-index: 1; }

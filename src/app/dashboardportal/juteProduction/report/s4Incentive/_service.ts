@@ -8,15 +8,16 @@
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { fetchWithCookie } from "@/utils/apiClient2";
 
-/** One weaver on the S4 looms over the range. */
+/** The legacy "Loom Type" option: S4 weavers or the helpers of the S4 helper lines. */
+export type S4WorkerType = "weaver" | "helper";
+
+/** One weaver / helper on the S4 looms over the range. */
 export interface S4IncentiveRow {
   eb_id: number;
   eb_no: string | null;
   worker_name: string | null;
-  /** ISO date -> that day's hour-weighted whole efficiency %. */
+  /** ISO date -> that day's whole efficiency % (production / standard). */
   days: Record<string, number>;
-  /** ISO dates whose efficiency earned an incentive (highlighted green). */
-  inc_dates: string[];
   total_days: number;
   avg_eff: number;
   total_inc_amt: number;
@@ -36,6 +37,7 @@ export interface S4IncentiveFilters {
   branchId: number;
   dateFrom: string;
   dateTo: string;
+  workerType: S4WorkerType;
   ebNo?: string;
 }
 
@@ -45,6 +47,7 @@ export async function fetchS4Incentive(f: S4IncentiveFilters): Promise<S4Incenti
     branch_id: String(f.branchId),
     date_from: f.dateFrom,
     date_to: f.dateTo,
+    worker_type: f.workerType,
   });
   if (f.ebNo?.trim()) qs.set("eb_no", f.ebNo.trim());
   const res = await fetchWithCookie<{ data: S4IncentiveReport }>(

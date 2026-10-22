@@ -38,6 +38,7 @@ import {
 } from "@mui/material";
 import { Printer } from "lucide-react";
 import { useReportBranches } from "@/components/reports/useReportBranches";
+import PrintFrame from "@/components/reports/PrintFrame";
 import { useMounted } from "@/components/reports/useMounted";
 import { todayIso } from "@/components/reports/reportDates";
 import { exportRowsToExcel } from "@/components/reports/exportExcel";
@@ -245,7 +246,11 @@ function Content() {
       <GlobalStyles
         styles={{
           "@media print": {
-            "@page": { size: "landscape" },
+            // @page margin 0 suppresses the browser's own header/footer (date,
+            // title, URL, page number). The paper margin (10mm ~ the old
+            // browser-default margin) is the print root's side padding plus the
+            // <PrintFrame> top/bottom spacers, which repeat on every page.
+            "@page": { size: "landscape", margin: 0 },
             "body *": { visibility: "hidden" },
             ".bds-print-root, .bds-print-root *": { visibility: "visible" },
             ".bds-print-root": {
@@ -253,6 +258,8 @@ function Content() {
               top: 0,
               left: 0,
               width: "100%",
+              boxSizing: "border-box",
+              padding: "0 10mm",
             },
           },
         }}
@@ -380,57 +387,59 @@ function Content() {
 
           {!loading && hasData && data ? (
             <Box className="bds-print-root">
-              {/* Print letterhead */}
-              <Box sx={{ display: "none", displayPrint: "block", mb: 1, textAlign: "center" }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                  {companyName ?? ""} — Daily Bale Sheet
-                </Typography>
-                <Typography variant="caption">
-                  {selectedBranch?.branch_name ?? data.branch_name ?? ""} · {data.tran_date}
-                  {selectedSpell ? ` · Spell ${selectedSpell.spell_code}` : ""}
-                  {entryType !== "ALL" ? ` · ${entryTypeLabelText} only` : ""}
-                </Typography>
-              </Box>
+              <PrintFrame marginMm={10}>
+                {/* Print letterhead */}
+                <Box sx={{ display: "none", displayPrint: "block", mb: 1, textAlign: "center" }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    {companyName ?? ""} — Daily Bale Sheet
+                  </Typography>
+                  <Typography variant="caption">
+                    {selectedBranch?.branch_name ?? data.branch_name ?? ""} · {data.tran_date}
+                    {selectedSpell ? ` · Spell ${selectedSpell.spell_code}` : ""}
+                    {entryType !== "ALL" ? ` · ${entryTypeLabelText} only` : ""}
+                  </Typography>
+                </Box>
 
-              <Stack spacing={2}>
-                {data.blocks.map((b) => (
-                  <BaleSheetBlock key={b.finishing_quality_id} block={b} />
-                ))}
+                <Stack spacing={2}>
+                  {data.blocks.map((b) => (
+                    <BaleSheetBlock key={b.finishing_quality_id} block={b} />
+                  ))}
 
-                <SectionCard
-                  title="Totals"
-                  subtitle="Bale counts and weights by quality type; REPACK bales are listed separately and not counted as production"
-                >
-                  <DprTable
-                    head={
-                      <Tr>
-                        <Td>Type</Td>
-                        <Td align="right">PROD Bales</Td>
-                        <Td align="right">REPACK Bales</Td>
-                        <Td align="right">Σ Gross (kg)</Td>
-                        <Td align="right">Σ Net (kg)</Td>
-                      </Tr>
-                    }
+                  <SectionCard
+                    title="Totals"
+                    subtitle="Bale counts and weights by quality type; REPACK bales are listed separately and not counted as production"
                   >
-                    {data.totals.by_type.map((t) => (
-                      <Tr key={t.quality_type}>
-                        <Td>{qualityTypeLabel(t.quality_type).toUpperCase() || `Type ${t.quality_type}`}</Td>
-                        <Td align="right">{t.prod_bales}</Td>
-                        <Td align="right">{t.repack_bales}</Td>
-                        <Td align="right">{fmtKg(t.total_gross)}</Td>
-                        <Td align="right">{fmtKg(t.total_net)}</Td>
+                    <DprTable
+                      head={
+                        <Tr>
+                          <Td>Type</Td>
+                          <Td align="right">PROD Bales</Td>
+                          <Td align="right">REPACK Bales</Td>
+                          <Td align="right">Σ Gross (kg)</Td>
+                          <Td align="right">Σ Net (kg)</Td>
+                        </Tr>
+                      }
+                    >
+                      {data.totals.by_type.map((t) => (
+                        <Tr key={t.quality_type}>
+                          <Td>{qualityTypeLabel(t.quality_type).toUpperCase() || `Type ${t.quality_type}`}</Td>
+                          <Td align="right">{t.prod_bales}</Td>
+                          <Td align="right">{t.repack_bales}</Td>
+                          <Td align="right">{fmtKg(t.total_gross)}</Td>
+                          <Td align="right">{fmtKg(t.total_net)}</Td>
+                        </Tr>
+                      ))}
+                      <Tr sx={totalRowSx()}>
+                        <Td>OVERALL</Td>
+                        <Td align="right">{data.totals.overall.prod_bales}</Td>
+                        <Td align="right">{data.totals.overall.repack_bales}</Td>
+                        <Td align="right">{fmtKg(data.totals.overall.total_gross)}</Td>
+                        <Td align="right">{fmtKg(data.totals.overall.total_net)}</Td>
                       </Tr>
-                    ))}
-                    <Tr sx={totalRowSx()}>
-                      <Td>OVERALL</Td>
-                      <Td align="right">{data.totals.overall.prod_bales}</Td>
-                      <Td align="right">{data.totals.overall.repack_bales}</Td>
-                      <Td align="right">{fmtKg(data.totals.overall.total_gross)}</Td>
-                      <Td align="right">{fmtKg(data.totals.overall.total_net)}</Td>
-                    </Tr>
-                  </DprTable>
-                </SectionCard>
-              </Stack>
+                    </DprTable>
+                  </SectionCard>
+                </Stack>
+              </PrintFrame>
             </Box>
           ) : null}
         </>

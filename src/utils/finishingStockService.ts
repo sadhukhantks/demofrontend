@@ -10,6 +10,11 @@
 
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { fetchWithCookie } from "@/utils/apiClient2";
+import type {
+  BaleStockSeriesLine,
+  BaleStockSource,
+  BaleStockSummaryLine,
+} from "@/utils/baleStockService";
 
 export type FinishingStockBucket = "BALE" | "LOOSE";
 /** jute_prod_finishing_quality.quality_type: 1 = Hessian (cloth), 2 = Sacking (bags). */
@@ -50,6 +55,9 @@ export interface FinishingStockSetup {
   stages: FinishingStockStage[];
   companies: FinishingStockCompany[];
   loose_qty_uoms: FinishingStockLooseUom[];
+  /** BALE_PROD: the branch has bale entries, so own-company bales are derived
+   * from Bale Production and manual own-company BALE rows are refused. */
+  bale_source: BaleStockSource;
 }
 
 export interface FinishingStockRow {
@@ -74,11 +82,21 @@ export interface FinishingStockRow {
   wt_kg: number | null;
   total_kg: number;
   remarks: string | null;
+  /** True on an own-company manual BALE row that is no longer counted because
+   * bales are derived from Bale Production for this date (delete-only). */
+  superseded?: boolean;
 }
 
 export interface FinishingStockDay {
   rows: FinishingStockRow[];
   prev_entry_date: string | null;
+  bale_source: BaleStockSource;
+  /** Own-company bale stock as on tran_date, one line per quality — empty in
+   * MANUAL mode. */
+  derived_bales: BaleStockSummaryLine[];
+  /** The sacking lines of `derived_bales` split by bale series — empty in
+   * MANUAL mode. Rendered as child rows under each sacking quality. */
+  derived_series: BaleStockSeriesLine[];
 }
 
 export interface FinishingStockCreatePayload {
@@ -113,10 +131,32 @@ export interface FinishingStockBaleLine {
   bales: number;
   per_wt_kg: number | null;
   wt_mt: number;
+  /** Inspected bales — a number on the derived own block's lines, null on
+   * manual / other-owner lines. */
+  inspected_bales: number | null;
 }
 
 export interface FinishingStockBaleTotal {
   bales: number;
+  wt_mt: number;
+}
+
+/** One (series, quality) line of the own block's sacking bales — the
+ * "Sacking bales by series" table under the block's grand total. */
+export interface FinishingStockBaleSeriesLine {
+  bale_series_id: number;
+  series_name: string | null;
+  finishing_quality_id: number;
+  item_name: string | null;
+  bales: number;
+  inspected_bales: number;
+  per_wt_kg: number | null;
+  wt_mt: number;
+}
+
+export interface FinishingStockBaleSeriesTotal {
+  bales: number;
+  inspected_bales: number;
   wt_mt: number;
 }
 
@@ -129,6 +169,10 @@ export interface FinishingStockBaleBlock {
   hessian_total: FinishingStockBaleTotal;
   sacking_total: FinishingStockBaleTotal;
   total: FinishingStockBaleTotal;
+  /** Sacking bales by series — own block in BALE_PROD mode only (series with
+   * 0 bales omitted); `[]` on other owners' blocks and in MANUAL mode. */
+  series: FinishingStockBaleSeriesLine[];
+  series_total: FinishingStockBaleSeriesTotal;
 }
 
 export interface FinishingStockLooseLine {
@@ -174,6 +218,7 @@ export interface FinishingStockReport {
   loose_lines: FinishingStockLooseDetailLine[];
   despatch: FinishingStockDespatchLine[];
   totals: { bales_mt: number; loose_mt: number; stock_mt: number };
+  bale_source: BaleStockSource;
 }
 
 // ---------------------------------------------------------------------------

@@ -6,6 +6,9 @@ export type ExcelBlobParams = {
 	search?: string | null;
 	fromDate?: string | null;
 	toDate?: string | null;
+	/** Gate-entry-date bounds (ge_from_date / ge_to_date), beside the document-date ones (TKT-000226). */
+	geFromDate?: string | null;
+	geToDate?: string | null;
 	branchIds?: string | null;
 	statusId?: number | string | null;
 	includeCompleted?: boolean;
@@ -27,6 +30,8 @@ export async function fetchExcelBlob(url: string, params: ExcelBlobParams): Prom
 		qs.append("status_id", String(params.statusId));
 	if (params.fromDate) qs.append("from_date", params.fromDate);
 	if (params.toDate) qs.append("to_date", params.toDate);
+	if (params.geFromDate) qs.append("ge_from_date", params.geFromDate);
+	if (params.geToDate) qs.append("ge_to_date", params.geToDate);
 	if (params.includeCompleted) qs.append("include_completed", "1");
 
 	const fullUrl = `${url}?${qs.toString()}`;

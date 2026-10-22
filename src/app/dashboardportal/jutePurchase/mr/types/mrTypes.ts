@@ -39,6 +39,8 @@ export type JuteMRHeader = {
 	status_id: number | null;
 	/** 1 when the lorry was sent back; the retained lines are still stock/payable/transferable. */
 	is_returned?: number | null;
+	/** 1 once Jute Quality Check is complete; 0 / null while the MR still awaits QC (TKT-000229). */
+	qc_check?: number | null;
 	status: string | null;
 	src_com_id: number | null;
 	jute_gate_entry_date: string | null;

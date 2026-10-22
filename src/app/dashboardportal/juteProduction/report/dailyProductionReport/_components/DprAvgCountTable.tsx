@@ -96,9 +96,13 @@ function listNames(names: string[]): string {
 export function avgCountNote(avg: DprSpinningAvgCount): string {
   let note: string;
   if (hasActColumn(avg)) {
+    const basis =
+      avg.count_basis === "corrected"
+        ? "the day's average moisture-corrected count entered in Spinning SQC"
+        : "the day's average count entered in Spinning SQC";
     note =
-      "Std count = the quality's count on the yarn master. Actual count = the day's average " +
-      "count entered in Spinning SQC (the Act Count column above). Each is weighted by the " +
+      `Std count = the quality's count on the yarn master. Actual count = ${basis} ` +
+      "(the Act Count column above). Each is weighted by the " +
       "frame-shifts the quality ran, by the kg it actually produced, and by the kg its std " +
       "speed / TPI / efficiency expected from those frames.";
     const measured = avg.act_measured_kg ?? 0;

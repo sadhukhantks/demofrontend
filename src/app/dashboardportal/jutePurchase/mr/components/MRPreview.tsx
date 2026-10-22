@@ -4,6 +4,7 @@ import * as React from "react";
 import { Box, Stack } from "@mui/material";
 import { Button } from "@/components/ui/button";
 import type { JuteMRHeader, MRLineItem } from "../types/mrTypes";
+import { splitEmptyMrLines } from "../utils/mrLineVisibility";
 
 // ── Helpers ──
 
@@ -97,6 +98,12 @@ type MRPreviewProps = {
 export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAcceptedWeight }) => {
 	const previewRef = React.useRef<HTMLDivElement>(null);
 	const [pdfBusy, setPdfBusy] = React.useState(false);
+
+	// TKT-000224: a line with no bales / drums, no mill weight and no advised
+	// weight (a quality on the PO / gate entry that never arrived) is left off
+	// the preview, the print window and the PDF alike, as the edit page hides
+	// it. Totals still run over every line — an empty line adds 0 to each.
+	const printedLines = React.useMemo(() => splitEmptyMrLines(lineItems).visible, [lineItems]);
 
 	const handlePrint = () => {
 		const content = previewRef.current?.innerHTML ?? "";
@@ -249,7 +256,7 @@ export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAc
 					["QUALITY", "CONDITION"],
 				],
 				body: [
-					...lineItems.map((li) => [
+					...printedLines.map((li) => [
 						li.actualQty != null ? fmt(li.actualQty) : "",
 						`${li.actualItemName ?? ""}${li.actualQualityName && li.actualQualityName !== "-" ? ` ${li.actualQualityName}` : ""}`,
 						fmt(li.challanWeight, 2),
@@ -435,7 +442,7 @@ export const MRPreview: React.FC<MRPreviewProps> = ({ header, lineItems, totalAc
 						</tr>
 					</thead>
 					<tbody>
-						{lineItems.map((li) => (
+						{printedLines.map((li) => (
 							<tr key={li.id}>
 								<td style={tdCenter}>{li.actualQty != null ? fmt(li.actualQty) : ""}</td>
 								<td style={{ ...tdStyle, whiteSpace: "nowrap" }}>

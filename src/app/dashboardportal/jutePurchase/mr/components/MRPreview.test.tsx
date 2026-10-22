@@ -234,6 +234,29 @@ describe("MRPreview", () => {
 		expect(screen.getAllByText("17,000.00").length).toBeGreaterThanOrEqual(1);
 	});
 
+	// ── TKT-000224: empty lines stay off the printed document ──
+	it("leaves a line with no bales, no mill weight and no advised weight off the print", () => {
+		const empty: MRLineItem = {
+			...mockLineItems[0], id: "li-empty", juteMrLiId: 3, actualItemName: "GHOST", actualQualityName: "TD-9",
+			actualQty: 0, challanWeight: 0, actualWeight: 0, shortageKgs: 0, acceptedWeight: 0,
+		};
+		render(<MRPreview header={mockHeader} lineItems={[...mockLineItems, empty]} totalAcceptedWeight={16550} />);
+		expect(screen.queryByText("GHOST")).not.toBeInTheDocument();
+		expect(screen.getByText("DESI D")).toBeInTheDocument();
+		// Totals are unchanged: the empty line adds nothing.
+		expect(screen.getAllByText("130.00").length).toBeGreaterThanOrEqual(1);
+		expect(screen.getAllByText("17,000.00").length).toBeGreaterThanOrEqual(1);
+	});
+
+	it("keeps a line that has an advised weight even when nothing was received", () => {
+		const advised: MRLineItem = {
+			...mockLineItems[0], id: "li-adv", juteMrLiId: 4, actualItemName: "ADVISED", actualQualityName: "TD-9",
+			actualQty: 0, challanWeight: 300, actualWeight: 0, shortageKgs: 0, acceptedWeight: 0,
+		};
+		render(<MRPreview header={mockHeader} lineItems={[...mockLineItems, advised]} totalAcceptedWeight={16550} />);
+		expect(screen.getByText("ADVISED")).toBeInTheDocument();
+	});
+
 	// ── Remarks ──
 	it("displays remarks when provided", () => {
 		render(<MRPreview header={mockHeader} lineItems={mockLineItems} totalAcceptedWeight={16550} />);

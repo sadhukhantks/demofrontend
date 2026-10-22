@@ -37,6 +37,10 @@ export type SqcCountSetup = {
 
 export type SqcCountReadingRow = {
 	// Each row is a single observation/reading (multi-observation, not upsert).
+	// spinning_sqc_count_id is the key the backend sends (jute_sqc_spinning_count
+	// PK, see _count_row_out in spinning_sqc.py); the other three are legacy
+	// aliases kept for older payloads (TKT-000225).
+	spinning_sqc_count_id?: number;
 	jute_sqc_spinning_count_id?: number;
 	sqc_spinning_count_id?: number;
 	id?: number;

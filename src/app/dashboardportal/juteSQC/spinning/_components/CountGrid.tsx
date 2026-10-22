@@ -21,6 +21,7 @@ import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import type { SqcCountReadingRow, SqcCountAverageRow, YarnItemOption } from "../types/sqcSpinningTypes";
+import { countReadingServerId as serverId } from "../utils/countReadingId";
 
 type Props = {
 	coId: string;
@@ -47,12 +48,6 @@ type SummaryRow = {
 // Range tolerance switches on the standard count: <16 → ±0.2, else ±0.5.
 function rangeTolerance(std: number): number {
 	return std < 16 ? 0.2 : 0.5;
-}
-
-// Server-side id of a reading (whichever id field the backend sends), or null if
-// this row hasn't been persisted with one. Used for delete — never as a grid key.
-function serverId(r: SqcCountReadingRow): number | null {
-	return r.jute_sqc_spinning_count_id ?? r.sqc_spinning_count_id ?? r.id ?? null;
 }
 
 // Grid row = reading + a guaranteed-unique key. Two identical observations (same

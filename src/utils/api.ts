@@ -784,6 +784,7 @@ const apiRoutesPortalMasters = {
     // alongside the A4 PDF above.
     HRMS_PAY_REGISTER_PAYSLIP_TEXT: `${API_URL}/hrms/pay_register_payslip_text`,
     HRMS_PAY_REGISTER_BANK_SHEET: `${API_URL}/hrms/pay_register_bank_sheet`,
+    HRMS_PAY_REGISTER_ECR: `${API_URL}/hrms/pay_register_ecr`,
 
     // HRMS Pay Register Display Setup (tbl_payslip_print_component) endpoints
     HRMS_PAYSLIP_PRINT_COMPONENT_LIST: `${API_URL}/hrms/payslip_print_component_list`,
@@ -1099,6 +1100,8 @@ const apiRoutesPortalMasters = {
     SPREADER_ROLL_STOCK_TARGET_VS_ACTUAL: `${API_URL}/spreaderProd/roll_stock_target_vs_actual`,
     JUTE_PROD_MATURITY_REPORT: `${API_URL}/juteProductionReports/maturity_time_report`,
     JUTE_PROD_SPREADER_SUMMARY: `${API_URL}/juteProductionReports/spreader_production_summary`,
+    JUTE_PROD_SPREADER_DATEWISE: `${API_URL}/juteProductionReports/spreader_production_datewise`,
+    JUTE_PROD_SPINNING_DATEWISE: `${API_URL}/juteProductionReports/spinning_production_datewise`,
 
     SPREADER_BIN_LIST: `${API_URL}/spreaderMasters/bin_list`,
     SPREADER_BIN_CREATE: `${API_URL}/spreaderMasters/bin_create`,
@@ -1269,6 +1272,9 @@ const apiRoutesPortalMasters = {
     LA_LETTER_ISSUE_BATCH: `${API_URL}/longAbsenteeism/letter_issue_batch`,
     LA_LETTER_UPDATE: `${API_URL}/longAbsenteeism/letter_update`,
     LA_DISPATCH: `${API_URL}/longAbsenteeism/dispatch`,
+    LA_LETTERS_PRINT: `${API_URL}/longAbsenteeism/letters_print`,
+    LA_LETTERS_PDF: `${API_URL}/longAbsenteeism/letters_pdf`,
+    LA_LETTER_RECORD: `${API_URL}/longAbsenteeism/letter_record`,
     LA_RECEIPT_CREATE: `${API_URL}/longAbsenteeism/receipt_create`,
     LA_RECEIPT_UPDATE: `${API_URL}/longAbsenteeism/receipt_update`,
     LA_RECEIPT_DEACTIVATE: `${API_URL}/longAbsenteeism/receipt_deactivate`,
@@ -1296,6 +1302,18 @@ const apiRoutesPortalMasters = {
     SPNG_TARGET_MAP_DELETE: `${API_URL}/spngTargetMap/target_map_delete`,
     SPNG_TARGET_MAP_GRID: `${API_URL}/spngTargetMap/target_map_grid`,
     SPNG_TARGET_MAP_BULK_SAVE: `${API_URL}/spngTargetMap/target_map_bulk_save`,
+    // Jute Costing (ITM-019) — backend prefixes /api/juteCostParam and /api/juteCostReports.
+    // *_BY_ID / *_EDIT / *_DELETE are base paths; caller appends /${id} (+ ?co_id= on DELETE)
+    JUTE_COST_PARAM_SETUP: `${API_URL}/juteCostParam/cost_param_setup`,
+    JUTE_COST_PARAM_LIST: `${API_URL}/juteCostParam/cost_param_list`,
+    JUTE_COST_PARAM_BY_ID: `${API_URL}/juteCostParam/cost_param_by_id`,
+    JUTE_COST_PARAM_CREATE: `${API_URL}/juteCostParam/cost_param_create`,
+    JUTE_COST_PARAM_EDIT: `${API_URL}/juteCostParam/cost_param_edit`,
+    JUTE_COST_PARAM_DELETE: `${API_URL}/juteCostParam/cost_param_delete`,
+    JUTE_COST_PARAM_RESOLVE: `${API_URL}/juteCostParam/cost_param_resolve`,
+    JUTE_COST_DAILY_PL: `${API_URL}/juteCostReports/daily_pl`,
+    JUTE_COST_DAILY_PL_BREAKDOWN: `${API_URL}/juteCostReports/daily_pl/breakdown`,
+    JUTE_COST_DAILY_PL_ISSUE_CHECKS: `${API_URL}/juteCostReports/daily_pl/jute_issue_checks`,
     // Winding standards master (router prefix /api/windingTargetMap) — *_EDIT/*_DELETE are base paths; caller appends /${id}
     WINDING_TARGET_MAP_SETUP: `${API_URL}/windingTargetMap/target_map_setup`,
     WINDING_TARGET_MAP_LIST: `${API_URL}/windingTargetMap/target_map_list`,
@@ -1351,6 +1369,9 @@ const apiRoutesPortalMasters = {
     WEAVING_SQC_PICK_SAVE:    `${API_URL}/juteSQC/weaving_sqc_pick_save`,
     WEAVING_SQC_PICK_BY_DATE: `${API_URL}/juteSQC/weaving_sqc_pick_by_date`,
     WEAVING_SQC_PICK_DELETE:  `${API_URL}/juteSQC/weaving_sqc_pick_delete`,
+    // ITM-013: per-quality standard picks hint (target map qid/standard/picks, PPI) + measured-vs-standard coverage report (date range, cap 93 days)
+    WEAVING_SQC_PICK_STANDARDS: `${API_URL}/juteSQC/weaving_sqc_pick_standards`,
+    WEAVING_SQC_PICK_COVERAGE: `${API_URL}/juteSQC/weaving_pick_coverage`,
     // R-08-15 Yarn QR & CV % (router prefix /api/juteSQC) — SPINNING_SQC_QR_CV_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_QR_CV_SETUP: `${API_URL}/juteSQC/sqc_qr_cv_setup`,
     SPINNING_SQC_QR_CV_SAVE: `${API_URL}/juteSQC/sqc_qr_cv_save`,
@@ -1477,6 +1498,8 @@ const apiRoutesPortalMasters = {
     // Bale reports (router prefix /api/juteProductionReports)
     BALE_REPORT_DAILY_SHEET: `${API_URL}/juteProductionReports/bale_daily_sheet`,
     BALE_REPORT_HEAVY_LIGHT: `${API_URL}/juteProductionReports/bale_heavy_light`,
+    // Bale Register — opening / pressed / repacked / despatched / closing + inspection, per day (spec §7c)
+    BALE_REPORT_REGISTER: `${API_URL}/juteProductionReports/bale_register`,
     // Selection Trolley Weight (router prefix /api/selectionProd) — SELECTION_TW_ENTRY_EDIT/
     // DELETE are base paths; caller appends /${id}?co_id=...
     SELECTION_TW_ENTRY_SETUP: `${API_URL}/selectionProd/entry_setup`,
@@ -1558,6 +1581,17 @@ const apiRoutesPortalMasters = {
     FINISHING_STOCK_ROW_DELETE: `${API_URL}/finishingStock/row_delete`,
     FINISHING_STOCK_COPY_PREVIOUS_DAY: `${API_URL}/finishingStock/copy_previous_day`,
     FINISHING_STOCK_REPORT: `${API_URL}/finishingStock/report`,
+    // Bale Stock & Inspection — bale-level stock derived from Bale Production, inspection marking,
+    // bale -> invoice despatch link (router prefix /api/baleStock).
+    BALE_STOCK_SETUP: `${API_URL}/baleStock/setup`,
+    BALE_STOCK_BALES: `${API_URL}/baleStock/bales`,
+    BALE_STOCK_SUMMARY: `${API_URL}/baleStock/summary`,
+    BALE_STOCK_INVOICES: `${API_URL}/baleStock/invoices`,
+    BALE_STOCK_INSPECT: `${API_URL}/baleStock/inspect`,
+    BALE_STOCK_UNINSPECT: `${API_URL}/baleStock/uninspect`,
+    BALE_STOCK_DESPATCH: `${API_URL}/baleStock/despatch`,
+    BALE_STOCK_UNDESPATCH: `${API_URL}/baleStock/undespatch`,
+    BALE_STOCK_SUGGEST: `${API_URL}/baleStock/suggest`,
     // Finishing SQC — ACTUALS ONLY (router prefix /api/juteSQC, shared with Spinning/Beaming SQC).
     // Proxies to finishingTargetMap with value_role='actual'.
     FINISHING_SQC_SETUP: `${API_URL}/juteSQC/finishing_sqc_setup`,
@@ -1727,6 +1761,14 @@ const apiRoutesPortalMasters = {
     MECH_RPT_TOP_PROBLEM_MACHINES: `${API_URL}/mechMaintReports/top-problem-machines`,
     MECH_RPT_MACHINE_HISTORY: `${API_URL}/mechMaintReports/machine-history`,
     MECH_RPT_OPEN_BOARD: `${API_URL}/mechMaintReports/open-breakdown-board`,
+    // Jute Mechanical — utilities (power readings), backend prefix /api/mechUtility (ITM-004)
+    MECH_UTIL_METERS: `${API_URL}/mechUtility/meters`,
+    MECH_UTIL_METER_CREATE: `${API_URL}/mechUtility/meter_create`,
+    MECH_UTIL_METER_EDIT: `${API_URL}/mechUtility/meter_edit`,
+    MECH_UTIL_READINGS: `${API_URL}/mechUtility/readings`,
+    MECH_UTIL_READINGS_SAVE: `${API_URL}/mechUtility/readings_save`,
+    MECH_UTIL_READING_DELETE: `${API_URL}/mechUtility/reading_delete`,
+    MECH_UTIL_POWER_REPORT: `${API_URL}/mechUtility/power_report`,
 };
 
 // Support tickets (Zendesk-style). Raised from Portal/Tenant Admin widgets,

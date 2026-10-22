@@ -308,12 +308,16 @@ export interface FetchJuteMRDownloadParams {
 	search?: string | null;
 	fromDate?: string | null;
 	toDate?: string | null;
+	/** Gate-entry-date bounds, combinable with the MR-date ones (TKT-000226). */
+	geFromDate?: string | null;
+	geToDate?: string | null;
 	statusId?: number | null;
 }
 
 /**
  * Download the Jute MR list as an .xlsx blob, applying the same filters
- * (search, from_date, to_date) used by the index grid.
+ * (search, from_date, to_date, ge_from_date, ge_to_date, status_id) used by
+ * the index grid.
  */
 export function fetchJuteMRDownload(params: FetchJuteMRDownloadParams): Promise<Blob> {
 	return fetchExcelBlob(apiRoutesPortalMasters.JUTE_MR_DOWNLOAD, params);

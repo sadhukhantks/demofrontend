@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
 	Alert,
 	Autocomplete,
@@ -11,8 +12,15 @@ import {
 	TextField,
 	Typography,
 } from "@mui/material";
+import { ExternalLink as ExternalLinkIcon } from "lucide-react";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
+import BaleDespatchQuickDialog, {
+	type BaleDespatchQuickResult,
+} from "@/components/juteProduction/baleStock/BaleDespatchQuickDialog";
+import BaleInspectQuickDialog from "@/components/juteProduction/baleStock/BaleInspectQuickDialog";
+import { despatchDoneMessage } from "@/components/juteProduction/baleStock/baleStockCalc";
+import type { BaleStockSummaryLine } from "@/utils/baleStockService";
 import {
 	copyFinishingStockPreviousDay,
 	createFinishingStockRow,
@@ -27,17 +35,27 @@ import {
 import FinishingStockForm from "./_components/FinishingStockForm";
 import FinishingStockGrid from "./_components/FinishingStockGrid";
 import { todayISO } from "./utils/stockCalc";
+import { minBackdateISO } from "@/utils/backdate";
 import {
 	buildCreatePayload,
 	buildEditPayload,
 	type FinishingStockFormValues,
 } from "./utils/stockSchema";
 
+const BALE_STOCK_PATH = "/dashboardportal/juteProduction/baleStock";
+
 /**
  * Finishing Stock daily physical count — one row per counted lot of pressed
  * bales or loose finishing WIP. Container component: it owns all state, every
  * API call and the company/branch scope; the components under `_components/`
  * render from props only. There is no day lock for this feature.
+ *
+ * Own-company pressed bales: when the branch has Bale Production entries
+ * (`bale_source === "BALE_PROD"`) the day's own bale block is derived from them
+ * (read-only here, with a "Mark inspected" action per sacking quality and a
+ * "Mark despatched" action per quality — against an invoice or without one,
+ * linked later — each opening its shared quick dialog); only loose stock and bales held for other companies
+ * are counted by hand.
  */
 export default function FinishingStockPage() {
 	const [mounted, setMounted] = React.useState(false);
@@ -79,6 +97,10 @@ export default function FinishingStockPage() {
 	const [submitError, setSubmitError] = React.useState<string | null>(null);
 	const [actionError, setActionError] = React.useState<string | null>(null);
 	const [snack, setSnack] = React.useState<string | null>(null);
+	// Derived sacking line whose bales are being marked inspected (dialog open).
+	const [inspectLine, setInspectLine] = React.useState<BaleStockSummaryLine | null>(null);
+	// Derived line (hessian or sacking) whose bales are being linked to an invoice (dialog open).
+	const [despatchLine, setDespatchLine] = React.useState<BaleStockSummaryLine | null>(null);
 	// Bumped after every successful save / on leaving edit mode; the form watches
 	// it to clear itself (see FinishingStockForm's formResetToken prop).
 	const [formResetToken, setFormResetToken] = React.useState(0);
@@ -152,6 +174,10 @@ export default function FinishingStockPage() {
 	}, [coId, branchId, tranDate, dayVersion]);
 
 	const rows = React.useMemo(() => day?.rows ?? [], [day]);
+	const derivedBales = React.useMemo(() => day?.derived_bales ?? [], [day]);
+	const derivedSeries = React.useMemo(() => day?.derived_series ?? [], [day]);
+	// The day's own source wins (it is as on tran_date); setup's is "as of today".
+	const baleSource = day?.bale_source ?? setup?.bale_source ?? "MANUAL";
 
 	// ---------------------------------------------------------------------
 	// Mutations
@@ -164,6 +190,22 @@ export default function FinishingStockPage() {
 		setSubmitError(null);
 		setEditingEntry(row);
 	}, []);
+
+	const onMarkInspected = React.useCallback((line: BaleStockSummaryLine) => {
+		setInspectLine(line);
+	}, []);
+
+	const onMarkDespatched = React.useCallback((line: BaleStockSummaryLine) => {
+		setDespatchLine(line);
+	}, []);
+
+	const onDespatchLinked = React.useCallback(
+		(r: BaleDespatchQuickResult) => {
+			setSnack(despatchDoneMessage(r));
+			refreshDay();
+		},
+		[refreshDay]
+	);
 
 	const onCancelEdit = React.useCallback(() => {
 		setSubmitError(null);
@@ -277,7 +319,9 @@ export default function FinishingStockPage() {
 				Finishing Stock
 			</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-				Record the daily physical count of pressed bales and loose finishing stock.
+				{setup?.bale_source === "BALE_PROD"
+					? "Pressed bales come from Bale Production; this page counts loose finishing stock only."
+					: "Record the daily physical count of pressed bales and loose finishing stock."}
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
@@ -315,6 +359,7 @@ export default function FinishingStockPage() {
 						<FinishingStockForm
 							setup={setup}
 							coId={Number(coId)}
+							baleSource={setup.bale_source}
 							tranDate={tranDate}
 							editingEntry={editingEntry}
 							formResetToken={formResetToken}
@@ -334,7 +379,7 @@ export default function FinishingStockPage() {
 								size="small"
 								value={tranDate}
 								onChange={(e) => setTranDate(e.target.value)}
-								inputProps={{ max: todayISO() }}
+								inputProps={{ min: minBackdateISO(), max: todayISO() }}
 								InputLabelProps={{ shrink: true }}
 							/>
 							<Button
@@ -346,6 +391,16 @@ export default function FinishingStockPage() {
 								}}
 							>
 								{copying ? "Copying…" : "Copy Previous Day"}
+							</Button>
+							<Button
+								component={Link}
+								href={BALE_STOCK_PATH}
+								size="small"
+								variant="outlined"
+								color="secondary"
+								startIcon={<ExternalLinkIcon size={16} />}
+							>
+								Bale Stock &amp; Inspection
 							</Button>
 							{day?.prev_entry_date ? (
 								<Typography variant="caption" color="text.secondary">
@@ -367,16 +422,50 @@ export default function FinishingStockPage() {
 
 						<FinishingStockGrid
 							rows={rows}
+							derivedBales={derivedBales}
+							derivedSeries={derivedSeries}
+							baleSource={baleSource}
 							loading={dayLoading}
 							onEdit={onEdit}
 							onDelete={(row) => {
 								void onDelete(row);
 							}}
+							onMarkInspected={onMarkInspected}
+							onMarkDespatched={onMarkDespatched}
 							actionsDisabled={saving || deleting}
 						/>
 					</Box>
 				</Box>
 			)}
+
+			{inspectLine && branchId != null ? (
+				<BaleInspectQuickDialog
+					open
+					onClose={() => setInspectLine(null)}
+					coId={Number(coId)}
+					branchId={branchId}
+					asOn={tranDate}
+					finishingQualityId={inspectLine.finishing_quality_id}
+					qualityName={inspectLine.item_name ?? `Quality #${inspectLine.finishing_quality_id}`}
+					onMarked={(n: number) => {
+						setSnack(`Marked ${n} bales inspected`);
+						refreshDay();
+					}}
+				/>
+			) : null}
+
+			{despatchLine && branchId != null ? (
+				<BaleDespatchQuickDialog
+					open
+					onClose={() => setDespatchLine(null)}
+					coId={Number(coId)}
+					branchId={branchId}
+					asOn={tranDate}
+					finishingQualityId={despatchLine.finishing_quality_id}
+					qualityName={despatchLine.item_name ?? `Quality #${despatchLine.finishing_quality_id}`}
+					onLinked={onDespatchLinked}
+				/>
+			) : null}
 
 			<Snackbar
 				open={!!snack}

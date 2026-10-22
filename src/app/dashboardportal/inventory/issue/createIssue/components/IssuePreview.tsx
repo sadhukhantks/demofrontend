@@ -47,8 +47,11 @@ export const IssuePreview: React.FC<IssuePreviewProps> = ({
 
 		const s = win.document.createElement("style");
 		s.textContent = `
-			@media print { @page { size: A4; margin: 10mm; } }
 			body { margin: 0; padding: 16px; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; color: #000; }
+			/* @page margin 0 suppresses the browser's own header/footer (date, title,
+			   about:blank, page number) - body padding provides the paper margin instead
+			   (10mm former page margin + 16px former padding). */
+			@media print { @page { size: A4; margin: 0; } body { padding: calc(10mm + 16px); } }
 			table { width: 100%; border-collapse: collapse; }
 			th, td { border: 1px solid #333; padding: 5px 8px; font-size: 11px; }
 			th { background-color: #f5f5f5; font-weight: 600; }

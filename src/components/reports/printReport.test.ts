@@ -33,6 +33,14 @@ describe("buildPrintHtml", () => {
     expect(html).toContain('<p class="hl">Mill (Branch)</p>');
     expect(html).not.toContain('<p class="hl"></p>'); // blank lines dropped
     expect(html).toContain("@page { size: landscape;");
+    // zero page margin = no browser header/footer
+    expect(html).toContain("@page { size: landscape; margin: 0; }");
+    // paper margin repeats on every page via the print frame (thead/tfoot spacers)
+    expect(html).toContain('<table class="print-frame">');
+    expect(html).toContain('<thead><tr><td><div class="print-frame-top"></div></td></tr></thead>');
+    expect(html).toContain('<tfoot><tr><td><div class="print-frame-bottom"></div></td></tr></tfoot>');
+    expect(html).toContain(".print-frame-top { height: 10mm; }");
+    expect(html).toContain("body { padding: 0 10mm; }");
     expect(html).toContain("<h2>Spell Totals</h2>");
     expect(html).toContain('<p class="sub">per spell</p>');
     expect(html).toContain('<th class="r">Net Wt (kg)</th>');
@@ -50,6 +58,7 @@ describe("buildPrintHtml", () => {
     expect(html).toContain("&lt;script&gt;");
     expect(html).not.toContain("<script>");
     expect(html).toContain("@page { size: portrait;");
+    expect(html).toContain("@page { size: portrait; margin: 0; }");
   });
 });
 

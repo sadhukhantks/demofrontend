@@ -8,12 +8,13 @@
  */
 
 import React from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
 import type { MuiFormMode } from "@/components/ui/muiform";
 import type { ApprovalInfo, ApprovalActionPermissions, ApprovalStatusId } from "@/components/ui/transaction";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { MR_STATUS_IDS, MR_STATUS_LABELS, type MRStatusId } from "../utils/mrConstants";
+import { canReopenMr, canReturnLorryMr, canUnreturnLorryMr, isQcRollbackOnly } from "../utils/mrActionVisibility";
 import { openMR, pendingMR, approveMR, rejectMR, cancelMR, reopenMR, returnMR, unreturnMR, type ReopenResponse } from "../utils/mrService";
 import type { MRReopenTarget } from "../components/MRReopenDialog";
 import type { JuteMRHeader } from "../types/mrTypes";
@@ -46,6 +47,8 @@ export const useMRApproval = ({
 }: UseMRApprovalParams) => {
 	const [approvalLoading, setApprovalLoading] = React.useState(false);
 	const pathname = usePathname();
+	const router = useRouter();
+	const searchParams = useSearchParams();
 	const { hasMenuAccess } = useSidebarContext();
 
 	/**
@@ -208,17 +211,27 @@ export const useMRApproval = ({
 	}, [mode, approvalPermissions.canApprove, isFinalLevel, header?.party_id, header?.party_branch_id]);
 
 	/**
-	 * Whether the Reopen button should be shown: Pending/Approved only, and only
-	 * for users with edit access on this menu (access_type_id >= 4, decision D2).
-	 * The backend re-checks this (403) — this only controls button visibility.
+	 * Edit access on the Jute MR menu (access_type_id >= 4, decision D2) — the
+	 * gate for the status actions below. The backend re-checks it (reopen_mr: 403).
 	 */
-	const canReopen = React.useMemo(() => {
-		return (
-			mode !== "view" &&
-			(statusId === MR_STATUS_IDS.PENDING || statusId === MR_STATUS_IDS.APPROVED) &&
-			hasMenuAccess(pathname, "edit")
-		);
-	}, [mode, statusId, hasMenuAccess, pathname]);
+	const hasEditAccess = React.useMemo(() => hasMenuAccess(pathname, "edit"), [hasMenuAccess, pathname]);
+
+	/**
+	 * Whether the Reopen button should be shown: Pending/Approved only, and only
+	 * for users with edit access on this menu.
+	 *
+	 * NOT gated on `mode`: the MR list opens every Pending / Approved MR with
+	 * `?mode=view` (only Draft / Open rows get the edit icon), so an edit-mode
+	 * gate hid Reopen — the only way back to Open or to QC — from everyone
+	 * (TKT-000229 / TKT-000230). See mrActionVisibility.ts.
+	 */
+	const qcDone = Number(header?.qc_check ?? 0) === 1;
+	const canReopen = React.useMemo(
+		() => canReopenMr(statusId, hasEditAccess, qcDone),
+		[statusId, hasEditAccess, qcDone],
+	);
+	/** Open MR: the dialog offers only "Roll back to QC" (TKT-000229). */
+	const reopenQcOnly = isQcRollbackOnly(statusId);
 
 	const isReturned = Boolean(header?.is_returned);
 
@@ -233,26 +246,19 @@ export const useMRApproval = ({
 	 * 2026-09-03). The backend /return_mr endpoint has no permission check of its
 	 * own, so the FE is the sole gate — use the same menu edit-access check as
 	 * Reopen just above, which is the established pattern for actions the
-	 * approval-permissions object doesn't model.
+	 * approval-permissions object doesn't model. Not gated on `mode` either, for
+	 * the same reason as Reopen (a Pending MR is only ever opened in view mode).
 	 */
-	const canReturnLorry = React.useMemo(() => {
-		return (
-			mode !== "view" &&
-			!isReturned &&
-			(statusId === MR_STATUS_IDS.OPEN || statusId === MR_STATUS_IDS.PENDING) &&
-			hasMenuAccess(pathname, "edit")
-		);
-	}, [mode, statusId, isReturned, hasMenuAccess, pathname]);
+	const canReturnLorry = React.useMemo(
+		() => canReturnLorryMr(statusId, isReturned, hasEditAccess),
+		[statusId, isReturned, hasEditAccess],
+	);
 
 	/** Undo Return lorry: only while the flag is set and the MR is still Open/Pending. */
-	const canUnreturnLorry = React.useMemo(() => {
-		return (
-			mode !== "view" &&
-			isReturned &&
-			(statusId === MR_STATUS_IDS.OPEN || statusId === MR_STATUS_IDS.PENDING) &&
-			hasMenuAccess(pathname, "edit")
-		);
-	}, [mode, statusId, isReturned, hasMenuAccess, pathname]);
+	const canUnreturnLorry = React.useMemo(
+		() => canUnreturnLorryMr(statusId, isReturned, hasEditAccess),
+		[statusId, isReturned, hasEditAccess],
+	);
 
 	/**
 	 * Approval info for the approval bar.
@@ -546,10 +552,26 @@ export const useMRApproval = ({
 			setApprovalLoading(true);
 			try {
 				const result: ReopenResponse = await reopenMR(mrId, branchId, target, getMenuId());
-				toast({ title: "MR reopened", description: target === "qc" ? "Ready for gate entry / QC." : "Ready for editing." });
+				toast({
+					title: reopenQcOnly ? "QC reopened" : "MR reopened",
+					description:
+						target === "qc"
+							? reopenQcOnly
+								? "The MR stays Open and is listed again in Jute Quality Check — redo the inspection (PO, lines) there."
+								: "Back to Open and listed again in Jute Quality Check — redo the inspection (PO, lines) there."
+							: "Back to Open — ready for editing.",
+				});
 				setReopenDialogOpen(false);
 				setReopenWarning(result.warning ?? null);
 				await onRefresh();
+				// The MR is Open again, but a Pending / Approved MR is always opened
+				// from the list in view mode (TKT-000229 / TKT-000230): switch the same
+				// page to edit mode so the reopened MR can be corrected right away.
+				if (mode === "view") {
+					const params = new URLSearchParams(searchParams?.toString() ?? "");
+					params.set("mode", "edit");
+					router.replace(`${pathname}?${params.toString()}`);
+				}
 			} catch (error) {
 				toast({
 					variant: "destructive",
@@ -560,7 +582,7 @@ export const useMRApproval = ({
 				setApprovalLoading(false);
 			}
 		},
-		[mrId, branchId, getMenuId, onRefresh],
+		[mrId, branchId, getMenuId, onRefresh, mode, searchParams, router, pathname, reopenQcOnly],
 	);
 
 	/**
@@ -631,6 +653,7 @@ export const useMRApproval = ({
 		canSetOpen,
 		canSetPending,
 		canReopen,
+		reopenQcOnly,
 		canReturnLorry,
 		canUnreturnLorry,
 		partyHasNoBranches,

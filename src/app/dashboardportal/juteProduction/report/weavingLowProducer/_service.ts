@@ -23,6 +23,8 @@ export interface WeavingLowProdBaseRow {
   machine_id: number | null;
   loom: string | null;
   eb_id: number | null;
+  /** Employee code — what the mill calls the EB No. */
+  eb_no: string | null;
   worker_name: string | null;
   quality_id: number | null;
   quality_name: string | null;

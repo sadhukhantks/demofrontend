@@ -7,6 +7,11 @@ import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { todayISO } from "@/app/dashboardportal/juteProduction/spinning/utils/spinningCalc";
 import { useWeavingPickSetup } from "./hooks/useWeavingPickSetup";
 import { useWeavingPickByDate } from "./hooks/useWeavingPickByDate";
+// ITM-013: per-quality standard picks — a hint beside the Picks/dm input, the
+// "= std" markers and the equals-standard confirm. Served by its own endpoint
+// (never part of the setup payload), reloaded when the date changes because
+// standards are effective-dated.
+import { useWeavingPickStandards } from "./hooks/useWeavingPickStandards";
 import { ppiToDm } from "./pickUnits";
 // Shared target-map editor reused across the juteProduction route boundary:
 // the "Actual Speed" tab writes actuals into jute_prod_weaving_target_map (the same
@@ -19,11 +24,12 @@ import { ppiToDm } from "./pickUnits";
 import TargetMapEditor from "../../juteProduction/masters/weavingTargetMap/_components/TargetMapEditor";
 import PickForm from "./_components/PickForm";
 import PickGrid from "./_components/PickGrid";
+import PickCoverageTab from "./_components/PickCoverageTab";
 import SqcPrintButton from "../_shared/SqcPrintButton";
 import type { SqcPrintReport, PrintColumn } from "../_shared/printReport";
 
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
-const TABS = ["Loom Width & Picks (R-08-21)", "Actual Speed"] as const;
+const TABS = ["Loom Width & Picks (R-08-21)", "Actual Speed", "Picks Coverage"] as const;
 
 export default function WeavingSqcPage() {
 	// HYDRATION RULE: this component reads sidebar context and seeds a date,
@@ -71,6 +77,7 @@ export default function WeavingSqcPage() {
 		loading: pickLoading,
 		refresh: refreshPick,
 	} = useWeavingPickByDate(coId, pickDate, branchId);
+	const { standards: pickStandards, error: pickStandardsError } = useWeavingPickStandards(coId, pickDate);
 
 	const onPickSaved = React.useCallback(() => {
 		refreshPick();
@@ -188,7 +195,8 @@ export default function WeavingSqcPage() {
 			</Typography>
 			<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
 				Capture per-loom width &amp; actual picks (R-08-21) — picks are entered per dm and converted
-				to PPI automatically — and the actual loom speed per weaving quality.
+				to PPI automatically — the actual loom speed per loom, and the Picks Coverage report
+				(measured readings vs readings equal to the quality standard).
 			</Typography>
 
 			{sidebarBranchIds.length > 1 ? (
@@ -241,6 +249,11 @@ export default function WeavingSqcPage() {
 								/>
 							</Box>
 							{pickSetupError ? <Alert severity="error">{pickSetupError}</Alert> : null}
+							{pickStandardsError ? (
+								<Alert severity="info">
+									Standard picks could not be loaded — hints are off: {pickStandardsError}
+								</Alert>
+							) : null}
 							{pickSetupLoading || !pickSetup ? (
 								<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
 									<CircularProgress />
@@ -252,6 +265,7 @@ export default function WeavingSqcPage() {
 									entryDate={pickDate}
 									setup={pickSetup}
 									onSaved={onPickSaved}
+									standards={pickStandards}
 								/>
 							)}
 							<PickGrid
@@ -259,6 +273,7 @@ export default function WeavingSqcPage() {
 								summary={pickSummary}
 								loading={pickLoading}
 								onDeleted={onPickSaved}
+								standards={pickStandards}
 							/>
 						</Box>
 					) : null}
@@ -296,6 +311,16 @@ export default function WeavingSqcPage() {
 								/>
 							</Box>
 						</Box>
+					) : null}
+
+					{/* Tab 2 — Picks Coverage (ITM-013): measured vs equal-to-standard by date × quality */}
+					{tab === 2 ? (
+						<PickCoverageTab
+							coId={coId}
+							branchId={branchId}
+							branchName={selectedBranchName}
+							companyName={selectedCompany?.co_name}
+						/>
 					) : null}
 				</>
 			)}

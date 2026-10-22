@@ -212,6 +212,18 @@ can only scroll a list -- are not permitted anywhere, in any of the three dashbo
   auto-select it and show the branch name as plain text — never a one-option dropdown.
 - This is a standing norm for all new pages and retrofits, in every dashboard.
 
+### Printing (MANDATORY — no browser header / footer on any printout)
+
+Every print path (`openStyledPrintWindow` in `src/utils/printUtils.ts`, `buildPrintHtml` in
+`src/components/reports/printReport.ts`, the juteSQC `printReport.ts`, and any page-level
+`@media print` stylesheet) must print **without the browser's default header and footer**
+(date, page title, URL, page numbers that Chrome / Edge add in the page margins). The rule
+is `@page { size: A4; margin: 0; }` (orientation as needed) with the real margins on
+`body { padding: 15mm }` (or the page's own value) — a zero page margin is what makes the
+browser omit its marks; it is not optional per page. Owner rule, 2026-10-12. When a page
+needs a PDF without any browser involvement, add a server-side reportlab endpoint instead
+of relying on "Save as PDF".
+
 ### Styling (Three Layers)
 - **Tailwind CSS** for layout and spacing
 - **MUI components** for complex interactions (DataGrid, Autocomplete, Dialog)
