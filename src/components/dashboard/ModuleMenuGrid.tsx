@@ -32,6 +32,7 @@ const MODULES: Record<string, { c: string; I: LucideIcon }> = {
   hrmsmasters: { c: "#6366F1", I: Users }, // deliberate indigo sibling of hrms
   accounting: { c: "#16A34A", I: Landmark },
   bomcosting: { c: "#A21CAF", I: Calculator },
+  jutecosting: { c: "#BE123C", I: Calculator }, // rose — mill costing (cost parameters, daily P&L)
 };
 
 const RING = Object.values(MODULES).map((m) => m.c);

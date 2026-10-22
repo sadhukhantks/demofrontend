@@ -1302,6 +1302,18 @@ const apiRoutesPortalMasters = {
     SPNG_TARGET_MAP_DELETE: `${API_URL}/spngTargetMap/target_map_delete`,
     SPNG_TARGET_MAP_GRID: `${API_URL}/spngTargetMap/target_map_grid`,
     SPNG_TARGET_MAP_BULK_SAVE: `${API_URL}/spngTargetMap/target_map_bulk_save`,
+    // Jute Costing (ITM-019) — backend prefixes /api/juteCostParam and /api/juteCostReports.
+    // *_BY_ID / *_EDIT / *_DELETE are base paths; caller appends /${id} (+ ?co_id= on DELETE)
+    JUTE_COST_PARAM_SETUP: `${API_URL}/juteCostParam/cost_param_setup`,
+    JUTE_COST_PARAM_LIST: `${API_URL}/juteCostParam/cost_param_list`,
+    JUTE_COST_PARAM_BY_ID: `${API_URL}/juteCostParam/cost_param_by_id`,
+    JUTE_COST_PARAM_CREATE: `${API_URL}/juteCostParam/cost_param_create`,
+    JUTE_COST_PARAM_EDIT: `${API_URL}/juteCostParam/cost_param_edit`,
+    JUTE_COST_PARAM_DELETE: `${API_URL}/juteCostParam/cost_param_delete`,
+    JUTE_COST_PARAM_RESOLVE: `${API_URL}/juteCostParam/cost_param_resolve`,
+    JUTE_COST_DAILY_PL: `${API_URL}/juteCostReports/daily_pl`,
+    JUTE_COST_DAILY_PL_BREAKDOWN: `${API_URL}/juteCostReports/daily_pl/breakdown`,
+    JUTE_COST_DAILY_PL_ISSUE_CHECKS: `${API_URL}/juteCostReports/daily_pl/jute_issue_checks`,
     // Winding standards master (router prefix /api/windingTargetMap) — *_EDIT/*_DELETE are base paths; caller appends /${id}
     WINDING_TARGET_MAP_SETUP: `${API_URL}/windingTargetMap/target_map_setup`,
     WINDING_TARGET_MAP_LIST: `${API_URL}/windingTargetMap/target_map_list`,
@@ -1357,6 +1369,9 @@ const apiRoutesPortalMasters = {
     WEAVING_SQC_PICK_SAVE:    `${API_URL}/juteSQC/weaving_sqc_pick_save`,
     WEAVING_SQC_PICK_BY_DATE: `${API_URL}/juteSQC/weaving_sqc_pick_by_date`,
     WEAVING_SQC_PICK_DELETE:  `${API_URL}/juteSQC/weaving_sqc_pick_delete`,
+    // ITM-013: per-quality standard picks hint (target map qid/standard/picks, PPI) + measured-vs-standard coverage report (date range, cap 93 days)
+    WEAVING_SQC_PICK_STANDARDS: `${API_URL}/juteSQC/weaving_sqc_pick_standards`,
+    WEAVING_SQC_PICK_COVERAGE: `${API_URL}/juteSQC/weaving_pick_coverage`,
     // R-08-15 Yarn QR & CV % (router prefix /api/juteSQC) — SPINNING_SQC_QR_CV_DELETE is a base path; caller appends /${id}
     SPINNING_SQC_QR_CV_SETUP: `${API_URL}/juteSQC/sqc_qr_cv_setup`,
     SPINNING_SQC_QR_CV_SAVE: `${API_URL}/juteSQC/sqc_qr_cv_save`,
@@ -1746,6 +1761,14 @@ const apiRoutesPortalMasters = {
     MECH_RPT_TOP_PROBLEM_MACHINES: `${API_URL}/mechMaintReports/top-problem-machines`,
     MECH_RPT_MACHINE_HISTORY: `${API_URL}/mechMaintReports/machine-history`,
     MECH_RPT_OPEN_BOARD: `${API_URL}/mechMaintReports/open-breakdown-board`,
+    // Jute Mechanical — utilities (power readings), backend prefix /api/mechUtility (ITM-004)
+    MECH_UTIL_METERS: `${API_URL}/mechUtility/meters`,
+    MECH_UTIL_METER_CREATE: `${API_URL}/mechUtility/meter_create`,
+    MECH_UTIL_METER_EDIT: `${API_URL}/mechUtility/meter_edit`,
+    MECH_UTIL_READINGS: `${API_URL}/mechUtility/readings`,
+    MECH_UTIL_READINGS_SAVE: `${API_URL}/mechUtility/readings_save`,
+    MECH_UTIL_READING_DELETE: `${API_URL}/mechUtility/reading_delete`,
+    MECH_UTIL_POWER_REPORT: `${API_URL}/mechUtility/power_report`,
 };
 
 // Support tickets (Zendesk-style). Raised from Portal/Tenant Admin widgets,
