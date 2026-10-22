@@ -1302,6 +1302,18 @@ const apiRoutesPortalMasters = {
     SPNG_TARGET_MAP_DELETE: `${API_URL}/spngTargetMap/target_map_delete`,
     SPNG_TARGET_MAP_GRID: `${API_URL}/spngTargetMap/target_map_grid`,
     SPNG_TARGET_MAP_BULK_SAVE: `${API_URL}/spngTargetMap/target_map_bulk_save`,
+    // Jute Costing (ITM-019) — backend prefixes /api/juteCostParam and /api/juteCostReports.
+    // *_BY_ID / *_EDIT / *_DELETE are base paths; caller appends /${id} (+ ?co_id= on DELETE)
+    JUTE_COST_PARAM_SETUP: `${API_URL}/juteCostParam/cost_param_setup`,
+    JUTE_COST_PARAM_LIST: `${API_URL}/juteCostParam/cost_param_list`,
+    JUTE_COST_PARAM_BY_ID: `${API_URL}/juteCostParam/cost_param_by_id`,
+    JUTE_COST_PARAM_CREATE: `${API_URL}/juteCostParam/cost_param_create`,
+    JUTE_COST_PARAM_EDIT: `${API_URL}/juteCostParam/cost_param_edit`,
+    JUTE_COST_PARAM_DELETE: `${API_URL}/juteCostParam/cost_param_delete`,
+    JUTE_COST_PARAM_RESOLVE: `${API_URL}/juteCostParam/cost_param_resolve`,
+    JUTE_COST_DAILY_PL: `${API_URL}/juteCostReports/daily_pl`,
+    JUTE_COST_DAILY_PL_BREAKDOWN: `${API_URL}/juteCostReports/daily_pl/breakdown`,
+    JUTE_COST_DAILY_PL_ISSUE_CHECKS: `${API_URL}/juteCostReports/daily_pl/jute_issue_checks`,
     // Winding standards master (router prefix /api/windingTargetMap) — *_EDIT/*_DELETE are base paths; caller appends /${id}
     WINDING_TARGET_MAP_SETUP: `${API_URL}/windingTargetMap/target_map_setup`,
     WINDING_TARGET_MAP_LIST: `${API_URL}/windingTargetMap/target_map_list`,
