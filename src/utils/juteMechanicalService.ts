@@ -49,6 +49,7 @@ export interface MechWriteResult {
   breakdown_id?: number;
   overhaul_id?: number;
   pm_exec_id?: number;
+  power_meter_id?: number;
 }
 
 /**
@@ -2267,4 +2268,361 @@ export async function fetchOpenBreakdownBoardReport(
 ): Promise<MechReportResult<MechOpenBoardRow>> {
   const url = `${apiRoutesPortalMasters.MECH_RPT_OPEN_BOARD}?${reportQuery(p)}`;
   return requestReport<MechOpenBoardRow>(url);
+}
+
+// =============================================================================
+// Utilities — power readings (/api/mechUtility)
+// =============================================================================
+//
+// ITM-004: one row per meter per day (optionally per spell) of main-meter kWh,
+// DG hours / litres and max demand, plus the kWh-per-tonne report that divides
+// the day's kWh by the DPR's spinning (yarn) and weaving (cloth) tonnes.
+//
+//  - spell_id: the API uses null for "whole day" (stored as 0 server-side).
+//  - Decimal columns arrive as JSON numbers; null is SQL NULL.
+//  - There is no approval workflow and no meter delete: a meter is deactivated
+//    with active = 0 and its readings keep their meter_code.
+
+/** Meter kinds keyed separately (owner 2026-10-18). */
+export type MechMeterType = "GRID" | "DG" | "SOLAR";
+
+/** A row of `jute_power_meter_mst`. */
+export interface MechPowerMeter {
+  power_meter_id: number;
+  co_id: number;
+  branch_id: number;
+  meter_code: string;
+  meter_name: string;
+  meter_type: MechMeterType;
+  meter_type_label: string;
+  active: number;
+}
+
+/** Body of POST /meter_create and PUT /meter_edit/{id}. */
+export interface MechPowerMeterPayload {
+  co_id: number;
+  /** Required on create; IGNORED on edit (a meter never moves branch). */
+  branch_id?: number;
+  /** Trimmed and upper-cased server-side, 1..20 chars. */
+  meter_code: string;
+  meter_name: string;
+  meter_type: MechMeterType;
+  active: number;
+}
+
+/** GET /meters, flattened: the meters plus the meter-type enum for the dialog. */
+export interface MechPowerMetersResult {
+  data: MechPowerMeter[];
+  meter_types: MechEnumOption[];
+}
+
+/** GET /meters wire envelope — the house `{ data, master }` shape. */
+interface MechPowerMetersEnvelope {
+  data?: MechPowerMeter[];
+  master?: { meter_types?: MechEnumOption[] };
+}
+
+/**
+ * One row of GET /readings: an ACTIVE meter merged with its saved reading for
+ * the date + spell (or a saved reading whose meter is now inactive, so it can
+ * still be deleted). `power_reading_id` null means nothing is saved yet.
+ */
+export interface MechPowerReadingRow {
+  meter_code: string;
+  meter_name: string;
+  meter_type: MechMeterType;
+  meter_active: number;
+  power_reading_id: number | null;
+  opening_kwh: number | null;
+  closing_kwh: number | null;
+  kwh: number | null;
+  dg_hours: number | null;
+  dg_litres: number | null;
+  max_demand_kva: number | null;
+  remarks: string | null;
+  /** Most recent closing_kwh strictly before tran_date for this meter (any spell). */
+  prefill_opening_kwh: number | null;
+  prefill_from_date: string | null;
+  /** Median of the meter's daily kWh over the 30 days before tran_date. */
+  median30_kwh: number | null;
+}
+
+/** GET /readings payload. */
+export interface MechPowerReadingsDay {
+  tran_date: string;
+  spell_id: number | null;
+  /** Today in IST — the server clock is UTC, so the page uses this for its date cap. */
+  today: string;
+  lock: {
+    /** tran_date is older than `lock_days`. */
+    locked: boolean;
+    /**
+     * The user holds Edit (access level 4) on the Power Readings menu for the
+     * branch, so locked days may still be changed. Keying inside the window
+     * needs Write (3).
+     */
+    can_override: boolean;
+    lock_days: number;
+  };
+  spells: MechSpellOption[];
+  rows: MechPowerReadingRow[];
+}
+
+/** One row of the POST /readings_save body. Every field but meter_code is optional. */
+export interface MechPowerReadingSaveRow {
+  meter_code: string;
+  opening_kwh?: number | null;
+  closing_kwh?: number | null;
+  /** Ignored when both bounds are present; required when one is missing. */
+  kwh?: number | null;
+  dg_hours?: number | null;
+  dg_litres?: number | null;
+  max_demand_kva?: number | null;
+  remarks?: string | null;
+}
+
+/** Body of POST /readings_save — a bulk upsert for one date + spell. */
+export interface MechPowerReadingsSavePayload {
+  co_id: number;
+  branch_id: number;
+  tran_date: string;
+  spell_id: number | null;
+  rows: MechPowerReadingSaveRow[];
+}
+
+/** POST /readings_save result. Warnings never block the save. */
+export interface MechPowerReadingsSaveResult {
+  saved: number;
+  ids: number[];
+  warnings: string[];
+}
+
+export interface MechPowerReportMeter {
+  meter_code: string;
+  meter_name: string;
+  meter_type: MechMeterType;
+}
+
+/**
+ * One calendar day of GET /power_report. An UNKEYED day carries 0.0 kWh (not
+ * null) with `keyed` false, every `kwh_by_meter` entry null and the ratios
+ * null; its tonnes are still real.
+ */
+export interface MechPowerReportDay {
+  date: string;
+  weekday: string;
+  keyed: boolean;
+  kwh_total: number;
+  kwh_grid: number;
+  kwh_dg: number;
+  kwh_solar: number;
+  /** One key per entry of `meters`; null when that meter was not keyed that day. */
+  kwh_by_meter: Record<string, number | null>;
+  dg_hours: number;
+  dg_litres: number;
+  max_demand_kva: number | null;
+  yarn_t: number;
+  cloth_t: number;
+  kwh_per_t_yarn: number | null;
+  kwh_per_t_cloth: number | null;
+  dg_share_pct: number | null;
+}
+
+/** Range / MTD block: kWh over keyed days, tonnes of those same keyed days. */
+export interface MechPowerReportTotals {
+  days: number;
+  days_keyed: number;
+  kwh_total: number;
+  kwh_grid: number;
+  kwh_dg: number;
+  kwh_solar: number;
+  dg_hours: number;
+  dg_litres: number;
+  max_demand_kva: number | null;
+  yarn_t: number;
+  cloth_t: number;
+  kwh_per_t_yarn: number | null;
+  kwh_per_t_cloth: number | null;
+  dg_share_pct: number | null;
+  avg_kwh_per_keyed_day: number | null;
+}
+
+/** The "std" line: 30-day medians over keyed days ending on date_to (no achievement %). */
+export interface MechPowerReportStd {
+  basis: string;
+  days_used: number;
+  kwh_total: number | null;
+  kwh_per_t_cloth: number | null;
+  kwh_per_t_yarn: number | null;
+  dg_share_pct: number | null;
+}
+
+export interface MechPowerReportMeta {
+  co_id: number;
+  branch_id: number;
+  date_from: string;
+  date_to: string;
+  window_from: string;
+  days_keyed: number;
+  notes: string[];
+}
+
+/** GET /power_report payload. */
+export interface MechPowerReport {
+  meters: MechPowerReportMeter[];
+  days: MechPowerReportDay[];
+  totals: MechPowerReportTotals;
+  mtd: MechPowerReportTotals;
+  std: MechPowerReportStd;
+  meta: MechPowerReportMeta;
+}
+
+const EMPTY_POWER_METERS: MechPowerMeter[] = Object.freeze([]) as unknown as MechPowerMeter[];
+const EMPTY_ENUM_OPTIONS: MechEnumOption[] = Object.freeze([]) as unknown as MechEnumOption[];
+const EMPTY_REPORT_METERS: MechPowerReportMeter[] = Object.freeze([]) as unknown as MechPowerReportMeter[];
+const EMPTY_REPORT_DAYS: MechPowerReportDay[] = Object.freeze([]) as unknown as MechPowerReportDay[];
+const EMPTY_NOTES: string[] = Object.freeze([]) as unknown as string[];
+
+/** GET /mechUtility/meters — the branch's meters (active only unless `includeInactive`). */
+export async function fetchPowerMeters(p: {
+  coId: number;
+  branchId: number;
+  includeInactive?: boolean;
+}): Promise<MechPowerMetersResult> {
+  const url = `${apiRoutesPortalMasters.MECH_UTIL_METERS}?${buildQuery({
+    co_id: p.coId,
+    branch_id: p.branchId,
+    include_inactive: p.includeInactive ? 1 : undefined,
+  })}`;
+  const envelope = await request<MechPowerMetersEnvelope>(url);
+  return {
+    data: envelope.data ?? EMPTY_POWER_METERS,
+    meter_types: envelope.master?.meter_types ?? EMPTY_ENUM_OPTIONS,
+  };
+}
+
+/** POST /mechUtility/meter_create — `power_meter_id` of the new meter. */
+export async function createPowerMeter(body: MechPowerMeterPayload): Promise<MechWriteResult> {
+  return requestData<MechWriteResult>(apiRoutesPortalMasters.MECH_UTIL_METER_CREATE, "POST", body);
+}
+
+/** PUT /mechUtility/meter_edit/{id} — code, name, type and active only; the branch never moves. */
+export async function updatePowerMeter(
+  powerMeterId: number,
+  body: MechPowerMeterPayload,
+): Promise<MechWriteResult> {
+  return requestData<MechWriteResult>(
+    `${apiRoutesPortalMasters.MECH_UTIL_METER_EDIT}/${powerMeterId}`,
+    "PUT",
+    body,
+  );
+}
+
+/** GET /mechUtility/readings — the entry grid for one date (+ optional spell). */
+export async function fetchPowerReadings(p: {
+  coId: number;
+  branchId: number;
+  tranDate: string;
+  spellId?: number | null;
+}): Promise<MechPowerReadingsDay> {
+  const url = `${apiRoutesPortalMasters.MECH_UTIL_READINGS}?${buildQuery({
+    co_id: p.coId,
+    branch_id: p.branchId,
+    tran_date: p.tranDate,
+    spell_id: p.spellId ?? undefined,
+  })}`;
+  const day = await requestData<Partial<MechPowerReadingsDay>>(url);
+  return {
+    tran_date: day.tran_date ?? p.tranDate,
+    spell_id: day.spell_id ?? null,
+    today: day.today ?? p.tranDate,
+    // A payload without a lock block is malformed: fail CLOSED (read-only grid)
+    // rather than invent an unlocked state. lock_days is only ever the server's.
+    lock: day.lock ?? { locked: true, can_override: false, lock_days: 0 },
+    spells: day.spells ?? [],
+    rows: day.rows ?? [],
+  };
+}
+
+/** POST /mechUtility/readings_save — bulk upsert; warnings come back, never block. */
+export async function savePowerReadings(
+  body: MechPowerReadingsSavePayload,
+): Promise<MechPowerReadingsSaveResult> {
+  const result = await requestData<Partial<MechPowerReadingsSaveResult>>(
+    apiRoutesPortalMasters.MECH_UTIL_READINGS_SAVE,
+    "POST",
+    body,
+  );
+  return {
+    saved: result.saved ?? 0,
+    ids: result.ids ?? [],
+    warnings: result.warnings ?? [],
+  };
+}
+
+/** DELETE /mechUtility/reading_delete/{id}?co_id= — soft delete (active = 0). */
+export async function deletePowerReading(
+  powerReadingId: number,
+  coId: number,
+): Promise<{ message: string }> {
+  const url = `${apiRoutesPortalMasters.MECH_UTIL_READING_DELETE}/${powerReadingId}?${buildQuery({
+    co_id: coId,
+  })}`;
+  return requestData<{ message: string }>(url, "DELETE");
+}
+
+/** GET /mechUtility/power_report — day-wise kWh, DG and kWh/t over a range (max 93 days). */
+export async function fetchPowerReport(p: {
+  coId: number;
+  branchId: number;
+  dateFrom: string;
+  dateTo: string;
+}): Promise<MechPowerReport> {
+  const url = `${apiRoutesPortalMasters.MECH_UTIL_POWER_REPORT}?${buildQuery({
+    co_id: p.coId,
+    branch_id: p.branchId,
+    date_from: p.dateFrom,
+    date_to: p.dateTo,
+  })}`;
+  const data = await requestData<Partial<MechPowerReport>>(url);
+  const emptyTotals: MechPowerReportTotals = {
+    days: 0,
+    days_keyed: 0,
+    kwh_total: 0,
+    kwh_grid: 0,
+    kwh_dg: 0,
+    kwh_solar: 0,
+    dg_hours: 0,
+    dg_litres: 0,
+    max_demand_kva: null,
+    yarn_t: 0,
+    cloth_t: 0,
+    kwh_per_t_yarn: null,
+    kwh_per_t_cloth: null,
+    dg_share_pct: null,
+    avg_kwh_per_keyed_day: null,
+  };
+  return {
+    meters: data.meters ?? EMPTY_REPORT_METERS,
+    days: data.days ?? EMPTY_REPORT_DAYS,
+    totals: data.totals ?? emptyTotals,
+    mtd: data.mtd ?? emptyTotals,
+    std: data.std ?? {
+      basis: "",
+      days_used: 0,
+      kwh_total: null,
+      kwh_per_t_cloth: null,
+      kwh_per_t_yarn: null,
+      dg_share_pct: null,
+    },
+    meta: data.meta ?? {
+      co_id: p.coId,
+      branch_id: p.branchId,
+      date_from: p.dateFrom,
+      date_to: p.dateTo,
+      window_from: p.dateFrom,
+      days_keyed: 0,
+      notes: EMPTY_NOTES,
+    },
+  };
 }

@@ -1749,6 +1749,14 @@ const apiRoutesPortalMasters = {
     MECH_RPT_TOP_PROBLEM_MACHINES: `${API_URL}/mechMaintReports/top-problem-machines`,
     MECH_RPT_MACHINE_HISTORY: `${API_URL}/mechMaintReports/machine-history`,
     MECH_RPT_OPEN_BOARD: `${API_URL}/mechMaintReports/open-breakdown-board`,
+    // Jute Mechanical — utilities (power readings), backend prefix /api/mechUtility (ITM-004)
+    MECH_UTIL_METERS: `${API_URL}/mechUtility/meters`,
+    MECH_UTIL_METER_CREATE: `${API_URL}/mechUtility/meter_create`,
+    MECH_UTIL_METER_EDIT: `${API_URL}/mechUtility/meter_edit`,
+    MECH_UTIL_READINGS: `${API_URL}/mechUtility/readings`,
+    MECH_UTIL_READINGS_SAVE: `${API_URL}/mechUtility/readings_save`,
+    MECH_UTIL_READING_DELETE: `${API_URL}/mechUtility/reading_delete`,
+    MECH_UTIL_POWER_REPORT: `${API_URL}/mechUtility/power_report`,
 };
 
 // Support tickets (Zendesk-style). Raised from Portal/Tenant Admin widgets,
