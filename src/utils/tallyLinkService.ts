@@ -18,7 +18,9 @@ export type TallyLinkType =
 	| "TDS_194Q"
 	| "SALES_LEDGER"
 	| "SALES_CLAIM"
-	| "ROUND_OFF";
+	| "ROUND_OFF"
+	| "DESTINATION"
+	| "DESTINATION_PARTY";
 
 export interface TallyErpOption {
 	ref_id: number;
@@ -30,6 +32,8 @@ export interface TallyLinkSetup {
 	link_types: TallyLinkType[];
 	parties: TallyErpOption[];
 	items: TallyErpOption[];
+	/** Company branches, DESTINATION picker. */
+	branches: TallyErpOption[];
 	/** Ledger wording the Tally exports use when the company has no row of that type. */
 	ledger_defaults: Partial<Record<TallyLinkType, string>>;
 }
