@@ -20,7 +20,8 @@ import {
 // Tally Link Master — the exact Tally name for an ERP party (ledger), raw-jute item (stock item),
 // the company default godown or one of the company's export ledgers. Tally rejects imports whose
 // names differ from its books; the Tally exports fall back to the ERP name (ledgers: the backend's
-// ledger_defaults) when no active link exists.
+// ledger_defaults) when no active link exists. DESTINATION / DESTINATION_PARTY fix the "Destination"
+// on raw-jute sales exports (per receiving branch / per buyer).
 
 const TYPE_LABELS: Record<TallyLinkType, string> = {
 	PARTY: "Party (ledger)",
@@ -32,10 +33,15 @@ const TYPE_LABELS: Record<TallyLinkType, string> = {
 	SALES_LEDGER: "Ledger: Sales",
 	SALES_CLAIM: "Ledger: Sales claim",
 	ROUND_OFF: "Ledger: Round off",
+	DESTINATION: "Destination (jute received at branch)",
+	DESTINATION_PARTY: "Destination (sales to party)",
 };
 
-/** PARTY / ITEM map one ERP record; every other type is once per company (ref_id 0). */
-const needsRecord = (t: TallyLinkType | null) => t === "PARTY" || t === "ITEM";
+/** PARTY / ITEM / DESTINATION / DESTINATION_PARTY map one ERP record; every other type is once per company (ref_id 0). */
+const needsRecord = (t: TallyLinkType | null) =>
+	t === "PARTY" || t === "ITEM" || t === "DESTINATION" || t === "DESTINATION_PARTY";
+
+const isDestination = (t: TallyLinkType | null) => t === "DESTINATION" || t === "DESTINATION_PARTY";
 
 type FormState = { type: TallyLinkType | null; erp: TallyErpOption | null; tally_name: string; active: boolean };
 
@@ -76,7 +82,13 @@ export default function TallyLinkMasterPage() {
 		void refresh();
 	}, [refresh]);
 
-	const erpOptions = form.type === "PARTY" ? setup?.parties ?? [] : form.type === "ITEM" ? setup?.items ?? [] : [];
+	const erpOptions = form.type === "PARTY" || form.type === "DESTINATION_PARTY"
+		? setup?.parties ?? []
+		: form.type === "ITEM"
+			? setup?.items ?? []
+			: form.type === "DESTINATION"
+				? setup?.branches ?? []
+				: [];
 
 	const openCreate = () => {
 		setError(null);
@@ -165,7 +177,8 @@ export default function TallyLinkMasterPage() {
 					<Typography variant="body2" color="text.secondary">
 						The exact name of each party ledger, stock item, the default godown and the purchase / sales / claim / TDS / round-off
 						ledgers in this company&apos;s Tally books. Unmapped records go to Tally under their ERP name (ledgers under the
-						standard wording).
+						standard wording). Destination rows fix the "Destination" on raw-jute sales exports: per receiving branch (where the
+						lorry's chain-root MR was received), with a per-buyer override.
 					</Typography>
 				</Box>
 				<Button variant="contained" startIcon={<AddIcon size={18} />} onClick={openCreate}>
@@ -218,13 +231,19 @@ export default function TallyLinkMasterPage() {
 							<SearchableSelect<TallyErpOption>
 								variant="outlined"
 								size="small"
-								label={form.type === "PARTY" ? "Party" : "Raw-jute Item"}
+								label={form.type === "ITEM" ? "Raw-jute Item" : form.type === "DESTINATION" ? "Branch (jute received here)" : "Party"}
 								required
 								disabled={!!editing}
 								options={erpOptions}
 								value={form.erp}
 								// ponytail: prefill Tally name from the ERP name only when it is still blank
-								onChange={(v) => setForm((p) => ({ ...p, erp: v, tally_name: p.tally_name || v?.erp_name || "" }))}
+								onChange={(v) =>
+									setForm((p) => ({
+										...p,
+										erp: v,
+										tally_name: isDestination(p.type) ? p.tally_name : p.tally_name || v?.erp_name || "",
+									}))
+								}
 								getOptionLabel={(o) => (o.item_grp_name ? `${o.erp_name} (${o.item_grp_name})` : o.erp_name)}
 								getOptionKey={(o) => o.ref_id}
 								isOptionEqualToValue={(a, b) => a.ref_id === b.ref_id}
@@ -237,7 +256,9 @@ export default function TallyLinkMasterPage() {
 							onChange={(e) => setForm((p) => ({ ...p, tally_name: e.target.value }))}
 							inputProps={{ maxLength: 255 }}
 							helperText={
-								form.type && setup?.ledger_defaults?.[form.type]
+								isDestination(form.type)
+									? 'Exactly as Tally should show under "Destination" on raw-jute sales'
+									: form.type && setup?.ledger_defaults?.[form.type]
 									? `Exactly as in Tally. Without a link the export uses "${setup.ledger_defaults[form.type]}".`
 									: "Exactly as it appears in Tally (spelling, punctuation, case)"
 							}
