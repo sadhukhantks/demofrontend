@@ -19,7 +19,8 @@ import { Trash2 as DeleteOutlineIcon } from "lucide-react";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
-import { ppiToDm } from "../pickUnits";
+import { equalsStandard, ppiToDm } from "../pickUnits";
+import { EMPTY_STANDARDS, type WeavingPickStandardsMap } from "../hooks/useWeavingPickStandards";
 
 // ---- Shared-contract reading + summary shapes ----
 export type WeavingPickReadingRow = {
@@ -47,7 +48,7 @@ export type WeavingPickSummaryRow = {
 	weaving_quality_name: string | null;
 	avg_picks: number | null; // null when every reading for the date is width-only
 	avg_picks_dm?: number | null;
-	std_picks: number;
+	std_picks: number; // STDDEV_SAMP of the day's PPI readings — NOT the standard
 	min_picks: number | null;
 	max_picks: number | null;
 	avg_width: number | null;
@@ -61,6 +62,9 @@ type Props = {
 	summary: WeavingPickSummaryRow[];
 	onDeleted: () => void;
 	loading?: boolean;
+	/** ITM-013: per-quality standard picks for the "vs Std" marker and the
+	 * STD PPI summary column (read-only hints). */
+	standards?: WeavingPickStandardsMap;
 };
 
 function fmt(value: number | null | undefined, dp = 2): string {
@@ -83,7 +87,13 @@ function loomLabel(r: WeavingPickReadingRow): string {
 	return label === "" ? `Loom #${r.machine_id}` : label;
 }
 
-export default function PickGrid({ readings, summary, onDeleted, loading = false }: Props) {
+export default function PickGrid({
+	readings,
+	summary,
+	onDeleted,
+	loading = false,
+	standards = EMPTY_STANDARDS,
+}: Props) {
 	const [snack, setSnack] = React.useState<string | null>(null);
 
 	const handleDelete = React.useCallback(
@@ -167,8 +177,21 @@ export default function PickGrid({ readings, summary, onDeleted, loading = false
 				type: "number",
 				valueFormatter: (value) => (value != null ? Number(value).toFixed(2) : ""),
 			},
+			{
+				// ITM-013: "= std" when the saved PPI equals the quality standard at 2 dp.
+				field: "vs_std",
+				headerName: "vs Std",
+				width: 100,
+				sortable: false,
+				valueGetter: (_value, row) => {
+					const s = standards[row.weaving_quality_id];
+					return s && row.picks != null && equalsStandard(ppiToDm(row.picks), s.std_picks_ppi)
+						? "= std"
+						: "";
+				},
+			},
 		],
-		[handleDelete]
+		[handleDelete, standards]
 	);
 
 	return (
@@ -187,7 +210,7 @@ export default function PickGrid({ readings, summary, onDeleted, loading = false
 					initialState={{
 						pagination: { paginationModel: { pageSize: 25, page: 0 } },
 					}}
-					sx={{ minWidth: 870 }}
+					sx={{ minWidth: 970 }}
 				/>
 			</Box>
 
@@ -207,6 +230,7 @@ export default function PickGrid({ readings, summary, onDeleted, loading = false
 								<TableRow>
 									<TableCell>QUALITY</TableCell>
 									<TableCell align="right">AVG PPI</TableCell>
+									<TableCell align="right">STD PPI</TableCell>
 									<TableCell align="right">AVG PICKS/DM</TableCell>
 									<TableCell align="right">STD DEV</TableCell>
 									<TableCell align="right">MIN</TableCell>
@@ -220,6 +244,7 @@ export default function PickGrid({ readings, summary, onDeleted, loading = false
 									<TableRow key={r.weaving_quality_id}>
 										<TableCell>{qualityLabel(r)}</TableCell>
 										<TableCell align="right">{fmt(r.avg_picks)}</TableCell>
+										<TableCell align="right">{fmt(standards[r.weaving_quality_id]?.std_picks_ppi)}</TableCell>
 										<TableCell align="right">
 											{fmt(r.avg_picks_dm ?? (r.avg_picks != null ? ppiToDm(r.avg_picks) : null))}
 										</TableCell>
