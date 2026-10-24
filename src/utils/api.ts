@@ -887,6 +887,17 @@ const apiRoutesPortalMasters = {
     NON_WORKING_DAY_CREATE: `${API_URL}/hrmsMasters/non_working_day_create`,
     NON_WORKING_DAY_EDIT: `${API_URL}/hrmsMasters/non_working_day_edit`,
 
+    // Period Master (period types, slots, generated periods)
+    PERIOD_TYPE_TABLE: `${API_URL}/hrmsMasters/get_period_type_table`,
+    PERIOD_TYPE_BY_ID: `${API_URL}/hrmsMasters/get_period_type_by_id`,
+    PERIOD_TYPE_CREATE: `${API_URL}/hrmsMasters/period_type_create`,
+    PERIOD_TYPE_EDIT: `${API_URL}/hrmsMasters/period_type_edit`,
+    PERIOD_GENERATE: `${API_URL}/hrmsMasters/period_generate`,
+    PERIOD_TABLE: `${API_URL}/hrmsMasters/get_period_table`,
+    PERIOD_EDIT: `${API_URL}/hrmsMasters/period_edit`,
+    PERIOD_DELETE: `${API_URL}/hrmsMasters/period_delete`,
+    PERIOD_OPTIONS: `${API_URL}/hrmsMasters/get_period_options`,
+
     // Production Quality <-> Wages Quality link (link_prodquality_wagequality_mst)
     PROD_WAGES_LINK_SETUP: `${API_URL}/hrmsMasters/prod_wages_link_setup`,
     PROD_WAGES_LINK_QUALITIES: `${API_URL}/hrmsMasters/prod_wages_link_qualities`,
