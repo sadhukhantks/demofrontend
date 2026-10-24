@@ -31,9 +31,39 @@ export interface DprSpinningQualityRow {
   std_count: number;
   production_kg: number;
   kg_per_frame_shift: number;
-  target_per_frame_shift: number;
+  /** null = no target could be computed (TKT-000234) — see `missing`. */
+  target_per_frame_shift: number | null;
   winding_kg: number;
   eff_pct: number | null;
+  /** TKT-000234: codes of the inputs missing behind a blank / partial Target or
+   * Eff % (labels in `DprSpinningSection.missing_summary`). Optional: absent
+   * on a backend that predates the ticket. */
+  missing?: DprSpinningMissingCode[];
+  /** Frames without a std speed / spindles (code "machine_std"). */
+  missing_frames?: string[];
+  /** What Target/Frame-Shift is on: the quality's target Eff %, or — when
+   * none is set — its standard Eff % (owner ruling 2026-10-24); null = blank. */
+  target_basis?: "target" | "standard" | null;
+  /** The standard Eff % used when target_basis = "standard". */
+  target_std_eff_pct?: number | null;
+}
+
+export type DprSpinningMissingCode =
+  | "machine_std"
+  | "std_tpi"
+  | "std_eff"
+  | "target_eff"
+  | "target_eff_fallback"
+  | "sqc_count"
+  | "no_capacity";
+
+/** One missing spinning input and the qualities it applies to (TKT-000234). */
+export interface DprSpinningMissingReason {
+  code: DprSpinningMissingCode;
+  label: string;
+  /** Where the mill enters it, e.g. "Spinning Target Map > Quality > Target". */
+  where: string;
+  qualities: string[];
 }
 
 /** Mill average yarn count on three weightings (TKT-000173). The count averaged
@@ -100,6 +130,10 @@ export interface DprSpinningSection {
   /** Quality names that produced today but have no spinning standard
    * (TPI / efficiency) configured — their eff % is blank, not zero. */
   standards_missing: string[];
+  /** Qualities whose Target/Frame-Shift is blank (TKT-000234). */
+  targets_missing?: string[];
+  /** Why Target / Eff % are blank or partial, one entry per missing input. */
+  missing_summary?: DprSpinningMissingReason[];
   avg_count: DprSpinningAvgCount;
 }
 
