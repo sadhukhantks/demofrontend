@@ -4,13 +4,19 @@ import * as React from "react";
 import { Alert, Autocomplete, Box, Button, Snackbar, TextField } from "@mui/material";
 import { Save as SaveIcon, X as CancelIcon } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
-import { missingStandards, type BeamingResolvedStandards } from "../utils/beamingCalc";
+import {
+	cutsFromMeter,
+	diffMeter,
+	missingStandards,
+	type BeamingResolvedStandards,
+} from "../utils/beamingCalc";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import { SearchableOptionSelect } from "@/components/ui/SearchableOptionSelect";
 import type {
 	BeamingEntryCreateBody,
 	BeamingEntryEditBody,
 	BeamingEntryRow,
+	BeamingMeterPrevState,
 	BeamingQualityOption,
 	BeamingSetup,
 } from "../types/beamingTypes";
@@ -43,6 +49,13 @@ export default function BeamingEntryForm({
 	const [qualityId, setQualityId] = React.useState<number | "">("");
 	const [actCuts, setActCuts] = React.useState<string>("");
 	const [noOfBeam, setNoOfBeam] = React.useState<string>("");
+	// Machine yard-counter readings (like Drawing). Opening pre-fills from the machine's
+	// last closing meter in the same shift; with a closing reading the cuts/beam are
+	// derived from the meter instead of being worked out by hand.
+	const [openMeter, setOpenMeter] = React.useState<string>("");
+	const [closeMeter, setCloseMeter] = React.useState<string>("");
+	// Machine's Meter Wrap Limit standard (Beaming Standards → Machine); 0 = not set.
+	const [wrapLimit, setWrapLimit] = React.useState<number>(0);
 	// EB No, Std Count and Beam No are intentionally NOT entry fields (removed to
 	// avoid confusion). eb_id / beam_no are sent null on create; on edit the server
 	// keeps the existing values. rpm_roller / act_speed come from the Beaming SQC page
@@ -79,6 +92,8 @@ export default function BeamingEntryForm({
 			setQualityId(editingEntry.bm_quality_id);
 			setActCuts(String(editingEntry.act_cuts));
 			setNoOfBeam(String(editingEntry.no_of_beam));
+			setOpenMeter(editingEntry.open_meter == null ? "" : String(editingEntry.open_meter));
+			setCloseMeter(editingEntry.close_meter == null ? "" : String(editingEntry.close_meter));
 			setError(null);
 		}
 	}, [editingEntry]);
@@ -117,6 +132,33 @@ export default function BeamingEntryForm({
 		};
 	}, [qualityId, machineId, date, editing, coId]);
 
+	// Pre-fill the opening meter from the machine's last closing meter in this shift
+	// (create mode only — an edited row keeps its stored reading).
+	// The machine's wrap limit is fetched in edit mode too (opening is not overwritten).
+	React.useEffect(() => {
+		if (machineId === "" || spellId == null || !date) return;
+		let cancelled = false;
+		let url = `${apiRoutesPortalMasters.BEAMING_METER_PREV_STATE}?co_id=${coId}&machine_id=${machineId}&spell_id=${spellId}&tran_date=${date}`;
+		if (editing) url += `&exclude_entry_id=${editingEntry.beaming_daily_id}`;
+		void fetchWithCookie<{ data: BeamingMeterPrevState }>(url, "GET").then(({ data }) => {
+			if (cancelled || !data?.data) return;
+			setWrapLimit(Number(data.data.meter_wrap_limit) || 0);
+			if (!editing) setOpenMeter(String(data.data.open_meter));
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [machineId, spellId, date, editing, editingEntry, coId]);
+
+	const meterUsed = closeMeter !== "";
+	const computedDiff = meterUsed ? diffMeter(Number(openMeter || 0), Number(closeMeter), wrapLimit) : 0;
+	const laidLength = Number(standards?.laid_length ?? 0);
+	const meterCuts = meterUsed ? cutsFromMeter(computedDiff, laidLength, Number(noOfBeam)) : 0;
+	// With a meter reading and a laid length the cuts come from the meter (the server
+	// re-derives them the same way); otherwise the operator's figure is used.
+	const cutsFromMeterActive = meterUsed && laidLength > 0;
+	const effectiveCuts = cutsFromMeterActive ? meterCuts : Number(actCuts);
+
 	// Unconfigured target-map params resolve to 0 server-side and silently zero every
 	// derived figure (RPM / Act Spd / kg / Act Eff). Name them instead (TKT-000075).
 	// Machine-linked params only resolve once a machine is chosen, so wait for both.
@@ -137,15 +179,18 @@ export default function BeamingEntryForm({
 		!machineId ||
 		!itemId ||
 		!qualityId ||
-		actCuts === "" ||
-		Number(actCuts) <= 0 ||
+		!(effectiveCuts > 0) ||
 		noOfBeam === "" ||
 		Number(noOfBeam) <= 0 ||
+		(meterUsed && (openMeter === "" || computedDiff <= 0)) ||
 		saving;
 
 	const resetToCreateDefaults = () => {
 		setActCuts("");
 		setNoOfBeam("");
+		// The closing reading just saved is the next opening on this machine.
+		setOpenMeter(closeMeter);
+		setCloseMeter("");
 		setQualityId("");
 		// Keep machine/item for rapid sequential entry.
 	};
@@ -153,7 +198,7 @@ export default function BeamingEntryForm({
 	const handleSubmit = async () => {
 		if (formInvalid) {
 			setError(
-				"Please complete all required fields. Act cuts and no. of beams must be > 0; quality must belong to the chosen item."
+				"Please complete all required fields. Act cuts and no. of beams must be > 0, the closing meter must be past the opening meter; quality must belong to the chosen item."
 			);
 			return;
 		}
@@ -169,8 +214,10 @@ export default function BeamingEntryForm({
 				// Quality is editable on an existing entry (TKT-000109); the server
 				// re-resolves ends/std_count/standards and recomputes every column.
 				bm_quality_id: Number(qualityId),
-				act_cuts: Number(actCuts),
+				act_cuts: effectiveCuts,
 				no_of_beam: Number(noOfBeam),
+				open_meter: meterUsed ? Number(openMeter) : null,
+				close_meter: meterUsed ? Number(closeMeter) : null,
 			};
 			const url = `${apiRoutesPortalMasters.BEAMING_ENTRY_EDIT}/${editingEntry.beaming_daily_id}?co_id=${coId}`;
 			const { error: err } = await fetchWithCookie(url, "PUT", body);
@@ -196,8 +243,10 @@ export default function BeamingEntryForm({
 			item_id: Number(itemId),
 			bm_quality_id: Number(qualityId),
 			beam_no: null,
-			act_cuts: Number(actCuts),
+			act_cuts: effectiveCuts,
 			no_of_beam: Number(noOfBeam),
+			open_meter: meterUsed ? Number(openMeter) : null,
+			close_meter: meterUsed ? Number(closeMeter) : null,
 		};
 		const { data, error: err } = await fetchWithCookie<{
 			data: { beaming_daily_id: number };
@@ -218,6 +267,7 @@ export default function BeamingEntryForm({
 		setItemId("");
 		setQualityId("");
 		resetToCreateDefaults();
+		setOpenMeter("");
 		setError(null);
 	};
 
@@ -287,13 +337,53 @@ export default function BeamingEntryForm({
 				/>
 				<TextField
 					type="number"
+					label="Opening Meter"
+					value={openMeter}
+					onChange={(e) => setOpenMeter(e.target.value)}
+					size="small"
+					fullWidth
+					inputProps={{ min: 0 }}
+					helperText="Last closing reading of this machine — editable"
+				/>
+				<TextField
+					type="number"
+					label="Closing Meter"
+					value={closeMeter}
+					onChange={(e) => setCloseMeter(e.target.value)}
+					size="small"
+					fullWidth
+					inputProps={{ min: 0 }}
+					helperText="Leave blank to enter cuts by hand"
+				/>
+				<TextField
+					label="Diff (yd)"
+					value={meterUsed ? computedDiff : ""}
+					InputProps={{ readOnly: true }}
+					size="small"
+					fullWidth
+					error={meterUsed && computedDiff <= 0}
+					helperText={
+						meterUsed && computedDiff <= 0
+							? "Check the meter readings"
+							: wrapLimit > 0
+								? `Closing − opening (counter wraps at ${wrapLimit.toLocaleString()})`
+								: "Closing − opening"
+					}
+				/>
+				<TextField
+					type="number"
 					label="Act Cuts/Beam"
-					value={actCuts}
+					value={cutsFromMeterActive ? (meterCuts || "") : actCuts}
 					onChange={(e) => setActCuts(e.target.value)}
 					size="small"
 					fullWidth
 					inputProps={{ min: 0 }}
-					helperText="Defaults to std cuts/beam — editable"
+					InputProps={{ readOnly: cutsFromMeterActive }}
+					helperText={
+						cutsFromMeterActive
+							? `From meter: diff ÷ laid length ${laidLength} ÷ beams`
+							: "Defaults to std cuts/beam — editable"
+					}
 				/>
 			</Box>
 
@@ -306,6 +396,30 @@ export default function BeamingEntryForm({
 							<li key={m}>{m}</li>
 						))}
 					</ul>
+				</Alert>
+			) : null}
+
+			{meterUsed && Number(closeMeter) < Number(openMeter || 0) ? (
+				wrapLimit > 0 ? (
+					<Alert severity="warning">
+						Closing meter is below the opening meter — treated as the counter rolling over
+						past {wrapLimit.toLocaleString()} (diff {computedDiff.toLocaleString()} yd). If that
+						is a typing mistake, correct the closing reading before saving.
+					</Alert>
+				) : (
+					<Alert severity="error">
+						Closing meter is below the opening meter. If the counter rolled over, set the Meter
+						Wrap Limit for this machine in Beaming Standards → Machine / Standard; otherwise
+						correct the reading.
+					</Alert>
+				)
+			) : null}
+			{meterUsed && computedDiff > 0 && qualityId !== "" && standards && !(laidLength > 0) ? (
+				<Alert severity="warning">
+					This quality has no laid length set, so the meter diff ({computedDiff.toLocaleString()}{" "}
+					yd) is saved as production but cuts/beam cannot be worked out from it — enter Act
+					Cuts/Beam by hand. kg will show 0 until the laid length is set in Beaming Standards →
+					Quality / Standard.
 				</Alert>
 			) : null}
 

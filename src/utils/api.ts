@@ -887,6 +887,17 @@ const apiRoutesPortalMasters = {
     NON_WORKING_DAY_CREATE: `${API_URL}/hrmsMasters/non_working_day_create`,
     NON_WORKING_DAY_EDIT: `${API_URL}/hrmsMasters/non_working_day_edit`,
 
+    // Period Master (period types, slots, generated periods)
+    PERIOD_TYPE_TABLE: `${API_URL}/hrmsMasters/get_period_type_table`,
+    PERIOD_TYPE_BY_ID: `${API_URL}/hrmsMasters/get_period_type_by_id`,
+    PERIOD_TYPE_CREATE: `${API_URL}/hrmsMasters/period_type_create`,
+    PERIOD_TYPE_EDIT: `${API_URL}/hrmsMasters/period_type_edit`,
+    PERIOD_GENERATE: `${API_URL}/hrmsMasters/period_generate`,
+    PERIOD_TABLE: `${API_URL}/hrmsMasters/get_period_table`,
+    PERIOD_EDIT: `${API_URL}/hrmsMasters/period_edit`,
+    PERIOD_DELETE: `${API_URL}/hrmsMasters/period_delete`,
+    PERIOD_OPTIONS: `${API_URL}/hrmsMasters/get_period_options`,
+
     // Production Quality <-> Wages Quality link (link_prodquality_wagequality_mst)
     PROD_WAGES_LINK_SETUP: `${API_URL}/hrmsMasters/prod_wages_link_setup`,
     PROD_WAGES_LINK_QUALITIES: `${API_URL}/hrmsMasters/prod_wages_link_qualities`,
@@ -1287,6 +1298,15 @@ const apiRoutesPortalMasters = {
     LA_REPORT_STRUCK_OFF_REGISTER: `${API_URL}/longAbsenteeism/report/struck_off_register`,
     LA_REPORT_STAGE_SUMMARY: `${API_URL}/longAbsenteeism/report/stage_summary`,
     LA_REPORT_MONTHLY_TREND: `${API_URL}/longAbsenteeism/report/monthly_trend`,
+    // Joining Pass (HRMS, gate pass after > N working days absent) — router prefix /api/joiningPass.
+    JPASS_SETUP: `${API_URL}/joiningPass/setup`,
+    JPASS_CHECK: `${API_URL}/joiningPass/check`,
+    JPASS_ABSENTEES: `${API_URL}/joiningPass/absentees`,
+    JPASS_ISSUE: `${API_URL}/joiningPass/issue`,
+    JPASS_LIST: `${API_URL}/joiningPass/list`,
+    JPASS_GET: `${API_URL}/joiningPass/get`,
+    JPASS_CANCEL: `${API_URL}/joiningPass/cancel`,
+    JPASS_RULE_SAVE: `${API_URL}/joiningPass/rule_save`,
     JP_HANDS_REPORT: `${API_URL}/juteProductionReports/hands_report`,
     JP_HANDS_REPORT_MACHINE_OVERRIDE: `${API_URL}/juteProductionReports/hands_report_machine_override`,
     JP_HANDS_REPORT_MACHINE_OVERRIDE_UNDO: `${API_URL}/juteProductionReports/hands_report_machine_override_undo`,
@@ -1542,6 +1562,7 @@ const apiRoutesPortalMasters = {
     BEAMING_ENTRY_CREATE_SETUP: `${API_URL}/beamingProd/entry_create_setup`,
     BEAMING_ENTRIES_BY_DATE: `${API_URL}/beamingProd/entries_by_date`,
     BEAMING_MACHINE_STANDARDS: `${API_URL}/beamingProd/machine_standards`,
+    BEAMING_METER_PREV_STATE: `${API_URL}/beamingProd/meter_prev_state`,
     BEAMING_ENTRY_CREATE: `${API_URL}/beamingProd/entry_create`,
     BEAMING_ENTRY_EDIT: `${API_URL}/beamingProd/entry_edit`,
     BEAMING_ENTRY_DELETE: `${API_URL}/beamingProd/entry_delete`,

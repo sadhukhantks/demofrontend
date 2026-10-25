@@ -7,6 +7,7 @@
 
 import React from "react";
 import {
+  Box,
   Card,
   CardContent,
   Chip,
@@ -17,6 +18,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from "@mui/material";
 
@@ -124,10 +126,13 @@ export interface NumTdProps {
    * "nonzero-bad" is for deviation metrics where BOTH signs are off-standard. */
   tone?: "pos-bad" | "neg-bad" | "nonzero-bad" | undefined;
   bold?: boolean;
+  /** Why the figure is blank or partial (TKT-000234). Shown as a tap/hover
+   * tooltip; the value gets a dotted underline so the reader knows to ask. */
+  hint?: string;
 }
 
 /** Right-aligned numeric cell; optional variance tinting (text tint + sign). */
-export function NumTd({ value, digits = 2, tone, bold }: NumTdProps) {
+export function NumTd({ value, digits = 2, tone, bold, hint }: NumTdProps) {
   let color: string | undefined;
   if (tone && value !== null && value !== undefined && value !== 0) {
     const isBad =
@@ -136,7 +141,20 @@ export function NumTd({ value, digits = 2, tone, bold }: NumTdProps) {
   }
   return (
     <TableCell align="right" sx={{ color, fontWeight: bold ? 700 : undefined }}>
-      {fmt(value, digits)}
+      {hint ? (
+        <Tooltip title={hint} enterTouchDelay={0} leaveTouchDelay={6000} arrow>
+          <Box
+            component="span"
+            tabIndex={0}
+            aria-label={`${fmt(value, digits)} (${hint})`}
+            sx={{ textDecoration: "underline dotted", cursor: "help" }}
+          >
+            {fmt(value, digits)}
+          </Box>
+        </Tooltip>
+      ) : (
+        fmt(value, digits)
+      )}
     </TableCell>
   );
 }

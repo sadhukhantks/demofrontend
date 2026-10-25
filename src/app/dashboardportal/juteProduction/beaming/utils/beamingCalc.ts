@@ -106,6 +106,21 @@ export function actEff(actYards: number, p100: number): number {
 	return round2((Number(actYards) / p) * 100);
 }
 
+// Meter reading (yard counter, like Drawing) — mirrors beaming_rules.compute_diff_meter
+// and derive_act_cuts. close < open means the counter wrapped at the machine's
+// `wrapLimit` (Meter Wrap Limit standard); with none set (0) the diff stays negative.
+export function diffMeter(openMeter: number, closeMeter: number, wrapLimit: number): number {
+	if (openMeter > closeMeter && wrapLimit > 0) return round2(closeMeter + wrapLimit - openMeter);
+	return round2(closeMeter - openMeter);
+}
+
+// Cuts per beam implied by the meter = diff ÷ laid_length ÷ no_of_beam (whole cuts);
+// 0 when any input is missing — the operator then enters cuts by hand.
+export function cutsFromMeter(diff: number, laidLength: number, noOfBeam: number): number {
+	if (!(diff > 0) || !(laidLength > 0) || !(noOfBeam > 0)) return 0;
+	return Math.round(diff / laidLength / noOfBeam);
+}
+
 export function todayISO(): string {
 	const d = new Date();
 	const m = String(d.getMonth() + 1).padStart(2, "0");

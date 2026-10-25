@@ -53,6 +53,11 @@ import {
 } from "./_components/DprPieces";
 import { DprAvgCountTable, avgCountKpi } from "./_components/DprAvgCountTable";
 import { DprWindingTable } from "./_components/DprWindingTable";
+import {
+  qualityMissingText,
+  spinningMissingHeadline,
+  spinningMissingLines,
+} from "./_components/dprSpinningMissing";
 import { juteCoverKpiSub, juteCoverSubtitle } from "./_components/dprJuteCover";
 import {
   commonSplitLabel,
@@ -426,20 +431,47 @@ function Content() {
                   </Tr>
                 }
               >
-                {spinning.quality.map((q) => (
-                  <Tr key={q.item_id}>
-                    <Td>{q.item_name ?? q.item_code ?? q.item_id}</Td>
-                    <NumTd value={q.act_count} />
-                    <NumTd value={q.std_count} />
-                    <NumTd value={q.production_kg} digits={0} />
-                    <NumTd value={q.kg_per_frame_shift} digits={1} />
-                    <NumTd value={q.target_per_frame_shift} digits={1} />
-                    <NumTd value={q.winding_kg} digits={0} />
-                    <NumTd value={q.eff_pct} digits={1} />
-                  </Tr>
-                ))}
+                {spinning.quality.map((q) => {
+                  // TKT-000234: a blank / partial Target or Eff % says why.
+                  const whyTarget = qualityMissingText(spinning, q, "target") || undefined;
+                  const whyEff = qualityMissingText(spinning, q, "eff") || undefined;
+                  return (
+                    <Tr key={q.item_id}>
+                      <Td>{q.item_name ?? q.item_code ?? q.item_id}</Td>
+                      <NumTd value={q.act_count} />
+                      <NumTd value={q.std_count} />
+                      <NumTd value={q.production_kg} digits={0} />
+                      <NumTd value={q.kg_per_frame_shift} digits={1} />
+                      <NumTd value={q.target_per_frame_shift} digits={1} hint={whyTarget} />
+                      <NumTd value={q.winding_kg} digits={0} />
+                      <NumTd value={q.eff_pct} digits={1} hint={whyEff} />
+                    </Tr>
+                  );
+                })}
               </DprTable>
-              {spinning.standards_missing.length > 0 ? (
+              {spinning.missing_summary && spinning.missing_summary.length > 0 ? (
+                <Box sx={{ mt: 0.5 }}>
+                  {spinningMissingHeadline(spinning) ? (
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: "block", fontWeight: 600 }}
+                    >
+                      {spinningMissingHeadline(spinning)}
+                    </Typography>
+                  ) : null}
+                  {spinningMissingLines(spinning).map((line) => (
+                    <Typography
+                      key={line}
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: "block" }}
+                    >
+                      • {line}
+                    </Typography>
+                  ))}
+                </Box>
+              ) : spinning.standards_missing.length > 0 ? (
                 <Typography
                   variant="caption"
                   color="text.secondary"
