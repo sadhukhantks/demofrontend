@@ -30,6 +30,8 @@ export const PARAM_LABELS: Record<string, string> = {
 	laid_length: "Laid Length",
 	cuts_per_beam: "Cuts / Beam",
 	dia: "Roller Dia",
+	// Yard-counter rollover reading for the entry page's opening/closing meter.
+	meter_wrap: "Meter Wrap Limit",
 	speed: "RPM",
 	eff: "Efficiency",
 };

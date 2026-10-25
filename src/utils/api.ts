@@ -1562,6 +1562,7 @@ const apiRoutesPortalMasters = {
     BEAMING_ENTRY_CREATE_SETUP: `${API_URL}/beamingProd/entry_create_setup`,
     BEAMING_ENTRIES_BY_DATE: `${API_URL}/beamingProd/entries_by_date`,
     BEAMING_MACHINE_STANDARDS: `${API_URL}/beamingProd/machine_standards`,
+    BEAMING_METER_PREV_STATE: `${API_URL}/beamingProd/meter_prev_state`,
     BEAMING_ENTRY_CREATE: `${API_URL}/beamingProd/entry_create`,
     BEAMING_ENTRY_EDIT: `${API_URL}/beamingProd/entry_edit`,
     BEAMING_ENTRY_DELETE: `${API_URL}/beamingProd/entry_delete`,
