@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { missingStandards } from "./beamingCalc";
+import { cutsFromMeter, diffMeter, missingStandards } from "./beamingCalc";
 
 // Regression for TKT-000075: unconfigured jute_prod_beaming_target_map params
 // resolve to 0 server-side and silently zero every derived figure. The form must
@@ -30,5 +30,17 @@ describe("missingStandards", () => {
 	it("treats 0 / null / absent standards alike and tolerates no response", () => {
 		expect(missingStandards({ laid_length: 0, cuts_per_beam: null }).length).toBe(3);
 		expect(missingStandards(null)).toEqual([]);
+	});
+});
+
+describe("meter reading", () => {
+	it("diffMeter handles a plain run and a counter wrap", () => {
+		expect(diffMeter(1000, 15268, 100000)).toBe(14268);
+		expect(diffMeter(99900, 50, 100000)).toBe(150);
+		expect(diffMeter(500, 400, 0)).toBe(-100);
+	});
+	it("cutsFromMeter rounds to whole cuts and needs laid length", () => {
+		expect(cutsFromMeter(57072, 174, 4)).toBe(82);
+		expect(cutsFromMeter(57072, 0, 4)).toBe(0);
 	});
 });

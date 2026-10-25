@@ -71,6 +71,11 @@ export type BeamingEntryRow = {
 	beam_no: string | null;
 	act_cuts: number;
 	no_of_beam: number;
+	// Machine yard-counter readings (like Drawing). Null on cuts-entered rows; when set,
+	// diff_meter is the length beamed and act_cuts is derived from it server-side.
+	open_meter: number | null;
+	close_meter: number | null;
+	diff_meter: number | null;
 	// Warp ends snapshotted onto the row from the quality master at save time
 	// (TKT-000109 — shown in the day grid so the operator can see what was used).
 	ends: number | null;
@@ -104,6 +109,9 @@ export type BeamingEntryCreateBody = {
 	beam_no: string | null;
 	act_cuts: number;
 	no_of_beam: number;
+	// Both or neither. With a reading the server derives act_cuts from the meter.
+	open_meter: number | null;
+	close_meter: number | null;
 	// rpm_roller is NO LONGER sent from production entry — it will be captured on a
 	// future Beaming SQC tab (like Spinning SQC). dia_roller is resolved server-side
 	// from the standard (Q7). act_speed is computed server-side once SQC supplies rpm.
@@ -120,8 +128,18 @@ export type BeamingEntryEditBody = {
 	bm_quality_id: number;
 	act_cuts: number;
 	no_of_beam: number;
+	// null clears the reading (back to the cuts basis).
+	open_meter: number | null;
+	close_meter: number | null;
 	// rpm_roller is NO LONGER sent from production entry — captured on the future
 	// Beaming SQC tab (like Spinning SQC). dia_roller resolved server-side (Q7).
+};
+
+// BEAMING_METER_PREV_STATE — opening-meter default (machine's last close, same shift).
+export type BeamingMeterPrevState = {
+	open_meter: number;
+	has_prev: boolean;
+	meter_wrap_limit: number;
 };
 
 // --- Planning Grid (BEAMING_PLANNING_GRID) — SPEC §C.1 columns ---

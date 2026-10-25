@@ -89,6 +89,9 @@ export default function DailyBeamingGrid({ coId, branchId, date, spellId, refres
 			{ field: "ends", headerName: "Ends", width: 80, type: "number" },
 			{ field: "act_cuts", headerName: "Act Cuts/Beam", width: 120, type: "number" },
 			{ field: "no_of_beam", headerName: "No. Beams", width: 100, type: "number" },
+			{ field: "open_meter", headerName: "Open Meter", width: 110, type: "number" },
+			{ field: "close_meter", headerName: "Close Meter", width: 110, type: "number" },
+			{ field: "diff_meter", headerName: "Diff (yd)", width: 100, type: "number" },
 			// RPM / Act Spd are read-only here — sourced from the server, resolved from
 			// the actual RPM entered on Beaming SQC (juteSQC/beaming -> Actual RPM);
 			// 0/blank until an actual RPM exists for that machine as-of the date.
