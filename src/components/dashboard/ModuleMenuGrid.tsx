@@ -4,39 +4,37 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Box, Card, CardActionArea, Typography } from "@mui/material";
 import { alpha, lighten, useTheme, type SxProps, type Theme } from "@mui/material/styles";
+import { brand } from "@/styles/brand";
 import {
   ShoppingCart, Truck, Factory, FlaskConical, Wrench, Boxes, Receipt,
   Settings2, Users, Landmark, Calculator,
-  BarChart3, ClipboardList, IndianRupee, CalendarDays, ArrowLeftRight, FileText,
+  BarChart3, ClipboardList, IndianRupee, CalendarDays, ArrowLeftRight, FileText, ChevronRight,
   type LucideIcon,
 } from "lucide-react";
 import { useSidebarContext, type MenuItem } from "@/components/dashboard/sidebarContext";
 import { normalisePortalPath } from "@/utils/portalPermissions";
 
 type Leaf = { menu: MenuItem; group?: string; Icon: LucideIcon };
-type Section = { parent: MenuItem; leaves: Leaf[]; accent: string };
+type Section = { parent: MenuItem; leaves: Leaf[] };
 
 // Keyed on the route segment, not menu_name — names are tenant-editable, the folders under
-// src/app/dashboardportal are not. Brand lime #95C11F is deliberately absent so accents never
-// compete with primary actions; error/warning/success hues are avoided for the same reason.
-const MODULES: Record<string, { c: string; I: LucideIcon }> = {
-  procurement: { c: "#2563EB", I: ShoppingCart },
-  jutepurchase: { c: "#0891B2", I: Truck },
-  juteproduction: { c: "#EA580C", I: Factory },
-  jutesqc: { c: "#7C3AED", I: FlaskConical },
-  jutemechanical: { c: "#B45309", I: Wrench },
-  inventory: { c: "#0D9488", I: Boxes },
-  sales: { c: "#DB2777", I: Receipt },
-  masters: { c: "#64748B", I: Settings2 }, // slate — recedes; it is the biggest reference section
-  hrms: { c: "#4F46E5", I: Users },
-  hrmsmasters: { c: "#6366F1", I: Users }, // deliberate indigo sibling of hrms
-  accounting: { c: "#16A34A", I: Landmark },
-  bomcosting: { c: "#A21CAF", I: Calculator },
-  jutecosting: { c: "#BE123C", I: Calculator }, // rose — mill costing (cost parameters, daily P&L)
+// src/app/dashboardportal are not. Colour comes from the InfoSky brand (navy + green), not per module.
+const MODULES: Record<string, { I: LucideIcon }> = {
+  procurement: { I: ShoppingCart },
+  jutepurchase: { I: Truck },
+  juteproduction: { I: Factory },
+  jutesqc: { I: FlaskConical },
+  jutemechanical: { I: Wrench },
+  inventory: { I: Boxes },
+  sales: { I: Receipt },
+  masters: { I: Settings2 },
+  hrms: { I: Users },
+  hrmsmasters: { I: Users },
+  accounting: { I: Landmark },
+  bomcosting: { I: Calculator },
+  jutecosting: { I: Calculator },
+  wages: { I: IndianRupee },
 };
-
-const RING = Object.values(MODULES).map((m) => m.c);
-const hash = (s: string) => [...s].reduce((h, ch) => (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0, 7);
 
 // Ordered — first match wins, and the order IS the design. Rule 1 before 10/11 so "Machine Master"
 // and "Std Moisture Master" read as masters, not machines. Rule 2 early so a module's report block
@@ -112,7 +110,6 @@ export function ModuleMenuGrid({ modulePath }: { modulePath?: string }) {
         ).split("/")[0];
         return {
           parent,
-          accent: MODULES[key]?.c ?? RING[hash(parent.menu_name) % RING.length],
           leaves: raw.map((l) => ({ ...l, Icon: resolveIcon(l.menu.menu_name, key) })),
         };
       })
@@ -150,22 +147,24 @@ export function ModuleMenuGrid({ modulePath }: { modulePath?: string }) {
     <Box sx={{ display: "flex", flexDirection: "column", gap: multi ? 4 : 0 }}>
       {shown.map((section) => {
         // hoisted per section: alpha()/emotion serialisation runs once, not once per card
-        const accent = section.accent;
-        const fg = dark ? lighten(accent, 0.32) : accent;
-        const tint = (a: number) => alpha(accent, dark ? a * 1.8 : a);
+        const navy = dark ? lighten(brand.navyInk, 0.55) : brand.navyInk;
+        const green = dark ? brand.greenLight : brand.green;
 
         const cardSx: SxProps<Theme> = {
           height: "100%",
-          borderRadius: 2.5,
-          boxShadow: "none", // theme MuiCard.root forces 0 1px 2px — override it
-          borderColor: "divider",
-          transition: "border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease",
-          ...(multi && { contentVisibility: "auto", containIntrinsicSize: "72px" }),
+          borderRadius: "10px",
+          borderColor: dark ? "divider" : "#e3e8f0",
+          borderLeft: `3px solid ${navy}`,
+          boxShadow: `0 1px 2px ${alpha(brand.navyInk, 0.06)}`, // theme MuiCard.root forces its own — override it
+          transition: "border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease",
+          ...(multi && { contentVisibility: "auto", containIntrinsicSize: "64px" }),
           "&:hover": {
-            borderColor: alpha(accent, 0.55),
-            boxShadow: `0 2px 10px ${alpha(accent, 0.14)}`,
-            transform: "translateY(-1px)",
-            "& .mmg-tile": { bgcolor: tint(0.16) },
+            borderColor: alpha(green, 0.6),
+            borderLeftColor: green,
+            boxShadow: `0 6px 16px ${alpha(brand.navyInk, 0.12)}`,
+            transform: "translateY(-2px)",
+            "& .mmg-tile": { bgcolor: green, color: "#fff" },
+            "& .mmg-arrow": { opacity: 1, transform: "translateX(0)", color: green },
           },
           "&:active": { transform: "translateY(0)" },
           "@media (prefers-reduced-motion: reduce)": {
@@ -176,53 +175,57 @@ export function ModuleMenuGrid({ modulePath }: { modulePath?: string }) {
 
         const actionSx: SxProps<Theme> = {
           display: "flex",
-          alignItems: "flex-start",
+          alignItems: "center",
           justifyContent: "flex-start",
-          gap: 1.25,
+          gap: 1.5,
           px: 1.75,
           py: 1.5,
-          minHeight: 72,
+          minHeight: 64,
           height: "100%",
           "& .MuiCardActionArea-focusHighlight": { opacity: 0 },
-          "&.Mui-focusVisible": { outline: `2px solid ${accent}`, outlineOffset: "-2px" },
+          "&.Mui-focusVisible": { outline: `2px solid ${green}`, outlineOffset: "-2px" },
         };
 
         const tileSx: SxProps<Theme> = {
-          width: 34,
-          height: 34,
+          width: 36,
+          height: 36,
           flexShrink: 0,
-          borderRadius: "9px",
+          borderRadius: "8px",
           display: "grid",
           placeItems: "center",
-          color: fg,
-          bgcolor: tint(0.1),
-          transition: "background-color 120ms ease",
+          color: navy,
+          bgcolor: alpha(brand.navyInk, dark ? 0.35 : 0.08),
+          transition: "background-color 140ms ease, color 140ms ease",
         };
 
         return (
           <Box key={section.parent.menu_id}>
             {multi ? (
               <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1.5 }}>
-                <Box sx={{ width: 3, height: 16, borderRadius: 1, bgcolor: accent, flexShrink: 0 }} />
+                <Box sx={{ width: 4, height: 18, borderRadius: 1, bgcolor: green, flexShrink: 0 }} />
                 <Typography
                   sx={{
-                    fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em",
-                    textTransform: "uppercase", color: "text.secondary", whiteSpace: "nowrap",
+                    fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.1em",
+                    textTransform: "uppercase", color: navy, whiteSpace: "nowrap",
                   }}
                 >
                   {section.parent.menu_name}
                 </Typography>
-                <Typography
-                  sx={{ fontSize: "0.75rem", color: "text.disabled", fontVariantNumeric: "tabular-nums" }}
+                <Box
+                  sx={{
+                    fontSize: "0.7rem", fontWeight: 700, lineHeight: 1, px: 0.9, py: 0.4,
+                    borderRadius: 999, color: green, bgcolor: alpha(green, 0.12),
+                    fontVariantNumeric: "tabular-nums",
+                  }}
                 >
                   {section.leaves.length}
-                </Typography>
+                </Box>
                 <Box sx={{ flex: 1, height: "1px", bgcolor: "divider" }} />
               </Box>
             ) : (
               // module landing pages render no title of their own — this header is the page title
               <>
-                <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: "-0.01em", mb: 0.5 }}>
+                <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: "-0.01em", mb: 0.5, color: navy }}>
                   {section.parent.menu_name}
                 </Typography>
                 <Typography variant="body2" sx={{ color: "text.secondary", mb: 2.5 }}>
@@ -243,7 +246,7 @@ export function ModuleMenuGrid({ modulePath }: { modulePath?: string }) {
                     <Box className="mmg-tile" sx={tileSx}>
                       <Icon size={17} strokeWidth={2} aria-hidden />
                     </Box>
-                    <Box sx={{ minWidth: 0 }}>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
                       {group && (
                         <Typography
                           sx={{
@@ -259,11 +262,20 @@ export function ModuleMenuGrid({ modulePath }: { modulePath?: string }) {
                       <Typography
                         sx={{
                           fontSize: "0.875rem", fontWeight: 600, lineHeight: 1.35,
-                          letterSpacing: "-0.005em", color: "text.primary",
+                          letterSpacing: "-0.005em", color: navy,
                         }}
                       >
                         {menu.menu_name}
                       </Typography>
+                    </Box>
+                    <Box
+                      className="mmg-arrow"
+                      sx={{
+                        display: "flex", flexShrink: 0, color: "text.disabled", opacity: 0,
+                        transform: "translateX(-4px)", transition: "opacity 140ms ease, transform 140ms ease",
+                      }}
+                    >
+                      <ChevronRight size={16} aria-hidden />
                     </Box>
                   </CardActionArea>
                 </Card>

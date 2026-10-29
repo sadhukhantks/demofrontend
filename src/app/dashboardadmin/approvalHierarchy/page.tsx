@@ -203,7 +203,7 @@ export default function ApprovalHierarchyPage() {
               <Button
                 onClick={onSubmitClick}
                 disabled={isSubmitting}
-                className="bg-[#95C11F] hover:bg-[#85ad1b] text-white px-6"
+                className="bg-[hsl(var(--brand-primary))] hover:bg-[hsl(var(--brand-primary-hover))] text-white px-6"
               >
                 {isSubmitting ? "Saving..." : "Save Configuration"}
               </Button>

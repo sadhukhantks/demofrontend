@@ -53,3 +53,6 @@ storybook-static
 .worktrees/
 .security-key
 logs/security/
+
+# Playwright MCP screenshots/logs (also keeps Tailwind from rescanning them)
+.playwright-mcp/

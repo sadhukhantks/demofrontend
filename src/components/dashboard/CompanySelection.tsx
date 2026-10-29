@@ -37,9 +37,9 @@ export function CompanySelection({ isCollapsed }: CompanySelectionProps) {
     ) ?? null;
 
   return (
-    <div className="px-4 py-3 border-b border-[#005580]">
+    <div className="px-4 py-3 border-b border-[hsl(var(--sidebar-accent))]">
       {loading ? (
-        <Skeleton className="h-10 w-full bg-[#005580]" />
+        <Skeleton className="h-10 w-full bg-[hsl(var(--sidebar-accent))]" />
       ) : isCollapsed ? (
         <></>
       ) : (

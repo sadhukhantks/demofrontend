@@ -1,12 +1,12 @@
 "use client";
 
 import { Box } from "@mui/material";
-import { ModuleMenuGrid } from "@/components/dashboard/ModuleMenuGrid";
+import { ModuleDashboard } from "@/components/dashboard/ModuleDashboard";
 
 export default function Page() {
 	return (
 		<Box sx={{ p: { xs: 2, md: 3 } }}>
-			<ModuleMenuGrid modulePath="/dashboardportal/sales" />
+			<ModuleDashboard modulePath="/dashboardportal/sales" />
 		</Box>
 	);
 }

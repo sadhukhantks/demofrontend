@@ -416,9 +416,9 @@ const MenuForm: React.FC<menuFormProps> = ({
                 variant="contained"
                 color="primary"
                 sx={{
-                  backgroundColor: '#9BC837',
+                  backgroundColor: '#22a05a',
                   '&:hover': {
-                    backgroundColor: '#8BB72E',
+                    backgroundColor: '#1b8049',
                   },
                 }}
               >

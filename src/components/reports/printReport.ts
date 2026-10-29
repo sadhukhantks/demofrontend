@@ -78,7 +78,7 @@ const CSS = `
   .section .sub { color: #555; margin: 0 0 6px; }
   table { width: 100%; border-collapse: collapse; }
   th, td { border: 1px solid #999; padding: 3px 5px; vertical-align: top; }
-  th { background: #3ea6da; color: #fff; text-align: left; }
+  th { background: #1b2a4e; color: #fff; text-align: left; }
   tr { break-inside: avoid; }
   thead { display: table-header-group; }
   .r { text-align: right; } .c { text-align: center; }

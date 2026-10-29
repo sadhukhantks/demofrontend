@@ -6,6 +6,8 @@ export interface MenuItem {
   menu_name: string;
   menu_path: string;
   menu_parent_id: number | null;
+  /** Material Symbols ligature name, e.g. "assessment" */
+  menu_icon?: string | null;
   access_type_id?: number | null;
 }
 
@@ -41,6 +43,28 @@ interface SidebarContextType {
   hasMenuAccess: (path: string, action?: string) => boolean;
   handleCompanyChange: (companyId: number) => void;
   handleBranchChange: (branchIds: number[]) => void;
+}
+
+/**
+ * Root menus for the nav tree (top bar buttons + sidebar sections).
+ *
+ * A root is a menu with no parent. A menu whose parent is NOT in the granted
+ * set is an orphan — e.g. the `report = 1` leaves under a module's report hub,
+ * which stay granted in `role_menu_map` after the module's own grant is
+ * removed — and stays hidden, so pulling a module's permission hides its whole
+ * subtree the way the admin intended.
+ *
+ * ponytail: promoting orphans to root instead (the previous behaviour) is what
+ * flooded the top bar with dozens of stranded report leaves. Promotion is kept
+ * only as a fallback for when pruning would leave no nav at all, so a tenant
+ * that grants leaves without their parents still gets a usable menu.
+ */
+export function computeParentMenus(allMenus: MenuItem[]): MenuItem[] {
+  const isRoot = (m: MenuItem) => m.menu_parent_id === null || m.menu_parent_id === 0;
+  const roots = allMenus.filter(isRoot);
+  if (roots.length > 0) return roots;
+  const ids = new Set(allMenus.map(m => m.menu_id));
+  return allMenus.filter(m => isRoot(m) || !ids.has(m.menu_parent_id as number));
 }
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
@@ -111,19 +135,25 @@ export const SidebarProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('sidebar_menuItems', JSON.stringify(menuItems));
   }, [menuItems]);
 
-  // After companies are set (e.g., after API fetch), ensure selectedCompany is preserved if possible
+  // After companies are set (e.g. after API fetch), re-point selectedCompany at
+  // the fresh object, defaulting to the first entitled company. Users switch
+  // scope in-app via User Settings > Company Selection, so a default is safe —
+  // the top bar always shows which company/branch is active.
   useEffect(() => {
-    if (companies.length > 0) {
-      setSelectedCompany(prev => {
-        if (prev && companies.some(c => c.co_id === prev.co_id)) {
-          return companies.find(c => c.co_id === prev.co_id) || companies[0];
-        } else {
-          setSelectedBranches(companies[0].branches.length > 0 ? [companies[0].branches[0].branch_id] : []);
-          return companies[0];
-        }
-      });
-    }
+    if (companies.length === 0) return;
+    setSelectedCompany(prev => (prev && companies.find(c => c.co_id === prev.co_id)) || companies[0]);
   }, [companies]);
+
+  // Keep only branches that belong to the selected company, defaulting to its
+  // first branch when nothing valid is selected.
+  useEffect(() => {
+    if (!selectedCompany) return;
+    setSelectedBranches(prev => {
+      const valid = prev.filter(id => selectedCompany.branches.some(b => b.branch_id === id));
+      if (valid.length > 0) return valid.length === prev.length ? prev : valid;
+      return selectedCompany.branches.slice(0, 1).map(b => b.branch_id);
+    });
+  }, [selectedCompany]);
 
   // Update availableMenus and parentMenus when company/branches change
   useEffect(() => {
@@ -143,7 +173,7 @@ export const SidebarProvider = ({ children }: { children: ReactNode }) => {
         });
       });
     setAvailableMenus(allMenus);
-    setParentMenus(allMenus.filter(menu => menu.menu_parent_id === null));
+    setParentMenus(computeParentMenus(allMenus));
   }, [selectedCompany, selectedBranches]);
 
   // Handlers

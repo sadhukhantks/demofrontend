@@ -22,11 +22,11 @@ export default function MobileTopBar({ onMenuToggle }: MobileTopBarProps) {
   };
 
   return (
-    <div className="md:hidden flex items-center justify-between bg-[#006699] px-4 py-2 shrink-0">
+    <div className="md:hidden flex items-center justify-between bg-[hsl(var(--sidebar-bg))] px-4 py-2 shrink-0">
       <button
         type="button"
         onClick={onMenuToggle}
-        className="text-white p-2 -ml-2 rounded hover:bg-[#005580]"
+        className="text-white p-2 -ml-2 rounded hover:bg-[hsl(var(--sidebar-accent))]"
         aria-label="Toggle menu"
       >
         <Menu size={24} />
@@ -34,7 +34,7 @@ export default function MobileTopBar({ onMenuToggle }: MobileTopBarProps) {
       <button
         type="button"
         onClick={handleLogout}
-        className="flex items-center gap-1.5 text-white text-sm px-3 py-2 -mr-2 rounded hover:bg-[#005580]"
+        className="flex items-center gap-1.5 text-white text-sm px-3 py-2 -mr-2 rounded hover:bg-[hsl(var(--sidebar-accent))]"
         aria-label="Logout"
       >
         <LogOut size={20} />

@@ -145,7 +145,7 @@ export default function ApprovalLevelsTable({
             <TableRow
               sx={{
                 "& th": {
-                  backgroundColor: "#3ea6da",
+                  backgroundColor: "#1b2a4e",
                   color: "white",
                   fontWeight: 600,
                 },

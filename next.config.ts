@@ -1,8 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // LAN access to the dev server alongside sls.localhost:3000 (always allowed):
-  // sls.<lan-ip>.nip.io:3000. A bare sls.192.168.x.x is rejected by browsers —
+  // Docker image ships only the compiled server bundle, not the source tree.
+  output: 'standalone',
+  // LAN access to the dev server alongside sls.localhost:5000 (always allowed):
+  // sls.<lan-ip>.nip.io:5000. A bare sls.192.168.x.x is rejected by browsers —
   // a host ending in a number must be an IPv4.
   allowedDevOrigins: ['**.nip.io'],
   experimental: {
@@ -17,12 +19,12 @@ const nextConfig: NextConfig = {
       {
         protocol: 'http',
         hostname: '*.localhost',
-        port: '3000',
+        port: '5000',
       },
       {
         protocol: 'http',
         hostname: 'localhost',
-        port: '3000',
+        port: '5000',
       },
     ],
     // Use unoptimized images for local development to avoid subdomain issues
@@ -31,9 +33,9 @@ const nextConfig: NextConfig = {
   // async rewrites() {
   //   // Determine the backend URL based on the environment
   //   const isProduction = process.env.NODE_ENV === 'production';
-  //   // const backendHost = process.env.NEXT_PUBLIC_BACKENDHOST || 'localhost:8000'; // Default for non-Docker dev
+  //   // const backendHost = process.env.NEXT_PUBLIC_BACKENDHOST || 'localhost:9000'; // Default for non-Docker dev
   //   // Updated: Add logging and ensure backendHost is set correctly
-  //   const backendHost = process.env.NEXT_PUBLIC_BACKENDHOST || 'localhost:8000'; // Default for non-Docker dev
+  //   const backendHost = process.env.NEXT_PUBLIC_BACKENDHOST || 'localhost:9000'; // Default for non-Docker dev
   //   console.log('Backend Host:', backendHost); // Debug: Log the backend host
 
   //   // Backend URL for proxying
@@ -61,7 +63,7 @@ const nextConfig: NextConfig = {
   // }
   async rewrites() {
     const useProxy = process.env.USE_NEXT_PROXY === 'true';
-    const backendHost = process.env.NEXT_PUBLIC_BACKENDHOST || 'localhost:8000';
+    const backendHost = process.env.NEXT_PUBLIC_BACKENDHOST || 'localhost:9000';
     const backendUrl = backendHost.includes('http')
       ? `${backendHost}/api`
       : `http://${backendHost}/api`;

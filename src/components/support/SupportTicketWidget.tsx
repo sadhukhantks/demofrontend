@@ -1,4 +1,6 @@
 "use client";
+import InfoSkyMark from "@/components/ui/InfoSkyMark";
+import { brand } from "@/styles/brand";
 
 /**
  * SupportTicketWidget — a floating "raise a ticket" button (Zendesk-style) shown
@@ -300,10 +302,19 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
     <>
       <Tooltip title="Need help? Raise a ticket" placement="left">
         <Fab
-          color="primary"
           aria-label="Raise a support ticket"
           onClick={() => setOpen(true)}
-          sx={{ position: "fixed", bottom: 24, right: 24, zIndex: 1200 }}
+          sx={{
+            position: "fixed", bottom: 24, right: 24, zIndex: 1200,
+            color: brand.greenLight,
+            background: `linear-gradient(160deg, ${brand.navy800}, ${brand.navy900})`,
+            border: `2px solid ${brand.green}`,
+            boxShadow: `0 6px 18px ${brand.navy900}55, 0 0 0 4px ${brand.green}22`,
+            "&:hover": {
+              background: `linear-gradient(160deg, ${brand.navy700}, ${brand.navy800})`,
+              boxShadow: `0 8px 22px ${brand.navy900}66, 0 0 0 6px ${brand.green}33`,
+            },
+          }}
         >
           <Badge badgeContent={unreadCount} color="error" max={99} overlap="circular">
             <LifeBuoy size={24} />
@@ -312,11 +323,26 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
       </Tooltip>
 
       <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
-        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 0 }}>
-          <Typography component="span" variant="h6" sx={{ fontWeight: 600 }}>
-            Support
-          </Typography>
-          <IconButton onClick={handleClose} size="small" aria-label="Close">
+        <DialogTitle
+          sx={{
+            display: "flex", alignItems: "center", justifyContent: "space-between", py: 1.5,
+            color: brand.onNavy,
+            background: `linear-gradient(160deg, ${brand.navy800}, ${brand.navy900})`,
+            borderBottom: `3px solid ${brand.green}`,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
+            <InfoSkyMark size={30} navy="#ffffff" green={brand.greenLight} />
+            <Box sx={{ lineHeight: 1.1 }}>
+              <Typography component="div" variant="h6" sx={{ fontWeight: 700, fontSize: "1.05rem", lineHeight: 1.2 }}>
+                Support
+              </Typography>
+              <Typography component="div" sx={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.3em", color: brand.greenLight }}>
+                INFOSKY HELP DESK
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton onClick={handleClose} size="small" aria-label="Close" sx={{ color: brand.onNavy, "&:hover": { bgcolor: brand.navy700 } }}>
             <X size={18} />
           </IconButton>
         </DialogTitle>
@@ -329,7 +355,12 @@ export default function SupportTicketWidget({ variant }: SupportTicketWidgetProp
             setComments([]);
             setAttachments([]);
           }}
-          sx={{ px: 3 }}
+          sx={{
+            px: 3,
+            "& .MuiTab-root": { fontWeight: 600, color: brand.navyInk, opacity: 0.7 },
+            "& .MuiTab-root.Mui-selected": { color: brand.navyInk, opacity: 1 },
+            "& .MuiTabs-indicator": { backgroundColor: brand.green, height: 3 },
+          }}
         >
           <Tab label="Report an issue" />
           <Tab label="My tickets" />

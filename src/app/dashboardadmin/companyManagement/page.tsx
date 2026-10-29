@@ -107,27 +107,27 @@ export default function CompanyManagement() {
       headerName: 'Name', 
       flex: 1,
       minWidth: 180,
-      headerClassName: 'bg-[#3ea6da] text-white',
+      headerClassName: 'bg-[hsl(var(--table-header))] text-white',
     },
     { 
       field: 'co_email_id', 
       headerName: 'Email', 
       flex: 1,
       minWidth: 200,
-      headerClassName: 'bg-[#3ea6da] text-white',
+      headerClassName: 'bg-[hsl(var(--table-header))] text-white',
     },
     { 
       field: 'co_prefix', 
       headerName: 'Short Name', 
       flex: 0.7,
       minWidth: 120,
-      headerClassName: 'bg-[#3ea6da] text-white',
+      headerClassName: 'bg-[hsl(var(--table-header))] text-white',
     },
     {
       field: 'actions',
       headerName: 'Actions',
       width: 100,
-      headerClassName: 'bg-[#3ea6da] text-white',
+      headerClassName: 'bg-[hsl(var(--table-header))] text-white',
       sortable: false,
       filterable: false,
       renderCell: (params) => (
@@ -150,7 +150,7 @@ export default function CompanyManagement() {
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-[#0C3C60]">Company Setup</h1>
           <Button
-            className="bg-[#95C11F] hover:bg-[#85ad1b] text-white"
+            className="bg-[hsl(var(--brand-primary))] hover:bg-[hsl(var(--brand-primary-hover))] text-white"
             onClick={() => {
               window.location.href = "/dashboardadmin/companyManagement/createCompany";
             }}
@@ -203,7 +203,7 @@ export default function CompanyManagement() {
             disableRowSelectionOnClick
             sx={{
               '& .MuiDataGrid-columnHeader': {
-                backgroundColor: '#3ea6da',
+                backgroundColor: '#1b2a4e',
                 color: 'white',
                 fontWeight: 'bold',
               },

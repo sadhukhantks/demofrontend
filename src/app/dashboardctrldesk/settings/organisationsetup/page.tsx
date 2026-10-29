@@ -86,31 +86,31 @@ const columns: Column<Orgs>[] = [
   {
     key: "con_org_name",
     label: "Name",
-    className: "bg-[#3ea6da] text-white font-medium",
+    className: "bg-[hsl(var(--table-header))] text-white font-medium",
     sortable: true,
   },
   {
     key: "con_org_email_id",
     label: "Email",
-    className: "bg-[#3ea6da] text-white font-medium",
+    className: "bg-[hsl(var(--table-header))] text-white font-medium",
     sortable: true,
   },
   {
     key: "con_org_shortname",
     label: "Short Name",
-    className: "bg-[#3ea6da] text-white font-medium",
+    className: "bg-[hsl(var(--table-header))] text-white font-medium",
     sortable: true,
   },
   {
     key: "con_status_name",
     label: "Status",
-    className: "bg-[#3ea6da] text-white",
+    className: "bg-[hsl(var(--table-header))] text-white",
     sortable: true,
   },
   {
     key: "actions",
     label: "Actions",
-    className: "bg-[#3ea6da] text-white",
+    className: "bg-[hsl(var(--table-header))] text-white",
     render: (_val, row) => (
       <Button
         variant="ghost"
@@ -132,7 +132,7 @@ export default function UserTenantAdmin() {
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-[#0C3C60]">Organisation Setup</h1>
             <Button
-            className="bg-[#95C11F] hover:bg-[#85ad1b] text-white"
+            className="bg-[hsl(var(--brand-primary))] hover:bg-[hsl(var(--brand-primary-hover))] text-white"
             onClick={() => {
               window.location.href = "/dashboardctrldesk/settings/organisationsetup/createOrg";
             }}

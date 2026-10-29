@@ -586,7 +586,7 @@ function PayRollContent() {
               processRowUpdate={handleProcessRowUpdate}
               sx={{
                 "& .MuiDataGrid-columnHeader": {
-                  backgroundColor: "#3ea6da",
+                  backgroundColor: "#1b2a4e",
                   color: "white",
                   fontWeight: "bold",
                 },

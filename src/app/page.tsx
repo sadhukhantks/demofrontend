@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 //import { useRouter } from "next/navigation";
 import { LoginForm } from "@/components/auth/login-form";
-import Image from "next/image";
+import InfoSkyMark from "@/components/ui/InfoSkyMark";
+import { brand } from "@/styles/brand";
 
 export default function Home() {
 //  const router = useRouter();
@@ -34,36 +35,31 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="min-h-screen flex">
-      {/* Left side - Welcome Image */}
-      <div className="hidden lg:flex lg:w-1/2 bg-linear-to-br from-emerald-800 to-teal-600 p-12 relative">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url('/background.png')" }}
-        ></div>
-
-        {/* Centering the text */}
-        <div className="relative flex flex-col items-center justify-center w-full h-full text-white z-10">
-          <h2 className="text-6xl font-bold text-center mb-12">WELCOME</h2>
-        </div>
-      </div>
-
-      {/* Right side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
-        <div className="w-full max-w-md space-y-8">
-          <div className="flex justify-center items-center w-full">
-            <Image
-              src="/vow-animated-compressed.gif"
-              alt="VOW Logo"
-              width={200}
-              height={100}
-              priority
-              className="mx-auto w-auto h-auto"
-              unoptimized
-            />
+    <main
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{ background: `linear-gradient(160deg, ${brand.navy900}, ${brand.navy800} 60%, #0b1830)` }}
+    >
+      {/* max-w-sm + small logo keeps the whole form inside one viewport */}
+      <div className="w-full max-w-sm space-y-4">
+        {/* Brand lockup — mark over wordmark, as on the dark logo variant */}
+        <div className="flex flex-col items-center gap-2">
+          <InfoSkyMark size={64} navy="#ffffff" green={brand.greenLight} />
+          <div className="text-center">
+            <div
+              className="text-lg font-bold tracking-[0.14em]"
+              style={{ color: brand.onNavy }}
+            >
+              INFOSKY GLOBAL
+            </div>
+            <div
+              className="text-[10px] font-semibold tracking-[0.42em] mt-0.5"
+              style={{ color: brand.greenLight }}
+            >
+              IT SOLUTIONS
+            </div>
           </div>
-          <LoginForm subdomain={subdomain} />
         </div>
+        <LoginForm subdomain={subdomain} />
       </div>
     </main>
   );

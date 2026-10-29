@@ -1,11 +1,11 @@
 "use client";
 
-import { ModuleMenuGrid } from "@/components/dashboard/ModuleMenuGrid";
+import { ModuleDashboard } from "@/components/dashboard/ModuleDashboard";
 
 export default function Page() {
 	return (
 		<div className="p-6">
-			<ModuleMenuGrid modulePath="/dashboardportal/masters" />
+			<ModuleDashboard modulePath="/dashboardportal/masters" />
 		</div>
 	);
 }

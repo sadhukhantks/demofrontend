@@ -129,145 +129,151 @@ export function LoginForm({ subdomain }: LoginFormsProps) {
   }, [subdomain]);
 
   return (
-    <div className="login-container" >
-      <div className="text-center">
-        <h2 className="login-h2">Login</h2>
+    <div className="login-glow rounded-2xl border-2 border-[hsl(var(--brand-primary))] bg-white px-6 py-5">
+      <div className="mb-4 text-center">
+        <h2 className="text-lg font-semibold tracking-tight text-[hsl(var(--brand-secondary))]">
+          Sign in
+        </h2>
+        <p className="mt-0.5 text-xs text-gray-500">
+          {autoLoginType === "admin"
+            ? "Administrator sign in"
+            : "Enter your credentials to continue"}
+        </p>
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <FormField
-            control={form.control}
-            name="username"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>User Name</FormLabel>
-                <FormControl>
-                <Input
-              className="input-custom-login"
-              placeholder="User Name"
-              autoComplete="username"
-              {...field}
-            />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Password</FormLabel>
-                <FormControl>
-                  <div className="relative">
-                    <Input
-                      className="input-custom-login pr-10"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      autoComplete="current-password"
-                      {...field}
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                      aria-label="Toggle password visibility"
-                      tabIndex={-1}
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
- {/* Show Login Type Selection Only If Not Auto-Detected */}
- {autoLoginType === null && (
-            <div className="flex items-center justify-between mt-0">
-              <FormField
-                control={form.control}
-                name="loginType"
-                render={({ field }) => (
-                  <FormItem className="flex items-center space-x-2">
-                    <FormControl>
-                      <input
-                        type="radio"
-                        id="adminLogin"
-                        value="admin"
-                        checked={field.value === "admin"}
-                        onChange={() => field.onChange("admin")}
-                        className="w-4 h-4"
-                      />
-                    </FormControl>
-                    <FormLabel htmlFor="adminLogin" className="text-sm">
-                      Admin Login
-                    </FormLabel>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="loginType"
-                render={({ field }) => (
-                  <FormItem className="flex items-center space-x-2">
-                    <FormControl>
-                      <input
-                        type="radio"
-                        id="portalLogin"
-                        value="portal"
-                        checked={field.value === "portal"}
-                        onChange={() => field.onChange("portal")}
-                        className="w-4 h-4"
-                      />
-                    </FormControl>
-                    <FormLabel htmlFor="portalLogin" className="text-sm">
-                      Portal Login
-                    </FormLabel>
-                  </FormItem>
-                )}
-              />
-            </div>
-          )} 
-
-          <div className="flex items-center justify-between mt-0">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 text-sm">
+            {/* 1. User name */}
             <FormField
               control={form.control}
-              name="rememberMe"
+              name="username"
               render={({ field }) => (
-                <FormItem className="flex items-center space-x-2">
+                <FormItem>
+                  <FormLabel className="text-xs font-medium">User Name</FormLabel>
                   <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
+                    <Input
+                      className="h-9 text-sm"
+                      placeholder="User Name"
+                      autoComplete="username"
+                      {...field}
                     />
                   </FormControl>
-                  <FormLabel className="text-sm">Keep me signed in</FormLabel>
+                  <FormMessage />
                 </FormItem>
               )}
             />
-          </div>
 
-          <Button
-            type="submit"
-            className={`w-full bg-[#9BC837] hover:bg-[#8BB72E] text-white ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
-            disabled={isLoading}
-          >
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Log in
-          </Button>
+            {/* 2. Password */}
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs font-medium">Password</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input
+                        className="h-9 pr-10 text-sm"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        autoComplete="current-password"
+                        {...field}
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        aria-label="Toggle password visibility"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <div className="flex justify-center">
-            <Button className="text-sm text-blue-600">
-              Forgot Password?
+            {/* 3. Admin / Portal — only when the subdomain hasn't already decided */}
+            {autoLoginType === null && (
+              <div className="flex items-center justify-between mt-0">
+                <FormField
+                  control={form.control}
+                  name="loginType"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center space-x-2">
+                      <FormControl>
+                        <input
+                          type="radio"
+                          id="adminLogin"
+                          value="admin"
+                          checked={field.value === "admin"}
+                          onChange={() => field.onChange("admin")}
+                          className="w-4 h-4"
+                        />
+                      </FormControl>
+                      <FormLabel htmlFor="adminLogin" className="text-sm">
+                        Admin Login
+                      </FormLabel>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="loginType"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center space-x-2">
+                      <FormControl>
+                        <input
+                          type="radio"
+                          id="portalLogin"
+                          value="portal"
+                          checked={field.value === "portal"}
+                          onChange={() => field.onChange("portal")}
+                          className="w-4 h-4"
+                        />
+                      </FormControl>
+                      <FormLabel htmlFor="portalLogin" className="text-sm">
+                        Portal Login
+                      </FormLabel>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+
+            <div className="flex items-center justify-between mt-0">
+              <FormField
+                control={form.control}
+                name="rememberMe"
+                render={({ field }) => (
+                  <FormItem className="flex items-center space-x-2">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormLabel className="text-sm">Keep me signed in</FormLabel>
+                  </FormItem>
+                )}
+              />
+              <Button className="text-sm text-blue-600">
+                Forgot Password?
+              </Button>
+            </div>
+
+            <Button
+              type="submit"
+              className={`w-full bg-[hsl(var(--brand-primary))] hover:bg-[hsl(var(--brand-primary-hover))] text-white ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+              disabled={isLoading}
+            >
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Login
             </Button>
-          </div>
-        </form>
-      </Form>
+          </form>
+        </Form>
     </div>
   )
 }

@@ -555,6 +555,9 @@ const apiRoutesPortalMasters = {
     BILL_PASS_GET_BY_ID: `${API_URL}/billPass/get_bill_pass_by_id`,
     BILL_PASS_UPDATE: `${API_URL}/billPass/update_bill_pass`,
 
+    // Module landing dashboards (KPIs + charts per module)
+    MODULE_DASHBOARD: `${API_URL}/moduleDashboard`,
+
     // Procurement reports hub
     INDENT_ITEMWISE_REPORT: `${API_URL}/procurementReports/indent-itemwise`,
     INDENT_ITEMWISE_DOWNLOAD: `${API_URL}/procurementReports/indent-itemwise/download`,

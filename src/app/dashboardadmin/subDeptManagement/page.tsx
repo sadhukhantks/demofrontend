@@ -228,28 +228,28 @@ export default function SubDeptManagement() {
       headerName: 'Deaprtment Code',
       flex: 1,
       minWidth: 200,
-      headerClassName: 'bg-[#3ea6da] text-white',
+      headerClassName: 'bg-[hsl(var(--table-header))] text-white',
     },
     {
       field: 'dept_desc',
       headerName: 'Deaprtment Name',
       flex: 1,
       minWidth: 200,
-      headerClassName: 'bg-[#3ea6da] text-white',
+      headerClassName: 'bg-[hsl(var(--table-header))] text-white',
     },
     {
       field: 'sub_dept_code',
       headerName: 'Sub Deaprtment Code',
       flex: 1,
       minWidth: 200,
-      headerClassName: 'bg-[#3ea6da] text-white',
+      headerClassName: 'bg-[hsl(var(--table-header))] text-white',
     },
     {
       field: 'sub_dept_desc',
       headerName: 'Sub Deaprtment Name',
       flex: 1,
       minWidth: 200,
-      headerClassName: 'bg-[#3ea6da] text-white',
+      headerClassName: 'bg-[hsl(var(--table-header))] text-white',
     },
 
     {
@@ -257,13 +257,13 @@ export default function SubDeptManagement() {
       headerName: 'Order By',
       flex: 1,
       minWidth: 200,
-      headerClassName: 'bg-[#3ea6da] text-white',
+      headerClassName: 'bg-[hsl(var(--table-header))] text-white',
     },
     {
       field: 'actions',
       headerName: 'Actions',
       width: 100,
-      headerClassName: 'bg-[#3ea6da] text-white',
+      headerClassName: 'bg-[hsl(var(--table-header))] text-white',
       sortable: false,
       filterable: false,
       renderCell: (params) => (
@@ -314,7 +314,7 @@ export default function SubDeptManagement() {
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-[#0C3C60]">Department Setup</h1>
           <Button
-            className="bg-[#95C11F] hover:bg-[#85ad1b] text-white"
+            className="bg-[hsl(var(--brand-primary))] hover:bg-[hsl(var(--brand-primary-hover))] text-white"
             onClick={() => {
               window.location.href = "/dashboardadmin/subDeptManagement/createSubDept";
             }}
@@ -415,7 +415,7 @@ export default function SubDeptManagement() {
             }}
             sx={{
               '& .MuiDataGrid-columnHeader': {
-                backgroundColor: '#3ea6da',
+                backgroundColor: '#1b2a4e',
                 color: 'white',
                 fontWeight: 'bold',
               },

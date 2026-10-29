@@ -4,7 +4,7 @@ import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { useEffect, useState } from "react";
 import { getUser, urlcheck } from "@/utils/auth";
 import { normalisePortalPath } from "@/utils/portalPermissions";
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export function useCompany() {
   const {

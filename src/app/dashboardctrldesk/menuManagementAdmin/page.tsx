@@ -147,7 +147,7 @@ const createEditUrl = (menu: Menu) => {
       headerName: 'Menu Name',
       flex: 1,
       minWidth: 180,
-      headerClassName: 'bg-[#3ea6da] text-white',
+      headerClassName: 'bg-[hsl(var(--table-header))] text-white',
       renderCell: (params) => {
         const menuIconHtml = params.row.tooltip.menu_icon; // HTML string from the database
         let imageSrc = '';
@@ -191,7 +191,7 @@ const createEditUrl = (menu: Menu) => {
       headerName: 'Parent Menu',
       flex: 1,
       minWidth: 180,
-      headerClassName: 'bg-[#3ea6da] text-white',
+      headerClassName: 'bg-[hsl(var(--table-header))] text-white',
       renderCell: (params) => (
         <Tooltip
           title={`Menu Path: ${params.row.tooltip.menu_path || 'N/A'}\nMenu Icon: ${params.row.tooltip.menu_icon || 'N/A'}`}
@@ -206,7 +206,7 @@ const createEditUrl = (menu: Menu) => {
       headerName: 'Module Name',
       flex: 1,
       minWidth: 180,
-      headerClassName: 'bg-[#3ea6da] text-white',
+      headerClassName: 'bg-[hsl(var(--table-header))] text-white',
       renderCell: (params) => (
         <Tooltip
           title={`Menu Path: ${params.row.tooltip.menu_path || 'N/A'}\nMenu Icon: ${params.row.tooltip.menu_icon || 'N/A'}`}
@@ -221,7 +221,7 @@ const createEditUrl = (menu: Menu) => {
       headerName: 'Active',
       flex: 1,
       minWidth: 180,
-      headerClassName: 'bg-[#3ea6da] text-white',
+      headerClassName: 'bg-[hsl(var(--table-header))] text-white',
       renderCell: (params) => (
         <Tooltip
           title={`Menu Path: ${params.row.tooltip.menu_path || 'N/A'}\nMenu Icon: ${params.row.tooltip.menu_icon || 'N/A'}`}
@@ -235,7 +235,7 @@ const createEditUrl = (menu: Menu) => {
        field: 'actions',
        headerName: 'Actions',
        width: 100,
-       headerClassName: 'bg-[#3ea6da] text-white',
+       headerClassName: 'bg-[hsl(var(--table-header))] text-white',
        sortable: false,
        filterable: false,
        renderCell: (params) => (
@@ -259,7 +259,7 @@ const createEditUrl = (menu: Menu) => {
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-[#0C3C60]">Menu Setup</h1>
           <Button
-            className="bg-[#95C11F] hover:bg-[#85ad1b] text-white"
+            className="bg-[hsl(var(--brand-primary))] hover:bg-[hsl(var(--brand-primary-hover))] text-white"
             onClick={() => {
               window.location.href = "/dashboardctrldesk/menuManagementAdmin/createMenuAdmin";
             }}
@@ -319,7 +319,7 @@ const createEditUrl = (menu: Menu) => {
             }}
             sx={{
               '& .MuiDataGrid-columnHeader': {
-                backgroundColor: '#3ea6da',
+                backgroundColor: '#1b2a4e',
                 color: 'white',
                 fontWeight: 'bold',
               },

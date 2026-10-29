@@ -275,10 +275,10 @@ export default function CompanyConfigEditPage() {
                           color="primary"
                           sx={{ 
                             '& .MuiSwitch-switchBase.Mui-checked': {
-                              color: '#3ea6da'
+                              color: '#1b2a4e'
                             },
                             '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                              backgroundColor: '#3ea6da'
+                              backgroundColor: '#1b2a4e'
                             }
                           }}
                         />
@@ -294,10 +294,10 @@ export default function CompanyConfigEditPage() {
                           color="primary"
                           sx={{ 
                             '& .MuiSwitch-switchBase.Mui-checked': {
-                              color: '#3ea6da'
+                              color: '#1b2a4e'
                             },
                             '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                              backgroundColor: '#3ea6da'
+                              backgroundColor: '#1b2a4e'
                             }
                           }}
                         />
@@ -313,10 +313,10 @@ export default function CompanyConfigEditPage() {
                           color="primary"
                           sx={{ 
                             '& .MuiSwitch-switchBase.Mui-checked': {
-                              color: '#3ea6da'
+                              color: '#1b2a4e'
                             },
                             '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                              backgroundColor: '#3ea6da'
+                              backgroundColor: '#1b2a4e'
                             }
                           }}
                         />
@@ -332,10 +332,10 @@ export default function CompanyConfigEditPage() {
                           color="primary"
                           sx={{ 
                             '& .MuiSwitch-switchBase.Mui-checked': {
-                              color: '#3ea6da'
+                              color: '#1b2a4e'
                             },
                             '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                              backgroundColor: '#3ea6da'
+                              backgroundColor: '#1b2a4e'
                             }
                           }}
                         />
@@ -356,10 +356,10 @@ export default function CompanyConfigEditPage() {
                           color="primary"
                           sx={{ 
                             '& .MuiSwitch-switchBase.Mui-checked': {
-                              color: '#3ea6da'
+                              color: '#1b2a4e'
                             },
                             '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                              backgroundColor: '#3ea6da'
+                              backgroundColor: '#1b2a4e'
                             }
                           }}
                         />
@@ -375,10 +375,10 @@ export default function CompanyConfigEditPage() {
                           color="primary"
                           sx={{ 
                             '& .MuiSwitch-switchBase.Mui-checked': {
-                              color: '#3ea6da'
+                              color: '#1b2a4e'
                             },
                             '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                              backgroundColor: '#3ea6da'
+                              backgroundColor: '#1b2a4e'
                             }
                           }}
                         />
@@ -394,10 +394,10 @@ export default function CompanyConfigEditPage() {
                           color="primary"
                           sx={{ 
                             '& .MuiSwitch-switchBase.Mui-checked': {
-                              color: '#3ea6da'
+                              color: '#1b2a4e'
                             },
                             '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                              backgroundColor: '#3ea6da'
+                              backgroundColor: '#1b2a4e'
                             }
                           }}
                         />
@@ -413,10 +413,10 @@ export default function CompanyConfigEditPage() {
                           color="primary"
                           sx={{ 
                             '& .MuiSwitch-switchBase.Mui-checked': {
-                              color: '#3ea6da'
+                              color: '#1b2a4e'
                             },
                             '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                              backgroundColor: '#3ea6da'
+                              backgroundColor: '#1b2a4e'
                             }
                           }}
                         />
@@ -432,10 +432,10 @@ export default function CompanyConfigEditPage() {
                           color="primary"
                           sx={{ 
                             '& .MuiSwitch-switchBase.Mui-checked': {
-                              color: '#3ea6da'
+                              color: '#1b2a4e'
                             },
                             '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                              backgroundColor: '#3ea6da'
+                              backgroundColor: '#1b2a4e'
                             }
                           }}
                         />
@@ -451,10 +451,10 @@ export default function CompanyConfigEditPage() {
                           color="primary"
                           sx={{ 
                             '& .MuiSwitch-switchBase.Mui-checked': {
-                              color: '#3ea6da'
+                              color: '#1b2a4e'
                             },
                             '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                              backgroundColor: '#3ea6da'
+                              backgroundColor: '#1b2a4e'
                             }
                           }}
                         />

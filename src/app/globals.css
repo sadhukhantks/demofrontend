@@ -23,14 +23,14 @@
     --card-foreground: 215 28% 17%;
     --popover: 0 0% 100%;
     --popover-foreground: 215 28% 17%;
-    --primary: 76 72% 44%;
+    --primary: 147 65% 38%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 195 44% 59%;
-    --secondary-foreground: 203 86% 16%;
+    --secondary: 222 49% 23%;
+    --secondary-foreground: 0 0% 100%;
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
-    --accent: 195 44% 59%;
-    --accent-foreground: 203 86% 16%;
+    --accent: 222 49% 23%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     --border: 214 32% 91%;
@@ -42,12 +42,24 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.75rem;
-    --brand-primary: 76 72% 44%;
-    --brand-primary-hover: 76 72% 38%;
+    /* InfoSky brand: logo green #22a05a, logo navy #1b2a4e. Keep in step with
+       src/styles/brand.ts, which carries the same palette for the MUI/sx side. */
+    --brand-primary: 147 65% 38%;
+    --brand-primary-hover: 147 65% 31%;
     --brand-primary-foreground: 0 0% 100%;
-    --brand-secondary: 195 44% 59%;
-    --brand-secondary-foreground: 203 86% 16%;
-    --border-accent: 195 44% 59%;
+    --brand-secondary: 222 49% 23%;
+    --brand-secondary-foreground: 0 0% 100%;
+    --border-accent: 222 49% 23%;
+    /* Console sidebars (ctrldesk / tenant admin) — navy rail, matching the
+       portal's ClassicSidebar. fg is light because bg is now dark. */
+    --sidebar-bg: 222 52% 18%;
+    --sidebar-accent: 220 45% 28%;
+    --sidebar-fg: 213 40% 94%;
+    /* Table/grid header band — same hue as the sidebar, dark enough for white bold text (4.85:1). */
+    /* Every table/grid header in the app resolves to this one variable
+       (table.tsx, datatablewithedit, muiDataGrid, ReportGrid and the
+       page-level grids), all paired with white text. Brand navy #1b2a4e. */
+    --table-header: 222 49% 21%;
   }
   .dark {
     --background: 0 0% 3.9%;
@@ -56,25 +68,25 @@
     --card-foreground: 210 40% 96%;
     --popover: 0 0% 6%;
     --popover-foreground: 210 40% 96%;
-    --primary: 76 72% 44%;
-    --primary-foreground: 0 0% 0%;
-    --secondary: 195 44% 49%;
+    --primary: 147 60% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 222 40% 40%;
     --secondary-foreground: 210 40% 96%;
     --muted: 215 16% 22%;
     --muted-foreground: 215 16% 72%;
-    --accent: 195 44% 49%;
+    --accent: 222 40% 40%;
     --accent-foreground: 210 40% 96%;
     --destructive: 0 62% 40%;
     --destructive-foreground: 0 0% 100%;
     --border: 215 16% 22%;
     --input: 215 16% 22%;
     --ring: 210 40% 96%;
-    --brand-primary: 76 72% 44%;
-    --brand-primary-hover: 76 72% 38%;
-    --brand-primary-foreground: 0 0% 0%;
-    --brand-secondary: 195 44% 59%;
+    --brand-primary: 147 60% 45%;
+    --brand-primary-hover: 147 60% 38%;
+    --brand-primary-foreground: 0 0% 100%;
+    --brand-secondary: 222 40% 40%;
     --brand-secondary-foreground: 210 40% 96%;
-    --border-accent: 195 44% 59%;
+    --border-accent: 222 40% 40%;
   }
 }
 
@@ -130,44 +142,44 @@
 
   /* Sidebar styles - shared across all sidebar variants */
   .sidebar-container {
-    @apply bg-[#006699] text-white transition-all duration-300 h-dvh flex flex-col;
+    @apply bg-[hsl(var(--sidebar-bg))] text-[hsl(var(--sidebar-fg))] transition-all duration-300 h-dvh flex flex-col;
   }
 
   /* Reset link styles inside sidebar */
   .sidebar-container a {
-    @apply text-white no-underline;
+    @apply text-[hsl(var(--sidebar-fg))] no-underline;
   }
 
   .sidebar-menu-link {
-    @apply flex items-center px-4 py-2 text-sm text-white hover:bg-[#005580] transition-colors;
+    @apply flex items-center px-4 py-2 text-sm text-[hsl(var(--sidebar-fg))] hover:bg-[hsl(var(--sidebar-accent))] transition-colors;
   }
 
   .sidebar-menu-icon {
-    @apply mr-3 text-white;
+    @apply mr-3 text-[hsl(var(--sidebar-fg))];
   }
 
   .sidebar-menu-title {
-    @apply flex-1 text-white;
+    @apply flex-1 text-[hsl(var(--sidebar-fg))];
   }
 
   .sidebar-menu-chevron {
-    @apply text-white;
+    @apply text-[hsl(var(--sidebar-fg))];
   }
 
   .sidebar-submenu {
-    @apply ml-4 border-l border-[#005580];
+    @apply ml-4 border-l border-[hsl(var(--sidebar-accent))];
   }
 
   .sidebar-section-border {
-    @apply border-t border-[#005580] mt-2;
+    @apply border-t border-[hsl(var(--sidebar-accent))] mt-2;
   }
 
   .sidebar-user-settings {
-    @apply flex items-center px-4 py-2 text-sm text-white hover:bg-[#005580] transition-colors cursor-pointer;
+    @apply flex items-center px-4 py-2 text-sm text-[hsl(var(--sidebar-fg))] hover:bg-[hsl(var(--sidebar-accent))] transition-colors cursor-pointer;
   }
 
   .sidebar-submenu-link {
-    @apply block px-4 py-2 text-white hover:bg-[#005580];
+    @apply block px-4 py-2 text-[hsl(var(--sidebar-fg))] hover:bg-[hsl(var(--sidebar-accent))];
   }
 }
 
@@ -178,7 +190,7 @@
 .sidebar-menu-link,
 .sidebar-menu-title,
 .sidebar-submenu-link {
-  color: white !important;
+  color: hsl(var(--sidebar-fg)) !important;
 }
 
 .border-blue {
@@ -221,6 +233,52 @@
   background-color: hsl(var(--brand-primary-hover)) !important;
 }
 
+/* Login page glow animations */
+@keyframes login-glow {
+  0%, 100% { box-shadow: 0 0 8px 2px hsl(var(--brand-primary) / 0.4); }
+  50% { box-shadow: 0 0 24px 8px hsl(var(--brand-primary) / 0.8); }
+}
+
+@keyframes logo-glow {
+  0%, 100% { filter: drop-shadow(0 0 4px hsl(var(--brand-primary) / 0.5)); }
+  50% { filter: drop-shadow(0 0 16px hsl(var(--brand-primary) / 0.9)); }
+}
+
+.login-glow {
+  animation: login-glow 2.5s ease-in-out infinite;
+}
+
+.logo-glow {
+  animation: logo-glow 2.5s ease-in-out infinite;
+}
+
+/* Portal landing splash — staggered entrance + slow orbit */
+@keyframes is-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes is-orbit {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes is-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.04); }
+}
+
+.is-rise {
+  opacity: 0;
+  animation: is-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.is-orbit { animation: is-orbit 24s linear infinite; }
+.is-breathe { animation: is-breathe 6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .is-rise, .is-orbit, .is-breathe, .logo-glow { animation: none; opacity: 1; }
+}
+
 /* Transaction Grid Styles - shared across line items and additional charges */
 @layer components {
   .transaction-grid-container {
@@ -256,4 +314,23 @@
   .transaction-grid-empty {
     @apply px-1.5 py-2 text-center text-xs text-slate-500;
   }
+}
+
+/* Material Symbols — menu_mst.menu_icon stores ligature names for this font
+   (loaded from Google Fonts in the root layout). Without these settings the
+   glyph renders at the wrong weight or falls back to the literal word. */
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 20;
 }

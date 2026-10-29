@@ -17,8 +17,8 @@ export async function proxy(request: NextRequest) {
   const pathname = url.pathname;
 
   // Extract subdomain from hostname
-  const subdomain = hostname.includes('.localhost:3000')
-    ? hostname.split('.localhost:3000')[0]
+  const subdomain = hostname.includes('.localhost:5000')
+    ? hostname.split('.localhost:5000')[0]
     : hostname.split('.')[0];
 
   // Subdomain validation is handled client-side by SubdomainGuard component

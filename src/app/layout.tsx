@@ -19,11 +19,9 @@ const geistMono = Geist_Mono({
 }); */
 
 export const metadata: Metadata = {
-  title: "VowErp",
+  title: "InfoSky Global IT Solutions LLP",
   description: "ERP",
-  icons: {
-    icon: "/favicon-16x16.png",
-  },
+  // Tab icon comes from src/app/icon.svg (Next file convention).
 };
 
 export default function RootLayout({
@@ -33,6 +31,17 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Material Symbols — menu_mst.menu_icon stores ligature names for this
+            set. display=block hides the text until the font lands, otherwise
+            the raw name ("assessment") flashes in place of the glyph. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&display=block"
+        />
+      </head>
       <body className={`${inter.className}`} suppressHydrationWarning>
         {/* <AuthProvider>    */}
           <AppThemeProvider>

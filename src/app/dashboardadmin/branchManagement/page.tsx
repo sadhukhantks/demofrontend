@@ -137,14 +137,14 @@ export default function BranchManagement() {
       headerName: 'Branch Name', 
       flex: 1,
       minWidth: 200,
-      headerClassName: 'bg-[#3ea6da] text-white',
+      headerClassName: 'bg-[hsl(var(--table-header))] text-white',
     },
     { 
       field: 'active', 
       headerName: 'Active', 
       flex: 0.7,
       minWidth: 120,
-      headerClassName: 'bg-[#3ea6da] text-white',
+      headerClassName: 'bg-[hsl(var(--table-header))] text-white',
       renderCell: (params) => (
         <span className={`font-medium ${params.row.active ? 'text-green-500' : 'text-red-500'}`}>
           {params.row.active ? 'Yes' : 'No'}
@@ -155,7 +155,7 @@ export default function BranchManagement() {
       field: 'actions',
       headerName: 'Actions',
       width: 100,
-      headerClassName: 'bg-[#3ea6da] text-white',
+      headerClassName: 'bg-[hsl(var(--table-header))] text-white',
       sortable: false,
       filterable: false,
       renderCell: (params) => (
@@ -178,7 +178,7 @@ export default function BranchManagement() {
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-[#0C3C60]">Branch Setup</h1>
           <Button
-            className="bg-[#95C11F] hover:bg-[#85ad1b] text-white"
+            className="bg-[hsl(var(--brand-primary))] hover:bg-[hsl(var(--brand-primary-hover))] text-white"
             onClick={() => {
               const selectedCompany = companies.find(
                 (c) => c.co_id.toString() === selectedCompanyId
@@ -269,7 +269,7 @@ export default function BranchManagement() {
             }}
             sx={{
               '& .MuiDataGrid-columnHeader': {
-                backgroundColor: '#3ea6da',
+                backgroundColor: '#1b2a4e',
                 color: 'white',
                 fontWeight: 'bold',
               },

@@ -1,11 +1,11 @@
 "use client"
 
-import { ReactNode, useEffect, useState } from "react"
+import { ReactNode, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import Sidebar from "@/components/dashboard/sidebar"
+import ClassicTopBar from "@/components/dashboard/ClassicTopBar"
+import ClassicSidebar from "@/components/dashboard/ClassicSidebar"
 import { SidebarProvider, useSidebarContext } from "@/components/dashboard/sidebarContext"
 import { determinePortalAction } from "@/utils/portalPermissions"
-import MobileTopBar from "@/components/dashboard/MobileTopBar"
 import SupportTicketWidget from "@/components/support/SupportTicketWidget"
 
 function PortalPermissionBoundary({ children }: { children: ReactNode }) {
@@ -38,52 +38,21 @@ export default function DashboardLayout({
 }: {
   children: ReactNode
 }) {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const pathname = usePathname()
-
-  // Auto-close mobile menu on navigation
-  useEffect(() => {
-    setIsMobileMenuOpen(false)
-  }, [pathname])
-
   return (
     // <ProtectedRoute>
     <SidebarProvider>
       <PortalPermissionBoundary>
-        <div className="flex flex-col md:flex-row h-screen bg-gray-100">
-          {/* Mobile top bar (hamburger + logout) — visible only on small screens */}
-          <MobileTopBar onMenuToggle={() => setIsMobileMenuOpen(prev => !prev)} />
+        {/* classic-portal scopes the desktop-ERP palette to this dashboard only */}
+        <div className="classic-portal flex flex-col h-screen bg-gray-100">
+          {/* Single horizontal menu bar — replaces the sidebar and owns the
+              menu/permission fetch it used to do */}
+          <ClassicTopBar />
 
-          {/* Mobile sidebar overlay */}
-          {isMobileMenuOpen && (
-            <>
-              <div
-                className="fixed inset-0 bg-black/50 z-40 md:hidden"
-                onClick={() => setIsMobileMenuOpen(false)}
-              />
-              <div className="fixed top-0 left-0 bottom-0 w-72 z-50 md:hidden">
-                <Sidebar
-                  isCollapsed={false}
-                  onToggle={() => setIsMobileMenuOpen(false)}
-                  isMobile
-                  onClose={() => setIsMobileMenuOpen(false)}
-                />
-              </div>
-            </>
-          )}
+          <div className="flex-1 flex flex-row overflow-hidden">
+            {/* Multi-level menu tree — same menus the top bar shows, both fed
+                from SidebarContext */}
+            <ClassicSidebar />
 
-          {/* Desktop sidebar — hidden on mobile */}
-          <div className="hidden md:block">
-            <Sidebar 
-              isCollapsed={isSidebarCollapsed} 
-              onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              onMouseEnter={() => setIsSidebarCollapsed(false)}
-              onMouseLeave={() => setIsSidebarCollapsed(true)}
-            />
-          </div>
-
-          <div className="flex-1 flex flex-col overflow-hidden">
             {/* pb-24 keeps the floating support Fab (bottom-right) from covering
                 page-bottom controls such as DataGrid pagination arrows */}
             <main className="flex-1 overflow-x-hidden overflow-y-auto bg-white pb-24">

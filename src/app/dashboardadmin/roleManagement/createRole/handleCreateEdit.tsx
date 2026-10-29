@@ -188,7 +188,7 @@ function CreateRoleContent() {
                                 </Button>
                                 <Button
                                     type="submit"
-                                    className="bg-[#9BC837] hover:bg-[#8BB72E] text-white"
+                                    className="bg-[hsl(var(--brand-primary))] hover:bg-[hsl(var(--brand-primary-hover))] text-white"
                                     disabled={loading}
                                 >
                                     {loading ? (roleId ? "Updating..." : "Creating...") : (roleId ? "Update Role" : "Create Role")}

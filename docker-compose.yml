@@ -1,0 +1,21 @@
+services:
+  demo-frontend:
+    image: ghcr.io/sadhukhantks/demofrontend:latest
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_BACKENDHOST: http://demo-backend:9000
+        NEXT_PUBLIC_API_BASE_URL: /api
+        USE_NEXT_PROXY: "true"
+    container_name: demo-frontend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - TZ=Asia/Kolkata
+    networks:
+      - vowerp
+
+networks:
+  vowerp:
+    external: true
