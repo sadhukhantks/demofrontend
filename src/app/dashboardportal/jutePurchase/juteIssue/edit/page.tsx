@@ -27,10 +27,12 @@ import {
   FormControlLabel,
   Checkbox,
 } from "@mui/material";
-import { Trash2, Plus, RefreshCw } from "lucide-react";
+import { Trash2, Plus, RefreshCw, Printer } from "lucide-react";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
+import useCompanyHeader from "@/hooks/useCompanyHeader";
+import { openStyledPrintWindow } from "@/utils/printUtils";
 import { useBranchOptions } from "@/utils/branchUtils";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
@@ -91,6 +93,21 @@ const formatDate = (value?: string) => {
   }
   return trimmed;
 };
+
+const escapeHtml = (value: string): string =>
+  value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[character];
+  });
+
+const formatPrintNumber = (value: number): string =>
+  new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 
 // ponytail: responsiveness is CSS-only (sx breakpoints), no useMediaQuery — the
 // server and the first client render then emit the same tree, so nothing here
@@ -183,6 +200,7 @@ function JuteIssueEditPage() {
 
   // State
   const [selectedBranchId, setSelectedBranchId] = React.useState<string>("");
+  const companyHeader = useCompanyHeader(coId, selectedBranchId || undefined);
   const [issueDate, setIssueDate] = React.useState<string>(
     dateParam || new Date().toISOString().slice(0, 10)
   );
@@ -732,6 +750,149 @@ function JuteIssueEditPage() {
 
   // Calculate totals
   const totals = calculateTotals();
+  const branchName =
+    selectedBranchOption?.label ??
+    sidebarBranches.find((branch) => branch.value === selectedBranchId)?.label ??
+    "";
+
+  const handlePrint = () => {
+    const companyLogo = companyHeader.logoBase64
+      ? `<img class="company-logo" src="${escapeHtml(companyHeader.logoBase64)}" alt="Company logo" />`
+      : "";
+    const companyName = companyHeader.coName
+      ? `<div class="company-name">${escapeHtml(companyHeader.coName)}</div>`
+      : "";
+    const companyAddress = companyHeader.address
+      ? `<div class="company-address">${escapeHtml(companyHeader.address)}</div>`
+      : "";
+    const companyIdentifiers = [
+      companyHeader.gstNo ? `GSTIN: ${companyHeader.gstNo}` : "",
+      companyHeader.cinNo ? `CIN: ${companyHeader.cinNo}` : "",
+    ]
+      .filter(Boolean)
+      .map(escapeHtml)
+      .join(" &nbsp; | &nbsp; ");
+    const rows = lineItems
+      .map((line, index) => {
+        const statusId = line.status_id ?? JUTE_ISSUE_STATUS_IDS.DRAFT;
+        const source = describeLineSource(line, wasteItemIds);
+        const origin =
+          line.source === "WASTE"
+            ? line.dept_name || "-"
+            : line.gate_entry_num ?? (line.jute_gate_entry_no ? String(line.jute_gate_entry_no) : "-");
+        return `
+          <tr>
+            <td class="center">${index + 1}</td>
+            <td>${escapeHtml(JUTE_ISSUE_STATUS_LABELS[statusId] || "Unknown")}</td>
+            <td>${escapeHtml(source)}</td>
+            <td>${escapeHtml(getYarnTypeLabel(line.yarn_type_id))}</td>
+            <td>${escapeHtml(origin)}</td>
+            <td class="center">${escapeHtml(line.unit_conversion || "-")}</td>
+            <td>${escapeHtml(line.jute_group_name || getJuteItemLabel(line.item_grp_id))}</td>
+            <td>${escapeHtml(line.item_name || "-")}</td>
+            <td class="number">${formatPrintNumber(Number(line.quantity) || 0)}</td>
+            <td class="number">${formatPrintNumber(Number(line.weight) || 0)}</td>
+            <td class="number">${formatPrintNumber(Number(line.actual_rate) || 0)}</td>
+            <td class="number">${formatPrintNumber(Number(line.issue_value) || 0)}</td>
+          </tr>`;
+      })
+      .join("");
+    const printedAt = new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date());
+    const content = `
+      <main id="jute-issue-print">
+        <header class="company-header">
+          ${companyLogo}
+          <div class="company-identity">
+            ${companyName}
+            ${branchName ? `<div class="branch-name">${escapeHtml(branchName)}</div>` : ""}
+            ${companyAddress}
+            ${companyIdentifiers ? `<div class="company-identifiers">${companyIdentifiers}</div>` : ""}
+          </div>
+        </header>
+        <section class="document-title">
+          <div>
+            <h1>JUTE ISSUE</h1>
+            <p>Stock Issue to Production</p>
+          </div>
+          <span class="status">${escapeHtml(summary?.status || "Draft")}</span>
+        </section>
+        <section class="meta-grid">
+          <div><span>Issue Date</span><strong>${escapeHtml(formatDate(issueDate))}</strong></div>
+          <div><span>Branch</span><strong>${escapeHtml(branchName || "-")}</strong></div>
+          <div><span>Line Items</span><strong>${lineItems.length}</strong></div>
+        </section>
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th>No.</th><th>Status</th><th>Source</th><th>Yarn Type</th>
+              <th>Gate Entry / Dept</th><th>Unit</th><th>Jute Type</th><th>Item</th>
+              <th class="number">Qty</th><th class="number">Weight (kg)</th>
+              <th class="number">Rate / Qtl</th><th class="number">Issue Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || `<tr><td class="empty" colspan="12">No issue items recorded</td></tr>`}
+          </tbody>
+        </table>
+        <section class="totals">
+          <div><span>Total Quantity</span><strong>${formatPrintNumber(totals.totalQty)}</strong></div>
+          <div><span>Total Issue Weight</span><strong>${formatPrintNumber(totals.totalWeight)} kg</strong></div>
+          <div><span>Average Rate / Qtl</span><strong>${formatPrintNumber(totals.totalWeight > 0 ? (totals.totalValue / totals.totalWeight) * 100 : 0)}</strong></div>
+          <div class="grand-total"><span>Total Issue Value</span><strong>₹ ${formatPrintNumber(totals.totalValue)}</strong></div>
+        </section>
+        <footer class="signature-grid">
+          <div>Prepared By</div><div>Issued By</div><div>Received By</div><div>Approved By</div>
+        </footer>
+        <div class="printed-at">Printed on ${escapeHtml(printedAt)}</div>
+      </main>`;
+
+    const printWindow = openStyledPrintWindow(content, `Jute Issue - ${issueDate}`, `
+      @media print { @page { size: A4 landscape; } }
+      #jute-issue-print { color: #172033; font: 10px Arial, sans-serif; }
+      #jute-issue-print .company-header { display: flex; justify-content: center; align-items: center; gap: 14px; padding: 2px 0 12px; border-bottom: 1px solid #9aa4b2; text-align: center; }
+      #jute-issue-print .company-logo { max-width: 82px; max-height: 52px; object-fit: contain; }
+      #jute-issue-print .company-identity { flex: 1; }
+      #jute-issue-print .company-name { font-size: 19px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; }
+      #jute-issue-print .branch-name { margin-top: 3px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+      #jute-issue-print .company-address, #jute-issue-print .company-identifiers { margin-top: 4px; color: #4b5563; font-size: 9px; }
+      #jute-issue-print .document-title { display: flex; align-items: center; justify-content: space-between; padding: 12px 0 10px; border-bottom: 2px solid #273449; }
+      #jute-issue-print h1 { margin: 0; font-size: 18px; letter-spacing: 1px; }
+      #jute-issue-print .document-title p { margin: 3px 0 0; color: #566273; font-size: 10px; }
+      #jute-issue-print .status { padding: 5px 14px; border: 1px solid #536176; border-radius: 14px; font-size: 9px; font-weight: 700; text-transform: uppercase; }
+      #jute-issue-print .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); margin: 12px 0; border: 1px solid #cbd2dc; }
+      #jute-issue-print .meta-grid > div { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-right: 1px solid #cbd2dc; }
+      #jute-issue-print .meta-grid > div:last-child { border-right: 0; }
+      #jute-issue-print .meta-grid span, #jute-issue-print .totals span { color: #566273; font-size: 8px; text-transform: uppercase; letter-spacing: .4px; }
+      #jute-issue-print .meta-grid strong { font-size: 10px; }
+      #jute-issue-print .items-table { width: 100%; border-collapse: collapse; table-layout: auto; }
+      #jute-issue-print .items-table th { padding: 7px 5px; border: 1px solid #8490a0; background: #e9edf2; font-size: 8px; text-align: left; vertical-align: bottom; }
+      #jute-issue-print .items-table td { padding: 6px 5px; border: 1px solid #b8c0cb; font-size: 8px; vertical-align: top; }
+      #jute-issue-print .items-table tbody tr:nth-child(even) { background: #f7f8fa; }
+      #jute-issue-print .center { text-align: center; }
+      #jute-issue-print .number { text-align: right; white-space: nowrap; }
+      #jute-issue-print .empty { padding: 18px; color: #566273; text-align: center; }
+      #jute-issue-print .totals { display: flex; justify-content: flex-end; gap: 22px; margin-top: 12px; padding: 10px; border: 1px solid #cbd2dc; }
+      #jute-issue-print .totals > div { display: flex; flex-direction: column; gap: 5px; text-align: right; }
+      #jute-issue-print .totals strong { font-size: 11px; }
+      #jute-issue-print .totals .grand-total { padding-left: 14px; border-left: 1px solid #9aa4b2; }
+      #jute-issue-print .signature-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; margin-top: 56px; }
+      #jute-issue-print .signature-grid div { padding-top: 5px; border-top: 1px solid #536176; text-align: center; font-size: 9px; }
+      #jute-issue-print .printed-at { margin-top: 14px; color: #6b7280; font-size: 8px; text-align: right; }
+      @media print { #jute-issue-print thead { display: table-header-group; } #jute-issue-print tr { break-inside: avoid; } }
+    `);
+    if (!printWindow) return;
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 300);
+  };
 
   // Loading state
   if (setupLoading || loading) {
@@ -780,6 +941,15 @@ function JuteIssueEditPage() {
               size="medium"
             />
           )}
+          <Button
+            variant="outlined"
+            startIcon={<Printer size={18} />}
+            onClick={handlePrint}
+            disabled={companyHeader.loading || lineItems.length === 0}
+            sx={{ minHeight: 44 }}
+          >
+            Print / Save PDF
+          </Button>
           <Button
             variant="outlined"
             onClick={() => router.push("/dashboardportal/jutePurchase/juteIssue")}

@@ -41,13 +41,15 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { ArrowLeft, LogIn, Save, LogOut } from "lucide-react";
+import { ArrowLeft, LogIn, Save, LogOut, Printer } from "lucide-react";
 import useSelectedCompanyCoId from "@/hooks/use-selected-company-coid";
 import AttachmentUploader from "@/components/AttachmentUploader";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useSidebarContext } from "@/components/dashboard/sidebarContext";
 import { fetchWithCookie } from "@/utils/apiClient2";
 import { apiRoutesPortalMasters } from "@/utils/api";
+import { openStyledPrintWindow } from "@/utils/printUtils";
+import useCompanyHeader from "@/hooks/useCompanyHeader";
 
 // =============================================================================
 // TYPES
@@ -209,6 +211,23 @@ const mapDetailsToFormValues = (details: GateEntryDetails): GateEntryFormValues 
   };
 };
 
+const escapeHtml = (value: string): string =>
+  value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[character];
+  });
+
+const formatPrintDate = (value: string): string => {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value || "-";
+};
+
 // =============================================================================
 // COMPONENT
 // =============================================================================
@@ -237,6 +256,7 @@ function JuteGateEntryCreatePageContent() {
 
   // Form values
   const [formValues, setFormValues] = React.useState<GateEntryFormValues>(buildDefaultFormValues);
+  const companyHeader = useCompanyHeader(coId, formValues.branch || undefined);
 
   // Validation errors
   const [errors, setErrors] = React.useState<Partial<Record<keyof GateEntryFormValues, string>>>({});
@@ -569,6 +589,131 @@ function JuteGateEntryCreatePageContent() {
   const handleBack = React.useCallback(() => {
     router.push("/dashboardportal/jutePurchase/gateEntry");
   }, [router]);
+
+  const handlePrint = React.useCallback(() => {
+    const entryNo = details?.jute_gate_entry_no ? String(details.jute_gate_entry_no) : "-";
+    const branchName = branchOptions.find((option) => option.value === formValues.branch)?.label ?? "-";
+    const status = isOutComplete ? "OUT" : isStatusIN ? "IN" : "Draft";
+    const companyLogo = companyHeader.logoBase64
+      ? `<img class="company-logo" src="${escapeHtml(companyHeader.logoBase64)}" alt="Company logo" />`
+      : "";
+    const companyName = companyHeader.coName
+      ? `<div class="company-name">${escapeHtml(companyHeader.coName)}</div>`
+      : "";
+    const branchHeader = `<div class="branch-name">${escapeHtml(branchName)}</div>`;
+    const companyAddress = companyHeader.address
+      ? `<p class="company-address">${escapeHtml(companyHeader.address)}</p>`
+      : "";
+    const companyIdentifiers = [
+      companyHeader.gstNo ? `GSTIN: ${companyHeader.gstNo}` : "",
+      companyHeader.cinNo ? `CIN: ${companyHeader.cinNo}` : "",
+    ]
+      .filter(Boolean)
+      .map(escapeHtml)
+      .join(" &nbsp; | &nbsp; ");
+    const printedAt = new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date());
+    const field = (label: string, value: string) =>
+      `<div class="field"><span>${label}</span><strong>${escapeHtml(value || "-")}</strong></div>`;
+    const content = `
+      <main id="gate-entry-print">
+        <section class="company-header">
+          ${companyLogo}
+          <div class="company-identity">
+            ${companyName}
+            ${branchHeader}
+            ${companyAddress}
+            ${companyIdentifiers ? `<p class="company-identifiers">${companyIdentifiers}</p>` : ""}
+          </div>
+        </section>
+        <header class="document-header">
+          <div>
+            <h1>Jute Gate Entry</h1>
+            <p>Vehicle Inward / Outward Record</p>
+          </div>
+          <div class="entry-summary">
+            <span class="entry-number">Entry No: ${escapeHtml(entryNo)}</span>
+            <span class="status">${escapeHtml(status)}</span>
+          </div>
+        </header>
+        <h2>Entry Details</h2>
+        <section class="details-grid">
+          ${field("Entry Date", formatPrintDate(formValues.entryDate))}
+          ${field("Entry Time", formValues.entryTime)}
+          ${field("Challan No", formValues.challanNo)}
+          ${field("Challan Date", formatPrintDate(formValues.challanDate))}
+          ${field("Vehicle No", formValues.vehicleNo)}
+          ${field("Driver Name", formValues.driverName)}
+          ${field("Transporter", formValues.transporter)}
+        </section>
+        <h2>Weight Details</h2>
+        <section class="details-grid weights-grid">
+          ${field("Challan Weight (Kg)", formValues.challanWeight)}
+          ${field("Gross Weight (Kg)", formValues.grossWeight)}
+          ${field("Tare Weight (Kg)", formValues.tareWeight)}
+          ${field("Net Weight (Kg)", formValues.netWeight)}
+          ${field("Variable Shortage (Kg)", formValues.variableShortage)}
+          ${field("Actual Weight (Kg)", formValues.actualWeight)}
+        </section>
+        ${isQcComplete ? `
+          <h2>Departure Details</h2>
+          <section class="details-grid departure-grid">
+            ${field("Out Date", formatPrintDate(formValues.outDate))}
+            ${field("Out Time", formValues.outTime)}
+          </section>
+        ` : ""}
+        <section class="remarks">
+          <h2>Remarks</h2>
+          <p>${escapeHtml(formValues.remarks || "-")}</p>
+        </section>
+        <footer class="signature-grid">
+          <div>Prepared By</div>
+          <div>Driver's Signature</div>
+          <div>Security / Gate Officer</div>
+        </footer>
+        <p class="printed-at">Printed on ${escapeHtml(printedAt)}</p>
+      </main>`;
+    const printWindow = openStyledPrintWindow(content, `Gate Entry - ${entryNo}`, `
+      #gate-entry-print { color: #111; font: 12px Arial, sans-serif; }
+      #gate-entry-print .company-header { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 4px 0 14px; border-bottom: 1px solid #aaa; text-align: center; }
+      #gate-entry-print .company-logo { max-width: 90px; max-height: 58px; object-fit: contain; }
+      #gate-entry-print .company-identity { flex: 1; }
+      #gate-entry-print .company-name { font-size: 18px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; }
+      #gate-entry-print .branch-name { margin-top: 3px; font-size: 12px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
+      #gate-entry-print .company-address, #gate-entry-print .company-identifiers { margin: 4px 0 0; color: #444; font-size: 10px; }
+      #gate-entry-print .document-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #222; padding: 14px 0 12px; margin-bottom: 18px; }
+      #gate-entry-print h1 { margin: 0; font-size: 21px; letter-spacing: .4px; }
+      #gate-entry-print .document-header p { margin: 4px 0 0; color: #555; }
+      #gate-entry-print .entry-summary { display: flex; align-items: center; gap: 10px; }
+      #gate-entry-print .entry-number { font-weight: 700; }
+      #gate-entry-print .status { border: 1px solid #555; border-radius: 12px; padding: 4px 12px; font-size: 10px; font-weight: 700; letter-spacing: .6px; }
+      #gate-entry-print .details-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 18px; }
+      #gate-entry-print .field { min-height: 48px; display: flex; flex-direction: column; gap: 5px; border-bottom: 1px solid #ccc; padding: 8px 2px; }
+      #gate-entry-print .field span { color: #555; font-size: 10px; text-transform: uppercase; }
+      #gate-entry-print .field strong { font-weight: 500; overflow-wrap: anywhere; }
+      #gate-entry-print h2 { margin: 20px 0 8px; border-bottom: 1px solid #aaa; padding-bottom: 5px; font-size: 12px; text-transform: uppercase; letter-spacing: .6px; }
+      #gate-entry-print .weights-grid { grid-template-columns: repeat(3, 1fr); }
+      #gate-entry-print .departure-grid { grid-template-columns: repeat(2, 1fr); }
+      #gate-entry-print .remarks { margin-top: 16px; border: 1px solid #999; min-height: 76px; padding: 0 10px; }
+      #gate-entry-print .remarks h2 { margin-top: 10px; border-bottom: 0; }
+      #gate-entry-print .remarks p { white-space: pre-wrap; overflow-wrap: anywhere; }
+      #gate-entry-print .signature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; margin-top: 72px; }
+      #gate-entry-print .signature-grid div { border-top: 1px solid #333; padding-top: 6px; text-align: center; }
+      #gate-entry-print .printed-at { margin: 22px 0 0; color: #666; font-size: 9px; text-align: right; }
+      @media print { #gate-entry-print { break-inside: avoid; } }
+    `);
+    if (!printWindow) return;
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 300);
+  }, [branchOptions, companyHeader, details?.jute_gate_entry_no, formValues, isOutComplete, isStatusIN]);
 
   // Determine page title based on mode
   const pageTitle = React.useMemo(() => {
@@ -932,6 +1077,17 @@ function JuteGateEntryCreatePageContent() {
         >
           Back
         </Button>
+
+        {isViewMode && (
+          <Button
+            variant="outlined"
+            startIcon={<Printer size={18} />}
+            onClick={handlePrint}
+            disabled={companyHeader.loading}
+          >
+            Print / Save PDF
+          </Button>
+        )}
 
         {/* Create mode: Show IN button */}
         {isCreateMode && (
